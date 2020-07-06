@@ -214,16 +214,25 @@ class OmniFoldwBkg(object):
 
             # observed distributions
             hist_obs, hist_obs_unc = modplot.calc_hist(dataobs, weights=self.wdata, bins=bins_det, density=False)[:2]
+            # normalize the histograms by the sum of weights
+            hist_obs /= self.wdata.sum()
+            hist_obs_unc /= self.wdata.sum()
 
             # signal simulation
             hist_sim, hist_sim_unc = modplot.calc_hist(sim_sig, weights=self.winit, bins=bins_det, density=False)[:2]
             # FIXME: weights=winit?
+            # normalize the histogram by the sum of weights
+            hist_sim /= self.winit.sum()
+            hist_sim_unc /= self.winit.sum()
             
             # background simulation
             if sim_bkg is not None:
                 # negate background weights if it has been negated earlier
                 wbkg = self.wbkg if self.wbkg.sum() > 0 else -self.wbkg
                 hist_simbkg, hist_simbkg_unc = modplot.calc_hist(sim_bkg, weights=self.wbkg, bins=bins_det, density=False)[:2]
+                # normalize the histograms by the sum of weights
+                hist_simbkg /= self.wbkg.sum()
+                hist_sumbkg_unc /= self.wbkg.sum()
                 # subtract background contribution from the observed data
                 hist_obs -= hist_simbkg
                 # TODO: uncertainties?
@@ -231,18 +240,30 @@ class OmniFoldwBkg(object):
             # generated distribution (prior)
             hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=False)[:2]
             # FIXME: weights=winit?
+            # normalize the histograms by the sum of weights
+            hist_gen /= self.winit.sum()
+            hist_gen_unc /= self.winit.sum()
 
             # truth distribution if known
             hist_truth, hist_truth_unc = None, None
             if truth is not None:
                 hist_truth, hist_truth_unc = modplot.calc_hist(truth, bins=bins_mc, density=False)[:2]
+                # normalize the histograms by the sum of weights
+                hist_truth /= len(truth)
+                hist_truth_unc /= len(truth)
 
             # unfolded distributions
             # iterative Bayesian unfolding
             hist_ibu, hist_ibu_unc = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations, density=False)
+            # normalize by the sum of weights
+            hist_ibu /= self.winit.sum()
+            #hist_ibu_unc /= self.winit.sum()
 
             # omnifold
             hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=False)[:2]
+            # normalize by the sum of weights
+            hist_of /= self.ws_unfolded.sum()
+            hist_of_unc /= self.ws_unfolded.sum()
 
             # plot results
             plot_results(varname, bins_det, bins_mc,
