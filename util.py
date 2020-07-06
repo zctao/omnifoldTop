@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import logging
 
 def get_fourvector_array(pt_arr, eta_arr, phi_arr, e_arr, padding=True):
     """
@@ -195,3 +196,11 @@ def ibu(hist_obs, datasim, datagen, bins_det, bins_gen, winit, it, density=False
     hist_ibu_unc = None    
     
     return hist_ibu, hist_ibu_unc
+
+def getLogger(name, level=logging.DEBUG):
+    msgfmt = '%(asctime)s %(levelname)-7s %(name)-35s %(message)s'
+    datefmt = '%H:%M:%S'
+    logger = logging.getLogger(name)
+    logging.basicConfig(format = msgfmt, datefmt = datefmt)
+    logger.setLevel(level)
+    return logger
