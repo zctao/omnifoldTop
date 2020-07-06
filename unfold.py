@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
+import os
+import logging
+from packaging import version
+
 import numpy as np
 import tensorflow as tf
 
 import energyflow as ef
 import energyflow.archs
 
-from util import prepare_data_multifold
-from omnifold_wbkg import OmniFoldwBkg
+from util import prepare_data_multifold, getLogger
+logger = getLogger('Unfold')
 
+from omnifold_wbkg import OmniFoldwBkg
 from observables import observable_dict
-    
+
 def load_dataset(file_name, array_name='arr_0'):
     """
     Load and return a structured numpy array from npz file
@@ -19,54 +24,29 @@ def load_dataset(file_name, array_name='arr_0'):
     npzfile.close()
     return data
 
+def unfold(**parsed_args):
 
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--observables', nargs='+', choices=observable_dict.keys(), default=['mtt', 'ptt', 'ytt', 'ystar', 'yboost', 'dphi', 'Ht'], help="List of observables to unfold")
-    parser.add_argument('--observables_train', nargs='+', choices=observable_dict.keys(), help="List of observables to use in training.")
-    parser.add_argument('-i', '--inputdir', default = './input', help="Directory of input data")
-    parser.add_argument('-o', '--outputdir', default='./output', help="Directory for storing outputs")
-    parser.add_argument('-d', '--data', required=True, help="Observed data npz file name")
-    parser.add_argument('-s', '--signal', required=True, help="Signal MC npz file name")
-    parser.add_argument('-b', '--background', help="Background MC npz file name")
-    parser.add_argument('--ibu', action='store_true', help="Do iterative bayesian unfolding")
-    parser.add_argument('-t', '--closure_test', action='store_true', help="Is a closure test")
-    parser.add_argument('-m', '--multiclass', action='store_true', help="If set, background MC is treated as a separate class")
-    parser.add_argument('-v', '--verbose', action='count', help="Verbosity")
-    
-    args = parser.parse_args()
-
-    #################
-    # GPU configuration
-    tf.config.set_soft_device_placement(True)
-    gpus = tf.config.list_physical_devices('GPU')
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu,True)
-    
     #################
     # Load and prepare datasets
     #################
 
-    if args.observables_train is None:
-        args.observables_train = args.observables
+    if parsed_args['observables_train'] is None:
+        parsed_args['observables_train'] = parsed_args['observables']
         
-    observables_all = list(set().union(args.observables, args.observables_train))
+    observables_all = list(set().union(parsed_args['observables'], parsed_args['observables_train']))
 
-    print("Observables: ", args.observables)
+    print("Observables: ", parsed_args['observables'])
 
     # collision data
-    fname_obs = args.inputdir.strip('/')+'/'+args.data
+    fname_obs = os.path.join(parsed_args['inputdir'], parsed_args['data'])
     data_obs = load_dataset(fname_obs)
     
     # signal MC
-    fname_mc_sig = args.inputdir.strip('/')+'/'+args.signal
+    fname_mc_sig = os.path.join(parsed_args['inputdir'], parsed_args['signal'])
     data_mc_sig = load_dataset(fname_mc_sig)
 
     # background MC
-    fname_mc_bkg = args.inputdir.strip('/')+'/'+args.background if args.background is not None else None
+    fname_mc_bkg = os.path.join(parsed_args['inputdir'], parsed_args['background']) if parsed_args['background'] is not None else None
     data_mc_bkg = load_dataset(fname_mc_bkg) if fname_mc_bkg is not None else None
     
     # detector level variable names
@@ -78,7 +58,7 @@ if __name__ == "__main__":
 
     #####################
     # Start unfolding
-    unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, it=3, outdir=args.outputdir)
+    unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, it=3, outdir=parsed_args['outputdir'])
 
     ##################
     # preprocess_data
@@ -115,6 +95,41 @@ if __name__ == "__main__":
 
     ##################
     # Show results
-    unfolder.results(observable_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=args.closure_test)
+    unfolder.results(observable_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['closure_test'])
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--observables', nargs='+', choices=observable_dict.keys(), default=['mtt', 'ptt', 'ytt', 'ystar', 'yboost', 'dphi', 'Ht'], help="List of observables to unfold")
+    parser.add_argument('--observables_train', nargs='+', choices=observable_dict.keys(), help="List of observables to use in training.")
+    parser.add_argument('-i', '--inputdir', default = './input', help="Directory of input data")
+    parser.add_argument('-o', '--outputdir', default='./output', help="Directory for storing outputs")
+    parser.add_argument('-d', '--data', required=True, help="Observed data npz file name")
+    parser.add_argument('-s', '--signal', required=True, help="Signal MC npz file name")
+    parser.add_argument('-b', '--background', help="Background MC npz file name")
+    parser.add_argument('--ibu', action='store_true', help="Do iterative bayesian unfolding")
+    parser.add_argument('-t', '--closure_test', action='store_true', help="Is a closure test")
+    parser.add_argument('-m', '--multiclass', action='store_true', help="If set, background MC is treated as a separate class")
+    parser.add_argument('-v', '--verbose', action='count', default=0, help="Verbosity")
+
+    args = parser.parse_args()
+
+    logger.setLevel(logging.DEBUG if args.verbose > 0 else logging.INFO)
+
+    #################
+    assert(version.parse(tf.__version__) >= version.parse('2.0.0'))
+    # tensorflow configuration
+    # device placement
+    tf.config.set_soft_device_placement(True)
+    tf.debugging.set_log_device_placement(args.verbose > 0)
+
+    # limit GPU memory growth
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu,True)
+
+    unfold(**vars(args))
 
 
