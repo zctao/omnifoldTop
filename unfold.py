@@ -95,7 +95,7 @@ def unfold(**parsed_args):
 
     ##################
     # Show results
-    unfolder.results(observable_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['closure_test'])
+    unfolder.results(observable_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['closure_test'], normalize=parsed_args['normalize'])
 
 if __name__ == "__main__":
     import argparse
@@ -111,6 +111,7 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--background', help="Background MC npz file name")
     parser.add_argument('--ibu', action='store_true', help="Do iterative bayesian unfolding")
     parser.add_argument('-t', '--closure_test', action='store_true', help="Is a closure test")
+    parser.add_argument('-n', '--normalize', action='store_true', help="Normalize the distributions when plotting the result")
     parser.add_argument('-m', '--multiclass', action='store_true', help="If set, background MC is treated as a separate class")
     parser.add_argument('-v', '--verbose', action='count', default=0, help="Verbosity")
 

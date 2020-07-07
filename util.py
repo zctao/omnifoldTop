@@ -193,7 +193,7 @@ def ibu(hist_obs, datasim, datagen, bins_det, bins_gen, winit, it, density=False
 
     # statistical uncertainty on the IBU distribution only from uncertainty on the prior
     # TODO
-    hist_ibu_unc = None    
+    hist_ibu_unc = np.zeros(len(hist_ibu))
     
     return hist_ibu, hist_ibu_unc
 
