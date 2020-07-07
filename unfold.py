@@ -32,7 +32,7 @@ def unfold(**parsed_args):
 
     if parsed_args['observables_train'] is None:
         parsed_args['observables_train'] = parsed_args['observables']
-        
+
     observables_all = list(set().union(parsed_args['observables'], parsed_args['observables_train']))
 
     print("Observables: ", parsed_args['observables'])
@@ -40,7 +40,7 @@ def unfold(**parsed_args):
     # collision data
     fname_obs = os.path.join(parsed_args['inputdir'], parsed_args['data'])
     data_obs = load_dataset(fname_obs)
-    
+
     # signal MC
     fname_mc_sig = os.path.join(parsed_args['inputdir'], parsed_args['signal'])
     data_mc_sig = load_dataset(fname_mc_sig)
@@ -48,7 +48,7 @@ def unfold(**parsed_args):
     # background MC
     fname_mc_bkg = os.path.join(parsed_args['inputdir'], parsed_args['background']) if parsed_args['background'] is not None else None
     data_mc_bkg = load_dataset(fname_mc_bkg) if fname_mc_bkg is not None else None
-    
+
     # detector level variable names
     vars_det = [ observable_dict[key]['branch_det'] for key in observables_all ]
     # truth level variable names
@@ -71,14 +71,14 @@ def unfold(**parsed_args):
     ##################
     # Models
     # FIXME
-    
+
     # step 1 model and arguments
     model_det = ef.archs.DNN
     args_det = {'input_dim': len(vars_det), 'dense_sizes': [100, 100],
                 'patience': 10, 'filepath': 'Step1_{}',
                 'save_weights_only': False,
                 'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
-    
+
     # step 2 model and arguments
     model_sim = ef.archs.DNN
     args_sim = {'input_dim': len(vars_mc), 'dense_sizes': [100, 100],
@@ -88,7 +88,7 @@ def unfold(**parsed_args):
 
     # training parameters
     fitargs = {'batch_size': 500, 'epochs': 3, 'verbose': 1}
-        
+
     ##################
     # Unfold
     unfold_ws = unfolder.omnifold((model_det, args_det), (model_sim, args_sim), fitargs, val=0.2)
@@ -102,18 +102,46 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--observables', nargs='+', choices=observable_dict.keys(), default=['mtt', 'ptt', 'ytt', 'ystar', 'yboost', 'dphi', 'Ht'], help="List of observables to unfold")
-    parser.add_argument('--observables_train', nargs='+', choices=observable_dict.keys(), help="List of observables to use in training.")
-    parser.add_argument('-i', '--inputdir', default = './input', help="Directory of input data")
-    parser.add_argument('-o', '--outputdir', default='./output', help="Directory for storing outputs")
-    parser.add_argument('-d', '--data', required=True, help="Observed data npz file name")
-    parser.add_argument('-s', '--signal', required=True, help="Signal MC npz file name")
-    parser.add_argument('-b', '--background', help="Background MC npz file name")
-    parser.add_argument('--ibu', action='store_true', help="Do iterative bayesian unfolding")
-    parser.add_argument('-t', '--closure_test', action='store_true', help="Is a closure test")
-    parser.add_argument('-n', '--normalize', action='store_true', help="Normalize the distributions when plotting the result")
-    parser.add_argument('-m', '--multiclass', action='store_true', help="If set, background MC is treated as a separate class")
-    parser.add_argument('-v', '--verbose', action='count', default=0, help="Verbosity")
+    parser.add_argument('--observables', nargs='+',
+                        choices=observable_dict.keys(),
+                        default=['ptt', 'ytt', 'ystar', 'yboost', 'dphi', 'Ht'],
+                        help="List of observables to unfold")
+    parser.add_argument('--observables_train', nargs='+',
+                        choices=observable_dict.keys(),
+                        help="List of observables to use in training.")
+    parser.add_argument('-d', '--data', required=True,
+                        type=str,
+                        help="Observed data npz file name")
+    parser.add_argument('-s', '--signal', required=True,
+                        type=str,
+                        help="Signal MC npz file name")
+    parser.add_argument('-b', '--background',
+                        type=str,
+                        help="Background MC npz file name")
+    parser.add_argument('-i', '--inputdir',
+                        default = './input',
+                        help="Directory of input data")
+    parser.add_argument('-o', '--outputdir',
+                        default='./output',
+                        help="Directory for storing outputs")
+    parser.add_argument('--ibu',
+                        action='store_true',
+                        help="Do iterative bayesian unfolding")
+    parser.add_argument('-t', '--closure_test',
+                        action='store_true',
+                        help="Is a closure test")
+    parser.add_argument('-n', '--normalize',
+                        action='store_true',
+                        help="Normalize the distributions when plotting the result")
+    parser.add_argument('-m', '--multiclass',
+                        action='store_true',
+                        help="If set, background MC is treated as a separate class")
+    parser.add_argument('-v', '--verbose',
+                        action='count', default=0,
+                        help="Verbosity level")
+    parser.add_argument('-g', '--gpu',
+                        type=int, choices=[0, 1], default=1,
+                        help="Manually select one of the GPUs to run")
 
     args = parser.parse_args()
 
@@ -128,9 +156,12 @@ if __name__ == "__main__":
 
     # limit GPU memory growth
     gpus = tf.config.experimental.list_physical_devices('GPU')
+    if not gpus:
+        logger.error("No GPU found!")
+        raise RuntimeError("No GPU found!")
+
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu,True)
 
-    unfold(**vars(args))
-
-
+    with tf.device('/GPU:{}'.format(args.gpu)):
+        unfold(**vars(args))
