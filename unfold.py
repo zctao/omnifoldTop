@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 import logging
 from packaging import version
 
@@ -35,15 +34,15 @@ def unfold(**parsed_args):
     logger.info("Observables to unfold: {}".format(', '.join(parsed_args['observables'])))
 
     # collision data
-    fname_obs = os.path.join(parsed_args['inputdir'], parsed_args['data'])
+    fname_obs = parsed_args['data']
     data_obs = load_dataset(fname_obs)
 
     # signal MC
-    fname_mc_sig = os.path.join(parsed_args['inputdir'], parsed_args['signal'])
+    fname_mc_sig = parsed_args['signal']
     data_mc_sig = load_dataset(fname_mc_sig)
 
     # background MC
-    fname_mc_bkg = os.path.join(parsed_args['inputdir'], parsed_args['background']) if parsed_args['background'] is not None else None
+    fname_mc_bkg = parsed_args['background']
     data_mc_bkg = load_dataset(fname_mc_bkg) if fname_mc_bkg is not None else None
 
     # detector level variable names for training
@@ -117,9 +116,6 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--background',
                         type=str,
                         help="Background MC npz file name")
-    parser.add_argument('-i', '--inputdir',
-                        default = './input',
-                        help="Directory of input data")
     parser.add_argument('-o', '--outputdir',
                         default='./output',
                         help="Directory for storing outputs")
