@@ -2,6 +2,8 @@ import numpy as np
 import tensorflow as tf
 
 # The original omnifold
+import sys
+sys.path.append('external')
 import OmniFold.omnifold as omnifold
 import OmniFold.modplot as modplot
 
