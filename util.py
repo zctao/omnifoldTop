@@ -198,7 +198,7 @@ def ibu(hist_obs, datasim, datagen, bins_det, bins_gen, winit, it, density=False
     return hist_ibu, hist_ibu_unc
 
 def getLogger(name, level=logging.DEBUG):
-    msgfmt = '%(asctime)s %(levelname)-7s %(name)-35s %(message)s'
+    msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
     datefmt = '%H:%M:%S'
     logger = logging.getLogger(name)
     logging.basicConfig(format = msgfmt, datefmt = datefmt)

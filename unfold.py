@@ -30,12 +30,9 @@ def unfold(**parsed_args):
     # Load and prepare datasets
     #################
 
-    if parsed_args['observables_train'] is None:
-        parsed_args['observables_train'] = parsed_args['observables']
-
-    observables_all = list(set().union(parsed_args['observables'], parsed_args['observables_train']))
-
-    print("Observables: ", parsed_args['observables'])
+    #observables_all = list(set().union(parsed_args['observables'], parsed_args['observables_train']))
+    logger.info("Observables used for training: {}".format(', '.join(parsed_args['observables_train'])))
+    logger.info("Observables to unfold: {}".format(', '.join(parsed_args['observables'])))
 
     # collision data
     fname_obs = os.path.join(parsed_args['inputdir'], parsed_args['data'])
@@ -49,10 +46,10 @@ def unfold(**parsed_args):
     fname_mc_bkg = os.path.join(parsed_args['inputdir'], parsed_args['background']) if parsed_args['background'] is not None else None
     data_mc_bkg = load_dataset(fname_mc_bkg) if fname_mc_bkg is not None else None
 
-    # detector level variable names
-    vars_det = [ observable_dict[key]['branch_det'] for key in observables_all ]
-    # truth level variable names
-    vars_mc = [ observable_dict[key]['branch_mc'] for key in observables_all ]
+    # detector level variable names for training
+    vars_det = [ observable_dict[key]['branch_det'] for key in parsed_args['observables_train'] ]
+    # truth level variable names for training
+    vars_mc = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_train'] ]
     # weight name
     wname = 'w'
 
@@ -95,20 +92,22 @@ def unfold(**parsed_args):
 
     ##################
     # Show results
-    unfolder.results(observable_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['closure_test'], normalize=parsed_args['normalize'])
+    subObs_dict = { var:observable_dict[var] for var in parsed_args['observables']}
+    unfolder.results(subObs_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['closure_test'], normalize=parsed_args['normalize'])
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--observables', nargs='+',
-                        choices=observable_dict.keys(),
-                        default=['ptt', 'ytt', 'ystar', 'yboost', 'dphi', 'Ht'],
-                        help="List of observables to unfold")
     parser.add_argument('--observables_train', nargs='+',
                         choices=observable_dict.keys(),
+                        default=['mtt', 'ptt', 'ytt', 'ystar', 'yboost', 'dphi', 'Ht'],
                         help="List of observables to use in training.")
+    parser.add_argument('--observables', nargs='+',
+                        choices=observable_dict.keys(),
+                        default=observable_dict.keys(),
+                        help="List of observables to unfold")
     parser.add_argument('-d', '--data', required=True,
                         type=str,
                         help="Observed data npz file name")
