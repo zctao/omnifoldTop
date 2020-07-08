@@ -1,6 +1,9 @@
 import numpy as np
 import tensorflow as tf
 
+import matplotlib
+matplotlib.use('Agg')
+
 # The original omnifold
 import sys
 sys.path.append('external')
