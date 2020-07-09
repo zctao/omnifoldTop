@@ -4,9 +4,7 @@
 # with some modifications
 import numpy as np
 
-import sys
-sys.path.append('external')
-import OmniFold.modplot as modplot
+import external.OmniFold.modplot as modplot
 
 def response_matrix(datasim, datagen, bins_det, bins_gen):
     r = np.histogram2d(datasim, datagen, bins=(bins_det, bins_gen))[0]

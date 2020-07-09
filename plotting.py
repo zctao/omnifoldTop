@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import OmniFold.modplot as modplot
+import external.OmniFold.modplot as modplot
 
 # plotting styles
 hist_style = {'histtype': 'step', 'density': False, 'lw': 1, 'zorder': 2}

@@ -5,10 +5,8 @@ import matplotlib
 matplotlib.use('Agg')
 
 # The original omnifold
-import sys
-sys.path.append('external')
-import OmniFold.omnifold as omnifold
-import OmniFold.modplot as modplot
+import external.OmniFold.omnifold as omnifold
+import external.OmniFold.modplot as modplot
 
 from util import read_dataset, prepare_data_multifold
 from util import DataShufflerDet, DataShufflerGen
