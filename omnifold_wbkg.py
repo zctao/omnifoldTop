@@ -19,11 +19,12 @@ from plotting import plot_results
 # Adapted from the original omnifold:
 # https://github.dcom/ericmetodiev/OmniFold/blob/master/omnifold.py
 class OmniFoldwBkg(object):
-    def __init__(self, variables_det, variables_gen, wname, it, outdir='./'):
+    def __init__(self, variables_det, variables_gen, wname, wname_mc, it, outdir='./'):
         assert(len(variables_det)==len(variables_gen))
         self.vars_det = variables_det # list of detector-level variables
         self.vars_gen = variables_gen # list of truth-level variables
         self.weight_name = wname # name of sample weight
+        self.weight_mc_name = wname_mc # name of mc weight
         self.label_obs = 1
         self.label_sig = 0
         self.label_bkg = 0
@@ -35,8 +36,9 @@ class OmniFoldwBkg(object):
         self.X_gen = None # simulation-level feature array
         self.Y_gen = None # simulation-level label array
         self.wdata = None # ndarray for data sample weights
-        self.winit = None # ndarray for initial signal simulation weights
+        self.wsig = None # ndarray for signal simulation weights
         self.wbkg = None  # ndarray for background simulation sample weights
+        self.winit = None # ndarray for signal prior gen-level weights
         # unfolded event weights
         self.ws_unfolded = None
         # output directory
@@ -44,12 +46,12 @@ class OmniFoldwBkg(object):
 
     def _rescale_sample_weights(self):
         ndata = self.wdata.sum()
-        nsim = self.winit.sum()
+        nsim = self.wsig.sum()
 
         if self.wbkg is not None:
             nsim += self.wbkg.sum()
 
-        self.winit *= ndata/nsim
+        self.wsig *= ndata/nsim
         if self.wbkg is not None:
             self.wbkg *= ndata/nsim
         
@@ -96,7 +98,7 @@ class OmniFoldwBkg(object):
             standardize: bool, if true standardize feature array X
         """
         X_obs, Y_obs, self.wdata = read_dataset(dataset_obs, self.vars_det, label=self.label_obs)
-        X_sig, Y_sig, self.winit = read_dataset(dataset_sig, self.vars_det, label=self.label_sig, weight_name=self.weight_name)
+        X_sig, Y_sig, self.wsig = read_dataset(dataset_sig, self.vars_det, label=self.label_sig, weight_name=self.weight_name)
 
         self.X_det = np.concatenate((X_obs, X_sig))
         self.Y_det = np.concatenate((Y_obs, Y_sig))
@@ -133,10 +135,13 @@ class OmniFoldwBkg(object):
 
         # make Y categorical
         self.Y_gen = tf.keras.utils.to_categorical(np.concatenate([np.ones(nsim), np.zeros(nsim)]))
+
+        # MC truth weight prior
+        self.winit = np.hstack(dataset_sig[self.weight_mc_name])
     
     def omnifold(self, det_model, sim_model, fitargs, val=0.2, weights_filename=None):
         # initialize the truth weights to the prior
-        ws = [self.winit]
+        ws = [self.wsig]
 
         # split dataset for training and validation
         # detector level
@@ -217,36 +222,36 @@ class OmniFoldwBkg(object):
             bins_mc = np.linspace(config['xlim'][0], config['xlim'][1], config['nbins_mc']+1)
 
             # observed distributions
-            hist_obs, hist_obs_unc = modplot.calc_hist(dataobs, weights=self.wdata, bins=bins_det, density=False)[:2]
+            hist_obs, hist_obs_unc = modplot.calc_hist(dataobs, weights=self.wdata, bins=bins_det, density=True)[:2]
 
             # signal simulation
-            hist_sim, hist_sim_unc = modplot.calc_hist(sim_sig, weights=self.winit, bins=bins_det, density=False)[:2]
+            hist_sim, hist_sim_unc = modplot.calc_hist(sim_sig, weights=self.wsig, bins=bins_det, density=True)[:2]
             # FIXME: weights=winit?
 
             # background simulation
             if sim_bkg is not None:
                 # negate background weights if it has been negated earlier
                 wbkg = self.wbkg if self.wbkg.sum() > 0 else -self.wbkg
-                hist_simbkg, hist_simbkg_unc = modplot.calc_hist(sim_bkg, weights=self.wbkg, bins=bins_det, density=False)[:2]
+                hist_simbkg, hist_simbkg_unc = modplot.calc_hist(sim_bkg, weights=self.wbkg, bins=bins_det, density=True)[:2]
                 # subtract background contribution from the observed data
                 hist_obs -= hist_simbkg
                 # TODO: uncertainties?
 
             # generated distribution (prior)
-            hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=False)[:2]
-            # FIXME: weights=winit?
+            hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=True)[:2]
 
             # truth distribution if known
             hist_truth, hist_truth_unc = None, None
             if truth is not None:
-                hist_truth, hist_truth_unc = modplot.calc_hist(truth, bins=bins_mc, density=False)[:2]
+                wtruth = np.hstack(dataset_obs[self.weight_mc_name])
+                hist_truth, hist_truth_unc = modplot.calc_hist(truth, weights=wtruth, bins=bins_mc, density=True)[:2]
 
             # unfolded distributions
             # iterative Bayesian unfolding
-            hist_ibu, hist_ibu_unc = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations, density=False)
+            hist_ibu, hist_ibu_unc = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations, density=True)
 
             # omnifold
-            hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=False)[:2]
+            hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=True)[:2]
 
             # plot results
             plot_results(varname, bins_det, bins_mc,
