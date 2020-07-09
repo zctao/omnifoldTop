@@ -49,12 +49,14 @@ def unfold(**parsed_args):
     vars_det = [ observable_dict[key]['branch_det'] for key in parsed_args['observables_train'] ]
     # truth level variable names for training
     vars_mc = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_train'] ]
+
     # weight name
-    wname = 'w'
+    wname = parsed_args['weight']
+    wname_mc = parsed_args['weight_mc']
 
     #####################
     # Start unfolding
-    unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, it=3, outdir=parsed_args['outputdir'])
+    unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, wname_mc, it=3, outdir=parsed_args['outputdir'])
 
     ##################
     # preprocess_data
@@ -87,7 +89,7 @@ def unfold(**parsed_args):
 
     ##################
     # Unfold
-    unfold_ws = unfolder.omnifold((model_det, args_det), (model_sim, args_sim), fitargs, val=0.2)
+    unfolder.omnifold((model_det, args_det), (model_sim, args_sim), fitargs, val=0.2)
 
     ##################
     # Show results
@@ -128,6 +130,10 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--normalize',
                         action='store_true',
                         help="Normalize the distributions when plotting the result")
+    parser.add_argument('--weight', type=str, default='w',
+                        help="name of event weight")
+    parser.add_argument('--weight_mc', type=str, default='wTruth',
+                        help="name of MC weight")
     parser.add_argument('-m', '--multiclass',
                         action='store_true',
                         help="If set, background MC is treated as a separate class")
