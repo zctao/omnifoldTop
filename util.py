@@ -164,39 +164,6 @@ class DataShufflerGen(DataShufflerDet):
         self.perm = np.concatenate((trainperm, valperm))
         self.invperm = np.argsort(self.perm)
 
-
-#########################################################
-# iterative Bayesian unfolding
-# based on the implementation in https://github.com/ericmetodiev/OmniFold/blob/master/ibu.py
-def ibu(hist_obs, datasim, datagen, bins_det, bins_gen, winit, it, density=False, nresamples=50):
-    binwidth_det = bins_det[1]-bins_det[0]
-    binwidth_gen = bins_gen[1]-bins_gen[0]
-
-    # response matrix
-    r = np.histogram2d(datasim, datagen, bins=(bins_det, bins_gen))[0]
-    r /= (r.sum(axis=0) + 10**-50)
-
-    # initialize the truth distribution to the prior
-    phis = [np.histogram(datagen, bins=bins_gen, weights=winit, density=density)[0]]
-
-    # iterate
-    for i in range(it):
-
-        # update the estimate for the matrix m
-        m = r * phis[-1]
-        m /= (m.sum(axis=1)[:,np.newaxis] + 10**-50)
-
-        # update the estimate for the truth distribution
-        phis.append(np.dot(m.T, hist_obs)*binwidth_det/binwidth_gen)
-
-    hist_ibu = phis[-1]
-
-    # statistical uncertainty on the IBU distribution only from uncertainty on the prior
-    # TODO
-    hist_ibu_unc = np.zeros(len(hist_ibu))
-    
-    return hist_ibu, hist_ibu_unc
-
 def getLogger(name, level=logging.DEBUG):
     msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
     datefmt = '%H:%M:%S'

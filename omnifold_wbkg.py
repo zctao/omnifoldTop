@@ -12,7 +12,8 @@ import OmniFold.modplot as modplot
 
 from util import read_dataset, prepare_data_multifold
 from util import DataShufflerDet, DataShufflerGen
-from util import set_up_bins, ibu
+from util import set_up_bins
+from ibu import ibu
 
 from plotting import plot_results
 
