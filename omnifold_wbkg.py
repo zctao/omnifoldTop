@@ -156,7 +156,7 @@ class OmniFoldwBkg(object):
         rs = self.wsig.sum()/self.winit.sum()
         self.winit *= rs
     
-    def omnifold(self, det_model, sim_model, fitargs, val=0.2, weights_filename=None):
+    def unfold(self, det_model, sim_model, fitargs, val=0.2):
         # initialize the truth weights to the prior
         ws_t = [self.winit]
         ws_m = []
@@ -216,9 +216,15 @@ class OmniFoldwBkg(object):
             ws_t.append(wnew)
 
         # save the weights
-        if weights_filename is not None:
-            np.savez(weights_file, ws_t=ws_t, ws_m=ws_m)
+        weights_file = self.outdir.strip('/')+'/weights.npz'
+        np.savez(weights_file, ws_t=ws_t, ws_m=ws_m)
 
+        self.ws_unfolded = ws_t[-1]
+
+    def set_weights_from_file(self, weights_file, array_name='ws_t'):
+        wfile = np.load(weights_file)
+        ws_t = wfile[array_name]
+        wfile.close()
         self.ws_unfolded = ws_t[-1]
 
     def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg=None, truth_known=False, normalize=False):
