@@ -171,3 +171,15 @@ def getLogger(name, level=logging.DEBUG):
     logging.basicConfig(format = msgfmt, datefmt = datefmt)
     logger.setLevel(level)
     return logger
+
+def triangular_discr(histogram_1, histogram_2):
+    if len(histogram_1) != len(histogram_2):
+        raise RuntimeError("Input histograms are not of the same size")
+
+    delta = 0.
+    for p, q in zip(histogram_1, histogram_2):
+        if q==0 and q==0:
+            continue
+        delta += ((p-q)**2)/(p+q)*0.5
+
+    return delta * 1000

@@ -8,12 +8,14 @@ matplotlib.use('Agg')
 import external.OmniFold.omnifold as omnifold
 import external.OmniFold.modplot as modplot
 
-from util import read_dataset, prepare_data_multifold
+from util import read_dataset, prepare_data_multifold, set_up_bins, getLogger
 from util import DataShufflerDet, DataShufflerGen
-from util import set_up_bins
+from util import triangular_discr
 from ibu import ibu
 
 from plotting import plot_results
+
+logger = getLogger('OmniFoldwBkg')
 
 # Base class of OmniFold for non-negligible background
 # Adapted from the original omnifold:
@@ -246,7 +248,6 @@ class OmniFoldwBkg(object):
 
             # signal simulation
             hist_sim, hist_sim_unc = modplot.calc_hist(sim_sig, weights=self.wsig, bins=bins_det, density=normalize)[:2]
-            # FIXME: weights=winit?
 
             # background simulation
             if sim_bkg is not None:
@@ -275,6 +276,14 @@ class OmniFoldwBkg(object):
 
             # omnifold
             hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=normalize)[:2]
+
+            # compute the triangular discriminator
+            if truth is not None:
+                d_of = triangular_discr(hist_of, hist_truth)
+                d_ibu = triangular_discr(hist_ibu, hist_truth)
+                d_gen = triangular_discr(hist_gen, hist_truth)
+                logger.info("{} : triangular discriminator".format(varname))
+                logger.info("MultiFold: {}    IBU: {}    Prior: {}".format(d_of, d_ibu, d_gen))
 
             # plot results
             plot_results(varname, bins_det, bins_mc,
