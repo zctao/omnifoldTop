@@ -54,7 +54,7 @@ class OmniFoldwBkg(object):
         self.wsig *= ndata/nsim
         if self.wbkg is not None:
             self.wbkg *= ndata/nsim
-        
+
     def _set_up_model_i(self, i, model_config, model_filepath=None):
         """ Set up the model for the ith iteration of reweighting
         Args:
@@ -138,6 +138,9 @@ class OmniFoldwBkg(object):
 
         # MC truth weight prior
         self.winit = np.hstack(dataset_sig[self.weight_mc_name])
+        # rescale the mc weights to simulation weights
+        rs = self.wsig.sum()/self.winit.sum()
+        self.winit *= rs
     
     def omnifold(self, det_model, sim_model, fitargs, val=0.2, weights_filename=None):
         # initialize the truth weights to the prior
@@ -222,44 +225,46 @@ class OmniFoldwBkg(object):
             bins_mc = np.linspace(config['xlim'][0], config['xlim'][1], config['nbins_mc']+1)
 
             # observed distributions
-            hist_obs, hist_obs_unc = modplot.calc_hist(dataobs, weights=self.wdata, bins=bins_det, density=True)[:2]
+            hist_obs, hist_obs_unc = modplot.calc_hist(dataobs, weights=self.wdata, bins=bins_det, density=normalize)[:2]
 
             # signal simulation
-            hist_sim, hist_sim_unc = modplot.calc_hist(sim_sig, weights=self.wsig, bins=bins_det, density=True)[:2]
+            hist_sim, hist_sim_unc = modplot.calc_hist(sim_sig, weights=self.wsig, bins=bins_det, density=normalize)[:2]
             # FIXME: weights=winit?
 
             # background simulation
             if sim_bkg is not None:
                 # negate background weights if it has been negated earlier
                 wbkg = self.wbkg if self.wbkg.sum() > 0 else -self.wbkg
-                hist_simbkg, hist_simbkg_unc = modplot.calc_hist(sim_bkg, weights=self.wbkg, bins=bins_det, density=True)[:2]
+                hist_simbkg, hist_simbkg_unc = modplot.calc_hist(sim_bkg, weights=self.wbkg, bins=bins_det, density=normalize)[:2]
                 # subtract background contribution from the observed data
                 hist_obs -= hist_simbkg
                 # TODO: uncertainties?
 
             # generated distribution (prior)
-            hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=True)[:2]
+            hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=normalize)[:2]
 
             # truth distribution if known
             hist_truth, hist_truth_unc = None, None
             if truth is not None:
                 wtruth = np.hstack(dataset_obs[self.weight_mc_name])
-                hist_truth, hist_truth_unc = modplot.calc_hist(truth, weights=wtruth, bins=bins_mc, density=True)[:2]
+                # rescale truth weights to wsig
+                rs = self.wsig.sum()/wtruth.sum()
+                wtruth *= rs
+                hist_truth, hist_truth_unc = modplot.calc_hist(truth, weights=wtruth, bins=bins_mc, density=normalize)[:2]
 
             # unfolded distributions
             # iterative Bayesian unfolding
-            hist_ibu, hist_ibu_unc = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations, density=True)
+            hist_ibu, hist_ibu_unc = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations, density=normalize)
 
             # omnifold
-            hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=True)[:2]
+            hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=normalize)[:2]
 
             # plot results
             plot_results(varname, bins_det, bins_mc,
                          (hist_obs,hist_obs_unc), (hist_sim,hist_sim_unc),
                          (hist_gen,hist_gen_unc), (hist_of,hist_of_unc),
                          (hist_ibu,hist_ibu_unc), (hist_truth, hist_truth_unc),
-                         outdir = self.outdir, normalize = normalize,
-                         **config)
+                         outdir = self.outdir, **config)
 
 ##############################################################################
 #############
