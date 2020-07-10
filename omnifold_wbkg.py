@@ -90,14 +90,26 @@ class OmniFoldwBkg(object):
     def _reweight_step2(self, X, Y, w, model, filepath, fitargs, val_data=None):
         # the original one
         return omnifold.reweight(X, Y, w, model, filepath, fitargs, val_data=val_data)
-    
+
+    def _push_weights(self, weights_t):
+        # push truth-level weights to detector level
+        #weights_m = weights_t # This is what's assumed in 1911.09107
+        weights_m = weights_t * self.wsig / self.winit
+        return weights_m
+
+    def _pull_weights(self, weights_m):
+        # pull detector-level weights back to truth level
+        weights_t = weights_m # This is what's assumed in 1911.09107
+        #weights_t = weights_m * self.winit / self.wsig # There're events with zero weights?
+        return weights_t
+
     def preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True):
         """
         Args:
             dataset_obs, dataset_sig, dataset_bkg: structured numpy array whose field names are variables 
             standardize: bool, if true standardize feature array X
         """
-        X_obs, Y_obs, self.wdata = read_dataset(dataset_obs, self.vars_det, label=self.label_obs)
+        X_obs, Y_obs, self.wdata = read_dataset(dataset_obs, self.vars_det, label=self.label_obs, weight_name=self.weight_name)
         X_sig, Y_sig, self.wsig = read_dataset(dataset_sig, self.vars_det, label=self.label_sig, weight_name=self.weight_name)
 
         self.X_det = np.concatenate((X_obs, X_sig))
@@ -144,7 +156,8 @@ class OmniFoldwBkg(object):
     
     def omnifold(self, det_model, sim_model, fitargs, val=0.2, weights_filename=None):
         # initialize the truth weights to the prior
-        ws = [self.wsig]
+        ws_t = [self.winit]
+        ws_m = []
 
         # split dataset for training and validation
         # detector level
@@ -173,7 +186,9 @@ class OmniFoldwBkg(object):
             model_sim = self._set_up_model_sim_i(i, sim_model, model_sim_fp)
 
             # step 1: reweight sim to look like data
-            w = np.concatenate((self.wdata, ws[-1]))
+            # push the latest truth-level weights to the detector level
+            wm_push_i = self._push_weights(ws_t[-1]) # for i=0, this is self.wsig
+            w = np.concatenate((self.wdata, wm_push_i))
             if self.wbkg is not None:
                 w = np.concatenate((w, self.wbkg))
             assert(len(w)==len(self.X_det))
@@ -186,21 +201,23 @@ class OmniFoldwBkg(object):
                 wnew = wnew[len(self.wdata):-len(self.wbkg)]
             else:
                 wnew = wnew[len(self.wdata):]
-            ws.append(wnew)
+            ws_m.append(wnew)
 
             # step 2: reweight the simulation prior to the learned weights
-            w = np.concatenate((ws[-1], ws[-2]))
+            # pull the updated detector-level weights back to the truth level
+            wt_pull_i = self._pull_weights(ws_m[-1])
+            w = np.concatenate((wt_pull_i, ws_t[-1]))
             w_train, w_val = splitter_gen.shuffle_and_split(w)
 
             rw = self._reweight_step2(X_gen_train, Y_gen_train, w_train, model_sim, model_sim_fp.format(i), fitargs, val_data=(X_gen_val, Y_gen_val, w_val))
-            wnew = splitter_gen.unshuffle(rw)[len(ws[-1]):]
-            ws.append(wnew)
+            wnew = splitter_gen.unshuffle(rw)[len(ws_t[-1]):]
+            ws_t.append(wnew)
 
         # save the weights
         if weights_filename is not None:
-            np.save(weights_file, ws)
+            np.savez(weights_file, ws_t=ws_t, ws_m=ws_m)
 
-        self.ws_unfolded = ws[-1]
+        self.ws_unfolded = ws_t[-1]
 
     def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg=None, truth_known=False, normalize=False):
         """
