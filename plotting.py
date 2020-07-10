@@ -19,18 +19,19 @@ def plot_ratios(ax, midbins, binwidth, hist_truth, hists_unfolded, colors, hist_
     ax.plot([np.min(midbins), np.max(midbins)], [1, 1], '-', color=truth_style['edgecolor'], lw=0.75)
     
     if hist_truth_unc is not None:
-        truth_unc_ratio = hist_truth_unc/(hist_truth + 10**-50)
+        truth_unc_ratio = np.divide(hist_truth_unc, hist_truth, out=np.zeros_like(hist_truth), where=(hist_truth!=0))
         ax.fill_between(midbins, 1-truth_unc_ratio, 1+truth_unc_ratio, facecolor=truth_style['facecolor'], zorder=-2)
         
     for i, hist_uf in enumerate(hists_unfolded):
         if hist_uf is None:
             continue
-        ratio = hist_uf/(hist_truth + 10**-50)
+        ymin, ymax = ax.get_ylim()
+        ratio = np.divide(hist_uf, hist_truth, out=np.ones_like(hist_truth)*ymin, where=(hist_truth!=0))
 
         ratio_unc = None
         if hists_unfolded_unc is not None:
             if hists_unfolded_unc[i] is not None:
-                ratio_unc = hists_unfolded_unc[i]/(hist_truth + 10**-50)
+                ratio_unc = np.divide(hists_unfolded_unc[i], hist_truth, out=np.zeros_like(hist_truth), where=(hist_truth!=0))
 
         ax.errorbar(midbins, ratio, xerr=binwidth/2, yerr=ratio_unc, color=colors[i], **modplot.style('errorbar'))
 
@@ -43,7 +44,7 @@ def plot_legend(ax, **config):
 
 #def plot_stamp(ax):
 
-def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim, histogram_gen, histogram_of, histogram_ibu=(None,None), histogram_truth=(None,None), outdir='', normalize=False, **config):
+def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim, histogram_gen, histogram_of, histogram_ibu=(None,None), histogram_truth=(None,None), outdir='', **config):
     """
     TODO: add descriptions
     """
@@ -65,19 +66,11 @@ def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim
 
     # detector-level
     hist_obs, hist_obs_unc = histogram_obs
-    if normalize:
-        norm = hist_obs.sum()
-        hist_obs /= norm
-        hist_obs_unc /= norm
 
     ymax = hist_obs.max() if hist_obs.max() > ymax else ymax
     ax0.hist(midbins_det, bins_det, weights=hist_obs, color='black', label='Data', **hist_style)
 
     hist_sim, hist_sim_unc = histogram_sim
-    if normalize:
-        norm = hist_sim.sum()
-        hist_sim /= norm
-        hist_sim_unc /= norm
 
     ymax = hist_sim.max() if hist_sim.max() > ymax else ymax
     ax0.hist(midbins_det, bins_det, weights=hist_sim, color='orange', label='Sim.', **hist_style)
@@ -85,10 +78,6 @@ def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim
     # generator-level
     # signal prior
     hist_gen, hist_gen_unc = histogram_gen
-    if normalize:
-        norm = hist_gen.sum()
-        hist_gen /= norm
-        hist_gen_unc /= norm
 
     ymax = hist_gen.max() if hist_gen.max() > ymax else ymax
     ax0.plot(midbins_gen, hist_gen, **gen_style)
@@ -96,21 +85,12 @@ def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim
     # if truth is known
     hist_truth, hist_truth_unc = histogram_truth
     if hist_truth is not None:
-        if normalize:
-            norm = hist_truth.sum()
-            hist_truth /= norm
-            hist_truth_unc /= norm
-
         ymax = hist_truth.max() if hist_truth.max() > ymax else ymax
         ax0.fill_between(midbins_gen, hist_truth, **truth_style)
 
     # unfolded distributions
     # omnifold
     hist_of, hist_of_unc = histogram_of
-    if normalize:
-        norm = hist_of.sum()
-        hist_of /= norm
-        hist_of_unc /= norm
 
     ymax = hist_of.max() if hist_of.max() > ymax else ymax
     ax0.plot(midbins_gen, hist_of, **omnifold_style)
@@ -118,11 +98,6 @@ def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim
     # iterative Bayesian unfolding
     hist_ibu, hist_ibu_unc = histogram_ibu
     if hist_ibu is not None:
-        if normalize:
-            norm = hist_ibu.sum()
-            hist_ibu /= norm
-            hist_ibu_unc /= norm
-
         ymax = hist_ibu.max() if hist_ibu.max() > ymax else ymax
         ax0.plot(midbins_gen, hist_ibu, **ibu_style)
 
