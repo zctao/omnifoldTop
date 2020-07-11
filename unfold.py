@@ -14,6 +14,8 @@ logger = getLogger('Unfold')
 from omnifold_wbkg import OmniFoldwBkg
 from observables import observable_dict
 
+import time
+
 def load_dataset(file_name, array_name='arr_0'):
     """
     Load and return a structured numpy array from npz file
@@ -34,6 +36,8 @@ def unfold(**parsed_args):
     logger.info("Observables to unfold: {}".format(', '.join(parsed_args['observables'])))
 
     # collision data
+    logger.info("Loading datasets")
+    t_data_start = time.time()
     fname_obs = parsed_args['data']
     data_obs = load_dataset(fname_obs)
 
@@ -44,6 +48,8 @@ def unfold(**parsed_args):
     # background MC
     fname_mc_bkg = parsed_args['background']
     data_mc_bkg = load_dataset(fname_mc_bkg) if fname_mc_bkg is not None else None
+    t_data_finish = time.time()
+    logger.info("Loading dataset took {:.2f} seconds".format(t_data_finish-t_data_start))
 
     # detector level variable names for training
     vars_det = [ observable_dict[key]['branch_det'] for key in parsed_args['observables_train'] ]
@@ -59,11 +65,15 @@ def unfold(**parsed_args):
 
     ##################
     # preprocess_data
+    logger.info("Preprocessing data")
+    t_prep_start = time.time()
     # detector level (step 1 reweighting)
     unfolder.preprocess_det(data_obs, data_mc_sig, data_mc_bkg)
     # mc truth (step 2 reweighting)
     # only signal simulation is of interest here
     unfolder.preprocess_gen(data_mc_sig)
+    t_prep_finish = time.time()
+    logger.info("Preprocessnig data took {:.2f} seconds".format(t_prep_finish-t_prep_start))
 
     ##################
     if parsed_args['unfolded_weights']:
@@ -94,7 +104,12 @@ def unfold(**parsed_args):
 
         ##################
         # Unfold
+        logger.info("Start unfolding")
+        t_unfold_start = time.time()
         unfolder.unfold((model_det, args_det), (model_sim, args_sim), fitargs, val=0.2)
+        t_unfold_finish = time.time()
+        logger.info("Done!")
+        logger.info("Unfolding took {:.2f} seconds".format(t_unfold_finish-t_unfold_start))
 
     ##################
     # Show results

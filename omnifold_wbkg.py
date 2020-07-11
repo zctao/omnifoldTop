@@ -236,6 +236,7 @@ class OmniFoldwBkg(object):
             
         """
         for varname, config in vars_dict.items():
+            logger.info("Unfold variable: {}".format(varname))
             dataobs = np.hstack(dataset_obs[config['branch_det']])
             truth = np.hstack(dataset_obs[config['branch_mc']]) if truth_known else None
             
@@ -288,15 +289,16 @@ class OmniFoldwBkg(object):
                 d_of = triangular_discr(hist_of, hist_truth)
                 d_ibu = triangular_discr(hist_ibu, hist_truth)
                 d_gen = triangular_discr(hist_gen, hist_truth)
-                logger.info("{} : triangular discriminator".format(varname))
-                logger.info("MultiFold: {}    IBU: {}    Prior: {}".format(d_of, d_ibu, d_gen))
+                logger.info("  Triangular discriminator:   MultiFold = {}    IBU = {}    Prior = {}".format(d_of, d_ibu, d_gen))
 
             # plot results
+            figname = self.outdir.strip('/')+'/MultiFold_{}.pdf'.format(varname)
+            logger.info("  Create unfolded distribution plot: {}".format(figname))
             plot_results(varname, bins_det, bins_mc,
                          (hist_obs,hist_obs_unc), (hist_sim,hist_sim_unc),
                          (hist_gen,hist_gen_unc), (hist_of,hist_of_unc),
                          (hist_ibu,hist_ibu_unc), (hist_truth, hist_truth_unc),
-                         outdir = self.outdir, **config)
+                         figname=figname, **config)
 
 ##############################################################################
 #############
