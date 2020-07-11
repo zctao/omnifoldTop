@@ -8,12 +8,14 @@ matplotlib.use('Agg')
 import external.OmniFold.omnifold as omnifold
 import external.OmniFold.modplot as modplot
 
-from util import read_dataset, prepare_data_multifold
+from util import read_dataset, prepare_data_multifold, set_up_bins, getLogger
 from util import DataShufflerDet, DataShufflerGen
-from util import set_up_bins
+from util import triangular_discr
 from ibu import ibu
 
 from plotting import plot_results
+
+logger = getLogger('OmniFoldwBkg')
 
 # Base class of OmniFold for non-negligible background
 # Adapted from the original omnifold:
@@ -154,7 +156,7 @@ class OmniFoldwBkg(object):
         rs = self.wsig.sum()/self.winit.sum()
         self.winit *= rs
     
-    def omnifold(self, det_model, sim_model, fitargs, val=0.2, weights_filename=None):
+    def unfold(self, det_model, sim_model, fitargs, val=0.2):
         # initialize the truth weights to the prior
         ws_t = [self.winit]
         ws_m = []
@@ -214,9 +216,15 @@ class OmniFoldwBkg(object):
             ws_t.append(wnew)
 
         # save the weights
-        if weights_filename is not None:
-            np.savez(weights_file, ws_t=ws_t, ws_m=ws_m)
+        weights_file = self.outdir.strip('/')+'/weights.npz'
+        np.savez(weights_file, ws_t=ws_t, ws_m=ws_m)
 
+        self.ws_unfolded = ws_t[-1]
+
+    def set_weights_from_file(self, weights_file, array_name='ws_t'):
+        wfile = np.load(weights_file)
+        ws_t = wfile[array_name]
+        wfile.close()
         self.ws_unfolded = ws_t[-1]
 
     def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg=None, truth_known=False, normalize=False):
@@ -246,7 +254,6 @@ class OmniFoldwBkg(object):
 
             # signal simulation
             hist_sim, hist_sim_unc = modplot.calc_hist(sim_sig, weights=self.wsig, bins=bins_det, density=normalize)[:2]
-            # FIXME: weights=winit?
 
             # background simulation
             if sim_bkg is not None:
@@ -275,6 +282,14 @@ class OmniFoldwBkg(object):
 
             # omnifold
             hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=normalize)[:2]
+
+            # compute the triangular discriminator
+            if truth is not None:
+                d_of = triangular_discr(hist_of, hist_truth)
+                d_ibu = triangular_discr(hist_ibu, hist_truth)
+                d_gen = triangular_discr(hist_gen, hist_truth)
+                logger.info("{} : triangular discriminator".format(varname))
+                logger.info("MultiFold: {}    IBU: {}    Prior: {}".format(d_of, d_ibu, d_gen))
 
             # plot results
             plot_results(varname, bins_det, bins_mc,

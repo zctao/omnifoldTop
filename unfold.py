@@ -66,29 +66,35 @@ def unfold(**parsed_args):
     unfolder.preprocess_gen(data_mc_sig)
 
     ##################
-    # Models
-    # FIXME
+    if parsed_args['unfolded_weights']:
+        # use the provided weights directly
+        logger.info("Skipping training")
+        logger.info("Reading weights from file {}".format(parsed_args['unfolded_weights']))
+        unfolder.set_weights_from_file(parsed_args['unfolded_weights'])
+    else:
+        # Models
+        # FIXME
 
-    # step 1 model and arguments
-    model_det = ef.archs.DNN
-    args_det = {'input_dim': len(vars_det), 'dense_sizes': [100, 100],
-                'patience': 10, 'filepath': 'Step1_{}',
-                'save_weights_only': False,
-                'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
+        # step 1 model and arguments
+        model_det = ef.archs.DNN
+        args_det = {'input_dim': len(vars_det), 'dense_sizes': [100, 100],
+                    'patience': 10, 'filepath': 'model_step1_{}',
+                    'save_weights_only': False,
+                    'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
 
-    # step 2 model and arguments
-    model_sim = ef.archs.DNN
-    args_sim = {'input_dim': len(vars_mc), 'dense_sizes': [100, 100],
-                'patience': 10, 'filepath': 'Step2_{}',
-                'save_weights_only': False,
-                'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
+        # step 2 model and arguments
+        model_sim = ef.archs.DNN
+        args_sim = {'input_dim': len(vars_mc), 'dense_sizes': [100, 100],
+                    'patience': 10, 'filepath': 'model_step2_{}',
+                    'save_weights_only': False,
+                    'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
 
-    # training parameters
-    fitargs = {'batch_size': 500, 'epochs': 3, 'verbose': 1}
+        # training parameters
+        fitargs = {'batch_size': 500, 'epochs': 3, 'verbose': 1}
 
-    ##################
-    # Unfold
-    unfolder.omnifold((model_det, args_det), (model_sim, args_sim), fitargs, val=0.2)
+        ##################
+        # Unfold
+        unfolder.unfold((model_det, args_det), (model_sim, args_sim), fitargs, val=0.2)
 
     ##################
     # Show results
@@ -100,12 +106,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--observables_train', nargs='+',
-                        choices=observable_dict.keys(),
+    parser.add_argument('--observables-train', dest='observables_train',
+                        nargs='+', choices=observable_dict.keys(),
                         default=['mtt', 'ptt', 'ytt', 'ystar', 'yboost', 'dphi', 'Ht'],
                         help="List of observables to use in training.")
-    parser.add_argument('--observables', nargs='+',
-                        choices=observable_dict.keys(),
+    parser.add_argument('--observables',
+                        nargs='+', choices=observable_dict.keys(),
                         default=observable_dict.keys(),
                         help="List of observables to unfold")
     parser.add_argument('-d', '--data', required=True,
@@ -120,18 +126,15 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--outputdir',
                         default='./output',
                         help="Directory for storing outputs")
-    parser.add_argument('--ibu',
-                        action='store_true',
-                        help="Do iterative bayesian unfolding")
-    parser.add_argument('-t', '--closure_test',
+    parser.add_argument('-t', '--closure-test', dest='closure_test',
                         action='store_true',
                         help="Is a closure test")
     parser.add_argument('-n', '--normalize',
                         action='store_true',
                         help="Normalize the distributions when plotting the result")
-    parser.add_argument('--weight', type=str, default='w',
+    parser.add_argument('--weight', default='w',
                         help="name of event weight")
-    parser.add_argument('--weight_mc', type=str, default='wTruth',
+    parser.add_argument('--weight-mc', dest='weight_mc', default='wTruth',
                         help="name of MC weight")
     parser.add_argument('-m', '--multiclass',
                         action='store_true',
@@ -142,6 +145,9 @@ if __name__ == "__main__":
     parser.add_argument('-g', '--gpu',
                         type=int, choices=[0, 1], default=1,
                         help="Manually select one of the GPUs to run")
+    parser.add_argument('--unfolded-weights', dest='unfolded_weights',
+                        default='', type=str,
+                        help="File name of the stored weights after unfolding. If provided, skip training/unfolding and use the weights directly to show results.")
 
     args = parser.parse_args()
 
