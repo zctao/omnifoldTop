@@ -44,7 +44,7 @@ def plot_legend(ax, **config):
 
 #def plot_stamp(ax):
 
-def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim, histogram_gen, histogram_of, histogram_ibu=(None,None), histogram_truth=(None,None), outdir='', **config):
+def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim, histogram_gen, histogram_of, histogram_ibu=(None,None), histogram_truth=(None,None), figname='unfolded.pdf', **config):
     """
     TODO: add descriptions
     """
@@ -115,6 +115,5 @@ def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim
     # plot_stamp(ax0)
 
     # save plot
-    outdir = outdir.strip('/')+'/'
-    fig.savefig(outdir+'MultiFold_{}.pdf'.format(variable_name), bbox_inches='tight')
+    fig.savefig(figname, bbox_inches='tight')
     plt.show()

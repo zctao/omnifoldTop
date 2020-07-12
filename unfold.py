@@ -14,6 +14,9 @@ logger = getLogger('Unfold')
 from omnifold_wbkg import OmniFoldwBkg
 from observables import observable_dict
 
+import time
+import tracemalloc
+
 def load_dataset(file_name, array_name='arr_0'):
     """
     Load and return a structured numpy array from npz file
@@ -25,6 +28,8 @@ def load_dataset(file_name, array_name='arr_0'):
 
 def unfold(**parsed_args):
 
+    tracemalloc.start()
+
     #################
     # Load and prepare datasets
     #################
@@ -34,6 +39,8 @@ def unfold(**parsed_args):
     logger.info("Observables to unfold: {}".format(', '.join(parsed_args['observables'])))
 
     # collision data
+    logger.info("Loading datasets")
+    t_data_start = time.time()
     fname_obs = parsed_args['data']
     data_obs = load_dataset(fname_obs)
 
@@ -44,6 +51,11 @@ def unfold(**parsed_args):
     # background MC
     fname_mc_bkg = parsed_args['background']
     data_mc_bkg = load_dataset(fname_mc_bkg) if fname_mc_bkg is not None else None
+    t_data_finish = time.time()
+    logger.info("Loading dataset took {:.2f} seconds".format(t_data_finish-t_data_start))
+
+    mcurrent, mpeak = tracemalloc.get_traced_memory()
+    logger.info("Current memory usage is {:.1f} MB; Peak was {:.1f} MB".format(mcurrent * 10**-6, mpeak * 10**-6))
 
     # detector level variable names for training
     vars_det = [ observable_dict[key]['branch_det'] for key in parsed_args['observables_train'] ]
@@ -59,11 +71,17 @@ def unfold(**parsed_args):
 
     ##################
     # preprocess_data
+    logger.info("Preprocessing data")
+    t_prep_start = time.time()
     # detector level (step 1 reweighting)
     unfolder.preprocess_det(data_obs, data_mc_sig, data_mc_bkg)
     # mc truth (step 2 reweighting)
     # only signal simulation is of interest here
     unfolder.preprocess_gen(data_mc_sig)
+    t_prep_finish = time.time()
+    logger.info("Preprocessnig data took {:.2f} seconds".format(t_prep_finish-t_prep_start))
+    mcurrent, mpeak = tracemalloc.get_traced_memory()
+    logger.info("Current memory usage is {:.1f} MB; Peak was {:.1f} MB".format(mcurrent * 10**-6, mpeak * 10**-6))
 
     ##################
     if parsed_args['unfolded_weights']:
@@ -77,29 +95,41 @@ def unfold(**parsed_args):
 
         # step 1 model and arguments
         model_det = ef.archs.DNN
-        args_det = {'input_dim': len(vars_det), 'dense_sizes': [100, 100],
+        args_det = {'input_dim': len(vars_det), 'dense_sizes': [100, 100, 100],
                     'patience': 10, 'filepath': 'model_step1_{}',
                     'save_weights_only': False,
                     'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
 
         # step 2 model and arguments
         model_sim = ef.archs.DNN
-        args_sim = {'input_dim': len(vars_mc), 'dense_sizes': [100, 100],
+        args_sim = {'input_dim': len(vars_mc), 'dense_sizes': [100, 100, 100],
                     'patience': 10, 'filepath': 'model_step2_{}',
                     'save_weights_only': False,
                     'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
 
         # training parameters
-        fitargs = {'batch_size': 500, 'epochs': 3, 'verbose': 1}
+        fitargs = {'batch_size': 500, 'epochs': 5, 'verbose': 1}
 
         ##################
         # Unfold
+        logger.info("Start unfolding")
+        t_unfold_start = time.time()
         unfolder.unfold((model_det, args_det), (model_sim, args_sim), fitargs, val=0.2)
+        t_unfold_finish = time.time()
+        logger.info("Done!")
+        logger.info("Unfolding took {:.2f} seconds".format(t_unfold_finish-t_unfold_start))
+        mcurrent, mpeak = tracemalloc.get_traced_memory()
+        logger.info("Current memory usage is {:.1f} MB; Peak was {:.1f} MB".format(mcurrent * 10**-6, mpeak * 10**-6))
 
     ##################
     # Show results
     subObs_dict = { var:observable_dict[var] for var in parsed_args['observables']}
     unfolder.results(subObs_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['closure_test'], normalize=parsed_args['normalize'])
+
+    mcurrent, mpeak = tracemalloc.get_traced_memory()
+    logger.info("Current memory usage is {:.1f} MB; Peak was {:.1f} MB".format(mcurrent * 10**-6, mpeak * 10**-6))
+
+    tracemalloc.stop()
 
 if __name__ == "__main__":
     import argparse

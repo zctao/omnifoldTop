@@ -166,7 +166,7 @@ class DataShufflerGen(DataShufflerDet):
 
 def getLogger(name, level=logging.DEBUG):
     msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
-    datefmt = '%H:%M:%S'
+    datefmt = '%Y-%m-%d %H:%M:%S'
     logger = logging.getLogger(name)
     logging.basicConfig(format = msgfmt, datefmt = datefmt)
     logger.setLevel(level)
