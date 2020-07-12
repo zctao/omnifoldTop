@@ -131,6 +131,13 @@ class OmniFoldwBkg(object):
         # reweight the sim and data to have the same total weight
         self._rescale_sample_weights()
 
+        logger.info("Total number of observed events: {}".format(len(self.wdata)))
+        logger.info("Total number of simulated signal events: {}".format(len(self.wsig)))
+        if self.wbkg is not None:
+            logger.info("Total number of simulated background events: {}".format(len(self.wbkg)))
+        logger.info("Feature array X_det size: {:.3f} MB".format(self.X_det.nbytes*2**-20))
+        logger.info("Label array Y_det size: {:.3f} MB".format(self.Y_det.nbytes*2**-20))
+
         # TODO: plot?
         
     def preprocess_gen(self, dataset_sig, standardize=True):
@@ -155,6 +162,9 @@ class OmniFoldwBkg(object):
         # rescale the mc weights to simulation weights
         rs = self.wsig.sum()/self.winit.sum()
         self.winit *= rs
+
+        logger.info("Feature array X_gen size: {:.3f} MB".format(self.X_gen.nbytes*10**-6))
+        logger.info("Label array Y_gen size: {:.3f} MB".format(self.Y_gen.nbytes*10**-6))
     
     def unfold(self, det_model, sim_model, fitargs, val=0.2):
         # initialize the truth weights to the prior
@@ -289,7 +299,7 @@ class OmniFoldwBkg(object):
                 d_of = triangular_discr(hist_of, hist_truth)
                 d_ibu = triangular_discr(hist_ibu, hist_truth)
                 d_gen = triangular_discr(hist_gen, hist_truth)
-                logger.info("  Triangular discriminator:   MultiFold = {}    IBU = {}    Prior = {}".format(d_of, d_ibu, d_gen))
+                logger.info("  Triangular discriminator:   MultiFold = {:.3f}    IBU = {:.3f}    Prior = {:.3f}".format(d_of, d_ibu, d_gen))
 
             # plot results
             figname = self.outdir.strip('/')+'/MultiFold_{}.pdf'.format(varname)
