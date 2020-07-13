@@ -44,7 +44,7 @@ class OmniFoldwBkg(object):
         # unfolded event weights
         self.ws_unfolded = None
         # output directory
-        self.outdir = outdir.strip('/')+'/'
+        self.outdir = outdir.rstrip('/')+'/'
 
     def _rescale_sample_weights(self):
         ndata = self.wdata.sum()
@@ -226,7 +226,7 @@ class OmniFoldwBkg(object):
             ws_t.append(wnew)
 
         # save the weights
-        weights_file = self.outdir.strip('/')+'/weights.npz'
+        weights_file = self.outdir.rstrip('/')+'/weights.npz'
         np.savez(weights_file, ws_t=ws_t, ws_m=ws_m)
 
         self.ws_unfolded = ws_t[-1]
@@ -302,7 +302,7 @@ class OmniFoldwBkg(object):
                 logger.info("  Triangular discriminator:   MultiFold = {:.3f}    IBU = {:.3f}    Prior = {:.3f}".format(d_of, d_ibu, d_gen))
 
             # plot results
-            figname = self.outdir.strip('/')+'/MultiFold_{}.pdf'.format(varname)
+            figname = self.outdir.rstrip('/')+'/MultiFold_{}.pdf'.format(varname)
             logger.info("  Create unfolded distribution plot: {}".format(figname))
             plot_results(varname, bins_det, bins_mc,
                          (hist_obs,hist_obs_unc), (hist_sim,hist_sim_unc),
