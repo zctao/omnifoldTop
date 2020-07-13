@@ -67,7 +67,7 @@ def unfold(**parsed_args):
 
     #####################
     # Start unfolding
-    unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, wname_mc, it=3, outdir=parsed_args['outputdir'])
+    unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'])
 
     ##################
     # preprocess_data
@@ -124,7 +124,10 @@ def unfold(**parsed_args):
     ##################
     # Show results
     subObs_dict = { var:observable_dict[var] for var in parsed_args['observables']}
+    t_result_start = time.time()
     unfolder.results(subObs_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['closure_test'], normalize=parsed_args['normalize'])
+    t_result_finish = time.time()
+    logger.info("Getting results took {:.2f} seconds (average {:.2f} seconds per variable)".format(t_result_finish-t_result_start, (t_result_finish-t_result_start)/len(subObs_dict)))
 
     mcurrent, mpeak = tracemalloc.get_traced_memory()
     logger.info("Current memory usage is {:.1f} MB; Peak was {:.1f} MB".format(mcurrent * 10**-6, mpeak * 10**-6))
@@ -162,6 +165,8 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--normalize',
                         action='store_true',
                         help="Normalize the distributions when plotting the result")
+    parser.add_argument('-i', '--iterations', type=int, default=5,
+                        help="Numbers of iterations for unfolding")
     parser.add_argument('--weight', default='w',
                         help="name of event weight")
     parser.add_argument('--weight-mc', dest='weight_mc', default='wTruth',
