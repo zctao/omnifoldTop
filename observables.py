@@ -5,7 +5,7 @@ observable_dict = {}
 observable_dict['mtt'] = {
     'branch_det': 'mttReco', 'branch_mc': 'mttTrue',
     'nbins_det': 50, 'nbins_mc': 50,
-    'xlim': (200, 1500), #'ylim': (0, 0.14),
+    'xlim': (200, 1400), #'ylim': (0, 0.14),
     'xlabel': 'm_ttbar [GeV]', 'ylabel':'a.u.',
     #'stamp_xy': (0.41, 0.92),
     'legend_loc': 'upper right', 'legend_ncol': 1,
@@ -15,7 +15,7 @@ observable_dict['mtt'] = {
 observable_dict['ptt'] = {
     'branch_det': 'pttReco', 'branch_mc': 'pttTrue',
     'nbins_det': 50, 'nbins_mc': 50,
-    'xlim': (0, 600), #'ylim': (0, 0.22),
+    'xlim': (0, 500), #'ylim': (0, 0.22),
     'xlabel': 'pt_ttbar [GeV]', 'ylabel':'a.u.',
     #'stamp_xy': (0.41, 0.92),
     'legend_loc': 'upper right', 'legend_ncol': 1,
