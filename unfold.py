@@ -108,7 +108,7 @@ def unfold(**parsed_args):
                     'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
 
         # training parameters
-        fitargs = {'batch_size': 500, 'epochs': 5, 'verbose': 1}
+        fitargs = {'batch_size': 500, 'epochs': 25, 'verbose': 1}
 
         ##################
         # Unfold
