@@ -86,10 +86,17 @@ class OmniFoldwBkg(object):
         return self._set_up_model_i(i, model_config, model_filepath)
 
     def _reweight_step1(self, X, Y, w, model, filepath, fitargs, val_data=None):
+        # callbacks
+        CSVLogger = tf.keras.callbacks.CSVLogger(filepath+'_log.csv', append=False)
+        fitargs.update({'callbacks': [CSVLogger]})
+
         # the original one
         return omnifold.reweight(X, Y, w, model, filepath, fitargs, val_data=val_data)
 
     def _reweight_step2(self, X, Y, w, model, filepath, fitargs, val_data=None):
+        CSVLogger = tf.keras.callbacks.CSVLogger(filepath+'_log.csv', append=False)
+        fitargs.update({'callbacks': [CSVLogger]})
+
         # the original one
         return omnifold.reweight(X, Y, w, model, filepath, fitargs, val_data=val_data)
 

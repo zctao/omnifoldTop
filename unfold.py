@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+import glob
 import logging
 from packaging import version
 
@@ -8,7 +10,7 @@ import tensorflow as tf
 import energyflow as ef
 import energyflow.archs
 
-from util import prepare_data_multifold, getLogger
+from util import prepare_data_multifold, getLogger, plot_fit_log
 logger = getLogger('Unfold')
 
 from omnifold_wbkg import OmniFoldwBkg
@@ -108,7 +110,7 @@ def unfold(**parsed_args):
                     'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
 
         # training parameters
-        fitargs = {'batch_size': 500, 'epochs': 25, 'verbose': 1}
+        fitargs = {'batch_size': 500, 'epochs': 100, 'verbose': 1}
 
         ##################
         # Unfold
@@ -131,6 +133,10 @@ def unfold(**parsed_args):
 
     mcurrent, mpeak = tracemalloc.get_traced_memory()
     logger.info("Current memory usage is {:.1f} MB; Peak was {:.1f} MB".format(mcurrent * 10**-6, mpeak * 10**-6))
+
+    # Plot training log
+    for csvfile in glob.glob(os.path.join(parsed_args['outputdir'], '*.csv')):
+        plot_fit_log(csvfile)
 
     tracemalloc.stop()
 
