@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import pandas as pd
 import logging
+import matplotlib.pyplot as plt
 
 def get_fourvector_array(pt_arr, eta_arr, phi_arr, e_arr, padding=True):
     """
@@ -183,3 +185,18 @@ def triangular_discr(histogram_1, histogram_2):
         delta += ((p-q)**2)/(p+q)*0.5
 
     return delta * 1000
+
+def plot_fit_log(csv_file, plot_name=None):
+    df = pd.read_csv(csv_file)
+
+    plt.figure()
+    plt.plot(df['epoch'], df['loss']*1000, label='loss')
+    plt.plot(df['epoch'], df['val_loss']*1000, label='val loss')
+    plt.legend(loc='best')
+    plt.ylabel('loss ($%s$)'%('\\times 10^{-3}'))
+    plt.xlabel('Epochs')
+    if plot_name is None:
+        plot_name = csv_file.replace('.csv', '_loss.pdf')
+    plt.savefig(plot_name)
+    plt.clf()
+    plt.close()
