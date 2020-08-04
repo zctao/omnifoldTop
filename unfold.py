@@ -7,9 +7,6 @@ from packaging import version
 import numpy as np
 import tensorflow as tf
 
-import energyflow as ef
-import energyflow.archs
-
 from util import prepare_data_multifold, getLogger, plot_fit_log
 logger = getLogger('Unfold')
 
@@ -92,23 +89,6 @@ def unfold(**parsed_args):
         logger.info("Reading weights from file {}".format(parsed_args['unfolded_weights']))
         unfolder.set_weights_from_file(parsed_args['unfolded_weights'])
     else:
-        # Models
-        # FIXME
-
-        # step 1 model and arguments
-        model_det = ef.archs.DNN
-        args_det = {'input_dim': len(vars_det), 'dense_sizes': [100, 100, 100],
-                    'patience': 10, 'filepath': 'model_step1_{}',
-                    'save_weights_only': False,
-                    'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
-
-        # step 2 model and arguments
-        model_sim = ef.archs.DNN
-        args_sim = {'input_dim': len(vars_mc), 'dense_sizes': [100, 100, 100],
-                    'patience': 10, 'filepath': 'model_step2_{}',
-                    'save_weights_only': False,
-                    'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
-
         # training parameters
         fitargs = {'batch_size': 500, 'epochs': 100, 'verbose': 1}
 
@@ -116,7 +96,7 @@ def unfold(**parsed_args):
         # Unfold
         logger.info("Start unfolding")
         t_unfold_start = time.time()
-        unfolder.unfold((model_det, args_det), (model_sim, args_sim), fitargs, val=0.2)
+        unfolder.unfold(fitargs, val=0.2)
         t_unfold_finish = time.time()
         logger.info("Done!")
         logger.info("Unfolding took {:.2f} seconds".format(t_unfold_finish-t_unfold_start))
