@@ -1,5 +1,9 @@
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
 import numpy as np
+import pandas as pd
 import external.OmniFold.modplot as modplot
 
 # plotting styles
@@ -136,3 +140,18 @@ def plot_histogram2d(figname, h2d, xedges, yedges, variable):
                 ax.text(xc, yc, str(int(bin_content)), ha='center', va='center', fontsize=3)
 
     fig.savefig(figname)
+
+def plot_fit_log(csv_file, plot_name=None):
+    df = pd.read_csv(csv_file)
+
+    plt.figure()
+    plt.plot(df['epoch'], df['loss']*1000, label='loss')
+    plt.plot(df['epoch'], df['val_loss']*1000, label='val loss')
+    plt.legend(loc='best')
+    plt.ylabel('loss ($%s$)'%('\\times 10^{-3}'))
+    plt.xlabel('Epochs')
+    if plot_name is None:
+        plot_name = csv_file.replace('.csv', '_loss.pdf')
+    plt.savefig(plot_name)
+    plt.clf()
+    plt.close()

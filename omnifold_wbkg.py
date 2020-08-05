@@ -3,14 +3,11 @@ import os
 import numpy as np
 import tensorflow as tf
 
-import matplotlib
-matplotlib.use('Agg')
-
 # The original omnifold
 import external.OmniFold.omnifold as omnifold
 import external.OmniFold.modplot as modplot
 
-from util import read_dataset, prepare_data_multifold, set_up_bins, getLogger
+from util import read_dataset, prepare_data_multifold, getLogger
 from util import DataShufflerDet, DataShufflerGen
 from util import triangular_discr
 from ibu import ibu

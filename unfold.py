@@ -4,10 +4,10 @@ import glob
 import logging
 from packaging import version
 
-import numpy as np
 import tensorflow as tf
 
-from util import prepare_data_multifold, getLogger, plot_fit_log
+from util import load_dataset, getLogger
+from plotting import plot_fit_log
 logger = getLogger('Unfold')
 
 from omnifold_wbkg import OmniFoldwBkg
@@ -15,15 +15,6 @@ from observables import observable_dict
 
 import time
 import tracemalloc
-
-def load_dataset(file_name, array_name='arr_0'):
-    """
-    Load and return a structured numpy array from npz file
-    """
-    npzfile = np.load(file_name, allow_pickle=True, encoding='bytes')
-    data = npzfile[array_name]
-    npzfile.close()
-    return data
 
 def unfold(**parsed_args):
 
