@@ -190,5 +190,9 @@ if __name__ == "__main__":
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu,True)
 
+    if not os.path.isdir(args.outputdir):
+        logger.info("Create output directory {}".format(args.outputdir))
+        os.makedirs(args.outputdir)
+
     with tf.device('/GPU:{}'.format(args.gpu)):
         unfold(**vars(args))
