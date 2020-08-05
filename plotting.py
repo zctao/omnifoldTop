@@ -121,6 +121,8 @@ def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim
     # save plot
     fig.savefig(figname, bbox_inches='tight')
 
+    plt.close(fig)
+
 def plot_histogram2d(figname, h2d, xedges, yedges, variable):
     fig, ax = plt.subplots()
     ax.set_title('Detector Response')
@@ -140,6 +142,7 @@ def plot_histogram2d(figname, h2d, xedges, yedges, variable):
                 ax.text(xc, yc, str(int(bin_content)), ha='center', va='center', fontsize=3)
 
     fig.savefig(figname)
+    plt.close(fig)
 
 def plot_fit_log(csv_file, plot_name=None):
     df = pd.read_csv(csv_file)
@@ -177,3 +180,5 @@ def plot_correlations(data, variables, figname):
     #pd.plotting.scatter_matrix(df, alpha=0.5)
     #plt.savefig(figname)
     #plt.close()
+
+    plt.close(fig)
