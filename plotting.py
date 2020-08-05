@@ -155,3 +155,25 @@ def plot_fit_log(csv_file, plot_name=None):
     plt.savefig(plot_name)
     plt.clf()
     plt.close()
+
+def plot_correlations(data, variables, figname):
+    df = pd.DataFrame(data, columns=variables)
+    correlations = df.corr()
+
+    fig, ax = plt.subplots()
+    im = ax.imshow(correlations, vmin=-1, vmax=1, cmap='coolwarm')
+    fig.colorbar(im, ax=ax)
+    ax.tick_params(axis='both', labelsize='small')
+    ax.tick_params(axis='x', top=True, labeltop=True, bottom=False, labelbottom=False, labelrotation=30)
+    ticks = np.arange(0, len(variables), 1)
+    ax.set_xticks(ticks)
+    ax.set_yticks(ticks)
+    ax.set_xticklabels(variables)
+    ax.set_yticklabels(variables)
+
+    fig.savefig(figname)
+
+    #plt.figure()
+    #pd.plotting.scatter_matrix(df, alpha=0.5)
+    #plt.savefig(figname)
+    #plt.close()

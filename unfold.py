@@ -7,7 +7,7 @@ from packaging import version
 import tensorflow as tf
 
 from util import load_dataset, getLogger
-from plotting import plot_fit_log
+from plotting import plot_fit_log, plot_correlations
 logger = getLogger('Unfold')
 
 from omnifold_wbkg import OmniFoldwBkg
@@ -41,6 +41,7 @@ def unfold(**parsed_args):
     # background MC
     fname_mc_bkg = parsed_args['background']
     data_mc_bkg = load_dataset(fname_mc_bkg) if fname_mc_bkg is not None else None
+
     t_data_finish = time.time()
     logger.info("Loading dataset took {:.2f} seconds".format(t_data_finish-t_data_start))
 
@@ -54,6 +55,12 @@ def unfold(**parsed_args):
     # weight name
     wname = parsed_args['weight']
     wname_mc = parsed_args['weight_mc']
+
+    if parsed_args['plot_correlations']:
+        logger.info("Plot training variable correlations")
+        plot_correlations(data_obs, vars_det, os.path.join(parsed_args['outputdir'],'correlations_det_obs.pdf'))
+        plot_correlations(data_mc_sig, vars_det, os.path.join(parsed_args['outputdir'],'correlations_det_sig.pdf'))
+        plot_correlations(data_mc_sig, vars_mc, os.path.join(parsed_args['outputdir'],'correlations_gen_sig.pdf'))
 
     #####################
     # Start unfolding
@@ -144,6 +151,9 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--normalize',
                         action='store_true',
                         help="Normalize the distributions when plotting the result")
+    parser.add_argument('-c', '--plot-correlations', dest='plot_correlations',
+                        action='store_true',
+                        help="Plot pairwise correlations of training variables")
     parser.add_argument('-i', '--iterations', type=int, default=5,
                         help="Numbers of iterations for unfolding")
     parser.add_argument('--weight', default='w',
