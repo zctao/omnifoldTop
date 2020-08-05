@@ -16,7 +16,7 @@ from util import triangular_discr
 from ibu import ibu
 from model import get_callbacks, get_model
 
-from plotting import plot_results
+from plotting import plot_results, plot_histogram2d
 
 logger = getLogger('OmniFoldwBkg')
 
@@ -310,7 +310,12 @@ class OmniFoldwBkg(object):
 
             # unfolded distributions
             # iterative Bayesian unfolding
-            hist_ibu, hist_ibu_unc = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations, density=normalize)
+            hist_ibu, hist_ibu_unc, response = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations, density=normalize)
+
+            # plot response matrix
+            rname = os.path.join(self.outdir, 'Response_{}.pdf'.format(varname))
+            logger.info("  Plot detector response: {}".format(rname))
+            plot_histogram2d(rname, response, bins_det, bins_mc, varname)
 
             # omnifold
             hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=normalize)[:2]

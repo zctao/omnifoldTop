@@ -116,4 +116,23 @@ def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim
 
     # save plot
     fig.savefig(figname, bbox_inches='tight')
-    plt.show()
+
+def plot_histogram2d(figname, h2d, xedges, yedges, variable):
+    fig, ax = plt.subplots()
+    ax.set_title('Detector Response')
+    ax.set_xlabel('Detector-level {}'.format(variable))
+    ax.set_ylabel('Truth-level {}'.format(variable))
+    X, Y = np.meshgrid(xedges, yedges)
+    im = ax.pcolormesh(X, Y, h2d.T*100, cmap='Greens')
+    fig.colorbar(im, ax=ax, label="%")
+
+    # label bin content
+    xcenter =(xedges[:-1]+xedges[1:])/2
+    ycenter = (yedges[:-1]+yedges[1:])/2
+    for i, xc in enumerate(xcenter):
+        for j, yc in enumerate(ycenter):
+            bin_content = round(h2d[i, j]*100)
+            if bin_content != 0:
+                ax.text(xc, yc, str(int(bin_content)), ha='center', va='center', fontsize=3)
+
+    fig.savefig(figname)

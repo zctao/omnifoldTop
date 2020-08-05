@@ -115,7 +115,9 @@ def unfold(**parsed_args):
     logger.info("Current memory usage is {:.1f} MB; Peak was {:.1f} MB".format(mcurrent * 10**-6, mpeak * 10**-6))
 
     # Plot training log
+    logger.info("Plot training history")
     for csvfile in glob.glob(os.path.join(parsed_args['outputdir'], '*.csv')):
+        logger.info("  Plot csv log {}".format(csvfile))
         plot_fit_log(csvfile)
 
     tracemalloc.stop()
