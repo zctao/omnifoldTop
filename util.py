@@ -1,13 +1,23 @@
 import numpy as np
 import logging
 
-def load_dataset(file_name, array_name='arr_0'):
+def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes'):
     """
-    Load and return a structured numpy array from npz file
+    Load and return a structured numpy array from a list of npz files
     """
-    npzfile = np.load(file_name, allow_pickle=True, encoding='bytes')
-    data = npzfile[array_name]
-    npzfile.close()
+    data = None
+    for fname in file_names:
+        npzfile = np.load(fname, allow_pickle=allow_pickle, encoding=encoding)
+        di = npzfile[array_name]
+        if len(di)==0:
+            raise RuntimeError('There is no events in input file {}'.format(fname))
+
+        if data is None:
+            data = di
+        else:
+            data  = np.concatenate([data, di])
+        npzfile.close()
+
     return data
 
 def get_fourvector_array(pt_arr, eta_arr, phi_arr, e_arr, padding=True):

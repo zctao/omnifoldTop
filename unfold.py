@@ -31,16 +31,16 @@ def unfold(**parsed_args):
     # collision data
     logger.info("Loading datasets")
     t_data_start = time.time()
-    fname_obs = parsed_args['data']
-    data_obs = load_dataset(fname_obs)
+    fnames_obs = parsed_args['data']
+    data_obs = load_dataset(fnames_obs)
 
     # signal MC
-    fname_mc_sig = parsed_args['signal']
-    data_mc_sig = load_dataset(fname_mc_sig)
+    fnames_mc_sig = parsed_args['signal']
+    data_mc_sig = load_dataset(fnames_mc_sig)
 
     # background MC
-    fname_mc_bkg = parsed_args['background']
-    data_mc_bkg = load_dataset(fname_mc_bkg) if fname_mc_bkg is not None else None
+    fnames_mc_bkg = parsed_args['background']
+    data_mc_bkg = load_dataset(fnames_mc_bkg) if fnames_mc_bkg is not None else None
 
     t_data_finish = time.time()
     logger.info("Loading dataset took {:.2f} seconds".format(t_data_finish-t_data_start))
@@ -133,15 +133,15 @@ if __name__ == "__main__":
                         nargs='+', choices=observable_dict.keys(),
                         default=observable_dict.keys(),
                         help="List of observables to unfold")
-    parser.add_argument('-d', '--data', required=True,
+    parser.add_argument('-d', '--data', required=True, nargs='+',
                         type=str,
-                        help="Observed data npz file name")
-    parser.add_argument('-s', '--signal', required=True,
+                        help="Observed data npz file names")
+    parser.add_argument('-s', '--signal', required=True, nargs='+',
                         type=str,
-                        help="Signal MC npz file name")
-    parser.add_argument('-b', '--background',
+                        help="Signal MC npz file names")
+    parser.add_argument('-b', '--background', nargs='+',
                         type=str,
-                        help="Background MC npz file name")
+                        help="Background MC npz file names")
     parser.add_argument('-o', '--outputdir',
                         default='./output',
                         help="Directory for storing outputs")
@@ -167,7 +167,7 @@ if __name__ == "__main__":
                         action='count', default=0,
                         help="Verbosity level")
     parser.add_argument('-g', '--gpu',
-                        type=int, choices=[0, 1], default=1,
+                        type=int, choices=[0, 1], default=0,
                         help="Manually select one of the GPUs to run")
     parser.add_argument('--unfolded-weights', dest='unfolded_weights',
                         default='', type=str,
