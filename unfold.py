@@ -4,13 +4,10 @@ import glob
 import logging
 from packaging import version
 
-import numpy as np
 import tensorflow as tf
 
-import energyflow as ef
-import energyflow.archs
-
-from util import prepare_data_multifold, getLogger, plot_fit_log
+from util import load_dataset, getLogger
+from plotting import plot_fit_log, plot_correlations
 logger = getLogger('Unfold')
 
 from omnifold_wbkg import OmniFoldwBkg
@@ -18,15 +15,6 @@ from observables import observable_dict
 
 import time
 import tracemalloc
-
-def load_dataset(file_name, array_name='arr_0'):
-    """
-    Load and return a structured numpy array from npz file
-    """
-    npzfile = np.load(file_name, allow_pickle=True, encoding='bytes')
-    data = npzfile[array_name]
-    npzfile.close()
-    return data
 
 def unfold(**parsed_args):
 
@@ -43,16 +31,17 @@ def unfold(**parsed_args):
     # collision data
     logger.info("Loading datasets")
     t_data_start = time.time()
-    fname_obs = parsed_args['data']
-    data_obs = load_dataset(fname_obs)
+    fnames_obs = parsed_args['data']
+    data_obs = load_dataset(fnames_obs)
 
     # signal MC
-    fname_mc_sig = parsed_args['signal']
-    data_mc_sig = load_dataset(fname_mc_sig)
+    fnames_mc_sig = parsed_args['signal']
+    data_mc_sig = load_dataset(fnames_mc_sig)
 
     # background MC
-    fname_mc_bkg = parsed_args['background']
-    data_mc_bkg = load_dataset(fname_mc_bkg) if fname_mc_bkg is not None else None
+    fnames_mc_bkg = parsed_args['background']
+    data_mc_bkg = load_dataset(fnames_mc_bkg) if fnames_mc_bkg is not None else None
+
     t_data_finish = time.time()
     logger.info("Loading dataset took {:.2f} seconds".format(t_data_finish-t_data_start))
 
@@ -66,6 +55,12 @@ def unfold(**parsed_args):
     # weight name
     wname = parsed_args['weight']
     wname_mc = parsed_args['weight_mc']
+
+    if parsed_args['plot_correlations']:
+        logger.info("Plot training variable correlations")
+        plot_correlations(data_obs, vars_det, os.path.join(parsed_args['outputdir'],'correlations_det_obs.pdf'))
+        plot_correlations(data_mc_sig, vars_det, os.path.join(parsed_args['outputdir'],'correlations_det_sig.pdf'))
+        plot_correlations(data_mc_sig, vars_mc, os.path.join(parsed_args['outputdir'],'correlations_gen_sig.pdf'))
 
     #####################
     # Start unfolding
@@ -92,23 +87,6 @@ def unfold(**parsed_args):
         logger.info("Reading weights from file {}".format(parsed_args['unfolded_weights']))
         unfolder.set_weights_from_file(parsed_args['unfolded_weights'])
     else:
-        # Models
-        # FIXME
-
-        # step 1 model and arguments
-        model_det = ef.archs.DNN
-        args_det = {'input_dim': len(vars_det), 'dense_sizes': [100, 100, 100],
-                    'patience': 10, 'filepath': 'model_step1_{}',
-                    'save_weights_only': False,
-                    'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
-
-        # step 2 model and arguments
-        model_sim = ef.archs.DNN
-        args_sim = {'input_dim': len(vars_mc), 'dense_sizes': [100, 100, 100],
-                    'patience': 10, 'filepath': 'model_step2_{}',
-                    'save_weights_only': False,
-                    'modelcheck_opts': {'save_best_only': True, 'verbose':1}}
-
         # training parameters
         fitargs = {'batch_size': 500, 'epochs': 100, 'verbose': 1}
 
@@ -116,7 +94,7 @@ def unfold(**parsed_args):
         # Unfold
         logger.info("Start unfolding")
         t_unfold_start = time.time()
-        unfolder.unfold((model_det, args_det), (model_sim, args_sim), fitargs, val=0.2)
+        unfolder.unfold(fitargs, val=0.2)
         t_unfold_finish = time.time()
         logger.info("Done!")
         logger.info("Unfolding took {:.2f} seconds".format(t_unfold_finish-t_unfold_start))
@@ -135,7 +113,9 @@ def unfold(**parsed_args):
     logger.info("Current memory usage is {:.1f} MB; Peak was {:.1f} MB".format(mcurrent * 10**-6, mpeak * 10**-6))
 
     # Plot training log
+    logger.info("Plot training history")
     for csvfile in glob.glob(os.path.join(parsed_args['outputdir'], '*.csv')):
+        logger.info("  Plot csv log {}".format(csvfile))
         plot_fit_log(csvfile)
 
     tracemalloc.stop()
@@ -153,15 +133,15 @@ if __name__ == "__main__":
                         nargs='+', choices=observable_dict.keys(),
                         default=observable_dict.keys(),
                         help="List of observables to unfold")
-    parser.add_argument('-d', '--data', required=True,
+    parser.add_argument('-d', '--data', required=True, nargs='+',
                         type=str,
-                        help="Observed data npz file name")
-    parser.add_argument('-s', '--signal', required=True,
+                        help="Observed data npz file names")
+    parser.add_argument('-s', '--signal', required=True, nargs='+',
                         type=str,
-                        help="Signal MC npz file name")
-    parser.add_argument('-b', '--background',
+                        help="Signal MC npz file names")
+    parser.add_argument('-b', '--background', nargs='+',
                         type=str,
-                        help="Background MC npz file name")
+                        help="Background MC npz file names")
     parser.add_argument('-o', '--outputdir',
                         default='./output',
                         help="Directory for storing outputs")
@@ -171,6 +151,9 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--normalize',
                         action='store_true',
                         help="Normalize the distributions when plotting the result")
+    parser.add_argument('-c', '--plot-correlations', dest='plot_correlations',
+                        action='store_true',
+                        help="Plot pairwise correlations of training variables")
     parser.add_argument('-i', '--iterations', type=int, default=5,
                         help="Numbers of iterations for unfolding")
     parser.add_argument('--weight', default='w',
@@ -184,7 +167,7 @@ if __name__ == "__main__":
                         action='count', default=0,
                         help="Verbosity level")
     parser.add_argument('-g', '--gpu',
-                        type=int, choices=[0, 1], default=1,
+                        type=int, choices=[0, 1], default=0,
                         help="Manually select one of the GPUs to run")
     parser.add_argument('--unfolded-weights', dest='unfolded_weights',
                         default='', type=str,
@@ -209,6 +192,10 @@ if __name__ == "__main__":
 
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu,True)
+
+    if not os.path.isdir(args.outputdir):
+        logger.info("Create output directory {}".format(args.outputdir))
+        os.makedirs(args.outputdir)
 
     with tf.device('/GPU:{}'.format(args.gpu)):
         unfold(**vars(args))

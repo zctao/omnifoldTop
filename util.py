@@ -1,9 +1,24 @@
-#!/usr/bin/env python3
-
 import numpy as np
-import pandas as pd
 import logging
-import matplotlib.pyplot as plt
+
+def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes'):
+    """
+    Load and return a structured numpy array from a list of npz files
+    """
+    data = None
+    for fname in file_names:
+        npzfile = np.load(fname, allow_pickle=allow_pickle, encoding=encoding)
+        di = npzfile[array_name]
+        if len(di)==0:
+            raise RuntimeError('There is no events in input file {}'.format(fname))
+
+        if data is None:
+            data = di
+        else:
+            data  = np.concatenate([data, di])
+        npzfile.close()
+
+    return data
 
 def get_fourvector_array(pt_arr, eta_arr, phi_arr, e_arr, padding=True):
     """
@@ -185,18 +200,3 @@ def triangular_discr(histogram_1, histogram_2):
         delta += ((p-q)**2)/(p+q)*0.5
 
     return delta * 1000
-
-def plot_fit_log(csv_file, plot_name=None):
-    df = pd.read_csv(csv_file)
-
-    plt.figure()
-    plt.plot(df['epoch'], df['loss']*1000, label='loss')
-    plt.plot(df['epoch'], df['val_loss']*1000, label='val loss')
-    plt.legend(loc='best')
-    plt.ylabel('loss ($%s$)'%('\\times 10^{-3}'))
-    plt.xlabel('Epochs')
-    if plot_name is None:
-        plot_name = csv_file.replace('.csv', '_loss.pdf')
-    plt.savefig(plot_name)
-    plt.clf()
-    plt.close()

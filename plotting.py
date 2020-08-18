@@ -1,5 +1,9 @@
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
 import numpy as np
+import pandas as pd
 import external.OmniFold.modplot as modplot
 
 # plotting styles
@@ -116,4 +120,65 @@ def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim
 
     # save plot
     fig.savefig(figname, bbox_inches='tight')
-    plt.show()
+
+    plt.close(fig)
+
+def plot_histogram2d(figname, h2d, xedges, yedges, variable):
+    fig, ax = plt.subplots()
+    ax.set_title('Detector Response')
+    ax.set_xlabel('Detector-level {}'.format(variable))
+    ax.set_ylabel('Truth-level {}'.format(variable))
+    X, Y = np.meshgrid(xedges, yedges)
+    im = ax.pcolormesh(X, Y, h2d.T*100, cmap='Greens')
+    fig.colorbar(im, ax=ax, label="%")
+
+    # label bin content
+    xcenter =(xedges[:-1]+xedges[1:])/2
+    ycenter = (yedges[:-1]+yedges[1:])/2
+    for i, xc in enumerate(xcenter):
+        for j, yc in enumerate(ycenter):
+            bin_content = round(h2d[i, j]*100)
+            if bin_content != 0:
+                ax.text(xc, yc, str(int(bin_content)), ha='center', va='center', fontsize=3)
+
+    fig.savefig(figname)
+    plt.close(fig)
+
+def plot_fit_log(csv_file, plot_name=None):
+    df = pd.read_csv(csv_file)
+
+    plt.figure()
+    plt.plot(df['epoch'], df['loss']*1000, label='loss')
+    plt.plot(df['epoch'], df['val_loss']*1000, label='val loss')
+    plt.legend(loc='best')
+    plt.ylabel('loss ($%s$)'%('\\times 10^{-3}'))
+    plt.xlabel('Epochs')
+    if plot_name is None:
+        plot_name = csv_file.replace('.csv', '_loss.pdf')
+    plt.savefig(plot_name)
+    plt.clf()
+    plt.close()
+
+def plot_correlations(data, variables, figname):
+    df = pd.DataFrame(data, columns=variables)
+    correlations = df.corr()
+
+    fig, ax = plt.subplots()
+    im = ax.imshow(correlations, vmin=-1, vmax=1, cmap='coolwarm')
+    fig.colorbar(im, ax=ax)
+    ax.tick_params(axis='both', labelsize='small')
+    ax.tick_params(axis='x', top=True, labeltop=True, bottom=False, labelbottom=False, labelrotation=30)
+    ticks = np.arange(0, len(variables), 1)
+    ax.set_xticks(ticks)
+    ax.set_yticks(ticks)
+    ax.set_xticklabels(variables)
+    ax.set_yticklabels(variables)
+
+    fig.savefig(figname)
+
+    #plt.figure()
+    #pd.plotting.scatter_matrix(df, alpha=0.5)
+    #plt.savefig(figname)
+    #plt.close()
+
+    plt.close(fig)

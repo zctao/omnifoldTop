@@ -59,4 +59,4 @@ def ibu(hist_obs, datasim, datagen, bins_det, bins_gen, winit, it, density=False
     # uncertainty
     hist_ibu_unc = ibu_unc(hist_obs, hist_prior, hist_prior_unc, r, binwidth_det, binwidth_gen, it, nresample)
 
-    return hist_ibu, hist_ibu_unc
+    return hist_ibu, hist_ibu_unc, r

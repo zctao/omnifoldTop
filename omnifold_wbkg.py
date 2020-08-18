@@ -1,19 +1,19 @@
+import os
+
 import numpy as np
 import tensorflow as tf
-
-import matplotlib
-matplotlib.use('Agg')
 
 # The original omnifold
 import external.OmniFold.omnifold as omnifold
 import external.OmniFold.modplot as modplot
 
-from util import read_dataset, prepare_data_multifold, set_up_bins, getLogger
+from util import read_dataset, prepare_data_multifold, getLogger
 from util import DataShufflerDet, DataShufflerGen
 from util import triangular_discr
 from ibu import ibu
+from model import get_callbacks, get_model
 
-from plotting import plot_results
+from plotting import plot_results, plot_histogram2d
 
 logger = getLogger('OmniFoldwBkg')
 
@@ -57,48 +57,61 @@ class OmniFoldwBkg(object):
         if self.wbkg is not None:
             self.wbkg *= ndata/nsim
 
-    def _set_up_model_i(self, i, model_config, model_filepath=None):
-        """ Set up the model for the ith iteration of reweighting
-        Args:
-            i: int for iteration
-            model_config: a ntuple with two elements. model_config[0] is the architecture of model, model_config[1] is a dictionary for the model's arguments
-            model_filepath: str, file path to save the trained model
-        Return:
-            model: classifier object
+    def _set_up_model_det_i(self, i, model_filepath=None):
+        """ Set up the model for the i-th iteration of detector-level reweighting
         """
-        # set file path
-        if model_filepath is not None:
-            model_config[1]['filepath'] = model_filepath.format(i) + '_Epoch-{epoch}'
+        # input dimension
+        input_shape = self.X_det.shape[1:]
 
-        # define model
-        model = model_config[0](**model_config[1])
+        # get model
+        model = get_model(input_shape)
 
-        # load model from previous iteration if not the first one
+        # callbacks
+        callbacks = get_callbacks(model_filepath.format(i))
+
+        # load weights from the previous iteration if not the first one
         if i > 0 and model_filepath is not None:
             model.load_weights(model_filepath.format(i-1))
-    
-        return model
 
-    def _set_up_model_det_i(self, i, model_config, model_filepath=None):
-        return self._set_up_model_i(i, model_config, model_filepath)
+        return model, callbacks
 
-    def _set_up_model_sim_i(self, i, model_config, model_filepath=None):
-        return self._set_up_model_i(i, model_config, model_filepath)
+    def _set_up_model_sim_i(self, i, model_filepath=None):
+        """ Set up the model for the i-th iteration of simulation reweighting
+        """
+        # input dimension
+        input_shape = self.X_gen.shape[1:]
 
-    def _reweight_step1(self, X, Y, w, model, filepath, fitargs, val_data=None):
+        # get model
+        model = get_model(input_shape)
+
         # callbacks
-        CSVLogger = tf.keras.callbacks.CSVLogger(filepath+'_log.csv', append=False)
-        fitargs.update({'callbacks': [CSVLogger]})
+        callbacks = get_callbacks(model_filepath.format(i))
+
+        # load weights from the previous iteration if not the first one
+        if i > 0 and model_filepath is not None:
+            model.load_weights(model_filepath.format(i-1))
+
+        return model, callbacks
+
+    def _reweight_step1(self, X, Y, w, model, filepath, fitargs, callbacks=[],
+                        val_data=None):
+        # add callbacks to fit arguments if provided
+        fitargs_step1 = dict(fitargs)
+        if callbacks:
+            fitargs_step1.setdefault('callbacks',[]).extend(callbacks)
 
         # the original one
-        return omnifold.reweight(X, Y, w, model, filepath, fitargs, val_data=val_data)
+        return omnifold.reweight(X, Y, w, model, filepath, fitargs_step1, val_data=val_data)
 
-    def _reweight_step2(self, X, Y, w, model, filepath, fitargs, val_data=None):
-        CSVLogger = tf.keras.callbacks.CSVLogger(filepath+'_log.csv', append=False)
-        fitargs.update({'callbacks': [CSVLogger]})
+    def _reweight_step2(self, X, Y, w, model, filepath, fitargs, callbacks=[],
+                        val_data=None):
+        # add callbacks to fit arguments if provided
+        fitargs_step2 = dict(fitargs)
+        if callbacks:
+            fitargs_step2.setdefault('callbacks',[]).extend(callbacks)
 
         # the original one
-        return omnifold.reweight(X, Y, w, model, filepath, fitargs, val_data=val_data)
+        return omnifold.reweight(X, Y, w, model, filepath, fitargs_step2, val_data=val_data)
 
     def _push_weights(self, weights_t):
         # push truth-level weights to detector level
@@ -173,7 +186,7 @@ class OmniFoldwBkg(object):
         logger.info("Feature array X_gen size: {:.3f} MB".format(self.X_gen.nbytes*10**-6))
         logger.info("Label array Y_gen size: {:.3f} MB".format(self.Y_gen.nbytes*10**-6))
     
-    def unfold(self, det_model, sim_model, fitargs, val=0.2):
+    def unfold(self, fitargs, val=0.2):
         # initialize the truth weights to the prior
         ws_t = [self.winit]
         ws_m = []
@@ -190,19 +203,15 @@ class OmniFoldwBkg(object):
         Y_gen_train, Y_gen_val = splitter_gen.shuffle_and_split(self.Y_gen)
 
         # model filepath
-        model_det_fp = det_model[1].get('filepath', None)
-        if model_det_fp is not None:
-            model_det_fp = self.outdir + model_det_fp
-        model_sim_fp = sim_model[1].get('filepath', None)
-        if model_sim_fp is not None:
-            model_sim_fp = self.outdir + model_sim_fp
+        model_det_fp = os.path.join(self.outdir, 'model_step1_{}')
+        model_sim_fp = os.path.join(self.outdir, 'model_step2_{}')
 
         # start iterations
         for i in range(self.iterations):
 
             # set up models for this iteration
-            model_det = self._set_up_model_det_i(i, det_model, model_det_fp)
-            model_sim = self._set_up_model_sim_i(i, sim_model, model_sim_fp)
+            model_det, cb_det = self._set_up_model_det_i(i, model_det_fp)
+            model_sim, cb_sim = self._set_up_model_sim_i(i, model_sim_fp)
 
             # step 1: reweight sim to look like data
             # push the latest truth-level weights to the detector level
@@ -214,7 +223,8 @@ class OmniFoldwBkg(object):
 
             w_train, w_val = splitter_det.shuffle_and_split(w)
 
-            rw = self._reweight_step1(X_det_train, Y_det_train, w_train, model_det, model_det_fp.format(i), fitargs, val_data=(X_det_val, Y_det_val, w_val))
+            rw = self._reweight_step1(X_det_train, Y_det_train, w_train, model_det, model_det_fp.format(i), fitargs, cb_det, val_data=(X_det_val, Y_det_val, w_val))
+
             wnew = splitter_det.unshuffle(rw)
             if self.wbkg is not None:
                 wnew = wnew[len(self.wdata):-len(self.wbkg)]
@@ -228,7 +238,8 @@ class OmniFoldwBkg(object):
             w = np.concatenate((wt_pull_i, ws_t[-1]))
             w_train, w_val = splitter_gen.shuffle_and_split(w)
 
-            rw = self._reweight_step2(X_gen_train, Y_gen_train, w_train, model_sim, model_sim_fp.format(i), fitargs, val_data=(X_gen_val, Y_gen_val, w_val))
+            rw = self._reweight_step2(X_gen_train, Y_gen_train, w_train, model_sim, model_sim_fp.format(i), fitargs, cb_sim, val_data=(X_gen_val, Y_gen_val, w_val))
+
             wnew = splitter_gen.unshuffle(rw)[len(ws_t[-1]):]
             ws_t.append(wnew)
 
@@ -296,7 +307,12 @@ class OmniFoldwBkg(object):
 
             # unfolded distributions
             # iterative Bayesian unfolding
-            hist_ibu, hist_ibu_unc = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations, density=normalize)
+            hist_ibu, hist_ibu_unc, response = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations, density=normalize)
+
+            # plot response matrix
+            rname = os.path.join(self.outdir, 'Response_{}.pdf'.format(varname))
+            logger.info("  Plot detector response: {}".format(rname))
+            plot_histogram2d(rname, response, bins_det, bins_mc, varname)
 
             # omnifold
             hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=normalize)[:2]
