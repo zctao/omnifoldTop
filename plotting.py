@@ -215,7 +215,7 @@ def plot_histogram2d(figname, h2d, xedges, yedges, variable):
     fig.savefig(figname)
     plt.close(fig)
 
-def plot_fit_log(csv_file, plot_name=None):
+def plot_train_log(csv_file, plot_name=None):
     df = pd.read_csv(csv_file)
 
     plt.figure()

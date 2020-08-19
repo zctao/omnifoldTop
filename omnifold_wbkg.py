@@ -201,8 +201,13 @@ class OmniFoldwBkg(object):
         Y_gen_train, Y_gen_val = splitter_gen.shuffle_and_split(self.Y_gen)
 
         # model filepath
-        model_det_fp = os.path.join(self.outdir, 'model_step1_{}')
-        model_sim_fp = os.path.join(self.outdir, 'model_step2_{}')
+        model_dir = os.path.join(self.outdir, 'Models')
+        if not os.path.isdir(model_dir):
+            logger.info("Create directory {}".format(model_dir))
+            os.makedirs(model_dir)
+
+        model_det_fp = os.path.join(model_dir, 'model_step1_{}')
+        model_sim_fp = os.path.join(model_dir, 'model_step2_{}')
 
         # start iterations
         for i in range(self.iterations):

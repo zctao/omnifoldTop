@@ -7,7 +7,7 @@ from packaging import version
 import tensorflow as tf
 
 from util import load_dataset, getLogger
-from plotting import plot_fit_log, plot_correlations
+from plotting import plot_train_log, plot_correlations
 logger = getLogger('Unfold')
 
 from omnifold_wbkg import OmniFoldwBkg
@@ -114,9 +114,9 @@ def unfold(**parsed_args):
 
     # Plot training log
     logger.info("Plot training history")
-    for csvfile in glob.glob(os.path.join(parsed_args['outputdir'], '*.csv')):
-        logger.info("  Plot csv log {}".format(csvfile))
-        plot_fit_log(csvfile)
+    for csvfile in glob.glob(os.path.join(parsed_args['outputdir'], 'Models', '*.csv')):
+        logger.info("  Plot training log {}".format(csvfile))
+        plot_train_log(csvfile)
 
     tracemalloc.stop()
 
