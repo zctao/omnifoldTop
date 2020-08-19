@@ -282,20 +282,17 @@ class OmniFoldwBkg(object):
             bins_mc = np.linspace(config['xlim'][0], config['xlim'][1], config['nbins_mc']+1)
 
             # observed distributions
-            hist_obs, hist_obs_unc = modplot.calc_hist(dataobs, weights=self.wdata, bins=bins_det, density=normalize)[:2]
+            hist_obs, hist_obs_unc = modplot.calc_hist(dataobs, weights=self.wdata, bins=bins_det, density=False)[:2]
 
             # signal simulation
-            hist_sim, hist_sim_unc = modplot.calc_hist(sim_sig, weights=self.wsig, bins=bins_det, density=normalize)[:2]
+            hist_sim, hist_sim_unc = modplot.calc_hist(sim_sig, weights=self.wsig, bins=bins_det, density=False)[:2]
 
             # background simulation
             hist_simbkg, hist_simbkg_unc = None, None
             if sim_bkg is not None:
                 # negate background weights if it has been negated earlier
                 wbkg = self.wbkg if self.wbkg.sum() > 0 else -self.wbkg
-                hist_simbkg, hist_simbkg_unc = modplot.calc_hist(sim_bkg, weights=self.wbkg, bins=bins_det, density=normalize)[:2]
-                # subtract background contribution from the observed data
-                #hist_obs -= hist_simbkg
-                # TODO: uncertainties?
+                hist_simbkg, hist_simbkg_unc = modplot.calc_hist(sim_bkg, weights=self.wbkg, bins=bins_det, density=False)[:2]
 
             # plot detector-level variable distributions
             figname_vardet = os.path.join(self.outdir, 'Reco_{}.pdf'.format(varname))
@@ -303,7 +300,8 @@ class OmniFoldwBkg(object):
             plot_reco_variable(bins_det,
                                (hist_obs,hist_obs_unc), (hist_sim,hist_sim_unc),
                                (hist_simbkg, hist_simbkg_unc),
-                               figname=figname_vardet, **config)
+                               figname=figname_vardet, log_scale = True,
+                               **config)
 
             # generated distribution (prior)
             hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=normalize)[:2]

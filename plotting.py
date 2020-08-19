@@ -46,7 +46,6 @@ def plot_ratios(ax, bins, hist_truth, hists_unfolded, colors, hist_truth_unc=Non
 
         ax.errorbar(midbins, ratio, xerr=binwidth/2, yerr=ratio_unc, color=colors[i], **modplot.style('errorbar'))
 
-
 def plot_legend(ax, **config):
     loc = config.get('legend_loc', 'best')
     ncol = config.get('legend_ncol', 2)
@@ -93,25 +92,34 @@ def plot_hist_fill(ax, bin_edges, hist, hist_unc=None, **styles):
 
 def plot_reco_variable(bins, histogram_obs, histogram_sig,
                         histogram_bkg=(None,None),
-                        figname='var_reco.pdf', **config):
+                        figname='var_reco.pdf', log_scale = False, **config):
     """
     Plot detector-level variable distributions
     """
-    # use the plotting tools from the original omnifold package
-    fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Data \/\nMC', **config)
-    ax0 = axes[0]
-    ax1 = axes[1]
-    if config.get('yscale') is not None:
-        ax0.set_yscale(config['yscale'])
-
     hist_obs, hist_obs_unc = histogram_obs
     hist_sig, hist_sig_unc = histogram_sig
     hist_bkg, hist_bkg_unc = histogram_bkg
 
+    # use the plotting tools from the original omnifold package
+    fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Data \/\nMC', **config)
+    ax0 = axes[0]
+    ax1 = axes[1]
+
+    # yscale
+    if log_scale:
+        ax0.set_yscale('log')
+    elif config.get('yscale') is not None:
+        ax0.set_yscale(config['yscale'])
+
+    # y limits
     ymax = max(hist_obs.max(), hist_sig.max())
     if hist_bkg is not None:
         ymax = max(hist_bkg.max(), ymax)
-    ax0.set_ylim(0, ymax*1.2)
+
+    ymin = 1e-4 if log_scale else 0
+    ymax = ymax*10 if log_scale else ymax*1.2
+
+    ax0.set_ylim(ymin, ymax*1.2)
 
     hists_stack = [hist_sig]
     labels = [sim_style['label']]
