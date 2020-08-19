@@ -22,29 +22,35 @@ ibu_style = {'ls': '-', 'marker': 'o', 'ms': 2.5, 'color': 'gray', 'zorder': 1, 
 omnifold_style = {'ls': '-', 'marker': 's', 'ms': 2.5, 'color': 'tab:red', 'zorder': 3, 'label':'MultiFold'}
 
 
-def plot_ratios(ax, bins, hist_truth, hists_unfolded, colors, hist_truth_unc=None, hists_unfolded_unc=None):
+def plot_ratios(ax, bins, hist_denom, hists_numer, hist_denom_unc=None, hists_numer_unc=None, color_denom_line='tomato', color_denom_fill='silver', colors_numer=None):
     midbins = (bins[:-1] + bins[1:]) / 2
     binwidth = bins[1] - bins[0]
 
     # horizontal line at y=1
-    ax.plot([np.min(midbins), np.max(midbins)], [1, 1], '-', color=truth_style['edgecolor'], lw=0.75)
-    
-    if hist_truth_unc is not None:
-        truth_unc_ratio = np.divide(hist_truth_unc, hist_truth, out=np.zeros_like(hist_truth), where=(hist_truth!=0))
-        ax.fill_between(midbins, 1-truth_unc_ratio, 1+truth_unc_ratio, facecolor=truth_style['facecolor'], zorder=-2)
-        
-    for i, hist_uf in enumerate(hists_unfolded):
-        if hist_uf is None:
+    ax.plot([np.min(midbins), np.max(midbins)], [1, 1], '-', color=color_denom_line, lw=0.75)
+
+    if hist_denom_unc is not None:
+        denom_unc_ratio = np.divide(hist_denom_unc, hist_denom, out=np.zeros_like(hist_denom), where=(hist_denom!=0))
+        ax.fill_between(midbins, 1-denom_unc_ratio, 1+denom_unc_ratio, facecolor=color_denom_fill, zorder=-2)
+
+    if colors_numer is not None:
+        assert(len(colors_numer)==len(hists_numer))
+    else:
+        colors_numer = plt.rcParams['axes.prop_cycle'].by_key()['color'][:len(hists_numer)]
+
+    for i, hist_num in enumerate(hists_numer):
+        if hist_num is None:
             continue
         ymin, ymax = ax.get_ylim()
-        ratio = np.divide(hist_uf, hist_truth, out=np.ones_like(hist_truth)*ymin, where=(hist_truth!=0))
+        ratio = np.divide(hist_num, hist_denom, out=np.ones_like(hist_denom)*ymin, where=(hist_denom!=0))
 
         ratio_unc = None
-        if hists_unfolded_unc is not None:
-            if hists_unfolded_unc[i] is not None:
-                ratio_unc = np.divide(hists_unfolded_unc[i], hist_truth, out=np.zeros_like(hist_truth), where=(hist_truth!=0))
+        if hists_numer_unc is not None:
+            assert(len(hists_numer_unc)==len(hists_numer))
+            if hists_numer_unc[i] is not None:
+                ratio_unc = np.divide(hists_numer_unc[i], hist_denom, out=np.zeros_like(hist_denom), where=(hist_denom!=0))
 
-        ax.errorbar(midbins, ratio, xerr=binwidth/2, yerr=ratio_unc, color=colors[i], **modplot.style('errorbar'))
+        ax.errorbar(midbins, ratio, xerr=binwidth/2, yerr=ratio_unc, color=colors_numer[i], **modplot.style('errorbar'))
 
 def plot_legend(ax, **config):
     loc = config.get('legend_loc', 'best')
@@ -135,7 +141,7 @@ def plot_reco_variable(bins, histogram_obs, histogram_sig,
     # data/mc ratio
     hist_mc = hist_sig if hist_bkg is None else hist_sig + hist_bkg
     hist_mc_unc = hist_sig_unc if hist_bkg_unc is None else np.sqrt(hist_sig_unc**2 + hist_bkg_unc**2)
-    plot_ratios(ax1, bins, hist_mc, [hist_obs], [data_style['color']], hist_mc_unc, [hist_obs_unc])
+    plot_ratios(ax1, bins, hist_mc, [hist_obs], hist_mc_unc, [hist_obs_unc], colors_numer=[data_style['color']])
 
     # legend
     plot_legend(ax0, **config)
@@ -189,9 +195,10 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
 
     if ax1:
         #  ratios of the unfolded distributions to truth
-        plot_ratios(ax1, bins_gen, hist_truth, [hist_ibu,hist_of],
-                    [ibu_style['color'], omnifold_style['color']],
-                    hist_truth_unc, [hist_ibu_unc, hist_of_unc])
+        plot_ratios(ax1, bins_gen, hist_truth, [hist_ibu, hist_of],
+                    hist_truth_unc, [hist_ibu_unc, hist_of_unc],
+                    truth_style['edgecolor'], truth_style['facecolor'],
+                    [ibu_style['color'], omnifold_style['color']])
 
     plot_legend(ax0, **config)
 
