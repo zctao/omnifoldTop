@@ -13,7 +13,7 @@ from util import triangular_discr
 from ibu import ibu
 from model import get_callbacks, get_model
 
-from plotting import plot_results, plot_histogram2d
+from plotting import plot_results, plot_reco_variable, plot_histogram2d
 
 logger = getLogger('OmniFoldwBkg')
 
@@ -158,8 +158,6 @@ class OmniFoldwBkg(object):
         logger.info("Feature array X_det size: {:.3f} MB".format(self.X_det.nbytes*2**-20))
         logger.info("Label array Y_det size: {:.3f} MB".format(self.Y_det.nbytes*2**-20))
 
-        # TODO: plot?
-        
     def preprocess_gen(self, dataset_sig, standardize=True):
         """
         Args:
@@ -185,7 +183,7 @@ class OmniFoldwBkg(object):
 
         logger.info("Feature array X_gen size: {:.3f} MB".format(self.X_gen.nbytes*10**-6))
         logger.info("Label array Y_gen size: {:.3f} MB".format(self.Y_gen.nbytes*10**-6))
-    
+
     def unfold(self, fitargs, val=0.2):
         # initialize the truth weights to the prior
         ws_t = [self.winit]
@@ -285,13 +283,22 @@ class OmniFoldwBkg(object):
             hist_sim, hist_sim_unc = modplot.calc_hist(sim_sig, weights=self.wsig, bins=bins_det, density=normalize)[:2]
 
             # background simulation
+            hist_simbkg, hist_simbkg_unc = None, None
             if sim_bkg is not None:
                 # negate background weights if it has been negated earlier
                 wbkg = self.wbkg if self.wbkg.sum() > 0 else -self.wbkg
                 hist_simbkg, hist_simbkg_unc = modplot.calc_hist(sim_bkg, weights=self.wbkg, bins=bins_det, density=normalize)[:2]
                 # subtract background contribution from the observed data
-                hist_obs -= hist_simbkg
+                #hist_obs -= hist_simbkg
                 # TODO: uncertainties?
+
+            # plot detector-level variable distributions
+            figname_vardet = os.path.join(self.outdir, 'Reco_{}.pdf'.format(varname))
+            logger.info("  Plot detector-level variable distribution: {}".format(figname_vardet))
+            plot_reco_variable(bins_det,
+                               (hist_obs,hist_obs_unc), (hist_sim,hist_sim_unc),
+                               (hist_simbkg, hist_simbkg_unc),
+                               figname=figname_vardet, **config)
 
             # generated distribution (prior)
             hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=normalize)[:2]
@@ -322,13 +329,12 @@ class OmniFoldwBkg(object):
                 d_of = triangular_discr(hist_of, hist_truth)
                 d_ibu = triangular_discr(hist_ibu, hist_truth)
                 d_gen = triangular_discr(hist_gen, hist_truth)
-                logger.info("  Triangular discriminator:   MultiFold = {:.3f}    IBU = {:.3f}    Prior = {:.3f}".format(d_of, d_ibu, d_gen))
+                logger.info("  Triangular discriminator:   OmniFold = {:.3f}    IBU = {:.3f}    Prior = {:.3f}".format(d_of, d_ibu, d_gen))
 
             # plot results
-            figname = self.outdir.rstrip('/')+'/MultiFold_{}.pdf'.format(varname)
-            logger.info("  Create unfolded distribution plot: {}".format(figname))
-            plot_results(varname, bins_det, bins_mc,
-                         (hist_obs,hist_obs_unc), (hist_sim,hist_sim_unc),
+            figname = os.path.join(self.outdir, 'Unfold_{}.pdf'.format(varname))
+            logger.info("  Plot unfolded distribution: {}".format(figname))
+            plot_results(bins_mc,
                          (hist_gen,hist_gen_unc), (hist_of,hist_of_unc),
                          (hist_ibu,hist_ibu_unc), (hist_truth, hist_truth_unc),
                          figname=figname, **config)
@@ -428,7 +434,7 @@ class OmniFold_corR(OmniFoldwBkg):
 # use a multi-class classifier to approximate the likelihood ratio of signal events in data and signal mc
 
 # preprocess_data: standard w/ background mc
-# classifier: mutli-class
+# classifier: multi-class
 # reweight: new_weight = old_weight * (y_data - y_bkg) / y_sig
 # show result: standard
 

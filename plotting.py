@@ -9,6 +9,10 @@ import external.OmniFold.modplot as modplot
 # plotting styles
 hist_style = {'histtype': 'step', 'density': False, 'lw': 1, 'zorder': 2}
 
+data_style = {'color': 'black', 'label':  'Data', **hist_style}
+sim_style = {'color': 'orange', 'label':  'Sim.', **hist_style}
+bkg_style = {'color': 'cyan', 'label': 'Bkg.', **hist_style}
+
 gen_style = {'linestyle': '--', 'color': 'blue', 'lw': 1.15, 'label': 'Gen.'}
 
 truth_style = {'step': 'mid', 'edgecolor': 'green', 'facecolor': (0.75, 0.875, 0.75), 'lw': 1.25, 'zorder': 0, 'label': 'Truth'}
@@ -18,7 +22,10 @@ ibu_style = {'ls': '-', 'marker': 'o', 'ms': 2.5, 'color': 'gray', 'zorder': 1, 
 omnifold_style = {'ls': '-', 'marker': 's', 'ms': 2.5, 'color': 'tab:red', 'zorder': 3, 'label':'MultiFold'}
 
 
-def plot_ratios(ax, midbins, binwidth, hist_truth, hists_unfolded, colors, hist_truth_unc=None, hists_unfolded_unc=None):
+def plot_ratios(ax, bins, hist_truth, hists_unfolded, colors, hist_truth_unc=None, hists_unfolded_unc=None):
+    midbins = (bins[:-1] + bins[1:]) / 2
+    binwidth = bins[1] - bins[0]
+
     # horizontal line at y=1
     ax.plot([np.min(midbins), np.max(midbins)], [1, 1], '-', color=truth_style['edgecolor'], lw=0.75)
     
@@ -48,15 +55,92 @@ def plot_legend(ax, **config):
 
 #def plot_stamp(ax):
 
-def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim, histogram_gen, histogram_of, histogram_ibu=(None,None), histogram_truth=(None,None), figname='unfolded.pdf', **config):
-    """
-    TODO: add descriptions
-    """
-    midbins_det = (bins_det[:-1] + bins_det[1:])/2
-    midbins_gen = (bins_gen[:-1] + bins_gen[1:])/2
-    binwidth_det = bins_det[1] - bins_det[0]
-    binwidth_gen = bins_gen[1] - bins_gen[0]
+def plot_histogram(ax, bin_edges, hist, hist_unc=None, **styles):
+    midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
 
+    ax.hist(midbins, bin_edges, weights=hist, **styles)
+    # TODO: uncertainty hist_unc
+
+def plot_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
+                            colors=None):
+    midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    if colors is None:
+        colors = plt.rcParams['axes.prop_cycle'].by_key()['color'][:len(hists)]
+    assert(len(colors)==len(hists))
+
+    if labels is None:
+        labels = [str(i) for i in range(len(hists))]
+    assert(len(labels)==len(hists))
+
+    ax.hist(np.stack([midbins]*len(hists), axis=1), bin_edges,
+            weights=np.stack([h for h in hists], axis=1),
+            color=colors, label=labels,
+            stacked = True, histtype='step', fill=True)
+    # TODO: uncertainty
+
+def plot_hist_as_graph(ax, bin_edges, hist, hist_unc=None, **styles):
+    midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    ax.plot(midbins, hist, **styles)
+    # TODO: uncertainty hist_unc
+
+def plot_hist_fill(ax, bin_edges, hist, hist_unc=None, **styles):
+    midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    ax.fill_between(midbins, hist, **styles)
+    # TODO: uncertainty?
+
+def plot_reco_variable(bins, histogram_obs, histogram_sig,
+                        histogram_bkg=(None,None),
+                        figname='var_reco.pdf', **config):
+    """
+    Plot detector-level variable distributions
+    """
+    # use the plotting tools from the original omnifold package
+    fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Data \/\nMC', **config)
+    ax0 = axes[0]
+    ax1 = axes[1]
+    if config.get('yscale') is not None:
+        ax0.set_yscale(config['yscale'])
+
+    hist_obs, hist_obs_unc = histogram_obs
+    hist_sig, hist_sig_unc = histogram_sig
+    hist_bkg, hist_bkg_unc = histogram_bkg
+
+    ymax = max(hist_obs.max(), hist_sig.max())
+    if hist_bkg is not None:
+        ymax = max(hist_bkg.max(), ymax)
+    ax0.set_ylim(0, ymax*1.2)
+
+    hists_stack = [hist_sig]
+    labels = [sim_style['label']]
+    colors = [sim_style['color']]
+    if hist_bkg is not None:
+        hists_stack = [hist_bkg, hist_sig]
+        labels = [bkg_style['label'], sim_style['label']]
+        colors = [bkg_style['color'], sim_style['color']]
+
+    plot_stacked_histograms(ax0, bins, hists_stack, labels=labels, colors=colors)
+    plot_histogram(ax0, bins, hist_obs, **data_style)
+
+    # data/mc ratio
+    hist_mc = hist_sig if hist_bkg is None else hist_sig + hist_bkg
+    hist_mc_unc = hist_sig_unc if hist_bkg_unc is None else np.sqrt(hist_sig_unc**2 + hist_bkg_unc**2)
+    plot_ratios(ax1, bins, hist_mc, [hist_obs], [data_style['color']], hist_mc_unc, [hist_obs_unc])
+
+    # legend
+    plot_legend(ax0, **config)
+
+    # save plot
+    fig.savefig(figname, bbox_inches='tight')
+
+    plt.close(fig)
+
+def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None), histogram_truth=(None,None), figname='unfolded.pdf', **config):
+    """
+    Plot and compare the unfolded distributions
+    """
     ymax = 0.
 
     # use the plotting tools from the original omnifold package
@@ -68,49 +152,36 @@ def plot_results(variable_name, bins_det, bins_gen, histogram_obs, histogram_sim
     if config.get('yscale') is not None:
         ax0.set_yscale(config['yscale'])
 
-    # detector-level
-    hist_obs, hist_obs_unc = histogram_obs
-
-    ymax = hist_obs.max() if hist_obs.max() > ymax else ymax
-    ax0.hist(midbins_det, bins_det, weights=hist_obs, color='black', label='Data', **hist_style)
-
-    hist_sim, hist_sim_unc = histogram_sim
-
-    ymax = hist_sim.max() if hist_sim.max() > ymax else ymax
-    ax0.hist(midbins_det, bins_det, weights=hist_sim, color='orange', label='Sim.', **hist_style)
-
     # generator-level
     # signal prior
     hist_gen, hist_gen_unc = histogram_gen
-
-    ymax = hist_gen.max() if hist_gen.max() > ymax else ymax
-    ax0.plot(midbins_gen, hist_gen, **gen_style)
+    ymax = max(hist_gen.max(), ymax)
+    plot_hist_as_graph(ax0, bins_gen, hist_gen, **gen_style)
 
     # if truth is known
     hist_truth, hist_truth_unc = histogram_truth
     if hist_truth is not None:
-        ymax = hist_truth.max() if hist_truth.max() > ymax else ymax
-        ax0.fill_between(midbins_gen, hist_truth, **truth_style)
+        ymax = max(hist_truth.max(), ymax)
+        plot_hist_fill(ax0, bins_gen, hist_truth, **truth_style)
 
     # unfolded distributions
     # omnifold
     hist_of, hist_of_unc = histogram_of
-
-    ymax = hist_of.max() if hist_of.max() > ymax else ymax
-    ax0.plot(midbins_gen, hist_of, **omnifold_style)
+    ymax = max(hist_of.max(), ymax)
+    plot_hist_as_graph(ax0, bins_gen, hist_of, **omnifold_style)
 
     # iterative Bayesian unfolding
     hist_ibu, hist_ibu_unc = histogram_ibu
     if hist_ibu is not None:
-        ymax = hist_ibu.max() if hist_ibu.max() > ymax else ymax
-        ax0.plot(midbins_gen, hist_ibu, **ibu_style)
+        ymax = max(hist_ibu.max(), ymax)
+        plot_hist_as_graph(ax0, bins_gen, hist_ibu, **ibu_style)
 
     # update y-axis limit
     ax0.set_ylim((0, ymax*1.2))
 
     if ax1:
         #  ratios of the unfolded distributions to truth
-        plot_ratios(ax1, midbins_gen, binwidth_gen, hist_truth, [hist_ibu,hist_of],
+        plot_ratios(ax1, bins_gen, hist_truth, [hist_ibu,hist_of],
                     [ibu_style['color'], omnifold_style['color']],
                     hist_truth_unc, [hist_ibu_unc, hist_of_unc])
 
