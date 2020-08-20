@@ -128,6 +128,28 @@ def set_up_bins(xmin, xmax, nbins):
 
     return bins, midbins, binwidth
 
+def normalize_histogram(bin_edges, hist, hist_unc=None):
+    binwidths = bin_edges[1:] - bin_edges[:-1]
+    norm = np.dot(hist, binwidths)
+    hist /= norm
+    if hist_unc is not None:
+        hist_unc /= norm
+
+def normailize_stacked_histogrms(bin_edges, hists, hists_unc=None):
+    binwidths = bin_edges[1:] - bin_edges[:-1]
+    hstacked = np.asarray(hists).sum(axis=0)
+    norm = np.dot(hstacked, binwidths)
+
+    if hists_unc is None:
+        hists_unc = [None]*len(hists)
+    else:
+        assert(len(hists_unc)==len(hists))
+
+    for h, herr in zip(hists, hists_unc):
+        h /= norm
+        if herr is not None:
+            herr /= norm
+
 # Data shuffle and split for step 1 (detector-level) reweighting
 # Adapted based on https://github.com/ericmetodiev/OmniFold/blob/master/omnifold.py#L54-L59
 class DataShufflerDet(object):

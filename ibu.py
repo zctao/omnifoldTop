@@ -43,7 +43,7 @@ def ibu_unc(hist_obs, hist_prior, hist_prior_unc, response, wbin_det, wbin_gen, 
     # return the per-bin standard deviation as the uncertainty
     return np.std(np.asarray(rephis), axis=0)
 
-def ibu(hist_obs, datasim, datagen, bins_det, bins_gen, winit, it, density=False, nresample=25):
+def ibu(hist_obs, datasim, datagen, bins_det, bins_gen, winit, it, nresample=25):
     binwidth_det = bins_det[1]-bins_det[0]
     binwidth_gen = bins_gen[1]-bins_gen[0]
 
@@ -51,7 +51,7 @@ def ibu(hist_obs, datasim, datagen, bins_det, bins_gen, winit, it, density=False
     r = response_matrix(datasim, datagen, bins_det, bins_gen)
 
     # prior distribution
-    hist_prior, hist_prior_unc = modplot.calc_hist(datagen, weights=winit, bins=bins_gen, density=density)[:2]
+    hist_prior, hist_prior_unc = modplot.calc_hist(datagen, weights=winit, bins=bins_gen, density=False)[:2]
 
     # do ibu
     hist_ibu = ibu_core(hist_obs, hist_prior, r, binwidth_det, binwidth_gen, it)

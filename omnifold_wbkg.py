@@ -9,7 +9,7 @@ import external.OmniFold.modplot as modplot
 
 from util import read_dataset, prepare_data_multifold, getLogger
 from util import DataShufflerDet, DataShufflerGen
-from util import triangular_discr
+from util import normalize_histogram
 from ibu import ibu
 from model import get_callbacks, get_model
 
@@ -304,7 +304,7 @@ class OmniFoldwBkg(object):
                                **config)
 
             # generated distribution (prior)
-            hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=normalize)[:2]
+            hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=False)[:2]
 
             # truth distribution if known
             hist_truth, hist_truth_unc = None, None
@@ -313,11 +313,11 @@ class OmniFoldwBkg(object):
                 # rescale truth weights to wsig
                 rs = self.wsig.sum()/wtruth.sum()
                 wtruth *= rs
-                hist_truth, hist_truth_unc = modplot.calc_hist(truth, weights=wtruth, bins=bins_mc, density=normalize)[:2]
+                hist_truth, hist_truth_unc = modplot.calc_hist(truth, weights=wtruth, bins=bins_mc, density=False)[:2]
 
             # unfolded distributions
             # iterative Bayesian unfolding
-            hist_ibu, hist_ibu_unc, response = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations, density=normalize)
+            hist_ibu, hist_ibu_unc, response = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations)
 
             # plot response matrix
             rname = os.path.join(self.outdir, 'Response_{}.pdf'.format(varname))
@@ -325,7 +325,14 @@ class OmniFoldwBkg(object):
             plot_histogram2d(rname, response, bins_det, bins_mc, varname)
 
             # omnifold
-            hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=normalize)[:2]
+            hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=False)[:2]
+
+            # normalization if needed
+            if normalize:
+                normalize_histogram(bins_mc, hist_gen, hist_gen_unc)
+                normalize_histogram(bins_mc, hist_of, hist_of_unc)
+                normalize_histogram(bins_mc, hist_ibu, hist_ibu_unc)
+                normalize_histogram(bins_mc, hist_truth, hist_truth_unc)
 
             # compute the triangular discriminator
             if truth is not None:
