@@ -222,3 +222,13 @@ def triangular_discr(histogram_1, histogram_2):
         delta += ((p-q)**2)/(p+q)*0.5
 
     return delta * 1000
+
+def compute_triangular_discriminators(hist_ref, hists, labels):
+    assert(len(hists)==len(labels))
+    stamps = ["Triangular discriminator ($\\times 10^{-3}$):"]
+
+    for h, l in zip(hists, labels):
+        d = triangular_discr(h, hist_ref)
+        stamps.append("{} = {:.3f}".format(l, d))
+
+    return stamps

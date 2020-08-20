@@ -9,6 +9,7 @@ import external.OmniFold.modplot as modplot
 
 from util import read_dataset, prepare_data_multifold, getLogger
 from util import DataShufflerDet, DataShufflerGen
+from util import compute_triangular_discriminators
 from util import normalize_histogram
 from ibu import ibu
 from model import get_callbacks, get_model
@@ -335,19 +336,17 @@ class OmniFoldwBkg(object):
                 normalize_histogram(bins_mc, hist_truth, hist_truth_unc)
 
             # compute the triangular discriminator
+            text_td = []
             if truth is not None:
-                d_of = triangular_discr(hist_of, hist_truth)
-                d_ibu = triangular_discr(hist_ibu, hist_truth)
-                d_gen = triangular_discr(hist_gen, hist_truth)
-                logger.info("  Triangular discriminator:   OmniFold = {:.3f}    IBU = {:.3f}    Prior = {:.3f}".format(d_of, d_ibu, d_gen))
+                text_td = compute_triangular_discriminators(hist_truth, [hist_of, hist_ibu, hist_gen], labels=['OmniFold', 'IBU', 'Prior'])
+                logger.info("  "+"    ".join(text_td))
 
             # plot results
             figname = os.path.join(self.outdir, 'Unfold_{}.pdf'.format(varname))
             logger.info("  Plot unfolded distribution: {}".format(figname))
-            plot_results(bins_mc,
-                         (hist_gen,hist_gen_unc), (hist_of,hist_of_unc),
+            plot_results(bins_mc, (hist_gen,hist_gen_unc), (hist_of,hist_of_unc),
                          (hist_ibu,hist_ibu_unc), (hist_truth, hist_truth_unc),
-                         figname=figname, **config)
+                         figname=figname, texts=text_td, **config)
 
 ##############################################################################
 #############

@@ -58,7 +58,15 @@ def plot_legend(ax, **config):
     #order = [3, 4, 2, 5, 0, 1] if ncol==2 else [3, 5, 4, 0, 2, 1]
     modplot.legend(ax=ax, loc=loc, ncol=ncol, frameon=False, fontsize='x-small')
 
-#def plot_stamp(ax):
+def plot_stamp(ax, texts, x=0.5, y=0.5, dy=0.045):
+    textopts = {'horizontalalignment': 'left',
+                'verticalalignment': 'center',
+                'fontsize': 5.,
+                'transform': ax.transAxes}
+
+    for i, txt in enumerate(texts):
+        if txt is not None:
+            ax.text(x, y-i*dy, txt, **textopts)
 
 def plot_histogram(ax, bin_edges, hist, hist_unc=None, **styles):
     midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
@@ -151,7 +159,7 @@ def plot_reco_variable(bins, histogram_obs, histogram_sig,
 
     plt.close(fig)
 
-def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None), histogram_truth=(None,None), figname='unfolded.pdf', **config):
+def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None), histogram_truth=(None,None), figname='unfolded.pdf', texts=[], **config):
     """
     Plot and compare the unfolded distributions
     """
@@ -202,7 +210,7 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
 
     plot_legend(ax0, **config)
 
-    # plot_stamp(ax0)
+    plot_stamp(ax0, texts, config['stamp_xy'][0], config['stamp_xy'][1])
 
     # save plot
     fig.savefig(figname, bbox_inches='tight')
