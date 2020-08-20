@@ -128,6 +128,28 @@ def set_up_bins(xmin, xmax, nbins):
 
     return bins, midbins, binwidth
 
+def normalize_histogram(bin_edges, hist, hist_unc=None):
+    binwidths = bin_edges[1:] - bin_edges[:-1]
+    norm = np.dot(hist, binwidths)
+    hist /= norm
+    if hist_unc is not None:
+        hist_unc /= norm
+
+def normailize_stacked_histogrms(bin_edges, hists, hists_unc=None):
+    binwidths = bin_edges[1:] - bin_edges[:-1]
+    hstacked = np.asarray(hists).sum(axis=0)
+    norm = np.dot(hstacked, binwidths)
+
+    if hists_unc is None:
+        hists_unc = [None]*len(hists)
+    else:
+        assert(len(hists_unc)==len(hists))
+
+    for h, herr in zip(hists, hists_unc):
+        h /= norm
+        if herr is not None:
+            herr /= norm
+
 # Data shuffle and split for step 1 (detector-level) reweighting
 # Adapted based on https://github.com/ericmetodiev/OmniFold/blob/master/omnifold.py#L54-L59
 class DataShufflerDet(object):
@@ -200,3 +222,13 @@ def triangular_discr(histogram_1, histogram_2):
         delta += ((p-q)**2)/(p+q)*0.5
 
     return delta * 1000
+
+def compute_triangular_discriminators(hist_ref, hists, labels):
+    assert(len(hists)==len(labels))
+    stamps = ["Triangular discriminator ($\\times 10^{-3}$):"]
+
+    for h, l in zip(hists, labels):
+        d = triangular_discr(h, hist_ref)
+        stamps.append("{} = {:.3f}".format(l, d))
+
+    return stamps
