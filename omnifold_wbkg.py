@@ -234,6 +234,10 @@ class OmniFoldwBkg(object):
                 wnew = wnew[len(self.wdata):-len(self.wbkg)]
             else:
                 wnew = wnew[len(self.wdata):]
+
+            # rescale the new weights to the original one
+            wnew *= (self.wsig.sum()/wnew.sum())
+
             ws_m.append(wnew)
 
             # step 2: reweight the simulation prior to the learned weights
@@ -245,6 +249,10 @@ class OmniFoldwBkg(object):
             rw = self._reweight_step2(X_gen_train, Y_gen_train, w_train, model_sim, model_sim_fp.format(i), fitargs, cb_sim, val_data=(X_gen_val, Y_gen_val, w_val))
 
             wnew = splitter_gen.unshuffle(rw)[len(ws_t[-1]):]
+
+            # rescale the new weights to the original one
+            wnew *= (self.winit.sum()/wnew.sum())
+
             ws_t.append(wnew)
 
         # save the weights
