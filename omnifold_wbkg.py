@@ -10,7 +10,7 @@ import external.OmniFold.modplot as modplot
 from util import read_dataset, prepare_data_multifold, getLogger
 from util import DataShufflerDet, DataShufflerGen
 from util import compute_triangular_discriminators
-from util import normalize_histogram
+from util import normalize_histogram, add_histograms
 from ibu import ibu
 from model import get_callbacks, get_model
 
@@ -283,7 +283,7 @@ class OmniFoldwBkg(object):
             sim_sig = np.hstack(dataset_sig[config['branch_det']])
             gen_sig = np.hstack(dataset_sig[config['branch_mc']])
             sim_bkg = np.hstack(dataset_bkg[config['branch_det']]) if dataset_bkg is not None else None
-            #gen_bkg = np.hstack(dataset_sig[config['branch_mc']]) if dataset_bkg is not None else None
+            gen_bkg = np.hstack(dataset_bkg[config['branch_mc']]) if dataset_bkg is not None else None
 
             # histograms
             # set up bins
@@ -319,14 +319,21 @@ class OmniFoldwBkg(object):
             hist_truth, hist_truth_unc = None, None
             if truth is not None:
                 wtruth = np.hstack(dataset_obs[self.weight_mc_name])
-                # rescale truth weights to wsig
-                rs = self.wsig.sum()/wtruth.sum()
-                wtruth *= rs
                 hist_truth, hist_truth_unc = modplot.calc_hist(truth, weights=wtruth, bins=bins_mc, density=False)[:2]
+
+                # subtract background contribution if there is any
+                if gen_bkg is not None:
+                    wgenbkg = np.hstack(dataset_bkg[self.weight_mc_name])
+                    hist_genbkg, hist_genbkg_unc = modplot.calc_hist(gen_bkg, weights=wgenbkg, bins=bins_mc, density=False)[:2]
+                    hist_truth, hist_truth_unc = add_histograms(hist_truth, hist_genbkg, hist_truth_unc, hist_genbkg_unc, c1=1., c2=-1.)
 
             # unfolded distributions
             # iterative Bayesian unfolding
-            hist_ibu, hist_ibu_unc, response = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations)
+            # subtract background if needed
+            if hist_simbkg is not None:
+                hist_obs_wobkg, hist_obs_wobkg_unc = add_histograms(hist_obs, hist_simbkg, hist_obs_unc, hist_simbkg_unc, c1=1., c2=-1.)
+
+            hist_ibu, hist_ibu_unc, response = ibu(hist_obs_wobkg, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations)
 
             # plot response matrix
             rname = os.path.join(self.outdir, 'Response_{}.pdf'.format(varname))
