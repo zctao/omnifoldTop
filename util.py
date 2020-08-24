@@ -150,6 +150,26 @@ def normailize_stacked_histogrms(bin_edges, hists, hists_unc=None):
         if herr is not None:
             herr /= norm
 
+def add_histograms(h1, h2=None, h1_err=None, h2_err=None, c1=1., c2=1.):
+    hsum = c1*h1
+    if h2 is not None:
+        assert(len(h1)==len(h2))
+        hsum += c2*h2
+
+    sumw2 = np.zeros_like(h1)
+
+    if h1_err is not None:
+        assert(len(h1_err)==len(h1))
+        sumw2 += (c1*h1_err)**2
+
+    if h2_err is not None:
+        assert(len(h2_err)==len(h2))
+        sumw2 += (c2*h2_err)**2
+
+    hsum_err = np.sqrt(sumw2)
+
+    return hsum, hsum_err
+
 # Data shuffle and split for step 1 (detector-level) reweighting
 # Adapted based on https://github.com/ericmetodiev/OmniFold/blob/master/omnifold.py#L54-L59
 class DataShufflerDet(object):

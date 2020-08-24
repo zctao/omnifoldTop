@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import external.OmniFold.modplot as modplot
 
+from util import add_histograms
+
 # plotting styles
 hist_style = {'histtype': 'step', 'density': False, 'lw': 1, 'zorder': 2}
 
@@ -147,8 +149,7 @@ def plot_reco_variable(bins, histogram_obs, histogram_sig,
     plot_histogram(ax0, bins, hist_obs, **data_style)
 
     # data/mc ratio
-    hist_mc = hist_sig if hist_bkg is None else hist_sig + hist_bkg
-    hist_mc_unc = hist_sig_unc if hist_bkg_unc is None else np.sqrt(hist_sig_unc**2 + hist_bkg_unc**2)
+    hist_mc, hist_mc_unc = add_histograms(hist_sig, hist_bkg, hist_sig_unc, hist_bkg_unc)
     plot_ratios(ax1, bins, hist_mc, [hist_obs], hist_mc_unc, [hist_obs_unc], colors_numer=[data_style['color']])
 
     # legend
