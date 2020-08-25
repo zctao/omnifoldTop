@@ -14,7 +14,7 @@ from util import normalize_histogram, add_histograms
 from ibu import ibu
 from model import get_callbacks, get_model
 
-from plotting import plot_results, plot_reco_variable, plot_histogram2d
+from plotting import plot_results, plot_reco_variable, plot_correlations, plot_histogram2d
 
 logger = getLogger('OmniFoldwBkg')
 
@@ -46,17 +46,6 @@ class OmniFoldwBkg(object):
         self.ws_unfolded = None
         # output directory
         self.outdir = outdir.rstrip('/')+'/'
-
-    def _rescale_sample_weights(self):
-        ndata = self.wdata.sum()
-        nsim = self.wsig.sum()
-
-        if self.wbkg is not None:
-            nsim += self.wbkg.sum()
-
-        self.wsig *= ndata/nsim
-        if self.wbkg is not None:
-            self.wbkg *= ndata/nsim
 
     def _set_up_model_det_i(self, i, model_filepath=None):
         """ Set up the model for the i-th iteration of detector-level reweighting
@@ -126,8 +115,8 @@ class OmniFoldwBkg(object):
         #weights_t = weights_m * self.winit / self.wsig # There're events with zero weights?
         return weights_t
 
-    def preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True):
-        """
+    def _preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True):
+        """ Set self.X_det, self.Y_det, self.wdata, self.wsig, self.wbkg
         Args:
             dataset_obs, dataset_sig, dataset_bkg: structured numpy array whose field names are variables 
             standardize: bool, if true standardize feature array X
@@ -149,18 +138,8 @@ class OmniFoldwBkg(object):
         # make Y categorical
         self.Y_det = tf.keras.utils.to_categorical(self.Y_det)
 
-        # reweight the sim and data to have the same total weight
-        self._rescale_sample_weights()
-
-        logger.info("Total number of observed events: {}".format(len(self.wdata)))
-        logger.info("Total number of simulated signal events: {}".format(len(self.wsig)))
-        if self.wbkg is not None:
-            logger.info("Total number of simulated background events: {}".format(len(self.wbkg)))
-        logger.info("Feature array X_det size: {:.3f} MB".format(self.X_det.nbytes*2**-20))
-        logger.info("Label array Y_det size: {:.3f} MB".format(self.Y_det.nbytes*2**-20))
-
-    def preprocess_gen(self, dataset_sig, standardize=True):
-        """
+    def _preprocess_gen(self, dataset_sig, standardize=True):
+        """ Set self.X_gen, self.Y_gen, self.winit
         Args:
             dataset_sig: structured numpy array whose field names are variables 
             standardize: bool, if true standardize feature array X
@@ -178,12 +157,55 @@ class OmniFoldwBkg(object):
 
         # MC truth weight prior
         self.winit = np.hstack(dataset_sig[self.weight_mc_name])
-        # rescale the mc weights to simulation weights
-        rs = self.wsig.sum()/self.winit.sum()
-        self.winit *= rs
 
+    def _rescale_event_weights(self):
+        # Reco weights
+        # reweight simulation and data to have the same total weight
+        ndata = self.wdata.sum()
+        nsim = self.wsig.sum()
+
+        if self.wbkg is not None:
+            nsim += self.wbkg.sum()
+
+        self.wsig *= ndata/nsim
+        if self.wbkg is not None:
+            self.wbkg *= ndata/nsim
+
+        # MC weights
+        # rescale the mc weights to simulation weights
+        self.winit *= (self.wsig.sum()/self.winit.sum())
+
+    def prepare_inputs(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True, plot_corr=True):
+        """ Prepare input arrays for training
+        Args:
+            dataset_obs, dataset_sig, dataset_bkg: structured numpy array whose field names are variables
+            standardize: bool, if true standardize feature array X
+        """
+        # detector-level variables (for step 1 reweighting)
+        self._preprocess_det(dataset_obs, dataset_sig, dataset_bkg, standardize)
+        logger.info("Total number of observed events: {}".format(len(self.wdata)))
+        logger.info("Total number of simulated signal events: {}".format(len(self.wsig)))
+        if self.wbkg is not None:
+            logger.info("Total number of simulated background events: {}".format(len(self.wbkg)))
+        logger.info("Feature array X_det size: {:.3f} MB".format(self.X_det.nbytes*2**-20))
+        logger.info("Label array Y_det size: {:.3f} MB".format(self.Y_det.nbytes*2**-20))
+
+        # generator-level variables (for step 2 reweighting)
+        self._preprocess_gen(dataset_sig, standardize)
         logger.info("Feature array X_gen size: {:.3f} MB".format(self.X_gen.nbytes*10**-6))
         logger.info("Label array Y_gen size: {:.3f} MB".format(self.Y_gen.nbytes*10**-6))
+
+        # event weights
+        self._rescale_event_weights()
+
+        ######################
+        # plot input variables
+        # correlations
+        if plot_corr:
+            logger.info("Plot input variable correlations")
+            plot_correlations(dataset_obs, self.vars_det, os.path.join(self.outdir, 'correlations_det_obs.pdf'))
+            plot_correlations(dataset_sig, self.vars_det, os.path.join(self.outdir, 'correlations_det_sig.pdf'))
+            plot_correlations(dataset_sig, self.vars_gen, os.path.join(self.outdir, 'correlations_gen_sig.pdf'))
 
     def unfold(self, fitargs, val=0.2):
         # initialize the truth weights to the prior
@@ -319,11 +341,15 @@ class OmniFoldwBkg(object):
             hist_truth, hist_truth_unc = None, None
             if truth is not None:
                 wtruth = np.hstack(dataset_obs[self.weight_mc_name])
+                # rescale truth weights to data reco weights
+                wtruth *= (self.wdata.sum()/wtruth.sum())
                 hist_truth, hist_truth_unc = modplot.calc_hist(truth, weights=wtruth, bins=bins_mc, density=False)[:2]
 
                 # subtract background contribution if there is any
                 if gen_bkg is not None:
                     wgenbkg = np.hstack(dataset_bkg[self.weight_mc_name])
+                    # rescale bkg mc weights to bkg sim weights
+                    wgenbkg *= (self.wbkg.sum()/wgenbkg.sum())
                     hist_genbkg, hist_genbkg_unc = modplot.calc_hist(gen_bkg, weights=wgenbkg, bins=bins_mc, density=False)[:2]
                     hist_truth, hist_truth_unc = add_histograms(hist_truth, hist_genbkg, hist_truth_unc, hist_genbkg_unc, c1=1., c2=-1.)
 

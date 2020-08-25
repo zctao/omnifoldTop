@@ -7,7 +7,7 @@ from packaging import version
 import tensorflow as tf
 
 from util import load_dataset, getLogger
-from plotting import plot_train_log, plot_correlations
+from plotting import plot_train_log
 logger = getLogger('Unfold')
 
 from omnifold_wbkg import OmniFoldwBkg
@@ -56,26 +56,18 @@ def unfold(**parsed_args):
     wname = parsed_args['weight']
     wname_mc = parsed_args['weight_mc']
 
-    if parsed_args['plot_correlations']:
-        logger.info("Plot training variable correlations")
-        plot_correlations(data_obs, vars_det, os.path.join(parsed_args['outputdir'],'correlations_det_obs.pdf'))
-        plot_correlations(data_mc_sig, vars_det, os.path.join(parsed_args['outputdir'],'correlations_det_sig.pdf'))
-        plot_correlations(data_mc_sig, vars_mc, os.path.join(parsed_args['outputdir'],'correlations_gen_sig.pdf'))
-
     #####################
     # Start unfolding
     unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'])
 
     ##################
-    # preprocess_data
+    # prepare input data
     logger.info("Preprocessing data")
     t_prep_start = time.time()
-    # detector level (step 1 reweighting)
-    unfolder.preprocess_det(data_obs, data_mc_sig, data_mc_bkg)
-    # mc truth (step 2 reweighting)
-    # only signal simulation is of interest here
-    unfolder.preprocess_gen(data_mc_sig)
+    unfolder.prepare_inputs(data_obs, data_mc_sig, data_mc_bkg, standardize=True,
+                            plot_corr=parsed_args['plot_correlations'])
     t_prep_finish = time.time()
+
     logger.info("Preprocessnig data took {:.2f} seconds".format(t_prep_finish-t_prep_start))
     mcurrent, mpeak = tracemalloc.get_traced_memory()
     logger.info("Current memory usage is {:.1f} MB; Peak was {:.1f} MB".format(mcurrent * 10**-6, mpeak * 10**-6))
@@ -93,9 +85,11 @@ def unfold(**parsed_args):
         ##################
         # Unfold
         logger.info("Start unfolding")
+
         t_unfold_start = time.time()
         unfolder.unfold(fitargs, val=0.2)
         t_unfold_finish = time.time()
+
         logger.info("Done!")
         logger.info("Unfolding took {:.2f} seconds".format(t_unfold_finish-t_unfold_start))
         mcurrent, mpeak = tracemalloc.get_traced_memory()
@@ -107,8 +101,8 @@ def unfold(**parsed_args):
     t_result_start = time.time()
     unfolder.results(subObs_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['closure_test'], normalize=parsed_args['normalize'])
     t_result_finish = time.time()
-    logger.info("Getting results took {:.2f} seconds (average {:.2f} seconds per variable)".format(t_result_finish-t_result_start, (t_result_finish-t_result_start)/len(subObs_dict)))
 
+    logger.info("Getting results took {:.2f} seconds (average {:.2f} seconds per variable)".format(t_result_finish-t_result_start, (t_result_finish-t_result_start)/len(subObs_dict)))
     mcurrent, mpeak = tracemalloc.get_traced_memory()
     logger.info("Current memory usage is {:.1f} MB; Peak was {:.1f} MB".format(mcurrent * 10**-6, mpeak * 10**-6))
 
