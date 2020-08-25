@@ -200,7 +200,9 @@ class OmniFoldwBkg(object):
             assert(wbkg_mc is not None)
             # rescale bkg mc weights to bkg sim weights
             wbkg_mc *= (self.wbkg.sum()/wbkg_mc.sum())
+
             hist_genbkg, hist_genbkg_unc = modplot.calc_hist(arr_bkg, weights=wbkg_mc, bins=bins, density=False)[:2]
+
             hist_truth, hist_truth_unc = add_histograms(hist_truth, hist_genbkg, hist_truth_unc, hist_genbkg_unc, c1=1., c2=-1.)
 
         return hist_truth, hist_truth_unc
@@ -214,7 +216,7 @@ class OmniFoldwBkg(object):
             return ibu(hist_obs_cor, arr_sim, arr_gen, bins_det, bins_mc, self.winit, it=self.iterations)
         # TODO: hist_obs_unc
 
-    def _get_omnifold_distributions(self, bins, arr_gen):
+    def _get_omnifold_distributions(self, bins, arr_gen, arr_genbkg=None, wbkg_mc=None):
         hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded, bins=bins, density=False)[:2]
         return hist_of, hist_of_unc
 
@@ -378,12 +380,17 @@ class OmniFoldwBkg(object):
             # generated distribution (prior)
             hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=False)[:2]
 
+            # truth weight if known
+            wtruth = np.hstack(dataset_obs[self.weight_mc_name]) if truth is not None else None
+
+            # background gen weights if available
+            wgenbkg = np.hstack(dataset_bkg[self.weight_mc_name]) if gen_bkg is not None else None
+
             # truth distribution if known
-            hist_truth, hist_truth_unc = None, None
             if truth is not None:
-                wtruth = np.hstack(dataset_obs[self.weight_mc_name])
-                wgenbkg = np.hstack(dataset_bkg[self.weight_mc_name]) if gen_bkg is not None else None
                 hist_truth, hist_truth_unc = self._get_truth_distributions(bins_mc, truth, wtruth, gen_bkg, wgenbkg)
+            else:
+                hist_truth, hist_truth_unc = None, None
 
             # unfolded distributions
             # iterative Bayesian unfolding
@@ -397,7 +404,7 @@ class OmniFoldwBkg(object):
             plot_histogram2d(rname, response, bins_det, bins_mc, varname)
 
             # omnifold
-            hist_of, hist_of_unc = self._get_omnifold_distributions(bins_mc, gen_sig)
+            hist_of, hist_of_unc = self._get_omnifold_distributions(bins_mc, gen_sig, gen_bkg, wgenbkg)
 
             # normalization if needed
             if normalize:
@@ -423,21 +430,49 @@ class OmniFoldwBkg(object):
 #############
 # Approach 1
 #############
-# unfold as is first, then subtract the background histogram from the unfolded distribution if any observable of interest.
+# unfold as is first, then subtract the background histogram from the unfolded distribution for any observable of interest.
 
-# preprocess_data: data vs mc signal only w/o background (?)
+# preprocess_data: data vs mc signal only w/o background
 # classifier: data vs signal mc
 # reweight: standard
 # show result: subtract background histograms
-        
-class OmniFold_subHist(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_gen, wname, outdir='./'):
-        OmniFoldwBkg.__init__(self, variables_det, variables_gen, wname, outdir)
 
-    def preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True):
-        OmniFoldwBkg.preprocess_det(dataset_obs, dataset_sig, None, standardize)
-    
-    #def result(self): # fix me
+class OmniFold_subHist(OmniFoldwBkg):
+    def __init__(self, variables_det, variables_gen, wname, wname_mc, it, outdir='./'):
+        super().__init__(variables_det, variables_gen, wname, wname_mc, it, outdir)
+
+    def _preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True):
+        # exclude background events at this step
+        super()._preprocess_det(dataset_obs, dataset_sig, None, standardize)
+        # self.wbkg is None
+
+    #def _rescale_event_weights(self):
+    #    # call the rescaling method from base class first
+    #    OmniFoldwBkg._rescale_event_weights()
+
+    def _get_omnifold_distributions(self, bins, arr_gen, arr_genbkg=None, wbkg_mc=None):
+        hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded, bins=bins, density=False)[:2]
+
+        # in case of background
+        if arr_genbkg is not None:
+            assert(wbkg_mc is not None)
+            # rescale bkg mc weights to bkg sim weights
+            wbkg_mc *= (self.wbkg.sum()/wbkg_mc.sum())
+
+            hist_genbkg, hist_genbkg_unc = modplot.calc_hist(arr_genbkg, weights=wbkg_mc, bins=bins, density=False)[:2]
+
+            # subtract background
+            hist_of, hist_of_unc = add_histograms(hist_of, hist_genbkg, hist_of_unc, hist_genbkg_unc, c1=1., c2=-1.)
+
+        return hist_of, hist_of_unc
+
+    def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg, truth_known=False, normalize=False):
+        # set self.wbkg properly and rescale self.wsig accordingly
+        # This is needed because background was ignored during data preparation steps
+        self.wbkg = np.hstack(dataset_bkg[self.weight_name])
+        self._rescale_event_weights()
+
+        super().results(vars_dict, dataset_obs, dataset_sig, dataset_bkg, truth_known, normalize)
     
 #############
 # Approach 2
