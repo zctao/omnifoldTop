@@ -446,10 +446,6 @@ class OmniFold_subHist(OmniFoldwBkg):
         super()._preprocess_det(dataset_obs, dataset_sig, None, standardize)
         # self.wbkg is None
 
-    #def _rescale_event_weights(self):
-    #    # call the rescaling method from base class first
-    #    OmniFoldwBkg._rescale_event_weights()
-
     def _get_omnifold_distributions(self, bins, arr_gen, arr_genbkg=None, wbkg_mc=None):
         hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded, bins=bins, density=False)[:2]
 
@@ -485,15 +481,23 @@ class OmniFold_subHist(OmniFoldwBkg):
 # show result: standard
 
 class OmniFold_negW(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_gen, wname, outdir='./'):
-        OmniFoldwBkg.__init__(self, variables_det, variables_gen, wname, outdir)
-        # make background label as data
+    def __init__(self, variables_det, variables_gen, wname, wname_mc, it, outdir='./'):
+        super().__init__(variables_det, variables_gen, wname, wname_mc, it, outdir)
+        # make background label same as data
         self.label_bkg = self.label_obs
 
-    def preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg, standardize=True):
-        OmniFoldwBkg.preprocess_det(dataset_obs, dataset_sig, dataset_bkg, standardize)
-        # make mc background weight negative
+    def _rescale_event_weights(self):
+        super()._rescale_event_weights()
+
+        # negate background weights
         self.wbkg = -self.wbkg
+
+    def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg, truth_known=False, normalize=False):
+        # flip the sign of background weights back first
+        self.wbkg = -self.wbkg
+
+        # proceed as usual
+        super().results(vars_dict, dataset_obs, dataset_sig, dataset_bkg, truth_known=truth_known, normalize=normalize)
     
 #############
 # Approach 3
