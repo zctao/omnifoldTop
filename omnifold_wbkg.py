@@ -558,32 +558,54 @@ class OmniFold_corR(OmniFoldwBkg):
 # show result: standard
 
 class OmniFold_multi(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_gen, wname, outdir='./'):
-        OmniFoldwBkg.__init__(self, variables_det, variables_gen, wname, outdir)
+    def __init__(self, variables_det, variables_gen, wname, wname_mc, it, outdir='./'):
+        super().__init__(variables_det, variables_gen, wname, wname_mc, it, outdir)
+
         # new label for background
         self.label_bkg = 2
 
     # multi-class classifier for step 1 reweighting
-    #def _set_up_model_det_i(self, i, model_config, model_filepath=None):
-        # TODO
+    def _set_up_model_det_i(self, i, model_filepath=None):
+        # input dimension
+        input_shape = self.X_det.shape[1:]
+
+        # get model
+        model = get_model(input_shape, nclass=3)
+
+        # callbacks
+        callbacks = get_callbacks(model_filepath.format(i))
+
+        # load weights from the previous iteration if not the first one
+        if i > 0 and model_filepath is not None:
+            model.load_weights(model_filepath.format(i-1))
+
+        return model, callbacks
 
     # reweighting with multi-class classifer
-    def _reweight_step1(self, X, Y, w, model, filepath, fitargs, val_data=None):
-        # validation data
-        val_dict = {'validation_data': val_data} if val_data is not None else {}
-        model.fit(X, Y, sample_weight=w, **fitargs, **val_dict)
-        model.save_weights(filepath)
-        preds_obs = model.predict(X, batch_size=10*fitargs.get('batch_size', 500))[:,self.label_obs]
-        preds_bkg = model.predict(X, batch_size=10*fitargs.get('batch_size', 500))[:,self.label_bkg]
+    def _reweight_step1(self, X, Y, w, model, filepath, fitargs, callbacks=[],
+                        val_data=None):
+        # add callbacks to fit arguments
+        fitargs_step1 = dict(fitargs)
+        if callbacks:
+            fitargs_step1.setdefault('callbacks',[]).extend(callbacks)
 
-        # concatenate validation predictions into training predictions
+        val_dict = {'validation_data': val_data} if val_data is not None else {}
+
+        model.fit(X, Y, sample_weight=w, **fitargs_step1, **val_dict)
+        model.save_weights(filepath)
+
+        preds_obs = model.predict(X, batch_size=10*fitargs.get('batch_size', 500))[:,self.label_obs]
+        preds_sig = model.predict(X, batch_size=10*fitargs.get('batch_size', 500))[:,self.label_sig]
+
+        # concatenate validation predictions
         if val_data is not None:
             preds_obs_val = model.predict(val_data[0], batch_size=10*fitargs.get('batch_size', 500))[:,self.label_obs]
+            preds_sig_val = model.predict(val_data[0], batch_size=10*fitargs.get('batch_size', 500))[:,self.label_sig]
             preds_obs = np.concatenate((preds_obs, preds_obs_val))
-            preds_bkg_val = model.predict(val_data[0], batch_size=10*fitargs.get('batch_size', 500))[:,self.label_bkg]
-            preds_bkg = np.concatenate((preds_bkg, preds_bkg_val))
+            preds_sig = np.concatenate((preds_sig, preds_sig_val))
             w = np.concatenate((w, val_data[2]))
 
-        r = (preds_obs - preds_bkg) / (1 - preds_obs - preds_bkg + 10**-50)
+        r = preds_obs / preds_sig
+
         w *= np.clip(r, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
         return w

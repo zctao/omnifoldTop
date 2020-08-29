@@ -21,13 +21,13 @@ def get_callbacks(model_filepath):
 
     return [CheckPoint, CSVLogger, EarlyStopping]
 
-def get_model(input_shape):
+def get_model(input_shape, nclass=2):
     model = keras.Sequential()
     model.add(keras.Input(shape=input_shape))
     model.add(layers.Dense(100, activation='relu', kernel_initializer='he_uniform'))
     model.add(layers.Dense(100, activation='relu', kernel_initializer='he_uniform'))
     model.add(layers.Dense(100, activation='relu', kernel_initializer='he_uniform'))
-    model.add(layers.Dense(2, activation='softmax', kernel_initializer='he_uniform'))
+    model.add(layers.Dense(nclass, activation='softmax', kernel_initializer='he_uniform'))
 
     model.compile(
         loss='categorical_crossentropy',
