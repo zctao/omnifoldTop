@@ -170,6 +170,22 @@ def add_histograms(h1, h2=None, h1_err=None, h2_err=None, c1=1., c2=1.):
 
     return hsum, hsum_err
 
+def divide_histograms(h_numer, h_denom, h_numer_err=None, h_denom_err=None):
+    ratio = np.divide(h_numer, h_denom, out=np.zeros_like(h_denom), where=(h_denom!=0))
+
+    # bin errors
+    if h_numer_err is None:
+        h_numer_err = np.zeros_like(h_numer_err)
+    if h_denom_err is None:
+        h_denom_err = np.zeros_like(h_denom_err)
+
+    #rerrsq = (h_numer_err**2 + h_denom_err**2 * ratio**2) / h_denom**2
+    rerrsq = np.divide(h_numer_err**2 + h_denom_err**2 * ratio**2, h_denom**2, out=np.zeros_like(h_denom), where=(h_denom!=0))
+
+    ratio_err = np.sqrt(rerrsq)
+
+    return ratio, ratio_err
+
 # Data shuffle and split for step 1 (detector-level) reweighting
 # Adapted based on https://github.com/ericmetodiev/OmniFold/blob/master/omnifold.py#L54-L59
 class DataShufflerDet(object):
