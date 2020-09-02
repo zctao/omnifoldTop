@@ -10,7 +10,7 @@ import external.OmniFold.modplot as modplot
 from util import read_dataset, prepare_data_multifold, getLogger
 from util import DataShufflerDet, DataShufflerGen
 from util import compute_triangular_discriminators
-from util import normalize_histogram, add_histograms
+from util import normalize_histogram, add_histograms, divide_histograms
 from ibu import ibu
 from model import get_callbacks, get_model
 
@@ -83,6 +83,58 @@ class OmniFoldwBkg(object):
 
         return model, callbacks
 
+    def _compute_likelihood_ratio(self, preds, Y, weights):
+        bins_preds = np.linspace(0, 1, 51)
+
+        if Y.ndim == 1: # Y is simply a 1D array of labels
+            preds_cat1 = preds[Y==1]
+            preds_cat0 = preds[Y==0]
+            w_cat1 = weights[Y==1]
+            w_cat0 = weights[Y==0]
+        else: # Y is categorical
+            preds_cat1 = preds[Y.argmax(axis=1)==1]
+            preds_cat0 = preds[Y.argmax(axis=1)==0]
+            w_cat1 = weights[Y.argmax(axis=1)==1]
+            w_cat0 = weights[Y.argmax(axis=1)==0]
+
+        hist_preds1, hist_preds1_unc = modplot.calc_hist(preds_cat1, bins=bins_preds, weights=w_cat1, density=True)[:2]
+        hist_preds0, hist_preds0_unc = modplot.calc_hist(preds_cat0, bins=bins_preds, weights=w_cat0, density=True)[:2]
+        # Estimated likelihood ratio based on the classifier
+        f_r, f_r_unc = divide_histograms(hist_preds1, hist_preds0, hist_preds1_unc, hist_preds0_unc)
+
+        # get reweighting factor for each event by looking up f_r using preds
+        r = f_r[np.digitize(preds, bins_preds)-1]
+
+        return r
+
+    def _reweight(self, X, Y, w, model, filepath, fitargs, val_data=None):
+
+        val_dict = {'validation_data': val_data} if val_data is not None else {}
+        model.fit(X, Y, sample_weight=w, **fitargs, **val_dict)
+        model.save_weights(filepath)
+        preds = model.predict(X, batch_size=10*fitargs.get('batch_size', 500))[:,1]
+
+        # concatenate validation predictions into training predictions
+        if val_data is not None:
+            preds_val = model.predict(val_data[0], batch_size=10*fitargs.get('batch_size', 500))[:,1]
+            Y_val = val_data[1]
+            w_val = val_data[2]
+
+            preds = np.concatenate((preds, preds_val))
+            Y = np.concatenate((Y, Y_val))
+            w = np.concatenate((w, w_val))
+
+        r = preds/(1 - preds + 10**-50)
+        # The above is copied from the reweight function from orginal OmniFold package with minor modification: https://github.com/ericmetodiev/OmniFold/blob/master/omnifold.py#L15
+
+        # alternatively
+        r_alt = self._compute_likelihood_ratio(preds, Y, w)
+
+        #w *= np.clip(r, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
+        w *= np.clip(r_alt, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
+
+        return w
+
     def _reweight_step1(self, X, Y, w, model, filepath, fitargs, callbacks=[],
                         val_data=None):
         # add callbacks to fit arguments if provided
@@ -91,7 +143,8 @@ class OmniFoldwBkg(object):
             fitargs_step1.setdefault('callbacks',[]).extend(callbacks)
 
         # the original one
-        return omnifold.reweight(X, Y, w, model, filepath, fitargs_step1, val_data=val_data)
+        #return omnifold.reweight(X, Y, w, model, filepath, fitargs_step1, val_data=val_data)
+        return self._reweight(X, Y, w, model, filepath, fitargs_step1, val_data=val_data)
 
     def _reweight_step2(self, X, Y, w, model, filepath, fitargs, callbacks=[],
                         val_data=None):
@@ -101,7 +154,8 @@ class OmniFoldwBkg(object):
             fitargs_step2.setdefault('callbacks',[]).extend(callbacks)
 
         # the original one
-        return omnifold.reweight(X, Y, w, model, filepath, fitargs_step2, val_data=val_data)
+        #return omnifold.reweight(X, Y, w, model, filepath, fitargs_step2, val_data=val_data)
+        return self._reweight(X, Y, w, model, filepath, fitargs_step2, val_data=val_data)
 
     def _push_weights(self, weights_t):
         # push truth-level weights to detector level
