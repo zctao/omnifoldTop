@@ -14,7 +14,7 @@ from util import normalize_histogram, add_histograms
 from ibu import ibu
 from model import get_callbacks, get_model
 
-from plotting import plot_results, plot_reco_variable, plot_correlations, plot_histogram2d
+from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response
 
 logger = getLogger('OmniFoldwBkg')
 
@@ -401,7 +401,7 @@ class OmniFoldwBkg(object):
             # plot response matrix
             rname = os.path.join(self.outdir, 'Response_{}.pdf'.format(varname))
             logger.info("  Plot detector response: {}".format(rname))
-            plot_histogram2d(rname, response, bins_det, bins_mc, varname)
+            plot_response(rname, response, bins_det, bins_mc, varname)
 
             # omnifold
             hist_of, hist_of_unc = self._get_omnifold_distributions(bins_mc, gen_sig, gen_bkg, wgenbkg)
