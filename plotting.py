@@ -357,3 +357,52 @@ def plot_correlations(data, variables, figname):
     #plt.close()
 
     plt.close(fig)
+
+def plot_LR_distr(figname, ratios, labels):
+    bins_r = np.linspace(0, max(r.max() for r in ratios), 51)
+
+    hists, hists_unc = [], []
+    for r in ratios:
+        hist_r, hist_r_unc = modplot.calc_hist(r, bins=bins_r, density=True)[:2]
+        hists.append(hist_r)
+        hists_unc.append(hist_r_unc)
+
+    plot_histograms1d(figname, bins_r, hists, hists_unc, labels, xlabel='r')
+
+def plot_training_vs_validation(figname, predictions_train, labels_train, weights_train, predictions_val, labels_val, weights_val):
+    bins_preds = np.linspace(0, 1, 101)
+
+    if labels_train.ndim == 1: # label array is simply a 1D array
+        preds_cat1_t = predictions_train[labels_train==1]
+        preds_cat0_t = predictions_train[labels_train==0]
+        w_cat1_t = weights_train[labels_train==1]
+        w_cat0_t = weights_train[labels_train==0]
+    else: # label array is categorical
+        preds_cat1_t = predictions_train[labels_train.argmax(axis=1)==1]
+        preds_cat0_t = predictions_train[labels_train.argmax(axis=1)==0]
+        w_cat1_t = weights_train[labels_train.argmax(axis=1)==1]
+        w_cat0_t = weights_train[labels_train.argmax(axis=1)==0]
+
+    hist_preds_cat1_t = np.histogram(preds_cat1_t, bins=bins_preds, weights=w_cat1_t, density=True)[0]
+    hist_preds_cat0_t = np.histogram(preds_cat0_t, bins=bins_preds, weights=w_cat0_t, density=True)[0]
+
+    # validation data
+    if labels_val.ndim == 1: # label array is simply a 1D array
+        preds_cat1_v = predictions_val[labels_val==1]
+        preds_cat0_v = predictions_val[labels_val==0]
+        w_cat1_v = weights_val[labels_val==1]
+        w_cat0_v = weights_val[labels_val==0]
+    else: # label array is categorical
+        preds_cat1_v = predictions_val[labels_val.argmax(axis=1)==1]
+        preds_cat0_v = predictions_val[labels_val.argmax(axis=1)==0]
+        w_cat1_v = weights_val[labels_val.argmax(axis=1)==1]
+        w_cat0_v = weights_val[labels_val.argmax(axis=1)==0]
+
+    hist_preds_cat1_v = np.histogram(preds_cat1_v, bins=bins_preds, weights=w_cat1_v, density=True)[0]
+    hist_preds_cat0_v = np.histogram(preds_cat0_v, bins=bins_preds, weights=w_cat0_v, density=True)[0]
+
+    plot_histograms1d(
+        figname, bins_preds,
+        [hist_preds_cat1_t, hist_preds_cat0_t, hist_preds_cat1_v, hist_preds_cat0_v],
+        labels=['y = 1 (training)', 'y = 0 (training)', 'y = 1 (validation)', 'y = 0 (validation)'],
+        xlabel = 'Prediction (y = 1)',  plottypes=['h','h','g','g'], marker='+')

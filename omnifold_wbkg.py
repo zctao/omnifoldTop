@@ -14,7 +14,7 @@ from util import normalize_histogram, add_histograms, divide_histograms
 from ibu import ibu
 from model import get_callbacks, get_model
 
-from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response
+from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response, plot_graphs, plot_LR_distr, plot_training_vs_validation
 
 logger = getLogger('OmniFoldwBkg')
 
@@ -120,6 +120,8 @@ class OmniFoldwBkg(object):
             Y_val = val_data[1]
             w_val = val_data[2]
 
+            plot_training_vs_validation(filepath+'_preds.pdf', preds, Y, w, preds_val, Y_val, w_val)
+
             preds = np.concatenate((preds, preds_val))
             Y = np.concatenate((Y, Y_val))
             w = np.concatenate((w, w_val))
@@ -129,6 +131,12 @@ class OmniFoldwBkg(object):
 
         # alternatively
         r_alt = self._compute_likelihood_ratio(preds, Y, w)
+
+        # plot the likelihood ratio function
+        plot_graphs(filepath+'_LR.pdf', [(preds, r), (preds, r_alt)], labels=['Direct', 'Binned'], xlabel='Prediction (y=1)', ylabel='r')
+
+        # plot likelihood ratio distribution
+        plot_LR_distr(filepath+'_rhist.pdf', [r, r_alt], labels=['Direct', 'Binned'])
 
         #w *= np.clip(r, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
         w *= np.clip(r_alt, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
