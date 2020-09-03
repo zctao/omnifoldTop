@@ -125,7 +125,7 @@ def draw_hist_as_graph(ax, bin_edges, hist, hist_unc=None, **styles):
 
     ax.errorbar(midbins, hist, xerr=xerr, yerr=yerr, **styles)
 
-def plot_graphs(figname, data_arrays, labels=None, title='', xlabel='', ylabel='', colors=None, markers=None):
+def plot_graphs(figname, data_arrays, error_arrays=None, labels=None, title='', xlabel='', ylabel='', colors=None, markers=None):
     fig, ax = init_fig(title, xlabel, ylabel)
 
     if colors is None:
@@ -133,11 +133,22 @@ def plot_graphs(figname, data_arrays, labels=None, title='', xlabel='', ylabel='
     else:
         assert(len(data_arrays)==len(colors))
 
-    # TODO: error
+    if error_arrays is not None:
+        assert(len(error_arrays)==len(data_arrays))
+
     for i, (x, y) in enumerate(data_arrays):
         label = None if labels is None else labels[i]
         marker = None if markers is None else markers[i]
-        ax.errorbar(x, y, label=label, marker=marker, color=colors[i], **graph_style)
+
+        xerr, yerr = None, None
+        if error_arrays is not None:
+            error = error_arrays[i]
+            if isinstance(error, tuple):
+                xerr, yerr = error
+            else:
+                yerr = error
+
+        ax.errorbar(x, y, xerr=xerr, yerr=yerr, label=label, marker=marker, color=colors[i], **graph_style)
 
     # plot legend if needed
     if labels is not None:
@@ -356,6 +367,25 @@ def plot_correlations(data, variables, figname):
     #plt.savefig(figname)
     #plt.close()
 
+    plt.close(fig)
+
+def plot_LR_func(figname, bins, f_lr, f_lr_unc=None):
+    # Likelihood ratio as a function of model prediction
+    x = (bins[:-1] + bins[1:]) / 2
+    xerr = (bins[1:] - bins[:-1]) / 2
+    #plot_graphs(figname, [(x, f_lr)], [(xerr, f_lr_unc)], xlabel='Prediction (y = 1)', ylabel='LR')
+
+    fig, ax = init_fig(title='', xlabel='Prediction (y = 1)', ylabel='LR')
+
+    ax.errorbar(x, f_lr, xerr=xerr, yerr=f_lr_unc, label='Binned LR', **graph_style)
+
+    # likelihood ratio directly computed from predictions
+    xtrim = x[(x>0.1)&(x<0.85)]
+    ax.plot(xtrim, xtrim / (1 - xtrim +10**-50), label='f(x) = x/(1-x)')
+
+    ax.legend(**leg_style)
+
+    fig.savefig(figname)
     plt.close(fig)
 
 def plot_LR_distr(figname, ratios, labels):

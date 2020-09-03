@@ -14,7 +14,7 @@ from util import normalize_histogram, add_histograms, divide_histograms
 from ibu import ibu
 from model import get_callbacks, get_model
 
-from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response, plot_graphs, plot_LR_distr, plot_training_vs_validation
+from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response, plot_graphs, plot_LR_distr, plot_LR_func, plot_training_vs_validation
 
 logger = getLogger('OmniFoldwBkg')
 
@@ -83,7 +83,8 @@ class OmniFoldwBkg(object):
 
         return model, callbacks
 
-    def _compute_likelihood_ratio(self, preds, Y, weights):
+    def _compute_likelihood_ratio(self, preds, Y, weights, figname=None):
+        logger.info("Compute likelihood ratio from model output distributions")
         bins_preds = np.linspace(0, 1, 51)
 
         if Y.ndim == 1: # Y is simply a 1D array of labels
@@ -105,6 +106,10 @@ class OmniFoldwBkg(object):
         # get reweighting factor for each event by looking up f_r using preds
         r = f_r[np.digitize(preds, bins_preds)-1]
 
+        if figname is not None:
+            logger.info("Plot likelihood ratio as a function the model output: {}".format(figname))
+            plot_LR_func(figname, bins_preds, f_r, f_r_unc)
+
         return r
 
     def _reweight(self, X, Y, w, model, filepath, fitargs, val_data=None):
@@ -120,7 +125,9 @@ class OmniFoldwBkg(object):
             Y_val = val_data[1]
             w_val = val_data[2]
 
-            plot_training_vs_validation(filepath+'_preds.pdf', preds, Y, w, preds_val, Y_val, w_val)
+            figname_preds = filepath+'_preds.pdf'
+            logger.info("Plot model output distribution: {}".format(figname_preds))
+            plot_training_vs_validation(figname_preds, preds, Y, w, preds_val, Y_val, w_val)
 
             preds = np.concatenate((preds, preds_val))
             Y = np.concatenate((Y, Y_val))
@@ -130,13 +137,15 @@ class OmniFoldwBkg(object):
         # The above is copied from the reweight function from orginal OmniFold package with minor modification: https://github.com/ericmetodiev/OmniFold/blob/master/omnifold.py#L15
 
         # alternatively
-        r_alt = self._compute_likelihood_ratio(preds, Y, w)
+        r_alt = self._compute_likelihood_ratio(preds, Y, w, figname=filepath+'_LR.pdf')
 
         # plot the likelihood ratio function
-        plot_graphs(filepath+'_LR.pdf', [(preds, r), (preds, r_alt)], labels=['Direct', 'Binned'], xlabel='Prediction (y=1)', ylabel='r')
+        #plot_graphs(filepath+'_LR.pdf', [(preds, r), (preds, r_alt)], labels=['Direct', 'Binned'], xlabel='Prediction (y=1)', ylabel='r')
 
         # plot likelihood ratio distribution
-        plot_LR_distr(filepath+'_rhist.pdf', [r, r_alt], labels=['Direct', 'Binned'])
+        figname_rhist = filepath+'_rhist.pdf'
+        logger.info("Plot likelihood ratio distribution: {}".format(figname_rhist))
+        plot_LR_distr(figname_rhist, [r, r_alt], labels=['Direct', 'Binned'])
 
         #w *= np.clip(r, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
         w *= np.clip(r_alt, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
