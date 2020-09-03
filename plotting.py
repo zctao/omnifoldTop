@@ -333,17 +333,22 @@ def plot_response(figname, h2d, xedges, yedges, variable):
 def plot_train_log(csv_file, plot_name=None):
     df = pd.read_csv(csv_file)
 
-    plt.figure()
-    plt.plot(df['epoch'], df['loss']*1000, label='loss')
-    plt.plot(df['epoch'], df['val_loss']*1000, label='val loss')
-    plt.legend(loc='best')
-    plt.ylabel('loss ($%s$)'%('\\times 10^{-3}'))
-    plt.xlabel('Epochs')
+    fig, ax = init_fig(title='', xlabel='Epochs', ylabel='loss')
+
+    ax.plot(df['epoch'], df['loss'], label='loss')
+    ax.plot(df['epoch'], df['val_loss'], label='val loss')
+
+    ax.yaxis.get_major_formatter().set_useOffset(False)
+    ax.yaxis.get_major_formatter().set_useMathText(True)
+    ax.yaxis.get_major_formatter().set_scientific(True)
+    ax.yaxis.get_major_formatter().set_powerlimits((-3,4))
+
+    ax.legend(**leg_style)
+
     if plot_name is None:
         plot_name = csv_file.replace('.csv', '_loss.pdf')
-    plt.savefig(plot_name)
-    plt.clf()
-    plt.close()
+    plt.savefig(plot_name, bbox_inches='tight')
+    plt.close(fig)
 
 def plot_correlations(data, variables, figname):
     df = pd.DataFrame(data, columns=variables)
