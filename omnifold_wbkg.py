@@ -83,9 +83,14 @@ class OmniFoldwBkg(object):
 
         return model, callbacks
 
-    def _compute_likelihood_ratio(self, preds, Y, weights, figname=None):
+    def _compute_likelihood_ratio(self, preds, Y, weights, figname=None, nbins=50):
         logger.info("Compute likelihood ratio from model output distributions")
-        bins_preds = np.linspace(0, 1, 51)
+
+        # choose bin range based on preds max and min
+        preds_max = preds.max()
+        preds_min = preds.min()
+        wbin = (preds_max - preds_min)/nbins
+        bins_preds = np.linspace(preds_min-wbin/2, preds_max+wbin/2, nbins+1)
 
         if Y.ndim == 1: # Y is simply a 1D array of labels
             preds_cat1 = preds[Y==1]

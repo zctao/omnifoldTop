@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 import pandas as pd
+import math
 import external.OmniFold.modplot as modplot
 
 from util import add_histograms
@@ -404,8 +405,11 @@ def plot_LR_distr(figname, ratios, labels):
 
     plot_histograms1d(figname, bins_r, hists, hists_unc, labels, xlabel='r')
 
-def plot_training_vs_validation(figname, predictions_train, labels_train, weights_train, predictions_val, labels_val, weights_val):
-    bins_preds = np.linspace(0, 1, 101)
+def plot_training_vs_validation(figname, predictions_train, labels_train, weights_train, predictions_val, labels_val, weights_val, nbins=100):
+    # determine bins of histograms to plot
+    bins_min = math.floor(min(predictions_train.min(), predictions_val.min())*10)/10
+    bins_max = math.ceil(max(predictions_train.max(), predictions_val.max())*10)/10
+    bins_preds = np.linspace(bins_min, bins_max, nbins)
 
     if labels_train.ndim == 1: # label array is simply a 1D array
         preds_cat1_t = predictions_train[labels_train==1]
