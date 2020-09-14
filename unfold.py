@@ -11,6 +11,7 @@ from plotting import plot_train_log
 logger = getLogger('Unfold')
 
 from omnifold_wbkg import OmniFoldwBkg
+from omnifold_wbkg import OmniFold_subHist, OmniFold_negW, OmniFold_multi
 from observables import observable_dict
 
 import time
@@ -58,7 +59,14 @@ def unfold(**parsed_args):
 
     #####################
     # Start unfolding
-    unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
+    if parsed_args['background_mode'] == 'subHist':
+        unfoler = OmniFold_subHist(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
+    elif parsed_args['background_mode'] == 'negW':
+        unfolder = OmniFold_negW(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
+    elif parsed_args['background_mode'] == 'multiClass':
+        unfolder = OmniFold_multi(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
+    else:
+        unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
 
     ##################
     # prepare input data
@@ -157,9 +165,9 @@ if __name__ == "__main__":
     parser.add_argument('--alt-rw', dest='alt_rw',
                         action='store_true',
                         help="Use alternative reweighting if true")
-    parser.add_argument('-m', '--multiclass',
-                        action='store_true',
-                        help="If set, background MC is treated as a separate class")
+    parser.add_argument('-m', '--background-mode', dest='background_mode',
+                        choices=['default', 'subHist', 'negW', 'multiClass'],
+                        default='default', help="Background mode")
     parser.add_argument('-v', '--verbose',
                         action='count', default=0,
                         help="Verbosity level")
