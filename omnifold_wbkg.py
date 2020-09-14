@@ -22,7 +22,7 @@ logger = getLogger('OmniFoldwBkg')
 # Adapted from the original omnifold:
 # https://github.dcom/ericmetodiev/OmniFold/blob/master/omnifold.py
 class OmniFoldwBkg(object):
-    def __init__(self, variables_det, variables_gen, wname, wname_mc, it, outdir='./'):
+    def __init__(self, variables_det, variables_gen, wname, wname_mc, it, outdir='./', binned_rw=False):
         assert(len(variables_det)==len(variables_gen))
         self.vars_det = variables_det # list of detector-level variables
         self.vars_gen = variables_gen # list of truth-level variables
@@ -46,6 +46,8 @@ class OmniFoldwBkg(object):
         self.ws_unfolded = None
         # output directory
         self.outdir = outdir.rstrip('/')+'/'
+        # reweight type
+        self.binned_rw = binned_rw
 
     def _set_up_model_det_i(self, i, model_filepath=None):
         """ Set up the model for the i-th iteration of detector-level reweighting
@@ -152,8 +154,10 @@ class OmniFoldwBkg(object):
         logger.info("Plot likelihood ratio distribution: {}".format(figname_rhist))
         plot_LR_distr(figname_rhist, [r, r_alt], labels=['Direct', 'Binned'])
 
-        #w *= np.clip(r, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
-        w *= np.clip(r_alt, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
+        if self.binned_rw:
+            w *= np.clip(r_alt, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
+        else:
+            w *= np.clip(r, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
 
         return w
 

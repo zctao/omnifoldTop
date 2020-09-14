@@ -58,7 +58,7 @@ def unfold(**parsed_args):
 
     #####################
     # Start unfolding
-    unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'])
+    unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
 
     ##################
     # prepare input data
@@ -154,6 +154,9 @@ if __name__ == "__main__":
                         help="name of event weight")
     parser.add_argument('--weight-mc', dest='weight_mc', default='wTruth',
                         help="name of MC weight")
+    parser.add_argument('--alt-rw', dest='alt_rw',
+                        action='store_true',
+                        help="Use alternative reweighting if true")
     parser.add_argument('-m', '--multiclass',
                         action='store_true',
                         help="If set, background MC is treated as a separate class")
