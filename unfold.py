@@ -172,7 +172,7 @@ if __name__ == "__main__":
                         action='count', default=0,
                         help="Verbosity level")
     parser.add_argument('-g', '--gpu',
-                        type=int, choices=[0, 1], default=0,
+                        type=int, choices=[0, 1], default=None,
                         help="Manually select one of the GPUs to run")
     parser.add_argument('--unfolded-weights', dest='unfolded_weights',
                         default='', type=str,
@@ -202,5 +202,7 @@ if __name__ == "__main__":
         logger.info("Create output directory {}".format(args.outputdir))
         os.makedirs(args.outputdir)
 
-    with tf.device('/GPU:{}'.format(args.gpu)):
-        unfold(**vars(args))
+    if args.gpu is not None:
+        tf.config.experimental.set_visible_devices(gpus[args.gpu], 'GPU')
+    #with tf.device('/GPU:{}'.format(args.gpu)):
+    unfold(**vars(args))
