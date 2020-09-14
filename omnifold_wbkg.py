@@ -132,7 +132,7 @@ class OmniFoldwBkg(object):
             Y_val = val_data[1]
             w_val = val_data[2]
 
-            figname_preds = filepath+'_preds.pdf'
+            figname_preds = filepath+'_preds'
             logger.info("Plot model output distribution: {}".format(figname_preds))
             plot_training_vs_validation(figname_preds, preds, Y, w, preds_val, Y_val, w_val)
 
@@ -144,13 +144,13 @@ class OmniFoldwBkg(object):
         # The above is copied from the reweight function from orginal OmniFold package with minor modification: https://github.com/ericmetodiev/OmniFold/blob/master/omnifold.py#L15
 
         # alternatively
-        r_alt = self._compute_likelihood_ratio(preds, Y, w, figname=filepath+'_LR.pdf')
+        r_alt = self._compute_likelihood_ratio(preds, Y, w, figname=filepath+'_LR')
 
         # plot the likelihood ratio function
-        #plot_graphs(filepath+'_LR.pdf', [(preds, r), (preds, r_alt)], labels=['Direct', 'Binned'], xlabel='Prediction (y=1)', ylabel='r')
+        #plot_graphs(filepath+'_LR', [(preds, r), (preds, r_alt)], labels=['Direct', 'Binned'], xlabel='Prediction (y=1)', ylabel='r')
 
         # plot likelihood ratio distribution
-        figname_rhist = filepath+'_rhist.pdf'
+        figname_rhist = filepath+'_rhist'
         logger.info("Plot likelihood ratio distribution: {}".format(figname_rhist))
         plot_LR_distr(figname_rhist, [r, r_alt], labels=['Direct', 'Binned'])
 
@@ -328,9 +328,9 @@ class OmniFoldwBkg(object):
         # correlations
         if plot_corr:
             logger.info("Plot input variable correlations")
-            plot_correlations(dataset_obs, self.vars_det, os.path.join(self.outdir, 'correlations_det_obs.pdf'))
-            plot_correlations(dataset_sig, self.vars_det, os.path.join(self.outdir, 'correlations_det_sig.pdf'))
-            plot_correlations(dataset_sig, self.vars_gen, os.path.join(self.outdir, 'correlations_gen_sig.pdf'))
+            plot_correlations(dataset_obs, self.vars_det, os.path.join(self.outdir, 'correlations_det_obs'))
+            plot_correlations(dataset_sig, self.vars_det, os.path.join(self.outdir, 'correlations_det_sig'))
+            plot_correlations(dataset_sig, self.vars_gen, os.path.join(self.outdir, 'correlations_gen_sig'))
 
     def unfold(self, fitargs, val=0.2):
         # initialize the truth weights to the prior
@@ -448,7 +448,7 @@ class OmniFoldwBkg(object):
             hist_simbkg, hist_simbkg_unc = histograms_reco[2]
 
             # plot detector-level variable distributions
-            figname_vardet = os.path.join(self.outdir, 'Reco_{}.pdf'.format(varname))
+            figname_vardet = os.path.join(self.outdir, 'Reco_{}'.format(varname))
             logger.info("  Plot detector-level variable distribution: {}".format(figname_vardet))
             plot_reco_variable(bins_det,
                                (hist_obs,hist_obs_unc), (hist_sim,hist_sim_unc),
@@ -479,7 +479,7 @@ class OmniFoldwBkg(object):
                 hist_simbkg, hist_simbkg_unc)
 
             # plot response matrix
-            rname = os.path.join(self.outdir, 'Response_{}.pdf'.format(varname))
+            rname = os.path.join(self.outdir, 'Response_{}'.format(varname))
             logger.info("  Plot detector response: {}".format(rname))
             plot_response(rname, response, bins_det, bins_mc, varname)
 
@@ -500,7 +500,7 @@ class OmniFoldwBkg(object):
                 logger.info("  "+"    ".join(text_td))
 
             # plot results
-            figname = os.path.join(self.outdir, 'Unfold_{}.pdf'.format(varname))
+            figname = os.path.join(self.outdir, 'Unfold_{}'.format(varname))
             logger.info("  Plot unfolded distribution: {}".format(figname))
             plot_results(bins_mc, (hist_gen,hist_gen_unc), (hist_of,hist_of_unc),
                          (hist_ibu,hist_ibu_unc), (hist_truth, hist_truth_unc),
