@@ -449,7 +449,7 @@ class OmniFoldwBkg(object):
             plot_reco_variable(bins_det,
                                (hist_obs,hist_obs_unc), (hist_sim,hist_sim_unc),
                                (hist_simbkg, hist_simbkg_unc),
-                               figname=figname_vardet, log_scale = True,
+                               figname=figname_vardet, log_scale = False,
                                **config)
 
             ###########################
