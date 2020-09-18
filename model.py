@@ -36,5 +36,5 @@ def get_model(input_shape, nclass=2):
     )
 
     model.summary()
-    
+
     return model

@@ -192,3 +192,85 @@ observable_dict['tl_pout'] = {
     'stamp_xy': (0.60, 0.25),
     'legend_loc': 'upper right', 'legend_ncol': 1,
 }
+
+# hadronic W
+# pt
+observable_dict['Wh_pt'] = {
+    'branch_det': 'Wh_pt', 'branch_mc': 'Wh_pt_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (0, 400),
+    'xlabel': 'pt [GeV]', 'ylabel': 'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
+# eta
+observable_dict['Wh_eta'] = {
+    'branch_det': 'Wh_eta', 'branch_mc': 'Wh_eta_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (-5, 5),
+    'xlabel': 'eta', 'ylabel': 'a.u.',
+    'stamp_xy': (0.32, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
+# phi
+observable_dict['Wh_phi'] = {
+    'branch_det': 'Wh_phi', 'branch_mc': 'Wh_phi_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (-3.2, 3.2),
+    'xlabel': 'phi', 'ylabel': 'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 2,
+}
+
+# mass
+observable_dict['Wh_m'] = {
+    'branch_det': 'Wh_m', 'branch_mc': 'Wh_m_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (45, 115),
+    'xlabel': 'mass [GeV]', 'ylabel': 'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
+# leptonic W
+# pt
+observable_dict['Wl_pt'] = {
+    'branch_det': 'Wl_pt', 'branch_mc': 'Wl_pt_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (0, 400),
+    'xlabel': 'pt [GeV]', 'ylabel': 'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
+# eta
+observable_dict['Wl_eta'] = {
+    'branch_det': 'Wl_eta', 'branch_mc': 'Wl_eta_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (-5, 5),
+    'xlabel': 'eta', 'ylabel': 'a.u.',
+    'stamp_xy': (0.32, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
+# phi
+observable_dict['Wl_phi'] = {
+    'branch_det': 'Wl_phi', 'branch_mc': 'Wl_phi_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (-3.2, 3.2),
+    'xlabel': 'phi', 'ylabel': 'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 2,
+}
+
+# mass
+observable_dict['Wl_m'] = {
+    'branch_det': 'Wl_m', 'branch_mc': 'Wl_m_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (75, 85),
+    'xlabel': 'mass [GeV]', 'ylabel': 'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
