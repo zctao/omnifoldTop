@@ -25,8 +25,8 @@ def unfold(**parsed_args):
     # Load and prepare datasets
     #################
 
-    #observables_all = list(set().union(parsed_args['observables'], parsed_args['observables_train']))
     logger.info("Observables used for training: {}".format(', '.join(parsed_args['observables_train'])))
+    parsed_args['observables'] = list(set().union(parsed_args['observables'], parsed_args['observables_train']))
     logger.info("Observables to unfold: {}".format(', '.join(parsed_args['observables'])))
 
     # collision data
@@ -105,12 +105,12 @@ def unfold(**parsed_args):
 
     ##################
     # Show results
-    subObs_dict = { var:observable_dict[var] for var in parsed_args['observables']}
+    resObs_dict = { var:observable_dict[var] for var in parsed_args['observables']}
     t_result_start = time.time()
-    unfolder.results(subObs_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['closure_test'], normalize=parsed_args['normalize'])
+    unfolder.results(resObs_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['closure_test'], normalize=parsed_args['normalize'])
     t_result_finish = time.time()
 
-    logger.info("Getting results took {:.2f} seconds (average {:.2f} seconds per variable)".format(t_result_finish-t_result_start, (t_result_finish-t_result_start)/len(subObs_dict)))
+    logger.info("Getting results took {:.2f} seconds (average {:.2f} seconds per variable)".format(t_result_finish-t_result_start, (t_result_finish-t_result_start)/len(resObs_dict)))
     mcurrent, mpeak = tracemalloc.get_traced_memory()
     logger.info("Current memory usage is {:.1f} MB; Peak was {:.1f} MB".format(mcurrent * 10**-6, mpeak * 10**-6))
 
@@ -129,11 +129,11 @@ if __name__ == "__main__":
 
     parser.add_argument('--observables-train', dest='observables_train',
                         nargs='+', choices=observable_dict.keys(),
-                        default=['mtt', 'ptt', 'ytt', 'ystar', 'yboost', 'dphi', 'Ht'],
+                        default=['th_pt', 'th_y', 'th_phi', 'th_m', 'tl_pt', 'tl_y', 'tl_phi', 'tl_m'],
                         help="List of observables to use in training.")
     parser.add_argument('--observables',
                         nargs='+', choices=observable_dict.keys(),
-                        default=observable_dict.keys(),
+                        default=['mtt', 'ptt', 'ytt', 'ystar', 'yboost', 'dphi', 'Ht', 'th_pt', 'th_y', 'th_eta', 'th_phi', 'th_m', 'th_pout', 'tl_pt', 'tl_y', 'tl_eta', 'tl_phi', 'tl_m', 'tl_pout'],
                         help="List of observables to unfold")
     parser.add_argument('-d', '--data', required=True, nargs='+',
                         type=str,
