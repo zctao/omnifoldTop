@@ -85,14 +85,33 @@ def prepare_data_omnifold(ntuple, padding=True):
 
     return data
 
+def get_variable_arr(ntuple, variable):
+    # check if variable is in the structured array
+    if variable in ntuple.dtype.names:
+        return ntuple[variable]
+    # special cases
+    elif '_px' in variable:
+        var_pt = variable.replace('_px', '_pt')
+        var_phi = variable.replace('_px', '_phi')
+        return ntuple[var_pt]*np.cos(ntuple[var_phi])
+    elif '_py' in variable:
+        var_pt = variable.replace('_py', '_pt')
+        var_phi = variable.replace('_py', '_phi')
+        return ntuple[var_pt]*np.sin(ntuple[var_phi])
+    elif variable == 'pz':
+        var_pt = variable.replace('_pz', '_pt')
+        var_eta = variable.replace('_pz', '_eta')
+        return ntuple[var_pt]*np.sinh(ntuple[var_eta])
+    else:
+        raise RuntimeError("Unknown variable {}".format(variable))
+
 def prepare_data_multifold(ntuple, variables, standardize=False, reshape1D=False):
     """
     ntuple: structure array from root tree
 
     return an numpy array of the shape (n_events, n_variables)
     """
-    # TODO: check if ntuple[var] exsits
-    data = np.hstack([np.vstack(ntuple[var]) for var in variables])
+    data = np.hstack([np.vstack( get_variable_arr(ntuple,var) ) for var in variables])
 
     if standardize:
         data = (data - np.mean(data, axis=0))/np.std(data, axis=0)

@@ -7,7 +7,7 @@ import pandas as pd
 import math
 import external.OmniFold.modplot as modplot
 
-from util import add_histograms
+from util import add_histograms, get_variable_arr
 
 # plotting styles
 hist_style = {'histtype': 'step', 'density': False, 'lw': 1, 'zorder': 2}
@@ -358,7 +358,7 @@ def plot_train_log(csv_file, plot_name=None):
     plt.close(fig)
 
 def plot_correlations(data, variables, figname):
-    df = pd.DataFrame(data, columns=variables)
+    df = pd.DataFrame({var:get_variable_arr(data, var) for var in variables}, columns=variables)
     correlations = df.corr()
 
     fig, ax = plt.subplots()

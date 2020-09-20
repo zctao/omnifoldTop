@@ -7,7 +7,7 @@ import tensorflow as tf
 import external.OmniFold.omnifold as omnifold
 import external.OmniFold.modplot as modplot
 
-from util import read_dataset, prepare_data_multifold, getLogger
+from util import read_dataset, prepare_data_multifold, get_variable_arr
 from util import DataShufflerDet, DataShufflerGen
 from util import compute_triangular_discriminators
 from util import normalize_histogram, add_histograms, divide_histograms
@@ -16,6 +16,7 @@ from model import get_callbacks, get_model
 
 from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response, plot_graphs, plot_LR_distr, plot_LR_func, plot_training_vs_validation
 
+from util import getLogger
 logger = getLogger('OmniFoldwBkg')
 
 # Base class of OmniFold for non-negligible background
@@ -424,13 +425,13 @@ class OmniFoldwBkg(object):
         """
         for varname, config in vars_dict.items():
             logger.info("Unfold variable: {}".format(varname))
-            dataobs = np.hstack(dataset_obs[config['branch_det']])
-            truth = np.hstack(dataset_obs[config['branch_mc']]) if truth_known else None
+            dataobs = np.hstack(get_variable_arr(dataset_obs,config['branch_det']))
+            truth = np.hstack(get_variable_arr(dataset_obs,config['branch_mc'])) if truth_known else None
             
-            sim_sig = np.hstack(dataset_sig[config['branch_det']])
-            gen_sig = np.hstack(dataset_sig[config['branch_mc']])
-            sim_bkg = np.hstack(dataset_bkg[config['branch_det']]) if dataset_bkg is not None else None
-            gen_bkg = np.hstack(dataset_bkg[config['branch_mc']]) if dataset_bkg is not None else None
+            sim_sig = np.hstack(get_variable_arr(dataset_sig,config['branch_det']))
+            gen_sig = np.hstack(get_variable_arr(dataset_sig,config['branch_mc']))
+            sim_bkg = np.hstack(get_variable_arr(dataset_bkg,config['branch_det'])) if dataset_bkg is not None else None
+            gen_bkg = np.hstack(get_variable_arr(dataset_bkg,config['branch_mc'])) if dataset_bkg is not None else None
 
             # histograms
             # set up bins

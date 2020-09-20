@@ -132,6 +132,26 @@ observable_dict['th_pout'] = {
     'legend_loc': 'upper right', 'legend_ncol': 1,
 }
 
+# px
+observable_dict['th_px'] = {
+    'branch_det': 'th_px', 'branch_mc': 'th_px_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (0, 500), #'ylim': (0, 0.085),
+    'xlabel': 'px [GeV]', 'ylabel':'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
+# py
+observable_dict['th_py'] = {
+    'branch_det': 'th_py', 'branch_mc': 'th_py_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (0, 500), #'ylim': (0, 0.085),
+    'xlabel': 'py [GeV]', 'ylabel':'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
 # leptonic top
 # pt
 observable_dict['tl_pt'] = {
@@ -189,6 +209,26 @@ observable_dict['tl_pout'] = {
     'nbins_det': 50, 'nbins_mc': 50,
     'xlim': (-200, 200), #'ylim': (0, 0.25),
     'xlabel': 'p_out [GeV]', 'ylabel': 'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
+# px
+observable_dict['tl_px'] = {
+    'branch_det': 'tl_px', 'branch_mc': 'tl_px_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (0, 500), #'ylim': (0, 0.085),
+    'xlabel': 'px [GeV]', 'ylabel':'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
+# py
+observable_dict['tl_py'] = {
+    'branch_det': 'tl_py', 'branch_mc': 'tl_py_MC',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (0, 500), #'ylim': (0, 0.085),
+    'xlabel': 'py [GeV]', 'ylabel':'a.u.',
     'stamp_xy': (0.60, 0.25),
     'legend_loc': 'upper right', 'legend_ncol': 1,
 }
