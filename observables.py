@@ -309,7 +309,7 @@ observable_dict['Wl_phi'] = {
 observable_dict['Wl_m'] = {
     'branch_det': 'Wl_m', 'branch_mc': 'Wl_m_MC',
     'nbins_det': 50, 'nbins_mc': 50,
-    'xlim': (75, 85),
+    'xlim': (55, 105),
     'xlabel': 'mass [GeV]', 'ylabel': 'a.u.',
     'stamp_xy': (0.60, 0.25),
     'legend_loc': 'upper right', 'legend_ncol': 1,
