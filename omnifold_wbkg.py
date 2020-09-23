@@ -192,8 +192,8 @@ class OmniFoldwBkg(object):
 
     def _pull_weights(self, weights_m):
         # pull detector-level weights back to truth level
-        weights_t = weights_m # This is what's assumed in 1911.09107
-        #weights_t = weights_m * self.winit / self.wsig # There're events with zero weights?
+        #weights_t = weights_m # This is what's assumed in 1911.09107
+        weights_t = weights_m * self.winit / self.wsig # There're events with zero weights?
         return weights_t
 
     def _preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True):
