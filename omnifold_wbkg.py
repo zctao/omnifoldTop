@@ -384,7 +384,7 @@ class OmniFoldwBkg(object):
                 wnew = wnew[len(self.wdata):]
 
             # rescale the new weights to the original one
-            wnew *= (self.wsig.sum()/wnew.sum())
+            #wnew *= (self.wsig.sum()/wnew.sum())
 
             ws_m.append(wnew)
 
@@ -399,7 +399,7 @@ class OmniFoldwBkg(object):
             wnew = splitter_gen.unshuffle(rw)[len(ws_t[-1]):]
 
             # rescale the new weights to the original one
-            wnew *= (self.winit.sum()/wnew.sum())
+            #wnew *= (self.winit.sum()/wnew.sum())
 
             ws_t.append(wnew)
 
