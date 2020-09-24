@@ -256,6 +256,10 @@ class OmniFoldwBkg(object):
         # rescale the mc weights to simulation weights
         self.winit *= (self.wsig.sum()/self.winit.sum())
 
+        logger.debug("wdata.sum() = {}".format(self.wdata.sum()))
+        logger.debug("wsig.sum() = {}".format(self.wsig.sum()))
+        logger.debug("winit.sum() = {}".format(self.winit.sum()))
+
     def _get_reco_distributions(self, bins, arr_obs, arr_sig, arr_bkg=None):
         # observed distributions
         hist_obs, hist_obs_unc = modplot.calc_hist(arr_obs, weights=self.wdata, bins=bins, density=False)[:2]
@@ -385,6 +389,7 @@ class OmniFoldwBkg(object):
 
             # rescale the new weights to the original one
             #wnew *= (self.wsig.sum()/wnew.sum())
+            logger.debug("ws_m.sum() = {}".format(wnew.sum()))
 
             ws_m.append(wnew)
 
@@ -400,8 +405,11 @@ class OmniFoldwBkg(object):
 
             # rescale the new weights to the original one
             #wnew *= (self.winit.sum()/wnew.sum())
+            logger.debug("ws_t.sum() = {}".format(wnew.sum()))
 
             ws_t.append(wnew)
+
+        logger.debug("unfolded_weights.sum() = {}".format(self.ws_unfolded.sum()))
 
         # save the weights
         weights_file = self.outdir.rstrip('/')+'/weights.npz'
