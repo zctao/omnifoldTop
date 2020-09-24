@@ -409,13 +409,12 @@ class OmniFoldwBkg(object):
 
             ws_t.append(wnew)
 
+        self.ws_unfolded = ws_t[-1] * (self.winit.sum()/ws_t[-1].sum())
         logger.debug("unfolded_weights.sum() = {}".format(self.ws_unfolded.sum()))
 
         # save the weights
         weights_file = self.outdir.rstrip('/')+'/weights.npz'
-        np.savez(weights_file, ws_t=ws_t, ws_m=ws_m)
-
-        self.ws_unfolded = ws_t[-1]
+        np.savez(weights_file, ws_t = [self.ws_unfolded])
 
     def set_weights_from_file(self, weights_file, array_name='ws_t'):
         wfile = np.load(weights_file)
