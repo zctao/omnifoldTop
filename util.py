@@ -86,22 +86,26 @@ def prepare_data_omnifold(ntuple, padding=True):
     return data
 
 def get_variable_arr(ntuple, variable):
+    # Reture a 1-d numpy array of the 'variable' from a structured array 'ntuple'
+    # np.hstack() ensures the returned array is always of the shape (length,)
+    # in case the original array in ntuple is a column array
+
     # check if variable is in the structured array
     if variable in ntuple.dtype.names:
-        return ntuple[variable]
+        return np.hstack( ntuple[variable] )
     # special cases
     elif '_px' in variable:
         var_pt = variable.replace('_px', '_pt')
         var_phi = variable.replace('_px', '_phi')
-        return ntuple[var_pt]*np.cos(ntuple[var_phi])
+        return np.hstack(ntuple[var_pt])*np.cos(np.hstack(ntuple[var_phi]))
     elif '_py' in variable:
         var_pt = variable.replace('_py', '_pt')
         var_phi = variable.replace('_py', '_phi')
-        return ntuple[var_pt]*np.sin(ntuple[var_phi])
+        return np.hstack(ntuple[var_pt])*np.sin(np.hstack(ntuple[var_phi]))
     elif variable == 'pz':
         var_pt = variable.replace('_pz', '_pt')
         var_eta = variable.replace('_pz', '_eta')
-        return ntuple[var_pt]*np.sinh(ntuple[var_eta])
+        return np.hstack(ntuple[var_pt])*np.sinh(np.hstack(ntuple[var_eta]))
     else:
         raise RuntimeError("Unknown variable {}".format(variable))
 
@@ -122,7 +126,7 @@ def prepare_data_multifold(ntuple, variables, standardize=False, reshape1D=False
 
     return data
 
-def read_dataset(dataset, variables, label, weight_name=None):
+def read_dataset(dataset, variables, label, weight_name=None, standardize=False):
     """
     Args:
         dataset: a structured numpy array labeled by variable names
@@ -134,8 +138,15 @@ def read_dataset(dataset, variables, label, weight_name=None):
         Y: 1-d numpy array for label
         W: 1-d numpy array for sample weights
     """
-    X = prepare_data_multifold(dataset, variables)
+    # features
+    X = np.hstack([np.vstack( get_variable_arr(dataset,var) ) for var in variables])
+    if standardize:
+        X = (X - np.mean(X, axis=0))/np.std(X, axis=0)
+
+    # label
     Y = np.full(len(X), label)
+
+    # weight
     W = np.ones(len(X)) if weight_name is None else np.hstack(dataset[weight_name])
 
     return X, Y, W

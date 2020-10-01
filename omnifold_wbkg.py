@@ -7,7 +7,7 @@ import tensorflow as tf
 import external.OmniFold.omnifold as omnifold
 import external.OmniFold.modplot as modplot
 
-from util import read_dataset, prepare_data_multifold, get_variable_arr
+from util import read_dataset, get_variable_arr
 from util import DataShufflerDet, DataShufflerGen
 from util import compute_triangular_discriminators
 from util import normalize_histogram, add_histograms, divide_histograms
@@ -230,8 +230,7 @@ class OmniFoldwBkg(object):
             dataset_sig: structured numpy array whose field names are variables 
             standardize: bool, if true standardize feature array X
         """
-        X_gen_sig = prepare_data_multifold(dataset_sig, self.vars_gen)
-        nsim = len(X_gen_sig)
+        X_gen_sig, _, self.winit = read_dataset(dataset_sig, self.vars_gen, 1, weight_name=self.weight_mc_name)
 
         self.X_gen = np.concatenate((X_gen_sig, X_gen_sig))
 
@@ -239,10 +238,8 @@ class OmniFoldwBkg(object):
             self.X_gen = (self.X_gen - np.mean(self.X_gen, axis=0)) / np.std(self.X_gen, axis=0)
 
         # make Y categorical
+        nsim = len(X_gen_sig)
         self.Y_gen = tf.keras.utils.to_categorical(np.concatenate([np.ones(nsim), np.zeros(nsim)]))
-
-        # MC truth weight prior
-        self.winit = np.hstack(dataset_sig[self.weight_mc_name])
 
     def _rescale_event_weights(self):
         # Reco weights
