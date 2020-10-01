@@ -94,6 +94,11 @@ class OmniFoldwBkg(object):
         preds_min = preds.min()
         wbin = (preds_max - preds_min)/nbins
         bins_preds = np.linspace(preds_min-wbin/2, preds_max+wbin/2, nbins+1)
+        # In case the bin width is too small, probably make more sense to just put all events in one bin
+        if wbin < 0.001:
+            logger.warn("The classifier has little discrimination power")
+            wbin = 0.001
+            bins_preds = np.asarray([preds_min - wbin/2, preds_max + wbin/2])
 
         if Y.ndim == 1: # Y is simply a 1D array of labels
             preds_cat1 = preds[Y==1]
