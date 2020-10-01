@@ -1,9 +1,24 @@
-#!/usr/bin/env python3
-
 import numpy as np
-import pandas as pd
 import logging
-import matplotlib.pyplot as plt
+
+def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes'):
+    """
+    Load and return a structured numpy array from a list of npz files
+    """
+    data = None
+    for fname in file_names:
+        npzfile = np.load(fname, allow_pickle=allow_pickle, encoding=encoding)
+        di = npzfile[array_name]
+        if len(di)==0:
+            raise RuntimeError('There is no events in input file {}'.format(fname))
+
+        if data is None:
+            data = di
+        else:
+            data  = np.concatenate([data, di])
+        npzfile.close()
+
+    return data
 
 def get_fourvector_array(pt_arr, eta_arr, phi_arr, e_arr, padding=True):
     """
@@ -70,14 +85,37 @@ def prepare_data_omnifold(ntuple, padding=True):
 
     return data
 
+def get_variable_arr(ntuple, variable):
+    # Reture a 1-d numpy array of the 'variable' from a structured array 'ntuple'
+    # np.hstack() ensures the returned array is always of the shape (length,)
+    # in case the original array in ntuple is a column array
+
+    # check if variable is in the structured array
+    if variable in ntuple.dtype.names:
+        return np.hstack( ntuple[variable] )
+    # special cases
+    elif '_px' in variable:
+        var_pt = variable.replace('_px', '_pt')
+        var_phi = variable.replace('_px', '_phi')
+        return np.hstack(ntuple[var_pt])*np.cos(np.hstack(ntuple[var_phi]))
+    elif '_py' in variable:
+        var_pt = variable.replace('_py', '_pt')
+        var_phi = variable.replace('_py', '_phi')
+        return np.hstack(ntuple[var_pt])*np.sin(np.hstack(ntuple[var_phi]))
+    elif variable == 'pz':
+        var_pt = variable.replace('_pz', '_pt')
+        var_eta = variable.replace('_pz', '_eta')
+        return np.hstack(ntuple[var_pt])*np.sinh(np.hstack(ntuple[var_eta]))
+    else:
+        raise RuntimeError("Unknown variable {}".format(variable))
+
 def prepare_data_multifold(ntuple, variables, standardize=False, reshape1D=False):
     """
     ntuple: structure array from root tree
 
     return an numpy array of the shape (n_events, n_variables)
     """
-    # TODO: check if ntuple[var] exsits
-    data = np.hstack([np.vstack(ntuple[var]) for var in variables])
+    data = np.hstack([np.vstack( get_variable_arr(ntuple,var) ) for var in variables])
 
     if standardize:
         data = (data - np.mean(data, axis=0))/np.std(data, axis=0)
@@ -88,7 +126,7 @@ def prepare_data_multifold(ntuple, variables, standardize=False, reshape1D=False
 
     return data
 
-def read_dataset(dataset, variables, label, weight_name=None):
+def read_dataset(dataset, variables, label, weight_name=None, standardize=False):
     """
     Args:
         dataset: a structured numpy array labeled by variable names
@@ -100,8 +138,15 @@ def read_dataset(dataset, variables, label, weight_name=None):
         Y: 1-d numpy array for label
         W: 1-d numpy array for sample weights
     """
-    X = prepare_data_multifold(dataset, variables)
+    # features
+    X = np.hstack([np.vstack( get_variable_arr(dataset,var) ) for var in variables])
+    if standardize:
+        X = (X - np.mean(X, axis=0))/np.std(X, axis=0)
+
+    # label
     Y = np.full(len(X), label)
+
+    # weight
     W = np.ones(len(X)) if weight_name is None else np.hstack(dataset[weight_name])
 
     return X, Y, W
@@ -112,6 +157,64 @@ def set_up_bins(xmin, xmax, nbins):
     binwidth = bins[1]-bins[0]
 
     return bins, midbins, binwidth
+
+def normalize_histogram(bin_edges, hist, hist_unc=None):
+    binwidths = bin_edges[1:] - bin_edges[:-1]
+    norm = np.dot(hist, binwidths)
+    hist /= norm
+    if hist_unc is not None:
+        hist_unc /= norm
+
+def normailize_stacked_histogrms(bin_edges, hists, hists_unc=None):
+    binwidths = bin_edges[1:] - bin_edges[:-1]
+    hstacked = np.asarray(hists).sum(axis=0)
+    norm = np.dot(hstacked, binwidths)
+
+    if hists_unc is None:
+        hists_unc = [None]*len(hists)
+    else:
+        assert(len(hists_unc)==len(hists))
+
+    for h, herr in zip(hists, hists_unc):
+        h /= norm
+        if herr is not None:
+            herr /= norm
+
+def add_histograms(h1, h2=None, h1_err=None, h2_err=None, c1=1., c2=1.):
+    hsum = c1*h1
+    if h2 is not None:
+        assert(len(h1)==len(h2))
+        hsum += c2*h2
+
+    sumw2 = np.zeros_like(h1)
+
+    if h1_err is not None:
+        assert(len(h1_err)==len(h1))
+        sumw2 += (c1*h1_err)**2
+
+    if h2_err is not None:
+        assert(len(h2_err)==len(h2))
+        sumw2 += (c2*h2_err)**2
+
+    hsum_err = np.sqrt(sumw2)
+
+    return hsum, hsum_err
+
+def divide_histograms(h_numer, h_denom, h_numer_err=None, h_denom_err=None):
+    ratio = np.divide(h_numer, h_denom, out=np.zeros_like(h_denom), where=(h_denom!=0))
+
+    # bin errors
+    if h_numer_err is None:
+        h_numer_err = np.zeros_like(h_numer_err)
+    if h_denom_err is None:
+        h_denom_err = np.zeros_like(h_denom_err)
+
+    #rerrsq = (h_numer_err**2 + h_denom_err**2 * ratio**2) / h_denom**2
+    rerrsq = np.divide(h_numer_err**2 + h_denom_err**2 * ratio**2, h_denom**2, out=np.zeros_like(h_denom), where=(h_denom!=0))
+
+    ratio_err = np.sqrt(rerrsq)
+
+    return ratio, ratio_err
 
 # Data shuffle and split for step 1 (detector-level) reweighting
 # Adapted based on https://github.com/ericmetodiev/OmniFold/blob/master/omnifold.py#L54-L59
@@ -186,17 +289,12 @@ def triangular_discr(histogram_1, histogram_2):
 
     return delta * 1000
 
-def plot_fit_log(csv_file, plot_name=None):
-    df = pd.read_csv(csv_file)
+def compute_triangular_discriminators(hist_ref, hists, labels):
+    assert(len(hists)==len(labels))
+    stamps = ["Triangular discriminator ($\\times 10^{-3}$):"]
 
-    plt.figure()
-    plt.plot(df['epoch'], df['loss']*1000, label='loss')
-    plt.plot(df['epoch'], df['val_loss']*1000, label='val loss')
-    plt.legend(loc='best')
-    plt.ylabel('loss ($%s$)'%('\\times 10^{-3}'))
-    plt.xlabel('Epochs')
-    if plot_name is None:
-        plot_name = csv_file.replace('.csv', '_loss.pdf')
-    plt.savefig(plot_name)
-    plt.clf()
-    plt.close()
+    for h, l in zip(hists, labels):
+        d = triangular_discr(h, hist_ref)
+        stamps.append("{} = {:.3f}".format(l, d))
+
+    return stamps

@@ -1,27 +1,29 @@
+import os
+
 import numpy as np
 import tensorflow as tf
-
-import matplotlib
-matplotlib.use('Agg')
 
 # The original omnifold
 import external.OmniFold.omnifold as omnifold
 import external.OmniFold.modplot as modplot
 
-from util import read_dataset, prepare_data_multifold, set_up_bins, getLogger
+from util import read_dataset, get_variable_arr
 from util import DataShufflerDet, DataShufflerGen
-from util import triangular_discr
+from util import compute_triangular_discriminators
+from util import normalize_histogram, add_histograms, divide_histograms
 from ibu import ibu
+from model import get_callbacks, get_model
 
-from plotting import plot_results
+from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response, plot_graphs, plot_LR_distr, plot_LR_func, plot_training_vs_validation
 
+from util import getLogger
 logger = getLogger('OmniFoldwBkg')
 
 # Base class of OmniFold for non-negligible background
 # Adapted from the original omnifold:
 # https://github.dcom/ericmetodiev/OmniFold/blob/master/omnifold.py
 class OmniFoldwBkg(object):
-    def __init__(self, variables_det, variables_gen, wname, wname_mc, it, outdir='./'):
+    def __init__(self, variables_det, variables_gen, wname, wname_mc, it, outdir='./', binned_rw=False):
         assert(len(variables_det)==len(variables_gen))
         self.vars_det = variables_det # list of detector-level variables
         self.vars_gen = variables_gen # list of truth-level variables
@@ -45,60 +47,147 @@ class OmniFoldwBkg(object):
         self.ws_unfolded = None
         # output directory
         self.outdir = outdir.rstrip('/')+'/'
+        # reweight type
+        self.binned_rw = binned_rw
 
-    def _rescale_sample_weights(self):
-        ndata = self.wdata.sum()
-        nsim = self.wsig.sum()
-
-        if self.wbkg is not None:
-            nsim += self.wbkg.sum()
-
-        self.wsig *= ndata/nsim
-        if self.wbkg is not None:
-            self.wbkg *= ndata/nsim
-
-    def _set_up_model_i(self, i, model_config, model_filepath=None):
-        """ Set up the model for the ith iteration of reweighting
-        Args:
-            i: int for iteration
-            model_config: a ntuple with two elements. model_config[0] is the architecture of model, model_config[1] is a dictionary for the model's arguments
-            model_filepath: str, file path to save the trained model
-        Return:
-            model: classifier object
+    def _set_up_model_det_i(self, i, model_filepath=None):
+        """ Set up the model for the i-th iteration of detector-level reweighting
         """
-        # set file path
-        if model_filepath is not None:
-            model_config[1]['filepath'] = model_filepath.format(i) + '_Epoch-{epoch}'
+        # input dimension
+        input_shape = self.X_det.shape[1:]
 
-        # define model
-        model = model_config[0](**model_config[1])
+        # get model
+        model = get_model(input_shape)
 
-        # load model from previous iteration if not the first one
+        # callbacks
+        callbacks = get_callbacks(model_filepath.format(i))
+
+        # load weights from the previous iteration if not the first one
         if i > 0 and model_filepath is not None:
             model.load_weights(model_filepath.format(i-1))
-    
-        return model
 
-    def _set_up_model_det_i(self, i, model_config, model_filepath=None):
-        return self._set_up_model_i(i, model_config, model_filepath)
+        return model, callbacks
 
-    def _set_up_model_sim_i(self, i, model_config, model_filepath=None):
-        return self._set_up_model_i(i, model_config, model_filepath)
+    def _set_up_model_sim_i(self, i, model_filepath=None):
+        """ Set up the model for the i-th iteration of simulation reweighting
+        """
+        # input dimension
+        input_shape = self.X_gen.shape[1:]
 
-    def _reweight_step1(self, X, Y, w, model, filepath, fitargs, val_data=None):
+        # get model
+        model = get_model(input_shape)
+
         # callbacks
-        CSVLogger = tf.keras.callbacks.CSVLogger(filepath+'_log.csv', append=False)
-        fitargs.update({'callbacks': [CSVLogger]})
+        callbacks = get_callbacks(model_filepath.format(i))
+
+        # load weights from the previous iteration if not the first one
+        if i > 0 and model_filepath is not None:
+            model.load_weights(model_filepath.format(i-1))
+
+        return model, callbacks
+
+    def _compute_likelihood_ratio(self, preds, Y, weights, figname=None, nbins=50):
+        logger.info("Compute likelihood ratio from model output distributions")
+
+        # choose bin range based on preds max and min
+        preds_max = preds.max()
+        preds_min = preds.min()
+        wbin = (preds_max - preds_min)/nbins
+        bins_preds = np.linspace(preds_min-wbin/2, preds_max+wbin/2, nbins+1)
+        # In case the bin width is too small, probably make more sense to just put all events in one bin
+        if wbin < 0.001:
+            logger.warn("The classifier has little discrimination power")
+            wbin = 0.001
+            bins_preds = np.asarray([preds_min - wbin/2, preds_max + wbin/2])
+
+        if Y.ndim == 1: # Y is simply a 1D array of labels
+            preds_cat1 = preds[Y==1]
+            preds_cat0 = preds[Y==0]
+            w_cat1 = weights[Y==1]
+            w_cat0 = weights[Y==0]
+        else: # Y is categorical
+            preds_cat1 = preds[Y.argmax(axis=1)==1]
+            preds_cat0 = preds[Y.argmax(axis=1)==0]
+            w_cat1 = weights[Y.argmax(axis=1)==1]
+            w_cat0 = weights[Y.argmax(axis=1)==0]
+
+        hist_preds1, hist_preds1_unc = modplot.calc_hist(preds_cat1, bins=bins_preds, weights=w_cat1, density=True)[:2]
+        hist_preds0, hist_preds0_unc = modplot.calc_hist(preds_cat0, bins=bins_preds, weights=w_cat0, density=True)[:2]
+        # Estimated likelihood ratio based on the classifier
+        f_r, f_r_unc = divide_histograms(hist_preds1, hist_preds0, hist_preds1_unc, hist_preds0_unc)
+
+        # get reweighting factor for each event by looking up f_r using preds
+        r = f_r[np.digitize(preds, bins_preds)-1]
+
+        if figname is not None:
+            logger.info("Plot likelihood ratio as a function the model output: {}".format(figname))
+            plot_LR_func(figname, bins_preds, f_r, f_r_unc)
+
+        return r
+
+    def _reweight(self, X, Y, w, model, filepath, fitargs, val_data=None):
+
+        val_dict = {'validation_data': val_data} if val_data is not None else {}
+        model.fit(X, Y, sample_weight=w, **fitargs, **val_dict)
+        model.save_weights(filepath)
+        preds = model.predict(X, batch_size=10*fitargs.get('batch_size', 500))[:,1]
+
+        # concatenate validation predictions into training predictions
+        if val_data is not None:
+            preds_val = model.predict(val_data[0], batch_size=10*fitargs.get('batch_size', 500))[:,1]
+            Y_val = val_data[1]
+            w_val = val_data[2]
+
+            figname_preds = filepath+'_preds'
+            logger.info("Plot model output distribution: {}".format(figname_preds))
+            plot_training_vs_validation(figname_preds, preds, Y, w, preds_val, Y_val, w_val)
+
+            preds = np.concatenate((preds, preds_val))
+            Y = np.concatenate((Y, Y_val))
+            w = np.concatenate((w, w_val))
+
+        r = preds/(1 - preds + 10**-50)
+        # The above is copied from the reweight function from orginal OmniFold package with minor modification: https://github.com/ericmetodiev/OmniFold/blob/master/omnifold.py#L15
+
+        # alternatively
+        r_alt = self._compute_likelihood_ratio(preds, Y, w, figname=filepath+'_LR')
+
+        # plot the likelihood ratio function
+        #plot_graphs(filepath+'_LR', [(preds, r), (preds, r_alt)], labels=['Direct', 'Binned'], xlabel='Prediction (y=1)', ylabel='r')
+
+        # plot likelihood ratio distribution
+        figname_rhist = filepath+'_rhist'
+        logger.info("Plot likelihood ratio distribution: {}".format(figname_rhist))
+        plot_LR_distr(figname_rhist, [r, r_alt], labels=['Direct', 'Binned'])
+
+        if self.binned_rw:
+            w *= np.clip(r_alt, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
+        else:
+            w *= np.clip(r, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
+
+        return w
+
+    def _reweight_step1(self, X, Y, w, model, filepath, fitargs, callbacks=[],
+                        val_data=None):
+        # add callbacks to fit arguments if provided
+        fitargs_step1 = dict(fitargs)
+        if callbacks:
+            fitargs_step1.setdefault('callbacks',[]).extend(callbacks)
 
         # the original one
-        return omnifold.reweight(X, Y, w, model, filepath, fitargs, val_data=val_data)
+        #return omnifold.reweight(X, Y, w, model, filepath, fitargs_step1, val_data=val_data)
+        return self._reweight(X, Y, w, model, filepath, fitargs_step1, val_data=val_data)
 
-    def _reweight_step2(self, X, Y, w, model, filepath, fitargs, val_data=None):
-        CSVLogger = tf.keras.callbacks.CSVLogger(filepath+'_log.csv', append=False)
-        fitargs.update({'callbacks': [CSVLogger]})
+    def _reweight_step2(self, X, Y, w, model, filepath, fitargs, callbacks=[],
+                        val_data=None):
+        # add callbacks to fit arguments if provided
+        fitargs_step2 = dict(fitargs)
+        if callbacks:
+            fitargs_step2.setdefault('callbacks',[]).extend(callbacks)
 
         # the original one
-        return omnifold.reweight(X, Y, w, model, filepath, fitargs, val_data=val_data)
+        #return omnifold.reweight(X, Y, w, model, filepath, fitargs_step2, val_data=val_data)
+        return self._reweight(X, Y, w, model, filepath, fitargs_step2, val_data=val_data)
 
     def _push_weights(self, weights_t):
         # push truth-level weights to detector level
@@ -108,12 +197,12 @@ class OmniFoldwBkg(object):
 
     def _pull_weights(self, weights_m):
         # pull detector-level weights back to truth level
-        weights_t = weights_m # This is what's assumed in 1911.09107
-        #weights_t = weights_m * self.winit / self.wsig # There're events with zero weights?
+        #weights_t = weights_m # This is what's assumed in 1911.09107
+        weights_t = weights_m * self.winit / self.wsig # There're events with zero weights?
         return weights_t
 
-    def preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True):
-        """
+    def _preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True):
+        """ Set self.X_det, self.Y_det, self.wdata, self.wsig, self.wbkg
         Args:
             dataset_obs, dataset_sig, dataset_bkg: structured numpy array whose field names are variables 
             standardize: bool, if true standardize feature array X
@@ -135,26 +224,13 @@ class OmniFoldwBkg(object):
         # make Y categorical
         self.Y_det = tf.keras.utils.to_categorical(self.Y_det)
 
-        # reweight the sim and data to have the same total weight
-        self._rescale_sample_weights()
-
-        logger.info("Total number of observed events: {}".format(len(self.wdata)))
-        logger.info("Total number of simulated signal events: {}".format(len(self.wsig)))
-        if self.wbkg is not None:
-            logger.info("Total number of simulated background events: {}".format(len(self.wbkg)))
-        logger.info("Feature array X_det size: {:.3f} MB".format(self.X_det.nbytes*2**-20))
-        logger.info("Label array Y_det size: {:.3f} MB".format(self.Y_det.nbytes*2**-20))
-
-        # TODO: plot?
-        
-    def preprocess_gen(self, dataset_sig, standardize=True):
-        """
+    def _preprocess_gen(self, dataset_sig, standardize=True):
+        """ Set self.X_gen, self.Y_gen, self.winit
         Args:
             dataset_sig: structured numpy array whose field names are variables 
             standardize: bool, if true standardize feature array X
         """
-        X_gen_sig = prepare_data_multifold(dataset_sig, self.vars_gen)
-        nsim = len(X_gen_sig)
+        X_gen_sig, _, self.winit = read_dataset(dataset_sig, self.vars_gen, 1, weight_name=self.weight_mc_name)
 
         self.X_gen = np.concatenate((X_gen_sig, X_gen_sig))
 
@@ -162,18 +238,108 @@ class OmniFoldwBkg(object):
             self.X_gen = (self.X_gen - np.mean(self.X_gen, axis=0)) / np.std(self.X_gen, axis=0)
 
         # make Y categorical
+        nsim = len(X_gen_sig)
         self.Y_gen = tf.keras.utils.to_categorical(np.concatenate([np.ones(nsim), np.zeros(nsim)]))
 
-        # MC truth weight prior
-        self.winit = np.hstack(dataset_sig[self.weight_mc_name])
-        # rescale the mc weights to simulation weights
-        rs = self.wsig.sum()/self.winit.sum()
-        self.winit *= rs
+    def _rescale_event_weights(self):
+        # Reco weights
+        # reweight simulation and data to have the same total weight
+        ndata = self.wdata.sum()
+        nsim = self.wsig.sum()
 
+        if self.wbkg is not None:
+            nsim += self.wbkg.sum()
+
+        self.wsig *= ndata/nsim
+        if self.wbkg is not None:
+            self.wbkg *= ndata/nsim
+
+        # MC weights
+        # rescale the mc weights to simulation weights
+        self.winit *= (self.wsig.sum()/self.winit.sum())
+
+        logger.debug("wdata.sum() = {}".format(self.wdata.sum()))
+        logger.debug("wsig.sum() = {}".format(self.wsig.sum()))
+        logger.debug("winit.sum() = {}".format(self.winit.sum()))
+
+    def _get_reco_distributions(self, bins, arr_obs, arr_sig, arr_bkg=None):
+        # observed distributions
+        hist_obs, hist_obs_unc = modplot.calc_hist(arr_obs, weights=self.wdata, bins=bins, density=False)[:2]
+
+        # signal simulation
+        hist_sig, hist_sig_unc = modplot.calc_hist(arr_sig, weights=self.wsig, bins=bins, density=False)[:2]
+
+        # background simulation
+        hist_bkg, hist_bkg_unc = None, None
+        if arr_bkg is not None:
+            #wbkg = self.wbkg if self.wbkg.sum() > 0 else -self.wbkg
+            hist_bkg, hist_bkg_unc = modplot.calc_hist(arr_bkg, weights=self.wbkg, bins=bins, density=False)[:2]
+
+        return (hist_obs, hist_obs_unc), (hist_sig, hist_sig_unc), (hist_bkg, hist_bkg_unc)
+
+    def _get_truth_distributions(self, bins, arr_truth, wtruth, arr_bkg=None, wbkg_mc=None):
+        # rescale truth weights to data reco weights
+        wtruth *= (self.wdata.sum()/wtruth.sum())
+        hist_truth, hist_truth_unc = modplot.calc_hist(arr_truth, weights=wtruth, bins=bins, density=False)[:2]
+
+        # subtract background contribution if there is any
+        if arr_bkg is not None:
+            assert(wbkg_mc is not None)
+            # rescale bkg mc weights to bkg sim weights
+            wbkg_mc *= (self.wbkg.sum()/wbkg_mc.sum())
+
+            hist_genbkg, hist_genbkg_unc = modplot.calc_hist(arr_bkg, weights=wbkg_mc, bins=bins, density=False)[:2]
+
+            hist_truth, hist_truth_unc = add_histograms(hist_truth, hist_genbkg, hist_truth_unc, hist_genbkg_unc, c1=1., c2=-1.)
+
+        return hist_truth, hist_truth_unc
+
+    def _get_ibu_distributions(self, bins_det, bins_mc, arr_sim, arr_gen, hist_obs, hist_obs_unc=None, hist_simbkg=None, hist_simbkg_unc=None):
+        if hist_simbkg is None:
+            return ibu(hist_obs, arr_sim, arr_gen, bins_det, bins_mc, self.wsig, self.winit, it=self.iterations)
+        else:
+            # subtract background
+            hist_obs_cor, hist_obs_cor_unc = add_histograms(hist_obs, hist_simbkg, hist_obs_unc, hist_simbkg_unc, c1=1., c2=-1.)
+            return ibu(hist_obs_cor, arr_sim, arr_gen, bins_det, bins_mc, self.wsig, self.winit, it=self.iterations)
+        # TODO: hist_obs_unc
+
+    def _get_omnifold_distributions(self, bins, arr_gen, arr_genbkg=None, wbkg_mc=None):
+        hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded, bins=bins, density=False)[:2]
+        return hist_of, hist_of_unc
+
+    def prepare_inputs(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True, plot_corr=True):
+        """ Prepare input arrays for training
+        Args:
+            dataset_obs, dataset_sig, dataset_bkg: structured numpy array whose field names are variables
+            standardize: bool, if true standardize feature array X
+        """
+        # detector-level variables (for step 1 reweighting)
+        self._preprocess_det(dataset_obs, dataset_sig, dataset_bkg, standardize)
+        logger.info("Total number of observed events: {}".format(len(self.wdata)))
+        logger.info("Total number of simulated signal events: {}".format(len(self.wsig)))
+        if self.wbkg is not None:
+            logger.info("Total number of simulated background events: {}".format(len(self.wbkg)))
+        logger.info("Feature array X_det size: {:.3f} MB".format(self.X_det.nbytes*2**-20))
+        logger.info("Label array Y_det size: {:.3f} MB".format(self.Y_det.nbytes*2**-20))
+
+        # generator-level variables (for step 2 reweighting)
+        self._preprocess_gen(dataset_sig, standardize)
         logger.info("Feature array X_gen size: {:.3f} MB".format(self.X_gen.nbytes*10**-6))
         logger.info("Label array Y_gen size: {:.3f} MB".format(self.Y_gen.nbytes*10**-6))
-    
-    def unfold(self, det_model, sim_model, fitargs, val=0.2):
+
+        # event weights
+        self._rescale_event_weights()
+
+        ######################
+        # plot input variables
+        # correlations
+        if plot_corr:
+            logger.info("Plot input variable correlations")
+            plot_correlations(dataset_obs, self.vars_det, os.path.join(self.outdir, 'correlations_det_obs'))
+            plot_correlations(dataset_sig, self.vars_det, os.path.join(self.outdir, 'correlations_det_sig'))
+            plot_correlations(dataset_sig, self.vars_gen, os.path.join(self.outdir, 'correlations_gen_sig'))
+
+    def unfold(self, fitargs, val=0.2):
         # initialize the truth weights to the prior
         ws_t = [self.winit]
         ws_m = []
@@ -190,19 +356,20 @@ class OmniFoldwBkg(object):
         Y_gen_train, Y_gen_val = splitter_gen.shuffle_and_split(self.Y_gen)
 
         # model filepath
-        model_det_fp = det_model[1].get('filepath', None)
-        if model_det_fp is not None:
-            model_det_fp = self.outdir + model_det_fp
-        model_sim_fp = sim_model[1].get('filepath', None)
-        if model_sim_fp is not None:
-            model_sim_fp = self.outdir + model_sim_fp
+        model_dir = os.path.join(self.outdir, 'Models')
+        if not os.path.isdir(model_dir):
+            logger.info("Create directory {}".format(model_dir))
+            os.makedirs(model_dir)
+
+        model_det_fp = os.path.join(model_dir, 'model_step1_{}')
+        model_sim_fp = os.path.join(model_dir, 'model_step2_{}')
 
         # start iterations
         for i in range(self.iterations):
 
             # set up models for this iteration
-            model_det = self._set_up_model_det_i(i, det_model, model_det_fp)
-            model_sim = self._set_up_model_sim_i(i, sim_model, model_sim_fp)
+            model_det, cb_det = self._set_up_model_det_i(i, model_det_fp)
+            model_sim, cb_sim = self._set_up_model_sim_i(i, model_sim_fp)
 
             # step 1: reweight sim to look like data
             # push the latest truth-level weights to the detector level
@@ -214,12 +381,18 @@ class OmniFoldwBkg(object):
 
             w_train, w_val = splitter_det.shuffle_and_split(w)
 
-            rw = self._reweight_step1(X_det_train, Y_det_train, w_train, model_det, model_det_fp.format(i), fitargs, val_data=(X_det_val, Y_det_val, w_val))
+            rw = self._reweight_step1(X_det_train, Y_det_train, w_train, model_det, model_det_fp.format(i), fitargs, cb_det, val_data=(X_det_val, Y_det_val, w_val))
+
             wnew = splitter_det.unshuffle(rw)
             if self.wbkg is not None:
                 wnew = wnew[len(self.wdata):-len(self.wbkg)]
             else:
                 wnew = wnew[len(self.wdata):]
+
+            # rescale the new weights to the original one
+            #wnew *= (self.wsig.sum()/wnew.sum())
+            logger.debug("ws_m.sum() = {}".format(wnew.sum()))
+
             ws_m.append(wnew)
 
             # step 2: reweight the simulation prior to the learned weights
@@ -228,15 +401,22 @@ class OmniFoldwBkg(object):
             w = np.concatenate((wt_pull_i, ws_t[-1]))
             w_train, w_val = splitter_gen.shuffle_and_split(w)
 
-            rw = self._reweight_step2(X_gen_train, Y_gen_train, w_train, model_sim, model_sim_fp.format(i), fitargs, val_data=(X_gen_val, Y_gen_val, w_val))
+            rw = self._reweight_step2(X_gen_train, Y_gen_train, w_train, model_sim, model_sim_fp.format(i), fitargs, cb_sim, val_data=(X_gen_val, Y_gen_val, w_val))
+
             wnew = splitter_gen.unshuffle(rw)[len(ws_t[-1]):]
+
+            # rescale the new weights to the original one
+            #wnew *= (self.winit.sum()/wnew.sum())
+            logger.debug("ws_t.sum() = {}".format(wnew.sum()))
+
             ws_t.append(wnew)
+
+        self.ws_unfolded = ws_t[-1] * (self.winit.sum()/ws_t[-1].sum())
+        logger.debug("unfolded_weights.sum() = {}".format(self.ws_unfolded.sum()))
 
         # save the weights
         weights_file = self.outdir.rstrip('/')+'/weights.npz'
-        np.savez(weights_file, ws_t=ws_t, ws_m=ws_m)
-
-        self.ws_unfolded = ws_t[-1]
+        np.savez(weights_file, ws_t = [self.ws_unfolded])
 
     def set_weights_from_file(self, weights_file, array_name='ws_t'):
         wfile = np.load(weights_file)
@@ -254,88 +434,131 @@ class OmniFoldwBkg(object):
         """
         for varname, config in vars_dict.items():
             logger.info("Unfold variable: {}".format(varname))
-            dataobs = np.hstack(dataset_obs[config['branch_det']])
-            truth = np.hstack(dataset_obs[config['branch_mc']]) if truth_known else None
+            dataobs = np.hstack(get_variable_arr(dataset_obs,config['branch_det']))
+            truth = np.hstack(get_variable_arr(dataset_obs,config['branch_mc'])) if truth_known else None
             
-            sim_sig = np.hstack(dataset_sig[config['branch_det']])
-            gen_sig = np.hstack(dataset_sig[config['branch_mc']])
-            sim_bkg = np.hstack(dataset_bkg[config['branch_det']]) if dataset_bkg is not None else None
-            #gen_bkg = np.hstack(dataset_sig[config['branch_mc']]) if dataset_bkg is not None else None
+            sim_sig = np.hstack(get_variable_arr(dataset_sig,config['branch_det']))
+            gen_sig = np.hstack(get_variable_arr(dataset_sig,config['branch_mc']))
+            sim_bkg = np.hstack(get_variable_arr(dataset_bkg,config['branch_det'])) if dataset_bkg is not None else None
+            gen_bkg = np.hstack(get_variable_arr(dataset_bkg,config['branch_mc'])) if dataset_bkg is not None else None
 
             # histograms
             # set up bins
             bins_det = np.linspace(config['xlim'][0], config['xlim'][1], config['nbins_det']+1)
             bins_mc = np.linspace(config['xlim'][0], config['xlim'][1], config['nbins_mc']+1)
 
+            ###########################
+            # detector-level distributions
+            histograms_reco = self._get_reco_distributions(bins_det, dataobs, sim_sig, sim_bkg)
             # observed distributions
-            hist_obs, hist_obs_unc = modplot.calc_hist(dataobs, weights=self.wdata, bins=bins_det, density=normalize)[:2]
-
+            hist_obs, hist_obs_unc = histograms_reco[0]
             # signal simulation
-            hist_sim, hist_sim_unc = modplot.calc_hist(sim_sig, weights=self.wsig, bins=bins_det, density=normalize)[:2]
-
+            hist_sim, hist_sim_unc = histograms_reco[1]
             # background simulation
-            if sim_bkg is not None:
-                # negate background weights if it has been negated earlier
-                wbkg = self.wbkg if self.wbkg.sum() > 0 else -self.wbkg
-                hist_simbkg, hist_simbkg_unc = modplot.calc_hist(sim_bkg, weights=self.wbkg, bins=bins_det, density=normalize)[:2]
-                # subtract background contribution from the observed data
-                hist_obs -= hist_simbkg
-                # TODO: uncertainties?
+            hist_simbkg, hist_simbkg_unc = histograms_reco[2]
 
+            # plot detector-level variable distributions
+            figname_vardet = os.path.join(self.outdir, 'Reco_{}'.format(varname))
+            logger.info("  Plot detector-level variable distribution: {}".format(figname_vardet))
+            plot_reco_variable(bins_det,
+                               (hist_obs,hist_obs_unc), (hist_sim,hist_sim_unc),
+                               (hist_simbkg, hist_simbkg_unc),
+                               figname=figname_vardet, log_scale = False,
+                               **config)
+
+            ###########################
             # generated distribution (prior)
-            hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=normalize)[:2]
+            hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=False)[:2]
+
+            # truth weight if known
+            wtruth = np.hstack(dataset_obs[self.weight_mc_name]) if truth is not None else None
+
+            # background gen weights if available
+            wgenbkg = np.hstack(dataset_bkg[self.weight_mc_name]) if gen_bkg is not None else None
 
             # truth distribution if known
-            hist_truth, hist_truth_unc = None, None
             if truth is not None:
-                wtruth = np.hstack(dataset_obs[self.weight_mc_name])
-                # rescale truth weights to wsig
-                rs = self.wsig.sum()/wtruth.sum()
-                wtruth *= rs
-                hist_truth, hist_truth_unc = modplot.calc_hist(truth, weights=wtruth, bins=bins_mc, density=normalize)[:2]
+                hist_truth, hist_truth_unc = self._get_truth_distributions(bins_mc, truth, wtruth, gen_bkg, wgenbkg)
+            else:
+                hist_truth, hist_truth_unc = None, None
 
             # unfolded distributions
             # iterative Bayesian unfolding
-            hist_ibu, hist_ibu_unc = ibu(hist_obs, sim_sig, gen_sig, bins_det, bins_mc, self.winit, it=self.iterations, density=normalize)
+            hist_ibu, hist_ibu_unc, response = self._get_ibu_distributions(
+                bins_det, bins_mc, sim_sig, gen_sig, hist_obs, hist_obs_unc,
+                hist_simbkg, hist_simbkg_unc)
+
+            # plot response matrix
+            rname = os.path.join(self.outdir, 'Response_{}'.format(varname))
+            logger.info("  Plot detector response: {}".format(rname))
+            plot_response(rname, response, bins_det, bins_mc, varname)
 
             # omnifold
-            hist_of, hist_of_unc = modplot.calc_hist(gen_sig, weights=self.ws_unfolded, bins=bins_mc, density=normalize)[:2]
+            hist_of, hist_of_unc = self._get_omnifold_distributions(bins_mc, gen_sig, gen_bkg, wgenbkg)
+
+            # normalization if needed
+            if normalize:
+                normalize_histogram(bins_mc, hist_gen, hist_gen_unc)
+                normalize_histogram(bins_mc, hist_of, hist_of_unc)
+                normalize_histogram(bins_mc, hist_ibu, hist_ibu_unc)
+                normalize_histogram(bins_mc, hist_truth, hist_truth_unc)
 
             # compute the triangular discriminator
+            text_td = []
             if truth is not None:
-                d_of = triangular_discr(hist_of, hist_truth)
-                d_ibu = triangular_discr(hist_ibu, hist_truth)
-                d_gen = triangular_discr(hist_gen, hist_truth)
-                logger.info("  Triangular discriminator:   MultiFold = {:.3f}    IBU = {:.3f}    Prior = {:.3f}".format(d_of, d_ibu, d_gen))
+                text_td = compute_triangular_discriminators(hist_truth, [hist_of, hist_ibu, hist_gen], labels=['OmniFold', 'IBU', 'Prior'])
+                logger.info("  "+"    ".join(text_td))
 
             # plot results
-            figname = self.outdir.rstrip('/')+'/MultiFold_{}.pdf'.format(varname)
-            logger.info("  Create unfolded distribution plot: {}".format(figname))
-            plot_results(varname, bins_det, bins_mc,
-                         (hist_obs,hist_obs_unc), (hist_sim,hist_sim_unc),
-                         (hist_gen,hist_gen_unc), (hist_of,hist_of_unc),
+            figname = os.path.join(self.outdir, 'Unfold_{}'.format(varname))
+            logger.info("  Plot unfolded distribution: {}".format(figname))
+            plot_results(bins_mc, (hist_gen,hist_gen_unc), (hist_of,hist_of_unc),
                          (hist_ibu,hist_ibu_unc), (hist_truth, hist_truth_unc),
-                         figname=figname, **config)
+                         figname=figname, texts=text_td, **config)
 
 ##############################################################################
 #############
 # Approach 1
 #############
-# unfold as is first, then subtract the background histogram from the unfolded distribution if any observable of interest.
+# unfold as is first, then subtract the background histogram from the unfolded distribution for any observable of interest.
 
-# preprocess_data: data vs mc signal only w/o background (?)
+# preprocess_data: data vs mc signal only w/o background
 # classifier: data vs signal mc
 # reweight: standard
 # show result: subtract background histograms
-        
-class OmniFold_subHist(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_gen, wname, outdir='./'):
-        OmniFoldwBkg.__init__(self, variables_det, variables_gen, wname, outdir)
 
-    def preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True):
-        OmniFoldwBkg.preprocess_det(dataset_obs, dataset_sig, None, standardize)
-    
-    #def result(self): # fix me
+class OmniFold_subHist(OmniFoldwBkg):
+    def __init__(self, variables_det, variables_gen, wname, wname_mc, it, outdir='./'):
+        super().__init__(variables_det, variables_gen, wname, wname_mc, it, outdir)
+
+    def _preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True):
+        # exclude background events at this step
+        super()._preprocess_det(dataset_obs, dataset_sig, None, standardize)
+        # self.wbkg is None
+
+    def _get_omnifold_distributions(self, bins, arr_gen, arr_genbkg=None, wbkg_mc=None):
+        hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded, bins=bins, density=False)[:2]
+
+        # in case of background
+        if arr_genbkg is not None:
+            assert(wbkg_mc is not None)
+            # rescale bkg mc weights to bkg sim weights
+            wbkg_mc *= (self.wbkg.sum()/wbkg_mc.sum())
+
+            hist_genbkg, hist_genbkg_unc = modplot.calc_hist(arr_genbkg, weights=wbkg_mc, bins=bins, density=False)[:2]
+
+            # subtract background
+            hist_of, hist_of_unc = add_histograms(hist_of, hist_genbkg, hist_of_unc, hist_genbkg_unc, c1=1., c2=-1.)
+
+        return hist_of, hist_of_unc
+
+    def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg, truth_known=False, normalize=False):
+        # set self.wbkg properly and rescale self.wsig accordingly
+        # This is needed because background was ignored during data preparation steps
+        self.wbkg = np.hstack(dataset_bkg[self.weight_name])
+        self._rescale_event_weights()
+
+        super().results(vars_dict, dataset_obs, dataset_sig, dataset_bkg, truth_known, normalize)
     
 #############
 # Approach 2
@@ -348,15 +571,23 @@ class OmniFold_subHist(OmniFoldwBkg):
 # show result: standard
 
 class OmniFold_negW(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_gen, wname, outdir='./'):
-        OmniFoldwBkg.__init__(self, variables_det, variables_gen, wname, outdir)
-        # make background label as data
+    def __init__(self, variables_det, variables_gen, wname, wname_mc, it, outdir='./'):
+        super().__init__(variables_det, variables_gen, wname, wname_mc, it, outdir)
+        # make background label same as data
         self.label_bkg = self.label_obs
 
-    def preprocess_det(self, dataset_obs, dataset_sig, dataset_bkg, standardize=True):
-        OmniFoldwBkg.preprocess_det(dataset_obs, dataset_sig, dataset_bkg, standardize)
-        # make mc background weight negative
+    def _rescale_event_weights(self):
+        super()._rescale_event_weights()
+
+        # negate background weights
         self.wbkg = -self.wbkg
+
+    def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg, truth_known=False, normalize=False):
+        # flip the sign of background weights back first
+        self.wbkg = -self.wbkg
+
+        # proceed as usual
+        super().results(vars_dict, dataset_obs, dataset_sig, dataset_bkg, truth_known=truth_known, normalize=normalize)
     
 #############
 # Approach 3
@@ -412,37 +643,59 @@ class OmniFold_corR(OmniFoldwBkg):
 # use a multi-class classifier to approximate the likelihood ratio of signal events in data and signal mc
 
 # preprocess_data: standard w/ background mc
-# classifier: mutli-class
+# classifier: multi-class
 # reweight: new_weight = old_weight * (y_data - y_bkg) / y_sig
 # show result: standard
 
 class OmniFold_multi(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_gen, wname, outdir='./'):
-        OmniFoldwBkg.__init__(self, variables_det, variables_gen, wname, outdir)
+    def __init__(self, variables_det, variables_gen, wname, wname_mc, it, outdir='./'):
+        super().__init__(variables_det, variables_gen, wname, wname_mc, it, outdir)
+
         # new label for background
         self.label_bkg = 2
 
     # multi-class classifier for step 1 reweighting
-    #def _set_up_model_det_i(self, i, model_config, model_filepath=None):
-        # TODO
+    def _set_up_model_det_i(self, i, model_filepath=None):
+        # input dimension
+        input_shape = self.X_det.shape[1:]
+
+        # get model
+        model = get_model(input_shape, nclass=3)
+
+        # callbacks
+        callbacks = get_callbacks(model_filepath.format(i))
+
+        # load weights from the previous iteration if not the first one
+        if i > 0 and model_filepath is not None:
+            model.load_weights(model_filepath.format(i-1))
+
+        return model, callbacks
 
     # reweighting with multi-class classifer
-    def _reweight_step1(self, X, Y, w, model, filepath, fitargs, val_data=None):
-        # validation data
-        val_dict = {'validation_data': val_data} if val_data is not None else {}
-        model.fit(X, Y, sample_weight=w, **fitargs, **val_dict)
-        model.save_weights(filepath)
-        preds_obs = model.predict(X, batch_size=10*fitargs.get('batch_size', 500))[:,self.label_obs]
-        preds_bkg = model.predict(X, batch_size=10*fitargs.get('batch_size', 500))[:,self.label_bkg]
+    def _reweight_step1(self, X, Y, w, model, filepath, fitargs, callbacks=[],
+                        val_data=None):
+        # add callbacks to fit arguments
+        fitargs_step1 = dict(fitargs)
+        if callbacks:
+            fitargs_step1.setdefault('callbacks',[]).extend(callbacks)
 
-        # concatenate validation predictions into training predictions
+        val_dict = {'validation_data': val_data} if val_data is not None else {}
+
+        model.fit(X, Y, sample_weight=w, **fitargs_step1, **val_dict)
+        model.save_weights(filepath)
+
+        preds_obs = model.predict(X, batch_size=10*fitargs.get('batch_size', 500))[:,self.label_obs]
+        preds_sig = model.predict(X, batch_size=10*fitargs.get('batch_size', 500))[:,self.label_sig]
+
+        # concatenate validation predictions
         if val_data is not None:
             preds_obs_val = model.predict(val_data[0], batch_size=10*fitargs.get('batch_size', 500))[:,self.label_obs]
+            preds_sig_val = model.predict(val_data[0], batch_size=10*fitargs.get('batch_size', 500))[:,self.label_sig]
             preds_obs = np.concatenate((preds_obs, preds_obs_val))
-            preds_bkg_val = model.predict(val_data[0], batch_size=10*fitargs.get('batch_size', 500))[:,self.label_bkg]
-            preds_bkg = np.concatenate((preds_bkg, preds_bkg_val))
+            preds_sig = np.concatenate((preds_sig, preds_sig_val))
             w = np.concatenate((w, val_data[2]))
 
-        r = (preds_obs - preds_bkg) / (1 - preds_obs - preds_bkg + 10**-50)
+        r = preds_obs / preds_sig
+
         w *= np.clip(r, fitargs.get('weight_clip_min', 0.), fitargs.get('weight_clip_max', np.inf))
         return w
