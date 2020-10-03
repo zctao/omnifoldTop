@@ -73,7 +73,9 @@ def unfold(**parsed_args):
     logger.info("Preprocessing data")
     t_prep_start = time.time()
     unfolder.prepare_inputs(data_obs, data_mc_sig, data_mc_bkg, standardize=True,
-                            plot_corr=parsed_args['plot_correlations'])
+                            plot_corr=parsed_args['plot_correlations'],
+                            truth_known=parsed_args['truth_known'],
+                            reweight_type=parsed_args['reweight_data'])
     t_prep_finish = time.time()
 
     logger.info("Preprocessnig data took {:.2f} seconds".format(t_prep_finish-t_prep_start))
@@ -107,7 +109,7 @@ def unfold(**parsed_args):
     # Show results
     resObs_dict = { var:observable_dict[var] for var in parsed_args['observables']}
     t_result_start = time.time()
-    unfolder.results(resObs_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['closure_test'], normalize=parsed_args['normalize'])
+    unfolder.results(resObs_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['truth_known'], normalize=parsed_args['normalize'])
     t_result_finish = time.time()
 
     logger.info("Getting results took {:.2f} seconds (average {:.2f} seconds per variable)".format(t_result_finish-t_result_start, (t_result_finish-t_result_start)/len(resObs_dict)))
@@ -147,9 +149,9 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--outputdir',
                         default='./output',
                         help="Directory for storing outputs")
-    parser.add_argument('-t', '--closure-test', dest='closure_test',
+    parser.add_argument('-t', '--truth-known', dest='truth_known',
                         action='store_true',
-                        help="Is a closure test")
+                        help="MC truth is known for 'data' sample")
     parser.add_argument('-n', '--normalize',
                         action='store_true',
                         help="Normalize the distributions when plotting the result")
@@ -168,6 +170,9 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--background-mode', dest='background_mode',
                         choices=['default', 'subHist', 'negW', 'multiClass'],
                         default='default', help="Background mode")
+    parser.add_argument('-r', '--reweight-data', dest='reweight_data',
+                        choices=['linear_th_pt', 'gaussian_bump'], default=None,
+                        help="Reweight strategy of the input spectrum for stress tests")
     parser.add_argument('-v', '--verbose',
                         action='count', default=0,
                         help="Verbosity level")
