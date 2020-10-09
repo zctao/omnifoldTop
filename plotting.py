@@ -298,10 +298,20 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
 
     if ax1:
         #  ratios of the unfolded distributions to truth
-        draw_ratios(ax1, bins_gen, hist_truth, [hist_ibu, hist_of],
-                    hist_truth_unc, [hist_ibu_unc, hist_of_unc],
-                    truth_style['edgecolor'], truth_style['facecolor'],
-                    [ibu_style['color'], omnifold_style['color']])
+        hists_numerator = [hist_ibu, hist_of]
+        hists_unc_numerator = [hist_ibu_unc, hist_of_unc]
+        colors_numerator = [ibu_style['color'], omnifold_style['color']]
+        if config.get('draw_prior_ratio') is not None:
+            if config['draw_prior_ratio']:
+                hists_numerator.append(hist_gen)
+                hists_unc_numerator.append(hist_gen_unc)
+                colors_numerator.append(gen_style['color'])
+
+        draw_ratios(ax1, bins_gen, hist_truth, hists_numerator,
+                    hist_truth_unc, hists_unc_numerator,
+                    color_denom_line = truth_style['edgecolor'],
+                    color_denom_fill= truth_style['facecolor'],
+                    colors_numer = colors_numerator)
 
     draw_legend(ax0, **config)
 

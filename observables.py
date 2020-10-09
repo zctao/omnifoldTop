@@ -9,6 +9,7 @@ observable_dict['mtt'] = {
     'xlabel': 'm_ttbar [GeV]', 'ylabel':'a.u.',
     'stamp_xy': (0.60, 0.25),
     'legend_loc': 'upper right', 'legend_ncol': 1,
+    'draw_prior_ratio': True,
 }
 
 # ttbar pt
