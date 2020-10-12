@@ -29,19 +29,23 @@ def unfold(**parsed_args):
     parsed_args['observables'] = list(set().union(parsed_args['observables'], parsed_args['observables_train']))
     logger.info("Observables to unfold: {}".format(', '.join(parsed_args['observables'])))
 
+    # weight name
+    wname = parsed_args['weight']
+    wname_mc = parsed_args['weight_mc']
+
     # collision data
     logger.info("Loading datasets")
     t_data_start = time.time()
     fnames_obs = parsed_args['data']
-    data_obs = load_dataset(fnames_obs)
+    data_obs = load_dataset(fnames_obs, weight_columns=[wname,wname_mc])
 
     # signal MC
     fnames_mc_sig = parsed_args['signal']
-    data_mc_sig = load_dataset(fnames_mc_sig)
+    data_mc_sig = load_dataset(fnames_mc_sig, weight_columns=[wname,wname_mc])
 
     # background MC
     fnames_mc_bkg = parsed_args['background']
-    data_mc_bkg = load_dataset(fnames_mc_bkg) if fnames_mc_bkg is not None else None
+    data_mc_bkg = load_dataset(fnames_mc_bkg, weight_columns=[wname,wname_mc]) if fnames_mc_bkg is not None else None
 
     t_data_finish = time.time()
     logger.info("Loading dataset took {:.2f} seconds".format(t_data_finish-t_data_start))
@@ -53,9 +57,6 @@ def unfold(**parsed_args):
     vars_det = [ observable_dict[key]['branch_det'] for key in parsed_args['observables_train'] ]
     # truth level variable names for training
     vars_mc = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_train'] ]
-    # weight name
-    wname = parsed_args['weight']
-    wname_mc = parsed_args['weight_mc']
 
     #####################
     # Start unfolding

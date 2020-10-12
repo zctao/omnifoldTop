@@ -2,16 +2,43 @@ import numpy as np
 import logging
 from observables import observable_dict
 
-def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes'):
+def parse_input_name(fname):
+    fname_list = fname.split('*')
+    if len(fname_list) == 1:
+        return fname, 1.
+    else:
+        try:
+            name = fname_list[0]
+            rwfactor = float(fname_list[1])
+        except ValueError:
+            name = fname_list[1]
+            rwfactor = float(fname_list[0])
+        except:
+            print('Unknown data file name {}'.format(fname))
+
+        return name, rwfactor
+
+def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes', weight_columns=[]):
     """
     Load and return a structured numpy array from a list of npz files
     """
     data = None
     for fname in file_names:
-        npzfile = np.load(fname, allow_pickle=allow_pickle, encoding=encoding)
+        fn, rwfactor = parse_input_name(fname)
+
+        npzfile = np.load(fn, allow_pickle=allow_pickle, encoding=encoding)
         di = npzfile[array_name]
         if len(di)==0:
             raise RuntimeError('There is no events in input file {}'.format(fname))
+
+        # rescale total event weights for this input file
+        if rwfactor != 1.:
+            for wname in weight_columns:
+                try:
+                    di[wname] = di[wname]*rwfactor
+                except ValueError:
+                    print('Unknown field name {}'.format(wname))
+                    continue
 
         if data is None:
             data = di
