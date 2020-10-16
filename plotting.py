@@ -20,7 +20,7 @@ bkg_style = {'color': 'cyan', 'label': 'Bkg.', **hist_style}
 
 gen_style = {'linestyle': '--', 'color': 'blue', 'lw': 1.15, 'label': 'Gen.'}
 
-truth_style = {'step': 'mid', 'edgecolor': 'green', 'facecolor': (0.75, 0.875, 0.75), 'lw': 1.25, 'zorder': 0, 'label': 'Truth'}
+truth_style = {'edgecolor': 'green', 'facecolor': (0.75, 0.875, 0.75), 'lw': 1.25, 'zorder': 0, 'label': 'Truth'}
 
 ibu_style = {'ls': '-', 'marker': 'o', 'ms': 2.5, 'color': 'gray', 'zorder': 1, 'label':'IBU'}
 
@@ -46,11 +46,12 @@ def draw_ratios(ax, bins, hist_denom, hists_numer, hist_denom_unc=None, hists_nu
     binwidths = bins[1:] - bins[:-1]
 
     # horizontal line at y=1
-    ax.plot([np.min(midbins), np.max(midbins)], [1, 1], '-', color=color_denom_line, lw=0.75)
+    ax.plot([np.min(bins), np.max(bins)], [1, 1], '-', color=color_denom_line, lw=0.75)
 
     if hist_denom_unc is not None:
         denom_unc_ratio = np.divide(hist_denom_unc, hist_denom, out=np.zeros_like(hist_denom), where=(hist_denom!=0))
-        ax.fill_between(midbins, 1-denom_unc_ratio, 1+denom_unc_ratio, facecolor=color_denom_fill, zorder=-2)
+        denom_unc_ratio = np.append(denom_unc_ratio, denom_unc_ratio[-1])
+        ax.fill_between(bins, 1-denom_unc_ratio, 1+denom_unc_ratio, facecolor=color_denom_fill, zorder=-2, step='post')
 
     if colors_numer is not None:
         assert(len(colors_numer)==len(hists_numer))
@@ -114,7 +115,7 @@ def draw_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
 def draw_hist_fill(ax, bin_edges, hist, hist_unc=None, **styles):
     midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-    ax.fill_between(midbins, hist, **styles)
+    ax.hist(midbins, bin_edges, weights=hist, histtype='step', fill=True, **styles)
     # TODO: uncertainty?
 
 def draw_hist_as_graph(ax, bin_edges, hist, hist_unc=None, **styles):
