@@ -43,7 +43,7 @@ def set_default_colors(ncolors):
 
 def draw_ratios(ax, bins, hist_denom, hists_numer, hist_denom_unc=None, hists_numer_unc=None, color_denom_line='tomato', color_denom_fill='silver', colors_numer=None):
     midbins = (bins[:-1] + bins[1:]) / 2
-    binwidth = bins[1] - bins[0]
+    binwidths = bins[1:] - bins[:-1]
 
     # horizontal line at y=1
     ax.plot([np.min(midbins), np.max(midbins)], [1, 1], '-', color=color_denom_line, lw=0.75)
@@ -69,7 +69,7 @@ def draw_ratios(ax, bins, hist_denom, hists_numer, hist_denom_unc=None, hists_nu
             if hists_numer_unc[i] is not None:
                 ratio_unc = np.divide(hists_numer_unc[i], hist_denom, out=np.zeros_like(hist_denom), where=(hist_denom!=0))
 
-        ax.errorbar(midbins, ratio, xerr=binwidth/2, yerr=ratio_unc, color=colors_numer[i], **modplot.style('errorbar'))
+        ax.errorbar(midbins, ratio, xerr=binwidths/2, yerr=ratio_unc, color=colors_numer[i], **modplot.style('errorbar'))
 
 def draw_legend(ax, **config):
     loc = config.get('legend_loc', 'best')
@@ -119,10 +119,10 @@ def draw_hist_fill(ax, bin_edges, hist, hist_unc=None, **styles):
 
 def draw_hist_as_graph(ax, bin_edges, hist, hist_unc=None, **styles):
     midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
-    binwidth = bin_edges[1] - bin_edges[0]
+    binwidths = bin_edges[1:] - bin_edges[:-1]
 
     yerr = hist_unc
-    xerr = None if yerr is None else binwidth/2
+    xerr = None if yerr is None else binwidths/2
 
     ax.errorbar(midbins, hist, xerr=xerr, yerr=yerr, **styles)
 
