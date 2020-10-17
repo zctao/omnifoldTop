@@ -1,4 +1,5 @@
 import numpy as np
+import json
 import logging
 from observables import observable_dict
 
@@ -352,3 +353,18 @@ def compute_triangular_discriminators(hist_ref, hists, labels):
         stamps.append("{} = {:.3f}".format(l, d))
 
     return stamps
+
+def read_dict_from_json(filename_json):
+    jfile = open(filename_json, "r")
+    try:
+        jdict = json.load(jfile)
+    except json.decoder.JSONDecodeError:
+        jdict = {}
+
+    jfile.close()
+    return jdict
+
+def write_dict_to_json(aDictionary, filename_json):
+    jfile = open(filename_json, "w")
+    json.dump(aDictionary, jfile, indent=4)
+    jfile.close()
