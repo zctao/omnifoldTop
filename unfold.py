@@ -110,7 +110,7 @@ def unfold(**parsed_args):
     # Show results
     resObs_dict = { var:observable_dict[var] for var in parsed_args['observables']}
     t_result_start = time.time()
-    unfolder.results(resObs_dict, data_obs, data_mc_sig, data_mc_bkg, truth_known=parsed_args['truth_known'], normalize=parsed_args['normalize'])
+    unfolder.results(resObs_dict, data_obs, data_mc_sig, data_mc_bkg, binning_config=parsed_args['binning_config'], truth_known=parsed_args['truth_known'], normalize=parsed_args['normalize'])
     t_result_finish = time.time()
 
     logger.info("Getting results took {:.2f} seconds (average {:.2f} seconds per variable)".format(t_result_finish-t_result_start, (t_result_finish-t_result_start)/len(resObs_dict)))
@@ -183,6 +183,9 @@ if __name__ == "__main__":
     parser.add_argument('--unfolded-weights', dest='unfolded_weights',
                         default='', type=str,
                         help="File name of the stored weights after unfolding. If provided, skip training/unfolding and use the weights directly to show results.")
+    parser.add_argument('--binning-config', dest='binning_config',
+                        default='', type=str,
+                        help="Binning config file for variables")
 
     args = parser.parse_args()
 

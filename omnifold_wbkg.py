@@ -16,6 +16,8 @@ from model import get_callbacks, get_model
 
 from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response, plot_graphs, plot_LR_distr, plot_LR_func, plot_training_vs_validation
 
+from binning import get_bins
+
 from util import getLogger
 logger = getLogger('OmniFoldwBkg')
 
@@ -446,7 +448,7 @@ class OmniFoldwBkg(object):
         wfile.close()
         self.ws_unfolded = ws_t[-1]
 
-    def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg=None, truth_known=False, normalize=False):
+    def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg=None, binning_config='', truth_known=False, normalize=False):
         """
         Args:
             vars_dict:
@@ -466,8 +468,13 @@ class OmniFoldwBkg(object):
 
             # histograms
             # set up bins
-            bins_det = np.linspace(config['xlim'][0], config['xlim'][1], config['nbins_det']+1)
-            bins_mc = np.linspace(config['xlim'][0], config['xlim'][1], config['nbins_mc']+1)
+            bins_det = get_bins(varname, binning_config)
+            if bins_det is None:
+                bins_det = np.linspace(config['xlim'][0], config['xlim'][1], config['nbins_det']+1)
+
+            bins_mc = get_bins(varname, binning_config)
+            if bins_mc is None:
+                bins_mc = np.linspace(config['xlim'][0], config['xlim'][1], config['nbins_mc']+1)
 
             ###########################
             # detector-level distributions
