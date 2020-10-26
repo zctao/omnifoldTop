@@ -56,7 +56,7 @@ observable_dict['yboost'] = {
 observable_dict['dphi'] = {
     'branch_det': 'dphiReco', 'branch_mc': 'dphiTrue',
     'nbins_det': 50, 'nbins_mc': 50,
-    'xlim': (0, 3.4), #'ylim': (0, 0.22),
+    'xlim': (0, 3.2), #'ylim': (0, 0.22),
     'xlabel': 'dphi', 'ylabel': 'a.u.',
     'stamp_xy': (0.10, 0.25),
     'legend_loc': 'upper left', 'legend_ncol': 1,
