@@ -9,7 +9,7 @@ import external.OmniFold.modplot as modplot
 
 from util import read_dataset, get_variable_arr, reweight_sample
 from util import DataShufflerDet, DataShufflerGen
-from util import compute_triangular_discriminators
+from util import write_triangular_discriminators, write_chi2
 from util import normalize_histogram, add_histograms, divide_histograms
 from ibu import ibu
 from model import get_callbacks, get_model
@@ -529,7 +529,8 @@ class OmniFoldwBkg(object):
             # compute the triangular discriminator
             text_td = []
             if truth is not None:
-                text_td = compute_triangular_discriminators(hist_truth, [hist_of, hist_ibu, hist_gen], labels=['OmniFold', 'IBU', 'Prior'])
+                #text_td = write_triangular_discriminators(hist_truth, [hist_of, hist_ibu, hist_gen], labels=['OmniFold', 'IBU', 'Prior'])
+                text_td = write_chi2(hist_truth, hist_truth_unc, [hist_of, hist_ibu, hist_gen], [hist_of_unc, hist_ibu_unc, hist_gen_unc], labels=['OmniFold', 'IBU', 'Prior'])
                 logger.info("  "+"    ".join(text_td))
 
             # plot results

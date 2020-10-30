@@ -2,6 +2,7 @@ import numpy as np
 import json
 import logging
 from observables import observable_dict
+from scipy import stats
 
 def parse_input_name(fname):
     fname_list = fname.split('*')
@@ -332,25 +333,55 @@ def getLogger(name, level=logging.DEBUG):
     logger.setLevel(level)
     return logger
 
-def triangular_discr(histogram_1, histogram_2):
+def compute_triangular_discr(histogram_1, histogram_2):
     if len(histogram_1) != len(histogram_2):
         raise RuntimeError("Input histograms are not of the same size")
 
     delta = 0.
     for p, q in zip(histogram_1, histogram_2):
-        if q==0 and q==0:
+        if p==0 and q==0:
             continue
         delta += ((p-q)**2)/(p+q)*0.5
 
     return delta * 1000
 
-def compute_triangular_discriminators(hist_ref, hists, labels):
+def write_triangular_discriminators(hist_ref, hists, labels):
     assert(len(hists)==len(labels))
     stamps = ["Triangular discriminator ($\\times 10^{-3}$):"]
 
     for h, l in zip(hists, labels):
-        d = triangular_discr(h, hist_ref)
+        d = compute_triangular_discr(h, hist_ref)
         stamps.append("{} = {:.3f}".format(l, d))
+
+    return stamps
+
+def compute_chi2(hist_obs, hist_exp, hist_obs_err, hist_exp_err):
+    assert(len(hist_exp)==len(hist_obs))
+    assert(len(hist_exp)==len(hist_exp_err))
+    assert(len(hist_obs)==len(hist_obs_err))
+    ndf = len(hist_exp) # degree of freedom
+    chi2 = 0.
+
+    for o, e, oerr, eerr in zip(hist_obs, hist_exp, hist_obs_err, hist_exp_err):
+        if o == 0 and e==0:
+            ndf -= 1 # BAD histogram binning!
+            continue
+        chi2 += ((o-e)**2)/(oerr**2+eerr**2)
+
+    return chi2, ndf
+
+def compute_pvalue(chi2, ndf):
+    return 1 - stats.chi2.cdf(chi2, ndf)
+
+def write_chi2(hist_ref, hist_ref_unc, hists, hists_unc, labels):
+    assert(len(hists)==len(labels))
+    stamps = ["$\\chi^2$/NDF (p-value):"]
+
+    for h, herr, l in zip(hists, hists_unc, labels):
+        chi2, ndf = compute_chi2(h, hist_ref, herr, hist_ref_unc)
+        pval = compute_pvalue(chi2, ndf)
+
+        stamps.append("{} = {:.3f}/{} ({:.3f})".format(l, chi2, ndf, pval))
 
     return stamps
 
