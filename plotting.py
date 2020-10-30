@@ -263,7 +263,7 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
 
     # use the plotting tools from the original omnifold package
     truth_known = histogram_truth[0] is not None
-    fig, axes = modplot.axes(ratio_plot = truth_known, **config)
+    fig, axes = modplot.axes(ratio_plot = truth_known, gridspec_update={'height_ratios': (3.5,2) if truth_known else (1,)}, **config)
     ax0 = axes[0]
     ax1 = axes[1] if truth_known else None
 
