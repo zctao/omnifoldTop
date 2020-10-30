@@ -302,14 +302,13 @@ class OmniFoldwBkg(object):
 
         return hist_truth, hist_truth_unc
 
-    def _get_ibu_distributions(self, bins_det, bins_mc, arr_sim, arr_gen, hist_obs, hist_obs_unc=None, hist_simbkg=None, hist_simbkg_unc=None):
+    def _get_ibu_distributions(self, bins_det, bins_mc, arr_sim, arr_gen, hist_obs, hist_obs_unc, hist_simbkg=None, hist_simbkg_unc=None):
         if hist_simbkg is None:
-            return ibu(hist_obs, arr_sim, arr_gen, bins_det, bins_mc, self.wsig, self.winit, it=self.iterations)
+            return ibu(hist_obs, hist_obs_unc, arr_sim, arr_gen, bins_det, bins_mc, self.wsig, self.winit, it=self.iterations)
         else:
             # subtract background
             hist_obs_cor, hist_obs_cor_unc = add_histograms(hist_obs, hist_simbkg, hist_obs_unc, hist_simbkg_unc, c1=1., c2=-1.)
-            return ibu(hist_obs_cor, arr_sim, arr_gen, bins_det, bins_mc, self.wsig, self.winit, it=self.iterations)
-        # TODO: hist_obs_unc
+            return ibu(hist_obs_cor, hist_obs_cor_unc, arr_sim, arr_gen, bins_det, bins_mc, self.wsig, self.winit, it=self.iterations)
 
     def _get_omnifold_distributions(self, bins, arr_gen, arr_genbkg=None):
         hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded, bins=bins, density=False)[:2]

@@ -26,16 +26,18 @@ def ibu_core(hist_obs, hist_prior, response, wbin_det, wbin_gen, iteration):
 
     return phis[-1]
 
-def ibu_unc(hist_obs, hist_prior, hist_prior_unc, response, wbin_det, wbin_gen, iteration, nresamples=50):
+def ibu_unc(hist_obs, hist_obs_unc, hist_prior, hist_prior_unc, response, wbin_det, wbin_gen, iteration, nresamples=50):
     # statistical uncertainty on the IBU distribution
-    # (only from the prior for now)
     rephis = []
     for resample in range(nresamples):
-        # vary the prior distribution based on the bin uncertainties
-        hist_prior_rw = np.random.normal(hist_prior, hist_prior_unc)
+        # resample the prior distribution
+        hist_prior_rs = np.random.normal(hist_prior, hist_prior_unc)
+
+        # toy data histogram based on the measurement
+        hist_obs_toy = np.random.normal(hist_obs, hist_obs_unc)
 
         # redo IBU with the new prior
-        phi = ibu_core(hist_obs, hist_prior_rw, response, wbin_det, wbin_gen, iteration)
+        phi = ibu_core(hist_obs_toy, hist_prior_rs, response, wbin_det, wbin_gen, iteration)
 
         # record the result
         rephis.append(phi)
@@ -43,7 +45,7 @@ def ibu_unc(hist_obs, hist_prior, hist_prior_unc, response, wbin_det, wbin_gen, 
     # return the per-bin standard deviation as the uncertainty
     return np.std(np.asarray(rephis), axis=0)
 
-def ibu(hist_obs, datasim, datagen, bins_det, bins_gen, wsim, winit, it, nresample=25):
+def ibu(hist_obs, hist_obs_unc, datasim, datagen, bins_det, bins_gen, wsim, winit, it, nresample=25):
     binwidths_det = bins_det[1:]-bins_det[:-1]
     binwidths_gen = bins_gen[1:]-bins_gen[:-1]
 
@@ -57,6 +59,6 @@ def ibu(hist_obs, datasim, datagen, bins_det, bins_gen, wsim, winit, it, nresamp
     hist_ibu = ibu_core(hist_obs, hist_prior, r, binwidths_det, binwidths_gen, it)
 
     # uncertainty
-    hist_ibu_unc = ibu_unc(hist_obs, hist_prior, hist_prior_unc, r, binwidths_det, binwidths_gen, it, nresample)
+    hist_ibu_unc = ibu_unc(hist_obs, hist_obs_unc, hist_prior, hist_prior_unc, r, binwidths_det, binwidths_gen, it, nresample)
 
     return hist_ibu, hist_ibu_unc, r
