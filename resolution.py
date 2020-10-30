@@ -1,6 +1,10 @@
 import numpy as np
+from scipy.optimize import curve_fit
 
 from plotting import plot_graphs
+
+from util import getLogger
+logger = getLogger('Resolution', level=20)
 
 def resolution(reco_arr, truth_arr, weights, bins_reco, bins_truth, figname=None, xlabel=''):
     """
@@ -27,29 +31,24 @@ def resolution(reco_arr, truth_arr, weights, bins_reco, bins_truth, figname=None
         if hist_reco.sum() == 0:
             # unable to get resolution
             resol_arr.append(0)
-            #resol_unc_arr.append(0)
+            resol_unc_arr.append(0)
             continue
 
-        # estimate resolution for this truth bin
-        # estimated sample mean
-        reco_mean = np.average(midbins_x, weights=hist_reco)
-        # estiamted sample variance
-        # (assume total number of events is much larger than 1)
-        reco_var = np.average((midbins_x - reco_mean)**2, weights=hist_reco)
-        # standard deviation
-        reco_res = np.sqrt(reco_var)
-        resol_arr.append(reco_res)
-        # variance of the sample variance TODO
-        #resol_unc_arr.append()
+        # estimate resolution from the reco histogram for this truth bin
+        #reco_res, reco_res_unc = get_hist_sigma(midbins_x, hist_reco)
+        # or fit hist_reco with a gaussian to estimate sigma
+        reco_res, reco_res_unc = get_hist_sigma_fit(midbins_x, hist_reco)
 
-        # alternatively, fit hist_reco with a gaussian to estimate sigma
+        resol_arr.append(reco_res)
+        resol_unc_arr.append(reco_res_unc)
 
     assert(len(resol_arr)==len(midbins_y))
+    assert(len(resol_unc_arr)==len(midbins_y))
 
     if figname:
         # plot the resolution vs truth value
         plot_graphs(figname, [(midbins_y, resol_arr)],
-                    #error_arrays=[resol_unc_arr],
+                    error_arrays=[resol_unc_arr],
                     xlabel=xlabel, ylabel='Resolution')
 
     def f_resol(truth_value):
@@ -64,3 +63,45 @@ def resolution(reco_arr, truth_arr, weights, bins_reco, bins_truth, figname=None
     # and return the fitted function
 
     return f_resol
+
+def get_hist_sigma(midbins, hist, hist_err=None):
+    # estimated sample mean
+    sample_mean = np.average(midbins, weights=hist)
+    #sample_mean = sum(midbins*hist)/sum(hist)
+
+    # estimated sample variance (assume large sample number)
+    sample_var = np.average((midbins - sample_mean)**2, weights=hist)
+    #sample_var = sum(hist * (midbins - sample_mean)**2)/sum(hist)
+    # standard deviation
+    sample_std = np.sqrt(sample_var)
+
+    # variance of sample variance TODO
+    #sample_std_unc = (sum(hist*(midbins - sample_mean)**4)/sum(hist) - sample_var) / sum(hist)
+    sample_std_unc = 0.
+
+    return sample_std, sample_std_unc
+
+def get_hist_sigma_fit(midbins, hist, hist_err=None):
+    # initial value
+    mean0 = sum(midbins*hist)/sum(hist)
+    sigma0 = np.sqrt(sum(hist * (midbins - mean0)**2)/sum(hist))
+
+    # fit
+    try:
+        #popt, pcov = curve_fit(gauss, midbins, hist, p0=[max(hist), mean0, sigma0], bounds=([0.,-np.inf,0.], np.inf), sigma=hist_err)
+        popt, pcov = curve_fit(gauss, midbins, hist, p0=[max(hist), mean0, sigma0], bounds=([-np.inf,-np.inf,0.], np.inf), sigma=hist_err)
+
+        A, mu, sigma = popt
+        A_err, mu_err, sigma_err = np.sqrt(np.diag(pcov))
+    except RuntimeError as e:
+        logger.warn("Fit failed with message: {}".format(e))
+        logger.warn("Use initial value estiamted from sample: sigma = {}".format(sigma0))
+        logger.debug("mean0 = {}".format(mean0))
+        logger.debug("histogram = {}".format(hist))
+        sigma = sigma0
+        sigma_err = sigma0
+
+    return sigma, sigma_err
+
+def gauss(x, a, mu, sigma):
+    return a*np.exp(-(x-mu)**2/(2*sigma**2))

@@ -177,7 +177,7 @@ if __name__ == "__main__":
                         help="variables to bin")
     parser.add_argument('-i', '--inputs', required=True, nargs='+', type=str,
                         help="Input files")
-    parser.add_argument('-o', '--outdir', default='Configs',
+    parser.add_argument('-o', '--outdir', default='configs',
                         help="Output file name")
     parser.add_argument('-p', '--plot', action='store_true',
                         help="plot distributions with new bins if true")
