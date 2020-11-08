@@ -204,6 +204,16 @@ def reweight_sample(weights_orig, dataset, reweight_type=None):
         rw = 1 + k*np.exp( -( (mtt-m0)/sigma )**2 )
         return weights_orig * rw
 
+    elif reweight_type == 'gaussian_tail':
+        varname_mtt = observable_dict['mtt']['branch_mc']
+        mtt = get_variable_arr(dataset, varname_mtt)
+        #  reweight function
+        k = 0.5
+        m0 = 2000
+        sigma = 1000
+        rw = 1 + k*np.exp( -( (mtt-m0)/sigma )**2 )
+        return weights_orig * rw
+
     else:
         raise RuntimeError("Unknown sample reweighting type: {}".format(reweight_type))
 
