@@ -136,7 +136,7 @@ if __name__ == "__main__":
                         help="List of observables to use in training.")
     parser.add_argument('--observables',
                         nargs='+', choices=observable_dict.keys(),
-                        default=['mtt', 'ptt', 'ytt', 'ystar', 'yboost', 'dphi', 'Ht', 'th_pt', 'th_y', 'th_eta', 'th_phi', 'th_m', 'th_pout', 'tl_pt', 'tl_y', 'tl_eta', 'tl_phi', 'tl_m', 'tl_pout'],
+                        default=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_pt', 'th_y', 'th_eta', 'th_phi', 'th_m', 'th_e', 'th_pout', 'tl_pt', 'tl_y', 'tl_eta', 'tl_phi', 'tl_m', 'tl_e', 'tl_pout'],
                         help="List of observables to unfold")
     parser.add_argument('-d', '--data', required=True, nargs='+',
                         type=str,
@@ -172,7 +172,7 @@ if __name__ == "__main__":
                         choices=['default', 'subHist', 'negW', 'multiClass'],
                         default='default', help="Background mode")
     parser.add_argument('-r', '--reweight-data', dest='reweight_data',
-                        choices=['linear_th_pt', 'gaussian_bump'], default=None,
+                        choices=['linear_th_pt', 'gaussian_bump', 'gaussian_tail'], default=None,
                         help="Reweight strategy of the input spectrum for stress tests")
     parser.add_argument('-v', '--verbose',
                         action='count', default=0,
