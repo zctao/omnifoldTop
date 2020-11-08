@@ -32,12 +32,21 @@ observable_dict['ytt'] = {
     'legend_loc': 'upper right', 'legend_ncol': 1,
 }
 
-# absolute value of ttbar rapidity in the their center of mass frame
+# ttbar rapidity in the their center of mass frame
 observable_dict['ystar'] = {
     'branch_det': 'ystarReco', 'branch_mc': 'ystarTrue',
     'nbins_det': 50, 'nbins_mc': 50,
-    'xlim': (0, 2.5), #'ylim': (0, 0.08),
+    'xlim': (-2.5, 2.5), #'ylim': (0, 0.08),
     'xlabel': 'ystar', 'ylabel':'a.u.',
+    'stamp_xy': (0.32, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
+observable_dict['chitt'] = {
+    'branch_det': 'chittReco', 'branch_mc': 'chittTrue',
+    'nbins_det': 50, 'nbins_mc': 50,
+    'xlim': (0, 50),
+    'xlabel': 'chiTT', 'ylabel': 'a.u.',
     'stamp_xy': (0.60, 0.25),
     'legend_loc': 'upper right', 'legend_ncol': 1,
 }
@@ -46,7 +55,7 @@ observable_dict['ystar'] = {
 observable_dict['yboost'] = {
     'branch_det': 'yboostReco', 'branch_mc': 'yboostTrue',
     'nbins_det': 50, 'nbins_mc': 50,
-    'xlim': (-3, 3), #'ylim': (0, 0.065),
+    'xlim': (-2.5, 2.5), #'ylim': (0, 0.065),
     'xlabel': 'yboost', 'ylabel':'a.u.',
     'stamp_xy': (0.32, 0.25),
     'legend_loc': 'upper right', 'legend_ncol': 1,
@@ -119,6 +128,15 @@ observable_dict['th_m'] = {
     'nbins_det': 50, 'nbins_mc': 50,
     'xlim': (100, 240), #'ylim': (0, 0.6),
     'xlabel': 'mass [GeV]', 'ylabel':'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
+# energy
+observable_dict['th_e'] = {
+    'branch_det': 'th_e', 'branch_mc': 'th_e_MC',
+    'nbins_det':50, 'nbins_mc': 50,
+    'xlim': (100, 2000),
     'stamp_xy': (0.60, 0.25),
     'legend_loc': 'upper right', 'legend_ncol': 1,
 }
@@ -200,6 +218,15 @@ observable_dict['tl_m'] = {
     'nbins_det': 50, 'nbins_mc': 50,
     'xlim': (100, 240), #'ylim': (0, 0.6),
     'xlabel': 'mass [GeV]', 'ylabel':'a.u.',
+    'stamp_xy': (0.60, 0.25),
+    'legend_loc': 'upper right', 'legend_ncol': 1,
+}
+
+# energy
+observable_dict['tl_e'] = {
+    'branch_det': 'tl_e', 'branch_mc': 'tl_e_MC',
+    'nbins_det':50, 'nbins_mc': 50,
+    'xlim': (100, 2000),
     'stamp_xy': (0.60, 0.25),
     'legend_loc': 'upper right', 'legend_ncol': 1,
 }
