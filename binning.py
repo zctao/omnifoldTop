@@ -158,7 +158,11 @@ def get_bins(varname, fname_bins='bins.json'):
         # read bins from the config file
         binning_dict = read_dict_from_json(fname_bins)
         if varname in binning_dict:
-            return np.asarray(binning_dict[varname])
+            if isinstance(binning_dict[varname], list):
+                return np.asarray(binning_dict[varname])
+            elif isinstance(binning_dict[varname], dict):
+                # equal bins
+                return np.linspace(binning_dict[varname]['xmin'], binning_dict[varname]['xmax'], binning_dict[varname]['nbins']+1)
         else:
             logger.debug("  No binning information found is {} for {}".format(fname_bins, varname))
     else:
