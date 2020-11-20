@@ -314,7 +314,7 @@ class OmniFoldwBkg(object):
         hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded, bins=bins, density=False)[:2]
         return hist_of, hist_of_unc
 
-    def prepare_inputs(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True, plot_corr=True, truth_known=False, reweight_type=None):
+    def prepare_inputs(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True, plot_corr=True, truth_known=False, reweight_type=None, obs_config={}):
         """ Prepare input arrays for training
         Args:
             dataset_obs, dataset_sig, dataset_bkg: structured numpy array whose field names are variables
@@ -346,9 +346,9 @@ class OmniFoldwBkg(object):
 
         # reweight wdata and wtruth if needed e.g. for stress tests
         if reweight_type is not None:
-            self.wdata = reweight_sample(self.wdata, dataset_obs, reweight_type)
+            self.wdata = reweight_sample(self.wdata, dataset_obs, obs_config, reweight_type)
             if truth_known:
-                self.wtruth = reweight_sample(self.wtruth, dataset_obs, reweight_type)
+                self.wtruth = reweight_sample(self.wtruth, dataset_obs, obs_config, reweight_type)
 
         # normalize the total weights
         self._rescale_event_weights()

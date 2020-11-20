@@ -1,7 +1,6 @@
 import numpy as np
 import json
 import logging
-from observables import observable_dict
 from scipy import stats
 
 def parse_input_name(fname):
@@ -181,13 +180,13 @@ def read_dataset(dataset, variables, label, weight_name=None, standardize=False)
 
     return X, Y, W
 
-def reweight_sample(weights_orig, dataset, reweight_type=None):
+def reweight_sample(weights_orig, dataset, obs_dict, reweight_type=None):
     if reweight_type is None:
         return weights_orig
 
     elif reweight_type == 'linear_th_pt':
         # truth-level hadronic top pt
-        varname_thpt = observable_dict['th_pt']['branch_mc']
+        varname_thpt = obs_dict['th_pt']['branch_mc']
         th_pt = get_variable_arr(dataset, varname_thpt)
         # reweight function
         rw = 1 + 1/800.*th_pt
@@ -195,7 +194,7 @@ def reweight_sample(weights_orig, dataset, reweight_type=None):
 
     elif reweight_type == 'gaussian_bump':
         # truth-level variable name of the ttbar mass
-        varname_mtt = observable_dict['mtt']['branch_mc']
+        varname_mtt = obs_dict['mtt']['branch_mc']
         mtt = get_variable_arr(dataset, varname_mtt)
         # reweight function
         k = 0.5
@@ -205,7 +204,7 @@ def reweight_sample(weights_orig, dataset, reweight_type=None):
         return weights_orig * rw
 
     elif reweight_type == 'gaussian_tail':
-        varname_mtt = observable_dict['mtt']['branch_mc']
+        varname_mtt = obs_dict['mtt']['branch_mc']
         mtt = get_variable_arr(dataset, varname_mtt)
         #  reweight function
         k = 0.5

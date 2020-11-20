@@ -6,13 +6,12 @@ from packaging import version
 
 import tensorflow as tf
 
-from util import load_dataset, getLogger
+from util import load_dataset, getLogger, read_dict_from_json
 from plotting import plot_train_log
 logger = getLogger('Unfold')
 
 from omnifold_wbkg import OmniFoldwBkg
 from omnifold_wbkg import OmniFold_subHist, OmniFold_negW, OmniFold_multi
-from observables import observable_dict
 
 import time
 import tracemalloc
@@ -20,6 +19,9 @@ import tracemalloc
 def unfold(**parsed_args):
 
     tracemalloc.start()
+
+    # build a dictionary for observable configurations
+    observable_dict = read_dict_from_json(parsed_args['observable_config'])
 
     #################
     # Load and prepare datasets
@@ -76,7 +78,8 @@ def unfold(**parsed_args):
     unfolder.prepare_inputs(data_obs, data_mc_sig, data_mc_bkg, standardize=True,
                             plot_corr=parsed_args['plot_correlations'],
                             truth_known=parsed_args['truth_known'],
-                            reweight_type=parsed_args['reweight_data'])
+                            reweight_type=parsed_args['reweight_data'],
+                            obs_config=observable_dict)
     t_prep_finish = time.time()
 
     logger.info("Preprocessnig data took {:.2f} seconds".format(t_prep_finish-t_prep_start))
@@ -131,16 +134,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--observables-train', dest='observables_train',
-                        nargs='+', choices=observable_dict.keys(),
+                        nargs='+',
                         default=['th_pt', 'th_y', 'th_phi', 'th_m', 'tl_pt', 'tl_y', 'tl_phi', 'tl_m'],
                         help="List of observables to use in training.")
     parser.add_argument('--observables',
-                        nargs='+', choices=observable_dict.keys(),
+                        nargs='+',
                         default=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_pt', 'th_y', 'th_eta', 'th_phi', 'th_m', 'th_e', 'th_pout', 'tl_pt', 'tl_y', 'tl_eta', 'tl_phi', 'tl_m', 'tl_e', 'tl_pout'],
                         help="List of observables to unfold")
     parser.add_argument('-d', '--data', required=True, nargs='+',
                         type=str,
                         help="Observed data npz file names")
+    parser.add_argument('--observable-config', dest='observable_config',
+                        default='observables.json',
+                        help="JSON configurations for observables")
     parser.add_argument('-s', '--signal', required=True, nargs='+',
                         type=str,
                         help="Signal MC npz file names")

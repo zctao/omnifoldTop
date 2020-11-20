@@ -4,7 +4,6 @@ import numpy as np
 import time
 import tracemalloc
 
-from observables import observable_dict
 from resolution import resolution
 import external.OmniFold.modplot as modplot
 
@@ -13,6 +12,8 @@ from util import getLogger, load_dataset, get_variable_arr
 from util import read_dict_from_json, write_dict_to_json
 
 logger = getLogger('Binning')
+
+observable_dict = read_dict_from_json('observables.json')
 
 def binning(**parsed_args):
 
