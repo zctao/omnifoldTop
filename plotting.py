@@ -350,7 +350,7 @@ def plot_response(figname, h2d, xedges, yedges, variable):
 def plot_iteration_history(figname_prefix, binedges, histograms, histograms_err, **config):
     # distributions of all iterations
     figname_distr = figname_prefix+'_iterations'
-    fig0, axes = modplot.axes(ratio_plot=False, gridspec_update={'height_ratios': (1,)}, **config)
+    fig0, axes = modplot.axes(ratio_plot=True, gridspec_update={'height_ratios': (3.5,2)}, **config)
     ax0 = axes[0]
 
     if config.get('yscale') is not None:
@@ -367,6 +367,12 @@ def plot_iteration_history(figname_prefix, binedges, histograms, histograms_err,
 
     # set yaxis range
     ax0.set_ylim((0, ymax*1.2))
+
+    # ratio
+    draw_ratios(axes[1], binedges, histograms[0], histograms[1:],
+               histograms_err[0], histograms_err[1:],
+               color_denom_line = colors[0],
+               colors_numer = colors[1:])
 
     draw_legend(ax0, **config)
 
