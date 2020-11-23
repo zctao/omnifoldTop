@@ -379,6 +379,27 @@ def compute_chi2(hist_obs, hist_exp, hist_obs_err, hist_exp_err):
 
     return chi2, ndf
 
+def compute_diff_chi2(histograms_arr, histograms_err_arr):
+    # compute the chi2 per degree of freedom between each histogram and its neighboring one in a list
+    diff_chi2s = []
+
+    for h_current, h_previous, herr_current, herr_previous in zip(histograms_arr[1:], histograms_arr[:-1], histograms_err_arr[1:], histograms_err_arr[:-1]):
+        chi2, ndf = compute_chi2(h_current, h_previous, herr_current, herr_previous)
+        diff_chi2s.append(chi2/ndf)
+
+    return diff_chi2s
+
+def compute_diff_chi2_wrt_first(histograms_arr, histograms_err_arr):
+    # compute the chi2 per degree of freedom between each histogram and the first one in the list
+    diff_chi2s_vs_first = []
+    hprior = histograms_arr[0]
+    hprior_err = histograms_err_arr[0]
+    for hist, hist_err in zip(histograms_arr, histograms_err_arr):
+        chi2, ndf = compute_chi2(hist, hprior, hist_err, hprior_err)
+        diff_chi2s_vs_first.append(chi2/ndf)
+
+    return diff_chi2s_vs_first
+
 def compute_pvalue(chi2, ndf):
     return 1 - stats.chi2.cdf(chi2, ndf)
 

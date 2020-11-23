@@ -24,7 +24,7 @@ def ibu_core(hist_obs, hist_prior, response, wbin_det, wbin_gen, iteration):
         # update the truth distribution given m and the observed histogram
         phis.append(np.dot(m.T, hist_obs)*wbin_det/wbin_gen)
 
-    return phis[-1]
+    return phis # shape: (n_iteration, nbins_hist)
 
 def ibu_unc(hist_obs, hist_obs_unc, hist_prior, hist_prior_unc, response, wbin_det, wbin_gen, iteration, nresamples=50):
     # statistical uncertainty on the IBU distribution
@@ -43,7 +43,7 @@ def ibu_unc(hist_obs, hist_obs_unc, hist_prior, hist_prior_unc, response, wbin_d
         rephis.append(phi)
 
     # return the per-bin standard deviation as the uncertainty
-    return np.std(np.asarray(rephis), axis=0)
+    return np.std(np.asarray(rephis), axis=0) # shape: (n_iteration, nbins_hist)
 
 def ibu(hist_obs, hist_obs_unc, datasim, datagen, bins_det, bins_gen, wsim, winit, it, nresample=25):
     binwidths_det = bins_det[1:]-bins_det[:-1]

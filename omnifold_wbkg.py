@@ -14,7 +14,7 @@ from util import normalize_histogram, add_histograms, divide_histograms
 from ibu import ibu
 from model import get_callbacks, get_model
 
-from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response, plot_graphs, plot_LR_distr, plot_LR_func, plot_training_vs_validation
+from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response, plot_graphs, plot_LR_distr, plot_LR_func, plot_training_vs_validation, plot_iteration_history
 
 from binning import get_bins
 
@@ -447,7 +447,7 @@ class OmniFoldwBkg(object):
         wfile.close()
         self.ws_unfolded = ws_t[-1]
 
-    def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg=None, binning_config='', truth_known=False, normalize=False):
+    def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg=None, binning_config='', truth_known=False, normalize=False, save_iterations=True):
         """
         Args:
             vars_dict:
@@ -455,6 +455,13 @@ class OmniFoldwBkg(object):
         Return:
             
         """
+        # directory to save the iteration history if needed
+        iteration_dir = os.path.join(self.outdir, 'Iterations')
+        if save_iterations:
+            if not os.path.isdir(iteration_dir):
+                logger.info("Create directory {}".format(iteration_dir))
+                os.makedirs(iteration_dir)
+
         for varname, config in vars_dict.items():
             logger.info("Unfold variable: {}".format(varname))
             dataobs = np.hstack(get_variable_arr(dataset_obs,config['branch_det']))
@@ -497,18 +504,32 @@ class OmniFoldwBkg(object):
             ###########################
             # generated distribution (prior)
             hist_gen, hist_gen_unc = modplot.calc_hist(gen_sig, weights=self.winit, bins=bins_mc, density=False)[:2]
+            # normalization if needed
+            if normalize:
+                normalize_histogram(bins_mc, hist_gen, hist_gen_unc)
 
             # truth distribution if known
             if truth is not None:
                 hist_truth, hist_truth_unc = self._get_truth_distributions(bins_mc, truth, gen_bkg)
             else:
                 hist_truth, hist_truth_unc = None, None
+            # normalization if needed
+            if normalize:
+                normalize_histogram(bins_mc, hist_truth, hist_truth_unc)
 
             # unfolded distributions
             # iterative Bayesian unfolding
-            hist_ibu, hist_ibu_unc, response = self._get_ibu_distributions(
+            hist_ibu_all,hist_ibu_unc_all,response = self._get_ibu_distributions(
                 bins_det, bins_mc, sim_sig, gen_sig, hist_obs, hist_obs_unc,
                 hist_simbkg, hist_simbkg_unc)
+            # normalization if needed
+            if normalize:
+                for h_ibu,h_ibu_err in zip(hist_ibu_all, hist_ibu_unc_all):
+                    normalize_histogram(bins_mc, h_ibu, h_ibu_err)
+
+            # the last iteration
+            hist_ibu = hist_ibu_all[-1]
+            hist_ibu_unc = hist_ibu_unc_all[-1]
 
             # plot response matrix
             rname = os.path.join(self.outdir, 'Response_{}'.format(varname))
@@ -517,13 +538,9 @@ class OmniFoldwBkg(object):
 
             # omnifold
             hist_of, hist_of_unc = self._get_omnifold_distributions(bins_mc, gen_sig, gen_bkg)
-
             # normalization if needed
             if normalize:
-                normalize_histogram(bins_mc, hist_gen, hist_gen_unc)
                 normalize_histogram(bins_mc, hist_of, hist_of_unc)
-                normalize_histogram(bins_mc, hist_ibu, hist_ibu_unc)
-                normalize_histogram(bins_mc, hist_truth, hist_truth_unc)
 
             # compute the triangular discriminator
             text_td = []
@@ -538,6 +555,11 @@ class OmniFoldwBkg(object):
             plot_results(bins_mc, (hist_gen,hist_gen_unc), (hist_of,hist_of_unc),
                          (hist_ibu,hist_ibu_unc), (hist_truth, hist_truth_unc),
                          figname=figname, texts=text_td, **config)
+
+            if save_iterations:
+                figname_prefix = os.path.join(iteration_dir, 'IBU_{}'.format(varname))
+                plot_iteration_history(figname_prefix, bins_mc, hist_ibu_all, hist_ibu_unc_all, **config)
+                # TODO: OmniFold
 
 ##############################################################################
 #############

@@ -7,7 +7,7 @@ import pandas as pd
 import math
 import external.OmniFold.modplot as modplot
 
-from util import add_histograms, get_variable_arr
+from util import add_histograms, get_variable_arr, compute_diff_chi2, compute_diff_chi2_wrt_first
 
 # plotting styles
 hist_style = {'histtype': 'step', 'density': False, 'lw': 1, 'zorder': 2}
@@ -346,6 +346,47 @@ def plot_response(figname, h2d, xedges, yedges, variable):
     fig.savefig(figname+'.png', dpi=200)
     fig.savefig(figname+'.pdf')
     plt.close(fig)
+
+def plot_iteration_history(figname_prefix, binedges, histograms, histograms_err, **config):
+    # distributions of all iterations
+    figname_distr = figname_prefix+'_iterations'
+    fig0, axes = modplot.axes(ratio_plot=False, gridspec_update={'height_ratios': (1,)}, **config)
+    ax0 = axes[0]
+
+    if config.get('yscale') is not None:
+        ax0.set_yscale(config['yscale'])
+
+    styles = ibu_style.copy()
+    colors = set_default_colors(len(histograms))
+
+    ymax = 0.
+    for i, (hist, color) in enumerate(zip(histograms, colors)):
+        styles.update({'color': color, 'label': 'iteration {}'.format(i)})
+        ymax = max(hist.max(), ymax)
+        draw_hist_as_graph(ax0, binedges, hist, **styles)
+
+    # set yaxis range
+    ax0.set_ylim((0, ymax*1.2))
+
+    draw_legend(ax0, **config)
+
+    # save plot
+    fig0.savefig(figname_distr+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig0)
+
+    # difference (chi2) between each iteration as a function of iteration
+    figname_diff = figname_prefix+'_diff_chi2'
+    #fig1, ax1 = init_fig(title='', xlabel='Iteration', ylabel='$\\Delta\\chi^2$/NDF')
+    #dChi2s = compute_diff_chi2(histograms, histograms_err)
+    #iters = list(range(1, len(dChi2s)+1))
+    fig1, ax1 = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. prior')
+    dChi2s = compute_diff_chi2_wrt_first(histograms, histograms_err)
+    iters = list(range(len(dChi2s)))
+
+    ax1.plot(iters, dChi2s, marker='o', label="IBU")
+
+    fig1.savefig(figname_diff+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig1)
 
 def plot_train_log(csv_file, plot_name=None):
     df = pd.read_csv(csv_file)
