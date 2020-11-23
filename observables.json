@@ -1,7 +1,7 @@
 {
   "mtt": {
     "branch_det": "mttReco_klfitter", "branch_mc": "mttTrue",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [200, 1400],
     "xlabel": "m_ttbar [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -11,7 +11,7 @@
 
   "ptt": {
     "branch_det": "pttReco_klfitter", "branch_mc": "pttTrue",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [0, 500],
     "xlabel": "pt_ttbar [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -20,7 +20,7 @@
 
   "ytt": {
     "branch_det": "yttReco_klfitter", "branch_mc": "yttTrue",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-3, 3],
     "xlabel": "y_ttbar", "ylabel": "a.u.",
     "stamp_xy": [0.32, 0.25],
@@ -29,7 +29,7 @@
 
   "ystar": {
     "branch_det": "ystarReco_klfitter", "branch_mc": "ystarTrue",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-2.5, 2.5],
     "xlabel": "ystar", "ylabel":"a.u.",
     "stamp_xy": [0.32, 0.25],
@@ -38,8 +38,8 @@
 
   "chitt": {
     "branch_det": "chittReco_klfitter", "branch_mc": "chittTrue",
-    "nbins_det": 20, "nbins_mc": 20,
-    "xlim": [0, 50],
+    "nbins_det": 10, "nbins_mc": 10,
+    "xlim": [0, 20],
     "xlabel": "chiTT", "ylabel": "a.u.",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1
@@ -47,7 +47,7 @@
 
   "yboost": {
     "branch_det": "yboostReco_klfitter", "branch_mc": "yboostTrue",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-2.5, 2.5],
     "xlabel": "yboost", "ylabel":"a.u.",
     "stamp_xy": [0.32, 0.25],
@@ -56,7 +56,7 @@
 
   "dphi": {
     "branch_det": "dphiReco_klfitter", "branch_mc": "dphiTrue",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [0, 3.2],
     "xlabel": "dphi", "ylabel": "a.u.",
     "stamp_xy": [0.10, 0.25],
@@ -65,7 +65,7 @@
 
   "Ht": {
     "branch_det": "HtReco_klfitter", "branch_mc": "HtTrue",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [0, 1000],
     "xlabel": "Ht [GeV]", "ylabel": "a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -74,7 +74,7 @@
 
   "th_pt": {
     "branch_det": "th_pt_klfitter", "branch_mc": "th_pt_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [0, 600],
     "xlabel": "pt [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -83,7 +83,7 @@
 
   "th_eta": {
     "branch_det": "th_eta_klfitter", "branch_mc": "th_eta_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-5, 5],
     "xlabel": "eta", "ylabel":"a.u.",
     "stamp_xy": [0.32, 0.25],
@@ -92,7 +92,7 @@
 
   "th_y": {
     "branch_det": "th_y_klfitter", "branch_mc": "th_y_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-3, 3],
     "xlabel": "y", "ylabel":"a.u.",
     "stamp_xy": [0.32, 0.25],
@@ -101,7 +101,7 @@
 
   "th_phi": {
     "branch_det": "th_phi_klfitter", "branch_mc": "th_phi_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-3.2, 3.2],
     "xlabel": "phi", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -110,7 +110,7 @@
 
   "th_m": {
     "branch_det": "th_m_klfitter", "branch_mc": "th_m_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [100, 240],
     "xlabel": "mass [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -119,7 +119,7 @@
 
   "th_e": {
     "branch_det": "th_e_klfitter", "branch_mc": "th_e_MC",
-    "nbins_det":50, "nbins_mc": 50,
+    "nbins_det":10, "nbins_mc": 10,
     "xlim": [100, 2000],
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1
@@ -127,7 +127,7 @@
 
   "th_pout": {
     "branch_det": "th_pout_klfitter", "branch_mc": "th_pout_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-200, 200],
     "xlabel": "p_out [GeV]", "ylabel": "a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -136,7 +136,7 @@
 
   "th_px": {
     "branch_det": "th_px_klfitter", "branch_mc": "th_px_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [0, 500],
     "xlabel": "px [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -145,7 +145,7 @@
 
   "th_py": {
     "branch_det": "th_py_klfitter", "branch_mc": "th_py_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [0, 500],
     "xlabel": "py [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -154,7 +154,7 @@
 
   "tl_pt": {
     "branch_det": "tl_pt_klfitter", "branch_mc": "tl_pt_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [0, 600],
     "xlabel": "pt [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -163,7 +163,7 @@
 
   "tl_eta": {
     "branch_det": "tl_eta_klfitter", "branch_mc": "tl_eta_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-5, 5],
     "xlabel": "eta", "ylabel":"a.u.",
     "stamp_xy": [0.32, 0.25],
@@ -172,7 +172,7 @@
 
   "tl_y": {
     "branch_det": "tl_y_klfitter", "branch_mc": "tl_y_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-3, 3],
     "xlabel": "y", "ylabel":"a.u.",
     "stamp_xy": [0.32, 0.25],
@@ -181,7 +181,7 @@
 
   "tl_phi": {
     "branch_det": "tl_phi_klfitter", "branch_mc": "tl_phi_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-3.2, 3.2],
     "xlabel": "phi", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -190,7 +190,7 @@
 
   "tl_m": {
     "branch_det": "tl_m_klfitter", "branch_mc": "tl_m_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [100, 240],
     "xlabel": "mass [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -199,7 +199,7 @@
 
   "tl_e": {
     "branch_det": "tl_e_klfitter", "branch_mc": "tl_e_MC",
-    "nbins_det":50, "nbins_mc": 50,
+    "nbins_det":10, "nbins_mc": 10,
     "xlim": [100, 2000],
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1
@@ -207,7 +207,7 @@
 
   "tl_pout": {
     "branch_det": "tl_pout_klfitter", "branch_mc": "tl_pout_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-200, 200],
     "xlabel": "p_out [GeV]", "ylabel": "a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -216,7 +216,7 @@
 
   "tl_px": {
     "branch_det": "tl_px_klfitter", "branch_mc": "tl_px_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [0, 500],
     "xlabel": "px [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -225,7 +225,7 @@
 
   "tl_py": {
     "branch_det": "tl_py_klfitter", "branch_mc": "tl_py_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [0, 500],
     "xlabel": "py [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -234,7 +234,7 @@
 
   "wh_pt": {
     "branch_det": "wh_pt_klfitter", "branch_mc": "wh_pt_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [0, 400],
     "xlabel": "pt [GeV]", "ylabel": "a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -243,7 +243,7 @@
 
   "wh_eta": {
     "branch_det": "wh_eta_klfitter", "branch_mc": "wh_eta_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-5, 5],
     "xlabel": "eta", "ylabel": "a.u.",
     "stamp_xy": [0.32, 0.25],
@@ -252,7 +252,7 @@
 
   "wh_phi": {
     "branch_det": "wh_phi_klfitter", "branch_mc": "wh_phi_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-3.2, 3.2],
     "xlabel": "phi", "ylabel": "a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -261,7 +261,7 @@
 
   "wh_m": {
     "branch_det": "wh_m_klfitter", "branch_mc": "wh_m_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [45, 115],
     "xlabel": "mass [GeV]", "ylabel": "a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -270,7 +270,7 @@
 
   "wl_pt": {
     "branch_det": "wl_pt_klfitter", "branch_mc": "wl_pt_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [0, 400],
     "xlabel": "pt [GeV]", "ylabel": "a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -279,7 +279,7 @@
 
   "wl_eta": {
     "branch_det": "wl_eta_klfitter", "branch_mc": "wl_eta_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-5, 5],
     "xlabel": "eta", "ylabel": "a.u.",
     "stamp_xy": [0.32, 0.25],
@@ -288,7 +288,7 @@
 
   "wl_phi": {
     "branch_det": "wl_phi_klfitter", "branch_mc": "wl_phi_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [-3.2, 3.2],
     "xlabel": "phi", "ylabel": "a.u.",
     "stamp_xy": [0.60, 0.25],
@@ -297,7 +297,7 @@
 
   "wl_m": {
     "branch_det": "wl_m_klfitter", "branch_mc": "Wl_m_MC",
-    "nbins_det": 50, "nbins_mc": 50,
+    "nbins_det": 10, "nbins_mc": 10,
     "xlim": [55, 105],
     "xlabel": "mass [GeV]", "ylabel": "a.u.",
     "stamp_xy": [0.60, 0.25],
