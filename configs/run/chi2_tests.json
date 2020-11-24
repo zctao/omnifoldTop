@@ -1,0 +1,52 @@
+{
+  "label" : "chi2cut",
+  "samples" : {
+    "elesample0" : [
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/re_ttbar_0_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/re_ttbar_2_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/re_ttbar_4_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/re_ttbar_6_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/re_ttbar_8_chi2cut.npz"
+    ],
+    "elesample1" : [
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/re_ttbar_1_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/re_ttbar_3_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/re_ttbar_5_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/re_ttbar_7_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/re_ttbar_9_chi2cut.npz"
+    ],
+    "muonsample0" : [
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/rmu_ttbar_0_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/rmu_ttbar_2_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/rmu_ttbar_4_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/rmu_ttbar_6_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/rmu_ttbar_8_chi2cut.npz"
+    ],
+    "muonsample1" : [
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/rmu_ttbar_1_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/rmu_ttbar_3_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/rmu_ttbar_5_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/rmu_ttbar_7_chi2cut.npz",
+      "/data/ztao/TopNtupleAnalysis/mc16e/21_2_147/ttbar/rmu_ttbar_9_chi2cut.npz"
+    ]
+  },
+  "parameters" : {
+    "iterations" : 4,
+    "observable-config" : "configs/observables/chi2.json",
+    "binning-config" : {"10b" : "configs/binning/bins_10equal.json", "rebin" : "configs/binning/bins_test.json"}
+  },
+  "tests" : {
+    "eClos" : {
+      "enable" : true
+    },
+    "mClos" : {
+      "enable" : true
+    },
+    "eClosSa" : {
+      "enable" : true
+    },
+    "mClosSa" : {
+      "enable" : true
+    }
+  }
+}
