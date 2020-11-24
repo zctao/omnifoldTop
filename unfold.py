@@ -145,7 +145,7 @@ if __name__ == "__main__":
                         type=str,
                         help="Observed data npz file names")
     parser.add_argument('--observable-config', dest='observable_config',
-                        default='observables.json',
+                        default='configs/observables/default.json',
                         help="JSON configurations for observables")
     parser.add_argument('-s', '--signal', required=True, nargs='+',
                         type=str,
@@ -165,7 +165,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--plot-correlations', dest='plot_correlations',
                         action='store_true',
                         help="Plot pairwise correlations of training variables")
-    parser.add_argument('-i', '--iterations', type=int, default=5,
+    parser.add_argument('-i', '--iterations', type=int, default=4,
                         help="Numbers of iterations for unfolding")
     parser.add_argument('--weight', default='w',
                         help="name of event weight")
