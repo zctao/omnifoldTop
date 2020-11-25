@@ -14,7 +14,7 @@ from util import normalize_histogram, add_histograms, divide_histograms
 from ibu import ibu
 from model import get_callbacks, get_model
 
-from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response, plot_graphs, plot_LR_distr, plot_LR_func, plot_training_vs_validation, plot_iteration_history
+from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response, plot_graphs, plot_LR_distr, plot_LR_func, plot_training_vs_validation, plot_iteration_distributions, plot_iteration_chi2s
 
 from binning import get_bins
 
@@ -558,7 +558,8 @@ class OmniFoldwBkg(object):
 
             if save_iterations:
                 figname_prefix = os.path.join(iteration_dir, 'IBU_{}'.format(varname))
-                plot_iteration_history(figname_prefix, bins_mc, hist_ibu_all, hist_ibu_unc_all, **config)
+                plot_iteration_distributions(figname_prefix, bins_mc, hist_ibu_all, hist_ibu_unc_all, **config)
+                plot_iteration_chi2s(figname_prefix, hist_ibu_all, hist_ibu_unc_all, label="IBU")
                 # TODO: OmniFold
 
 ##############################################################################

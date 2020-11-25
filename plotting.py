@@ -347,20 +347,32 @@ def plot_response(figname, h2d, xedges, yedges, variable):
     fig.savefig(figname+'.pdf')
     plt.close(fig)
 
-def plot_iteration_history(figname_prefix, binedges, histograms, histograms_err, **config):
-    # distributions of all iterations
+def plot_iteration_distributions(figname_prefix, binedges, histograms, histograms_err, nhistmax=7, **config):
+    # plot intermediate unfolded distributions of all iterations
     figname_distr = figname_prefix+'_iterations'
-    fig0, axes = modplot.axes(ratio_plot=True, gridspec_update={'height_ratios': (3.5,2)}, **config)
+    fig, axes = modplot.axes(ratio_plot=True, gridspec_update={'height_ratios': (3.5,2)}, **config)
     ax0 = axes[0]
 
     if config.get('yscale') is not None:
         ax0.set_yscale(config['yscale'])
 
+    # if there are more than nhistmax histograms, plot at most nhistmax histograms
+    assert(nhistmax<=10) # plt.rcParams['axes.prop_cycle'] provides max 10 colors
+    if len(histograms) > nhistmax:
+        selected_i = np.linspace(1, len(histograms)-2, nhistmax-2).astype(int).tolist()
+        # the first [0] and the last [-1] are always plotted
+        selected_i = [0] + selected_i + [len(histograms)-1]
+    else:
+        selected_i = list(range(len(histograms)))
+
+    histograms_toplot = [histograms[i] for i in selected_i]
+    histograms_err_toplot = [histograms_err[i] for i in selected_i]
+
     styles = ibu_style.copy()
-    colors = set_default_colors(len(histograms))
+    colors = set_default_colors(len(selected_i))
 
     ymax = 0.
-    for i, (hist, color) in enumerate(zip(histograms, colors)):
+    for i, hist, color in zip(selected_i, histograms_toplot, colors):
         styles.update({'color': color, 'label': 'iteration {}'.format(i)})
         ymax = max(hist.max(), ymax)
         draw_hist_as_graph(ax0, binedges, hist, **styles)
@@ -369,30 +381,31 @@ def plot_iteration_history(figname_prefix, binedges, histograms, histograms_err,
     ax0.set_ylim((0, ymax*1.2))
 
     # ratio
-    draw_ratios(axes[1], binedges, histograms[0], histograms[1:],
-               histograms_err[0], histograms_err[1:],
+    draw_ratios(axes[1], binedges, histograms_toplot[0], histograms_toplot[1:],
+               histograms_err_toplot[0], histograms_err_toplot[1:],
                color_denom_line = colors[0],
                colors_numer = colors[1:])
 
     draw_legend(ax0, **config)
 
     # save plot
-    fig0.savefig(figname_distr+'.png', dpi=200, bbox_inches='tight')
-    plt.close(fig0)
+    fig.savefig(figname_distr+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig)
 
+def plot_iteration_chi2s(figname_prefix, histograms, histograms_err, label):
     # difference (chi2) between each iteration as a function of iteration
     figname_diff = figname_prefix+'_diff_chi2'
     #fig1, ax1 = init_fig(title='', xlabel='Iteration', ylabel='$\\Delta\\chi^2$/NDF')
     #dChi2s = compute_diff_chi2(histograms, histograms_err)
     #iters = list(range(1, len(dChi2s)+1))
-    fig1, ax1 = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. prior')
+    fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. prior')
     dChi2s = compute_diff_chi2_wrt_first(histograms, histograms_err)
     iters = list(range(len(dChi2s)))
 
-    ax1.plot(iters, dChi2s, marker='o', label="IBU")
+    ax.plot(iters, dChi2s, marker='o', label=label)
 
-    fig1.savefig(figname_diff+'.png', dpi=200, bbox_inches='tight')
-    plt.close(fig1)
+    fig.savefig(figname_diff+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig)
 
 def plot_train_log(csv_file, plot_name=None):
     df = pd.read_csv(csv_file)
