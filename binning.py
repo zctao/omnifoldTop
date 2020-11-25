@@ -13,7 +13,7 @@ from util import read_dict_from_json, write_dict_to_json
 
 logger = getLogger('Binning')
 
-observable_dict = read_dict_from_json('observables.json')
+observable_dict = read_dict_from_json('configs/observables/default.json')
 
 def binning(**parsed_args):
 
