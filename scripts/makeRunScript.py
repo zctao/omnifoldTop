@@ -134,6 +134,10 @@ for testname, testConfig in runConfig['tests'].items():
     if 'background' in testConfig:
         run_str += ' -b '+testConfig['background']
 
+    # weight file
+    if "unfolded-weights" in testConfig:
+        run_str += ' --unfolded-weights '+testConfig['unfolded-weights']
+
     # parameters
     parOptions, parLabels = write_options(runConfig['parameters'])
     for opt, pl in zip(parOptions, parLabels):
