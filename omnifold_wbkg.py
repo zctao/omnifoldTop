@@ -48,7 +48,7 @@ class OmniFoldwBkg(object):
         self.wbkg = None  # ndarray for background simulation sample weights
         self.wbkg_gen = None # ndarray for background truth weights
         # unfolded event weights
-        self.ws_unfolded = None
+        self.ws_unfolded = []
         # output directory
         self.outdir = outdir.rstrip('/')+'/'
         # reweight type
@@ -311,7 +311,7 @@ class OmniFoldwBkg(object):
             return ibu(hist_obs_cor, hist_obs_cor_unc, arr_sim, arr_gen, bins_det, bins_mc, self.wsig, self.winit, it=self.iterations)
 
     def _get_omnifold_distributions(self, bins, arr_gen, arr_genbkg=None):
-        hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded, bins=bins, density=False)[:2]
+        hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded[-1], bins=bins, density=False)[:2]
         return hist_of, hist_of_unc
 
     def prepare_inputs(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True, plot_corr=True, truth_known=False, reweight_type=None, obs_config={}):
@@ -434,18 +434,19 @@ class OmniFoldwBkg(object):
 
             ws_t.append(wnew)
 
-        self.ws_unfolded = ws_t[-1] * (self.winit.sum()/ws_t[-1].sum())
-        logger.debug("unfolded_weights.sum() = {}".format(self.ws_unfolded.sum()))
+        #self.ws_unfolded = ws_t[-1] * (self.winit.sum()/ws_t[-1].sum())
+        self.ws_unfolded = ws_t
+        logger.debug("unfolded_weights.sum() = {}".format(self.ws_unfolded[-1].sum()))
 
         # save the weights
         weights_file = self.outdir.rstrip('/')+'/weights.npz'
-        np.savez(weights_file, ws_t = [self.ws_unfolded])
+        np.savez(weights_file, weights = self.ws_unfolded)
 
-    def set_weights_from_file(self, weights_file, array_name='ws_t'):
+    def set_weights_from_file(self, weights_file, array_name='weights'):
         wfile = np.load(weights_file)
         ws_t = wfile[array_name]
         wfile.close()
-        self.ws_unfolded = ws_t[-1]
+        self.ws_unfolded = ws_t
 
     def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg=None, binning_config='', truth_known=False, normalize=False, save_iterations=True):
         """
@@ -583,7 +584,7 @@ class OmniFold_subHist(OmniFoldwBkg):
         # self.wbkg is None
 
     def _get_omnifold_distributions(self, bins, arr_gen, arr_genbkg=None):
-        hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded, bins=bins, density=False)[:2]
+        hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded[-1], bins=bins, density=False)[:2]
 
         # in case of background
         if arr_genbkg is not None:
