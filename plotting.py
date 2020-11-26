@@ -347,9 +347,8 @@ def plot_response(figname, h2d, xedges, yedges, variable):
     fig.savefig(figname+'.pdf')
     plt.close(fig)
 
-def plot_iteration_distributions(figname_prefix, binedges, histograms, histograms_err, nhistmax=7, **config):
+def plot_iteration_distributions(figname, binedges, histograms, histograms_err, nhistmax=7, **config):
     # plot intermediate unfolded distributions of all iterations
-    figname_distr = figname_prefix+'_iterations'
     fig, axes = modplot.axes(ratio_plot=True, gridspec_update={'height_ratios': (3.5,2)}, **config)
     ax0 = axes[0]
 
@@ -389,22 +388,24 @@ def plot_iteration_distributions(figname_prefix, binedges, histograms, histogram
     draw_legend(ax0, **config)
 
     # save plot
-    fig.savefig(figname_distr+'.png', dpi=200, bbox_inches='tight')
+    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
 
-def plot_iteration_chi2s(figname_prefix, histograms, histograms_err, label):
+def plot_iteration_chi2s(figname, histograms_arr, histograms_err_arr, labels):
     # difference (chi2) between each iteration as a function of iteration
-    figname_diff = figname_prefix+'_diff_chi2'
     #fig1, ax1 = init_fig(title='', xlabel='Iteration', ylabel='$\\Delta\\chi^2$/NDF')
-    #dChi2s = compute_diff_chi2(histograms, histograms_err)
-    #iters = list(range(1, len(dChi2s)+1))
     fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. prior')
-    dChi2s = compute_diff_chi2_wrt_first(histograms, histograms_err)
-    iters = list(range(len(dChi2s)))
 
-    ax.plot(iters, dChi2s, marker='o', label=label)
+    for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
+        #dChi2s = compute_diff_chi2(histograms, histograms_err)
+        #iters = list(range(1, len(dChi2s)+1))
+        dChi2s = compute_diff_chi2_wrt_first(hists, hists_err)
+        iters = list(range(len(dChi2s)))
 
-    fig.savefig(figname_diff+'.png', dpi=200, bbox_inches='tight')
+        ax.plot(iters, dChi2s, marker='o', label=label)
+        ax.legend()
+
+    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
 
 def plot_train_log(csv_file, plot_name=None):

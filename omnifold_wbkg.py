@@ -311,8 +311,14 @@ class OmniFoldwBkg(object):
             return ibu(hist_obs_cor, hist_obs_cor_unc, arr_sim, arr_gen, bins_det, bins_mc, self.wsig, self.winit, it=self.iterations)
 
     def _get_omnifold_distributions(self, bins, arr_gen, arr_genbkg=None):
-        hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded[-1], bins=bins, density=False)[:2]
-        return hist_of, hist_of_unc
+        hists_of, hists_of_unc = [], []
+
+        for w in self.ws_unfolded:
+            h_of, herr_of = modplot.calc_hist(arr_gen, weights=w, bins=bins, density=False)[:2]
+            hists_of.append(h_of)
+            hists_of_unc.append(herr_of)
+
+        return hists_of, hists_of_unc
 
     def prepare_inputs(self, dataset_obs, dataset_sig, dataset_bkg=None, standardize=True, plot_corr=True, truth_known=False, reweight_type=None, obs_config={}):
         """ Prepare input arrays for training
@@ -520,17 +526,13 @@ class OmniFoldwBkg(object):
 
             # unfolded distributions
             # iterative Bayesian unfolding
-            hist_ibu_all,hist_ibu_unc_all,response = self._get_ibu_distributions(
+            hists_ibu, hists_ibu_unc, response = self._get_ibu_distributions(
                 bins_det, bins_mc, sim_sig, gen_sig, hist_obs, hist_obs_unc,
                 hist_simbkg, hist_simbkg_unc)
             # normalization if needed
             if normalize:
-                for h_ibu,h_ibu_err in zip(hist_ibu_all, hist_ibu_unc_all):
+                for h_ibu, h_ibu_err in zip(hists_ibu, hists_ibu_unc):
                     normalize_histogram(bins_mc, h_ibu, h_ibu_err)
-
-            # the last iteration
-            hist_ibu = hist_ibu_all[-1]
-            hist_ibu_unc = hist_ibu_unc_all[-1]
 
             # plot response matrix
             rname = os.path.join(self.outdir, 'Response_{}'.format(varname))
@@ -538,30 +540,34 @@ class OmniFoldwBkg(object):
             plot_response(rname, response, bins_det, bins_mc, varname)
 
             # omnifold
-            hist_of, hist_of_unc = self._get_omnifold_distributions(bins_mc, gen_sig, gen_bkg)
+            hists_of, hists_of_unc = self._get_omnifold_distributions(bins_mc, gen_sig, gen_bkg)
             # normalization if needed
             if normalize:
-                normalize_histogram(bins_mc, hist_of, hist_of_unc)
+                for h_of, h_of_err in zip(hists_of, hists_of_unc):
+                    normalize_histogram(bins_mc, h_of, h_of_err)
 
-            # compute the triangular discriminator
+            # compute the differences
             text_td = []
             if truth is not None:
-                #text_td = write_triangular_discriminators(hist_truth, [hist_of, hist_ibu, hist_gen], labels=['OmniFold', 'IBU', 'Prior'])
-                text_td = write_chi2(hist_truth, hist_truth_unc, [hist_of, hist_ibu, hist_gen], [hist_of_unc, hist_ibu_unc, hist_gen_unc], labels=['OmniFold', 'IBU', 'Prior'])
+                #text_td = write_triangular_discriminators(hist_truth, [hists_of[-1], hists_ibu[-1], hist_gen], labels=['OmniFold', 'IBU', 'Prior'])
+                text_td = write_chi2(hist_truth, hist_truth_unc, [hists_of[-1], hists_ibu[-1], hist_gen], [hists_of_unc[-1], hists_ibu_unc[-1], hist_gen_unc], labels=['OmniFold', 'IBU', 'Prior'])
                 logger.info("  "+"    ".join(text_td))
 
             # plot results
             figname = os.path.join(self.outdir, 'Unfold_{}'.format(varname))
             logger.info("  Plot unfolded distribution: {}".format(figname))
-            plot_results(bins_mc, (hist_gen,hist_gen_unc), (hist_of,hist_of_unc),
-                         (hist_ibu,hist_ibu_unc), (hist_truth, hist_truth_unc),
+            plot_results(bins_mc, (hist_gen, hist_gen_unc),
+                         (hists_of[-1], hists_of_unc[-1]),
+                         (hists_ibu[-1], hists_ibu_unc[-1]),
+                         (hist_truth, hist_truth_unc),
                          figname=figname, texts=text_td, **config)
 
             if save_iterations:
-                figname_prefix = os.path.join(iteration_dir, 'IBU_{}'.format(varname))
-                plot_iteration_distributions(figname_prefix, bins_mc, hist_ibu_all, hist_ibu_unc_all, **config)
-                plot_iteration_chi2s(figname_prefix, hist_ibu_all, hist_ibu_unc_all, label="IBU")
-                # TODO: OmniFold
+                figname_prefix = os.path.join(iteration_dir, varname)
+                plot_iteration_distributions(figname_prefix+"_IBU_iterations", bins_mc, hists_ibu, hists_ibu_unc, **config)
+                plot_iteration_distributions(figname_prefix+"_OmniFold_iterations", bins_mc, hists_of, hists_of_unc, **config)
+
+                plot_iteration_chi2s(figname_prefix+"_diff_chi2", [hists_ibu, hists_of], [hists_ibu_unc, hists_of_unc], labels=["IBU", "OmniFold"])
 
 ##############################################################################
 #############
@@ -584,16 +590,22 @@ class OmniFold_subHist(OmniFoldwBkg):
         # self.wbkg is None
 
     def _get_omnifold_distributions(self, bins, arr_gen, arr_genbkg=None):
-        hist_of, hist_of_unc = modplot.calc_hist(arr_gen, weights=self.ws_unfolded[-1], bins=bins, density=False)[:2]
+        hists_of, hists_of_unc = [], []
 
-        # in case of background
-        if arr_genbkg is not None:
-            hist_genbkg, hist_genbkg_unc = modplot.calc_hist(arr_genbkg, weights=self.wbkg_gen, bins=bins, density=False)[:2]
+        for w in self.ws_unfolded:
+            h_of, herr_of = modplot.calc_hist(arr_gen, weights=w, bins=bins, density=False)[:2]
 
-            # subtract background
-            hist_of, hist_of_unc = add_histograms(hist_of, hist_genbkg, hist_of_unc, hist_genbkg_unc, c1=1., c2=-1.)
+            # in case of background
+            if arr_genbkg is not None:
+                hist_genbkg, hist_genbkg_unc = modplot.calc_hist(arr_genbkg, weights=self.wbkg_gen, bins=bins, density=False)[:2]
 
-        return hist_of, hist_of_unc
+                # subtract background
+                h_of, herr_of = add_histograms(h_of, hist_genbkg, herr_of, hist_genbkg_unc, c1=1., c2=-1.)
+
+            hists_of.append(h_of)
+            hists_of_unc.append(herr_of)
+
+        return hists_of, hists_of_unc
 
     def results(self, vars_dict, dataset_obs, dataset_sig, dataset_bkg, truth_known=False, normalize=False):
         # set self.wbkg properly and rescale self.wsig accordingly
