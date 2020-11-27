@@ -304,9 +304,9 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
         colors_numerator = [ibu_style['color'], omnifold_style['color']]
         if config.get('draw_prior_ratio') is not None:
             if config['draw_prior_ratio']:
-                hists_numerator.append(hist_gen)
-                hists_unc_numerator.append(hist_gen_unc)
-                colors_numerator.append(gen_style['color'])
+                hists_numerator = [hist_gen] + hists_numerator
+                hists_unc_numerator = [hist_gen_unc] + hists_unc_numerator
+                colors_numerator = [gen_style['color']] + colors_numerator
 
         draw_ratios(ax1, bins_gen, hist_truth, hists_numerator,
                     hist_truth_unc, hists_unc_numerator,
