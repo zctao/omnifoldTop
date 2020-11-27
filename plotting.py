@@ -7,7 +7,7 @@ import pandas as pd
 import math
 import external.OmniFold.modplot as modplot
 
-from util import add_histograms, get_variable_arr, compute_diff_chi2, compute_diff_chi2_wrt_first
+from util import add_histograms, get_variable_arr, compute_chi2, compute_diff_chi2
 
 # plotting styles
 hist_style = {'histtype': 'step', 'density': False, 'lw': 1, 'zorder': 2}
@@ -349,7 +349,7 @@ def plot_response(figname, h2d, xedges, yedges, variable):
 
 def plot_iteration_distributions(figname, binedges, histograms, histograms_err, nhistmax=7, **config):
     # plot intermediate unfolded distributions of all iterations
-    fig, axes = modplot.axes(ratio_plot=True, gridspec_update={'height_ratios': (3.5,2)}, **config)
+    fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Ratio to Prior', gridspec_update={'height_ratios': (3.5,2)}, **config)
     ax0 = axes[0]
 
     if config.get('yscale') is not None:
@@ -391,18 +391,33 @@ def plot_iteration_distributions(figname, binedges, histograms, histograms_err, 
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
 
-def plot_iteration_chi2s(figname, histograms_arr, histograms_err_arr, labels):
-    # difference (chi2) between each iteration as a function of iteration
-    #fig1, ax1 = init_fig(title='', xlabel='Iteration', ylabel='$\\Delta\\chi^2$/NDF')
-    fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. prior')
+def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
+                         histograms_arr, histograms_err_arr, labels):
+    # chi2 between the truth distribution and each unfolding iteration
+    fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. truth')
 
     for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
-        #dChi2s = compute_diff_chi2(histograms, histograms_err)
-        #iters = list(range(1, len(dChi2s)+1))
-        dChi2s = compute_diff_chi2_wrt_first(hists, hists_err)
-        iters = list(range(len(dChi2s)))
+        Chi2s = []
+        for h, herr in zip(hists, hists_err):
+            chi2, ndf = compute_chi2(h, histogram_ref, herr, histogram_err_ref)
+            Chi2s.append(chi2/ndf)
 
-        ax.plot(iters, dChi2s, marker='o', label=label)
+        iters = list(range(len(Chi2s)))
+
+        ax.plot(iters, Chi2s, marker='o', label=label)
+        ax.legend()
+
+    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig)
+
+def plot_iteration_diffChi2s(figname, histograms_arr, histograms_err_arr, labels):
+    # chi2s between iterations
+    fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\Delta\\chi^2$/NDF')
+    for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
+        dChi2s = compute_diff_chi2(hists, hists_err)
+        iters = list(range(1, len(dChi2s)+1))
+
+        ax.plot(iters, dChi2s, marker='*', label=label)
         ax.legend()
 
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
