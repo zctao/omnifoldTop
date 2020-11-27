@@ -527,9 +527,9 @@ class OmniFoldwBkg(object):
                 figname_prefix = os.path.join(iteration_dir, varname)
                 plot_iteration_distributions(figname_prefix+"_IBU_iterations", bins_mc, hists_ibu, hists_ibu_unc, **config)
                 plot_iteration_distributions(figname_prefix+"_OmniFold_iterations", bins_mc, hists_of, hists_of_unc, **config)
-
-                plot_iteration_chi2s(figname_prefix+"_chi2s_wrt_Truth", hist_truth, hist_truth_unc, [hists_ibu, hists_of], [hists_ibu_unc, hists_of_unc], labels=["IBU", "OmniFold"])
                 plot_iteration_diffChi2s(figname_prefix+"_diffChi2s", [hists_ibu, hists_of], [hists_ibu_unc, hists_of_unc], labels=["IBU", "OmniFold"])
+                if truth_known:
+                    plot_iteration_chi2s(figname_prefix+"_chi2s_wrt_Truth", hist_truth, hist_truth_unc, [hists_ibu, hists_of], [hists_ibu_unc, hists_of_unc], labels=["IBU", "OmniFold"])
 
 ##############################################################################
 #############
