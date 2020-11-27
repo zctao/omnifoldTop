@@ -33,21 +33,20 @@ def unfold(**parsed_args):
 
     # weight name
     wname = parsed_args['weight']
-    wname_mc = parsed_args['weight_mc']
 
     # collision data
     logger.info("Loading datasets")
     t_data_start = time.time()
     fnames_obs = parsed_args['data']
-    data_obs = load_dataset(fnames_obs, weight_columns=[wname,wname_mc])
+    data_obs = load_dataset(fnames_obs, weight_columns=[wname])
 
     # signal MC
     fnames_mc_sig = parsed_args['signal']
-    data_mc_sig = load_dataset(fnames_mc_sig, weight_columns=[wname,wname_mc])
+    data_mc_sig = load_dataset(fnames_mc_sig, weight_columns=[wname])
 
     # background MC
     fnames_mc_bkg = parsed_args['background']
-    data_mc_bkg = load_dataset(fnames_mc_bkg, weight_columns=[wname,wname_mc]) if fnames_mc_bkg is not None else None
+    data_mc_bkg = load_dataset(fnames_mc_bkg, weight_columns=[wname]) if fnames_mc_bkg is not None else None
 
     t_data_finish = time.time()
     logger.info("Loading dataset took {:.2f} seconds".format(t_data_finish-t_data_start))
@@ -63,13 +62,13 @@ def unfold(**parsed_args):
     #####################
     # Start unfolding
     if parsed_args['background_mode'] == 'subHist':
-        unfoler = OmniFold_subHist(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
+        unfoler = OmniFold_subHist(vars_det, vars_mc, wname, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
     elif parsed_args['background_mode'] == 'negW':
-        unfolder = OmniFold_negW(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
+        unfolder = OmniFold_negW(vars_det, vars_mc, wname, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
     elif parsed_args['background_mode'] == 'multiClass':
-        unfolder = OmniFold_multi(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
+        unfolder = OmniFold_multi(vars_det, vars_mc, wname, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
     else:
-        unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, wname_mc, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
+        unfolder = OmniFoldwBkg(vars_det, vars_mc, wname, it=parsed_args['iterations'], outdir=parsed_args['outputdir'], binned_rw=parsed_args['alt_rw'])
 
     ##################
     # prepare input data
@@ -169,8 +168,8 @@ if __name__ == "__main__":
                         help="Numbers of iterations for unfolding")
     parser.add_argument('--weight', default='w',
                         help="name of event weight")
-    parser.add_argument('--weight-mc', dest='weight_mc', default='wTruth',
-                        help="name of MC weight")
+    #parser.add_argument('--weight-mc', dest='weight_mc', default='wTruth',
+    #                    help="name of MC weight")
     parser.add_argument('--alt-rw', dest='alt_rw',
                         action='store_true',
                         help="Use alternative reweighting if true")

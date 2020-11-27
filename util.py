@@ -176,7 +176,7 @@ def read_dataset(dataset, variables, label, weight_name=None, standardize=False)
     Y = np.full(len(X), label)
 
     # weight
-    W = np.ones(len(X)) if weight_name is None else np.hstack(dataset[weight_name])
+    W = np.hstack(dataset[weight_name]) if weight_name else np.ones(len(X))
 
     return X, Y, W
 
