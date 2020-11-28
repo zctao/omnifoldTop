@@ -42,42 +42,42 @@
       "_comment" : "electron channel stress test: linear th pt reweighting",
       "data" : "${elesample0}",
       "signal" : "${elesample1}",
-      "reweight_data" : "linear_th_pt",
+      "reweight-data" : "linear_th_pt",
       "enable" : false
     },
     "mStr_thpt" : {
       "_comment" : "muon channel stress test: linear th pt reweighting",
       "data" : "${muonsample0}",
       "signal" : "${muonsample1}",
-      "reweight_data" : "linear_th_pt",
+      "reweight-data" : "linear_th_pt",
       "enable" :  false
     },
     "eStr_bump" : {
       "_comment" : "electron channel stress test: injected gaussian bump",
       "data" : "${elesample0}",
       "signal" : "${elesample1}",
-      "reweight_data" : "gaussian_bump",
+      "reweight-data" : "gaussian_bump",
       "enable" : false
     },
     "mStr_bump" : {
       "_comment" : "muon channel stress test: injected gaussian bump",
       "data" : "${muonsample0}",
       "signal" : "${muonsample1}",
-      "reweight_data" : "gaussian_bump",
+      "reweight-data" : "gaussian_bump",
       "enable" :  false
     },
     "eStr_tail" : {
       "_comment" : "electron channel stress test: gaussian tail",
       "data" : "${elesample0}",
       "signal" : "${elesample1}",
-      "reweight_data" : "gaussian_tail",
+      "reweight-data" : "gaussian_tail",
       "enable" : false
     },
     "mStr_tail" : {
       "_comment" : "muon channel stress test: gaussian tail",
       "data" : "${muonsample0}",
       "signal" : "${muonsample1}",
-      "reweight_data" : "gaussian_tail",
+      "reweight-data" : "gaussian_tail",
       "enable" :  false
     },
     "desm" : {

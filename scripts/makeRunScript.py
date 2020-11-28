@@ -69,7 +69,7 @@ f_run.write("###########\n")
 f_run.write("# samples\n")
 sample_dict = runConfig['samples']
 for varname, samplelist in runConfig['samples'].items():
-    sample_str = varname+'='+' '.join(samplelist)
+    sample_str = varname+"="+"'"+" ".join(samplelist)+"'"
     f_run.write(sample_str+'\n')
 f_run.write('\n')
 
@@ -137,6 +137,10 @@ for testname, testConfig in runConfig['tests'].items():
     # weight file
     if "unfolded-weights" in testConfig:
         run_str += ' --unfolded-weights '+testConfig['unfolded-weights']
+
+    # reweight data for stress tests
+    if "reweight-data" in testConfig:
+        run_str += '--reweight-data '+testConfig['reweight-data']
 
     # parameters
     parOptions, parLabels = write_options(runConfig['parameters'])
