@@ -215,6 +215,10 @@ def plot_reco_variable(bins, histogram_obs, histogram_sig,
     ax0 = axes[0]
     ax1 = axes[1]
 
+    # x limits
+    ax0.set_xlim(bins[0],bins[-1])
+    ax1.set_xlim(bins[0],bins[-1])
+
     # yscale
     if log_scale:
         ax0.set_yscale('log')
@@ -264,6 +268,11 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
     # use the plotting tools from the original omnifold package
     truth_known = histogram_truth[0] is not None
     fig, axes = modplot.axes(ratio_plot = truth_known, gridspec_update={'height_ratios': (3.5,2) if truth_known else (1,)}, **config)
+
+    # set xaxis limit according to bin edges
+    for ax in axes:
+        ax.set_xlim(bins_gen[0], bins_gen[-1])
+
     ax0 = axes[0]
     ax1 = axes[1] if truth_known else None
 
@@ -350,6 +359,9 @@ def plot_response(figname, h2d, xedges, yedges, variable):
 def plot_iteration_distributions(figname, binedges, histograms, histograms_err, nhistmax=7, **config):
     # plot intermediate unfolded distributions of all iterations
     fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Ratio to Prior', gridspec_update={'height_ratios': (3.5,2)}, **config)
+    for ax in axes:
+        ax.set_xlim(binedges[0], binedges[-1])
+
     ax0 = axes[0]
 
     if config.get('yscale') is not None:
