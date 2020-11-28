@@ -8,7 +8,7 @@
   },
   "parameters" : {
     "iterations" : 3,
-    "observable-config" : "configs/observables/klfitter.json"
+    "observable-config" : "configs/observables/vars_klfitter.json"
   },
   "tests" : {
     "eClos" : {

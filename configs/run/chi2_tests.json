@@ -32,7 +32,7 @@
   },
   "parameters" : {
     "iterations" : 4,
-    "observable-config" : "configs/observables/chi2.json",
+    "observable-config" : "configs/observables/vars_chi2.json",
     "binning-config" : {"10b" : "configs/binning/bins_10equal.json", "rebin" : "configs/binning/bins_test.json"}
   },
   "tests" : {
