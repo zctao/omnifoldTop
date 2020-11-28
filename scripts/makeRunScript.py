@@ -140,7 +140,7 @@ for testname, testConfig in runConfig['tests'].items():
 
     # reweight data for stress tests
     if "reweight-data" in testConfig:
-        run_str += '--reweight-data '+testConfig['reweight-data']
+        run_str += ' --reweight-data '+testConfig['reweight-data']
 
     # parameters
     parOptions, parLabels = write_options(runConfig['parameters'])
