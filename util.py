@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import json
 import logging
@@ -429,3 +430,22 @@ def write_dict_to_json(aDictionary, filename_json):
     jfile = open(filename_json, "w")
     json.dump(aDictionary, jfile, indent=4)
     jfile.close()
+
+def get_bins(varname, fname_bins):
+    if os.path.isfile(fname_bins):
+        # read bins from the config
+        binning_dict = read_dict_from_json(fname_bins)
+        if varname in binning_dict:
+            if isinstance(binning_dict[varname], list):
+                return np.asarray(binning_dict[varname])
+            elif isinstance(binning_dict[varname], dict):
+                # equal bins
+                return np.linspace(binning_dict[varname]['xmin'], binning_dict[varname]['xmax'], binning_dict[varname]['nbins']+1)
+        else:
+            pass
+            print("  No binning information found is {} for {}".format(fname_bins, varname))
+    else:
+        print("  No binning config file {}".format(fname_bins))
+
+    # if the binning file does not exist or no binning info for this variable is in the dictionary
+    return None

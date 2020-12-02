@@ -16,7 +16,8 @@ from model import get_callbacks, get_model
 
 from plotting import plot_results, plot_reco_variable, plot_correlations, plot_response, plot_graphs, plot_LR_distr, plot_LR_func, plot_training_vs_validation, plot_iteration_distributions, plot_iteration_chi2s, plot_iteration_diffChi2s
 
-from binning import get_bins
+#from binning import get_bins
+from util import get_bins
 
 from util import getLogger
 logger = getLogger('OmniFoldwBkg')
