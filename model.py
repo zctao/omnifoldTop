@@ -1,25 +1,28 @@
 from tensorflow import keras
 from tensorflow.keras import layers
 
-def get_callbacks(model_filepath):
-
-    #checkpoint_fp = model_filepath + '_Epoch-{epoch}'
-    checkpoint_fp = model_filepath
-    CheckPoint = keras.callbacks.ModelCheckpoint(
-        filepath=checkpoint_fp, verbose=1, monitor='val_loss',
-        save_best_only=True, save_weights_only=True
-    )
-
-    logger_fp = model_filepath+'_history.csv'
-    CSVLogger = keras.callbacks.CSVLogger(
-        filename=logger_fp, append=False
-    )
+def get_callbacks(model_filepath=None):
 
     EarlyStopping = keras.callbacks.EarlyStopping(
         monitor='val_loss', patience=10, verbose=1, restore_best_weights=True
     )
 
-    return [CheckPoint, CSVLogger, EarlyStopping]
+    if model_filepath:
+        #checkpoint_fp = model_filepath + '_Epoch-{epoch}'
+        checkpoint_fp = model_filepath
+        CheckPoint = keras.callbacks.ModelCheckpoint(
+            filepath=checkpoint_fp, verbose=1, monitor='val_loss',
+            save_best_only=True, save_weights_only=True
+        )
+
+        logger_fp = model_filepath+'_history.csv'
+        CSVLogger = keras.callbacks.CSVLogger(
+            filename=logger_fp, append=False
+        )
+
+        return [CheckPoint, CSVLogger, EarlyStopping]
+    else:
+        return [EarlyStopping]
 
 def get_model(input_shape, nclass=2):
     model = keras.Sequential()
