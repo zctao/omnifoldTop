@@ -1,0 +1,192 @@
+import numpy as np
+import pandas as pd
+from util import parse_input_name, normalize_histogram
+# for now
+import external.OmniFold.modplot as modplot
+
+def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes', weight_columns=[]):
+    """
+    Load and return a structured numpy array from a list of npz files
+    """
+    data = None
+    if not isinstance(file_names, list):
+        file_names = [file_names]
+    if not isinstance(weight_columns, list):
+        weight_columns = [weight_columns]
+
+    for fname in file_names:
+        fn, rwfactor = parse_input_name(fname)
+
+        npzfile = np.load(fn, allow_pickle=allow_pickle, encoding=encoding)
+        di = npzfile[array_name]
+        if len(di)==0:
+            raise RuntimeError('There is no events in input file {}'.format(fname))
+
+        # rescale total event weights for this input file
+        if rwfactor != 1.:
+            for wname in weight_columns:
+                try:
+                    di[wname] *= rwfactor
+                except ValueError:
+                    print('Unknown field name {}'.format(wname))
+                    continue
+
+        if data is None:
+            data = di
+        else:
+            data  = np.concatenate([data, di])
+        npzfile.close()
+
+    return data
+
+class DataHandler(object):
+    def __init__(self, filepaths, wname='w', truth_known=True,
+                 variable_names=None, vars_dict={}):
+        self.weight_name = wname # name of event weights
+        self.truth_known = truth_known
+
+        # load data from npz files to numpy array
+        tmpDataArr = load_dataset(filepaths, weight_columns=wname)
+        assert(tmpDataArr is not None)
+
+        if not variable_names:
+            # if no variable name list is provided, read everything
+            variable_names = tmpDataArr.dtype.names
+        else:
+            # check all variable names are available
+            for vname in variable_names:
+                if not vname in tmpDataArr.dtype.names:
+                    raise RuntimeError("Unknown variable name {}".format(vname))
+
+        # convert all fields to float
+        dtypes = [(vname, vars_dict.get('vtype','float')) for vname in variable_names]
+        self.data = np.array(tmpDataArr[variable_names], dtype=dtypes)
+
+        # sum of event weights
+        self.sumw = len(self.data)
+        if wname and wname in self.data.dtype.names:
+            self.sumw = self.data[wname].sum()
+
+    def get_nevents(self):
+        return len(self.data)
+
+    def get_variable_arr(self, variable):
+        # return a view (NOT copy) of self.data if possible
+        # otherwise, try to make a new array from self.data
+        # the output shape is (len(self.data), )
+
+        if variable in self.data.dtype.names:
+            return self.data[variable]
+        # special cases
+        elif '_px' in variable:
+            var_pt = variable.replace('_px', '_pt')
+            var_phi = variable.replace('_px', '_phi')
+            arr_pt = self.get_variable_arr(var_pt)
+            arr_phi = self.get_variable_arr(var_phi)
+            return arr_pt * np.cos(arr_phi)
+        elif '_py' in variable:
+            var_pt = variable.replace('_py', '_pt')
+            var_phi = variable.replace('_py', '_phi')
+            arr_pt = self.get_variable_arr(var_pt)
+            arr_phi = self.get_variable_arr(var_phi)
+            return arr_pt * np.sin(arr_phi)
+        elif '_pz' in variable:
+            var_pt = variable.replace('_pz', '_pt')
+            var_eta = variable.replace('_pz', '_eta')
+            arr_pt = self.get_variable_arr(var_pt)
+            arr_eta = self.get_variable_arr(var_eta)
+            return arr_pt * np.sinh(arr_eta)
+        else:
+            raise RuntimeError("Unknown variable {}".format(variable))
+
+    def get_weights(self, unweighted=False, bootstrap=False, normalize=False, rw_type=None, vars_dict={}):
+        if unweighted or not self.weight_name:
+            return np.ones(len(self.data))
+        else:
+            # always return a copy of the original weight array in self.data
+            weights = self.get_variable_arr(self.weight_name).copy()
+            assert(weights.base is None)
+
+            # reweight sample if needed
+            if rw_type is not None:
+                weights *= self._reweight_sample(rw_type, vars_dict)
+
+            # normalize to len(self.data)
+            weights /= np.mean(weights)
+
+            if bootstrap:
+                weights *= np.random.poisson(1, size=len(weights))
+
+            return weights
+
+    def get_dataset(self, features, label, standardize=False):
+        """ features: a list of variable names
+            label: int for class label
+            Return:
+                X: numpy array of the shape (n_events, n_features)
+                Y: numpy array for event label of the shape (n_events,)
+        """
+        # ndarray of shape (n_events, n_features) for training
+        X = np.vstack([self.get_variable_arr(varname) for varname in features]).T
+
+        if standardize:
+            Xmean = np.mean(X, axis=0)
+            Xstd = np.std(X, axis=0)
+            X -= Xmean
+            X /= Xstd
+
+        # label
+        Y = np.full(len(X), label)
+
+        return X, Y
+
+    def get_correlations(self, variables):
+        df = pd.DataFrame({var:self.get_variable_arr(var) for var in variables}, columns=variables)
+        correlations = df.corr()
+        return correlations
+
+    def get_histogram(self, variable, weights, bin_edges, normalize=False):
+        varr = self.get_variable_arr(variable)
+        hist, hist_err = modplot.calc_hist(varr, weights=weights, bins=bin_edges, density=False)[:2]
+        if normalize:
+            normalize_histogram(bin_edges, hist, hist_err)
+
+        return hist, hist_err
+
+    def _reweight_sample(self, rw_type, vars_dict):
+        if not rw_type:
+            return 1.
+        elif rw_type == 'linear_th_pt':
+            # truth-level hadronic top pt
+            assert('th_pt' in vars_dict)
+            assert(self.truth_known)
+            varname_thpt = vars_dict['th_pt']['branch_mc']
+            th_pt = self.get_variable_arr(varname_thpt)
+            # reweight factor
+            rw = 1. + 1/800.*th_pt
+            return rw
+        elif rw_type == 'gaussian_bump':
+            # truth-level ttbar mass
+            assert('mtt' in vars_dict)
+            assert(self.truth_known)
+            varname_mtt = vars_dict['mtt']['branch_mc']
+            mtt = self.get_variable_arr(varname_mtt)
+            #reweight factor
+            k = 0.5
+            m0 = 800.
+            sigma = 100.
+            rw = 1. + k*np.exp( -( (mtt-m0)/sigma )**2 )
+            return rw
+        elif rw_type == 'gaussian_tail':
+            assert('mtt' in vars_dict)
+            assert(self.truth_known)
+            varname_mtt = vars_dict['mtt']['branch_mc']
+            mtt = self.get_variable_arr(varname_mtt)
+            #reweight factor
+            k = 0.5
+            m0 = 2000.
+            sigma = 1000.
+            rw = 1. + k*np.exp( -( (mtt-m0)/sigma )**2 )
+            return rw
+        else:
+            raise RuntimeError("Unknown reweighting type: {}".format(rw_type))
