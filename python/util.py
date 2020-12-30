@@ -20,36 +20,6 @@ def parse_input_name(fname):
 
         return name, rwfactor
 
-def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes', weight_columns=[]):
-    """
-    Load and return a structured numpy array from a list of npz files
-    """
-    data = None
-    for fname in file_names:
-        fn, rwfactor = parse_input_name(fname)
-
-        npzfile = np.load(fn, allow_pickle=allow_pickle, encoding=encoding)
-        di = npzfile[array_name]
-        if len(di)==0:
-            raise RuntimeError('There is no events in input file {}'.format(fname))
-
-        # rescale total event weights for this input file
-        if rwfactor != 1.:
-            for wname in weight_columns:
-                try:
-                    di[wname] = di[wname]*rwfactor
-                except ValueError:
-                    print('Unknown field name {}'.format(wname))
-                    continue
-
-        if data is None:
-            data = di
-        else:
-            data  = np.concatenate([data, di])
-        npzfile.close()
-
-    return data
-
 def get_fourvector_array(pt_arr, eta_arr, phi_arr, e_arr, padding=True):
     """
     Combine and format pt, eta, phi, and e arrays into array of four vectors
@@ -116,6 +86,10 @@ def prepare_data_omnifold(ntuple, padding=True):
     return data
 
 def get_variable_arr(ntuple, variable):
+    # Moved to datahandler.py
+    # TODO delete this
+    assert(0)
+
     # Reture a 1-d numpy array of the 'variable' from a structured array 'ntuple'
     # np.hstack() ensures the returned array is always of the shape (length,)
     # in case the original array in ntuple is a column array
@@ -157,6 +131,8 @@ def prepare_data_multifold(ntuple, variables, standardize=False, reshape1D=False
     return data
 
 def read_dataset(dataset, variables, label, weight_name=None, standardize=False):
+    assert(0)
+    # deprecated. use DataHandler
     """
     Args:
         dataset: a structured numpy array labeled by variable names
@@ -182,6 +158,8 @@ def read_dataset(dataset, variables, label, weight_name=None, standardize=False)
     return X, Y, W
 
 def reweight_sample(weights_orig, dataset, obs_dict, reweight_type=None):
+    assert(0)
+    # move to datahandler.py
     if reweight_type is None:
         return weights_orig
 
@@ -409,6 +387,8 @@ def write_chi2(hist_ref, hist_ref_unc, hists, hists_unc, labels):
     stamps = ["$\\chi^2$/NDF (p-value):"]
 
     for h, herr, l in zip(hists, hists_unc, labels):
+        if h is None:
+            continue
         chi2, ndf = compute_chi2(h, hist_ref, herr, hist_ref_unc)
         pval = compute_pvalue(chi2, ndf)
 

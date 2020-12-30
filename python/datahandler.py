@@ -53,6 +53,10 @@ class DataHandler(object):
             # if no variable name list is provided, read everything
             variable_names = tmpDataArr.dtype.names
         else:
+            # add wname to the list
+            if not wname in variable_names:
+                variable_names.append(wname)
+
             # check all variable names are available
             for vname in variable_names:
                 if not vname in tmpDataArr.dtype.names:
@@ -97,7 +101,7 @@ class DataHandler(object):
             arr_eta = self.get_variable_arr(var_eta)
             return arr_pt * np.sinh(arr_eta)
         else:
-            raise RuntimeError("Unknown variable {}".format(variable))
+            raise RuntimeError("Unknown variable {}. \nAvailable variable names: {}".format(variable, self.data.dtype.names))
 
     def get_weights(self, unweighted=False, bootstrap=False, normalize=False, rw_type=None, vars_dict={}):
         if unweighted or not self.weight_name:
@@ -112,7 +116,8 @@ class DataHandler(object):
                 weights *= self._reweight_sample(rw_type, vars_dict)
 
             # normalize to len(self.data)
-            weights /= np.mean(weights)
+            if normalize:
+                weights /= np.mean(weights)
 
             if bootstrap:
                 weights *= np.random.poisson(1, size=len(weights))
@@ -146,12 +151,32 @@ class DataHandler(object):
         return correlations
 
     def get_histogram(self, variable, weights, bin_edges, normalize=False):
-        varr = self.get_variable_arr(variable)
-        hist, hist_err = modplot.calc_hist(varr, weights=weights, bins=bin_edges, density=False)[:2]
-        if normalize:
-            normalize_histogram(bin_edges, hist, hist_err)
-
-        return hist, hist_err
+        """
+        If weights is a 1D array of the same length as the variable array, return a histogram and its error
+        If weights is a 2D array or a list of 1D array, return a list of histograms and a list of their errors
+        """
+        if isinstance(weights, np.ndarray):
+            if weights.ndim == 1: # if weights is a 1D array
+                varr = self.get_variable_arr(variable)
+                # check the weight array length is the same as the variable array
+                assert(len(varr) == len(weights))
+                hist, hist_err = modplot.calc_hist(varr, weights=weights, bins=bin_edges, density=False)[:2]
+                if normalize:
+                    normalize_histogram(bin_edges, hist, hist_err)
+                return hist, hist_err
+            elif weights.ndim == 2: # make the 2D array into a list of 1D array
+                return self.get_histogram(variable, list(weights), bin_edges, normalize)
+            else:
+                raise RuntimeError("Only 1D or 2D array or a list of 1D array of weights can be processed.")
+        elif isinstance(weights, list): # if weights is a list of 1D array
+            hists, hists_err = [], []
+            for w in weights:
+                h, herr = self.get_histogram(variable, w, bin_edges, normalize)
+                hists.append(h)
+                hists_err.append(herr)
+            return hists, hists_err
+        else:
+            raise RuntimeError("Unknown type of weights: {}".format(type(weights)))
 
     def _reweight_sample(self, rw_type, vars_dict):
         if not rw_type:

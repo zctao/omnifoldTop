@@ -7,7 +7,7 @@ import pandas as pd
 import math
 import external.OmniFold.modplot as modplot
 
-from util import add_histograms, get_variable_arr, compute_chi2, compute_diff_chi2
+from util import add_histograms, compute_chi2, compute_diff_chi2
 
 # plotting styles
 hist_style = {'histtype': 'step', 'density': False, 'lw': 1, 'zorder': 2}
@@ -409,6 +409,9 @@ def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
     fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. truth')
 
     for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
+        if not hists:
+            continue
+
         Chi2s = []
         for h, herr in zip(hists, hists_err):
             chi2, ndf = compute_chi2(h, histogram_ref, herr, histogram_err_ref)
@@ -426,6 +429,9 @@ def plot_iteration_diffChi2s(figname, histograms_arr, histograms_err_arr, labels
     # chi2s between iterations
     fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\Delta\\chi^2$/NDF')
     for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
+        if not hists:
+            continue
+
         dChi2s = compute_diff_chi2(hists, hists_err)
         iters = list(range(1, len(dChi2s)+1))
 
@@ -456,28 +462,20 @@ def plot_train_log(csv_file, plot_name=None):
     plt.savefig(plot_name+'.pdf', bbox_inches='tight')
     plt.close(fig)
 
-def plot_correlations(data, variables, figname):
-    df = pd.DataFrame({var:get_variable_arr(data, var) for var in variables}, columns=variables)
-    correlations = df.corr()
-
+def plot_correlations(correlations, figname):
     fig, ax = plt.subplots()
     im = ax.imshow(correlations, vmin=-1, vmax=1, cmap='coolwarm')
     fig.colorbar(im, ax=ax)
     ax.tick_params(axis='both', labelsize='small')
     ax.tick_params(axis='x', top=True, labeltop=True, bottom=False, labelbottom=False, labelrotation=30)
-    ticks = np.arange(0, len(variables), 1)
+    ticks = np.arange(0, len(correlations), 1)
     ax.set_xticks(ticks)
     ax.set_yticks(ticks)
-    ax.set_xticklabels(variables)
-    ax.set_yticklabels(variables)
+    ax.set_xticklabels(correlations.columns)
+    ax.set_yticklabels(correlations.columns)
 
     fig.savefig(figname+'.png', dpi=200)
     fig.savefig(figname+'.pdf')
-
-    #plt.figure()
-    #pd.plotting.scatter_matrix(df, alpha=0.5)
-    #plt.savefig(figname)
-    #plt.close()
 
     plt.close(fig)
 
@@ -501,7 +499,7 @@ def plot_LR_func(figname, bins, f_lr, f_lr_unc=None):
     fig.savefig(figname+'.pdf')
     plt.close(fig)
 
-def plot_LR_distr(figname, ratios, labels):
+def plot_LR_distr(figname, ratios, labels=None):
     bins_r = np.linspace(0, max(r.max() for r in ratios), 51)
 
     hists, hists_unc = [], []

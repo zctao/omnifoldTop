@@ -104,7 +104,7 @@ class IBU(object):
         for iresample in range(nresamples):
             # resample the weights
             reweights_obs = self.weights_obs * np.random.poisson(1, size=len(self.array_obs)) if resample_obs else self.weights_obs
-            reweights_sig = self.weights_sig * np.random.poisson(1, size=len(self.array_gen)) if resampple_sig else self.weights_sig
+            reweights_sig = self.weights_sig * np.random.poisson(1, size=len(self.array_gen)) if resample_sig else self.weights_sig
 
             # recompute response with resampled simulation weights if needed
             if response is None:
