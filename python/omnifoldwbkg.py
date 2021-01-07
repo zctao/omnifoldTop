@@ -86,24 +86,31 @@ class OmniFoldwBkg(object):
         self._set_event_weights(rw_type=reweight_type, vars_dict=vars_dict,
                                 rescale=True)
 
-    def run(self, load_previous_iteration=True, unfolded_weights_file=None,
-            unfolded_weights_file_resample=None, nresamples=0):
+    def run(self, load_previous_iteration=True, nresamples=0):
         assert(self.datahandle_obs is not None)
         assert(self.datahandle_sig is not None)
 
-        if unfolded_weights_file:
-            # load unfolded weights directly from the saved file without training
-            logger.info("Skip training")
-            logger.info("Read unfolded weights from file {}".format(unfolded_weights_file))
-            self.unfolded_weights = self._read_weights_from_file(unfolded_weights_file)
-            if unfolded_weights_file_resample:
-                self.unfolded_weights_resample = self._read_weights_from_file(unfolded_weights_file_resample, array_name='weights_resample')
-        else:
-            self.unfolded_weights = self._unfold(load_previous_iteration, model_name='Models', save_weights_fname='weights.npz')
+        self.unfolded_weights = self._unfold(load_previous_iteration, model_name='Models', save_weights_fname='weights.npz')
 
-            # bootstrap uncertainty
-            if nresamples:
-                self._unfold_resample(nresamples, load_previous_iteration, save_weights_fname='weights_resample{}.npz'.format(nresamples))
+        # bootstrap uncertainty
+        if nresamples:
+            self._unfold_resample(nresamples, load_previous_iteration, save_weights_fname='weights_resample{}.npz'.format(nresamples))
+
+    def load(self, unfolded_weight_files):
+        # load unfolded event weights from the saved file
+        logger.info("Skip training")
+
+        wfilelist = list(unfolded_weight_files)
+        assert(len(wfilelist) > 0)
+        logger.info("Load unfolded weights: {}".format(wfilelist[0]))
+        self.unfolded_weights = self._read_weights_from_file(wfilelist[0])
+        logger.debug("unfolded_weights.shape: {}".format(self.unfolded_weights.shape))
+
+        if len(wfilelist) > 1:
+            logger.info("Load unfolded weights from resampling: {}".format(wfilelist[1]))
+            self.unfolded_weights_resample = self._read_weights_from_file(wfilelist[1], array_name='weights_resample')
+            # TODO: load weights from multiple files
+            logger.debug("unfolded_weights_resample.shape: {}".format(self.unfolded_weights_resample.shape))
 
     def get_unfolded_distribution(self, variable, bins, all_iterations=False,
                                     bootstrap_uncertainty=True):

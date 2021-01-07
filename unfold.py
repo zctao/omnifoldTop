@@ -93,9 +93,12 @@ def unfold(**parsed_args):
     logger.info("Start unfolding")
     t_unfold_start = time.time()
 
-    unfolder.run(load_previous_iteration=True,
-                 unfolded_weights_file=parsed_args['unfolded_weights'],
-                 nresamples=parsed_args['nresamples'])
+    if parsed_args['unfolded_weights']:
+        # load unfolded event weights from the saved files
+        unfolder.load(parsed_args['unfolded_weights'])
+    else:
+        # run training
+        unfolder.run(True, parsed_args['nresamples'])
 
     t_unfold_done = time.time()
     logger.info("Done!")
@@ -211,8 +214,8 @@ if __name__ == "__main__":
                         type=int, choices=[0, 1], default=None,
                         help="Manually select one of the GPUs to run")
     parser.add_argument('--unfolded-weights', dest='unfolded_weights',
-                        default='', type=str,
-                        help="File name of the stored weights after unfolding. If provided, skip training/unfolding and use the weights directly to show results.")
+                        nargs='*', type=str,
+                        help="Unfolded weights file names. If provided, load event weights directly from the files and skip training.")
     parser.add_argument('--binning-config', dest='binning_config',
                         default='', type=str,
                         help="Binning config file for variables")
