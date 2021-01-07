@@ -475,7 +475,7 @@ def plot_correlations(correlations, figname):
     ax.set_yticklabels(correlations.columns)
 
     fig.savefig(figname+'.png', dpi=200)
-    fig.savefig(figname+'.pdf')
+    #fig.savefig(figname+'.pdf')
 
     plt.close(fig)
 

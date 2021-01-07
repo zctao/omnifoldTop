@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 
 import external.OmniFold.modplot as modplot
 import plotting
@@ -35,6 +36,7 @@ class IBU(object):
         # unfolded distributions
         self.hists_unfolded = None
         self.hists_unfolded_err = None
+        self.hists_unfolded_corr = None
 
     def run(self):
         # response matrix
@@ -43,16 +45,15 @@ class IBU(object):
         # unfold
         self.hists_unfolded = self._unfold(r, self.weights_obs, self.weights_sig, self.weights_bkg)
 
-        # uncertainty
-        self.hists_unfolded_err = self._uncertainty(self.nresamples, response=r,
-                                                    resample_obs=True,
-                                                    resample_sig=False)
+        # bin uncertainty and correlation
+        self.hists_unfolded_err, self.hists_unfolded_corr = self._uncertainty(
+            self.nresamples, response=r, resample_obs=True, resample_sig=False)
 
     def get_unfolded_distribution(self, all_iterations=False):
         if all_iterations:
-            return self.hists_unfolded, self.hists_unfolded_err
+            return self.hists_unfolded, self.hists_unfolded_err, self.hists_unfolded_corr
         else:
-            return self.hists_unfolded[-1], self.hists_unfolded_err[-1]
+            return self.hists_unfolded[-1], self.hists_unfolded_err[-1], self.hists_unfolded_corr[-1]
 
     def _response_matrix(self, weights_sim, plot=True):
         r = np.histogram2d(self.array_sim, self.array_gen, bins=(self.bins_det, self.bins_mc), weights=weights_sim)[0]
@@ -112,6 +113,16 @@ class IBU(object):
 
             hists_resample.append(self._unfold(response, reweights_obs, reweights_sig, self.weights_bkg))
 
-        # for now: return the standard deviation, bin-by-bin, as the uncertainty
-        # TODO: bin correlations
-        return np.std(np.asarray(hists_resample), axis=0) # shape: (n_iteration, nbins_hist)
+        # standard deviation of each bin
+        errors = np.std(np.asarray(hists_resample), axis=0, ddof=1) # shape: (n_iteration, nbins_hist)
+
+        # bin correlations
+        corrs = []
+        # np.asarray(hists_resample) shape: (n_resamples, n_iterations, n_bins)
+        # for each iteration
+        for i in range(self.iterations):
+            df_ihist = pd.DataFrame(np.asarray(hists_resample)[:,i,:])
+            corrs.append(df_ihist.corr())
+            #assert( np.allclose(np.sqrt(np.asarray([df_ihist.cov()[i][i] for i in range(len(df_ihist.columns))])), errors[i]) ) # sanity check
+
+        return errors, corrs

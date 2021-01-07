@@ -1,6 +1,7 @@
 import os
 import glob
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
@@ -117,13 +118,14 @@ class OmniFoldwBkg(object):
         ws = self.unfolded_weights if all_iterations else self.unfolded_weights[-1]
         hist_uf, hist_uf_err = self.datahandle_sig.get_histogram(variable, ws, bins)
 
+        bin_corr = None # bin correlations
         if bootstrap_uncertainty:
             if self.unfolded_weights_resample is not None:
-                hist_uf_err = self._get_unfolded_uncertainty(variable, bins, all_iterations)
+                hist_uf_err, bin_corr = self._get_unfolded_uncertainty(variable, bins, all_iterations)
             else:
                 logger.warn("  Unable to compute bootstrap uncertainty. Use sum of weights squared in each bin instead.")
 
-        return hist_uf, hist_uf_err
+        return hist_uf, hist_uf_err, bin_corr
 
     def plot_distributions_reco(self, varname, varConfig, bins):
         # observed
@@ -149,12 +151,12 @@ class OmniFoldwBkg(object):
 
     def plot_distributions_unfold(self, varname, varConfig, bins, ibu=None, iteration_history=False):
         # unfolded distribution
-        hist_uf, hist_uf_err = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=False)
+        hist_uf, hist_uf_err, hist_uf_corr = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=False)
 
         if ibu:
-            hist_ibu, hist_ibu_err = ibu.get_unfolded_distribution()
+            hist_ibu, hist_ibu_err, hist_ibu_corr = ibu.get_unfolded_distribution()
         else:
-            hist_ibu, hist_ibu_err = None, None
+            hist_ibu, hist_ibu_err, hist_ibu_corr = None, None, None
 
         # signal prior distribution
         hist_gen, hist_gen_err = self.datahandle_sig.get_histogram(varConfig['branch_mc'], self.weights_sim, bins)
@@ -185,6 +187,17 @@ class OmniFoldwBkg(object):
                               (hist_truth, hist_truth_err),
                               figname=figname, texts=text_td, **varConfig)
 
+        # bin correlations
+        if hist_uf_corr is not None:
+            figname_of_corr = os.path.join(self.outdir, 'BinCorrelations_{}_OmniFold'.format(varname))
+            logger.info("  Plot bin correlations: {}".format(figname_of_corr))
+            plotting.plot_correlations(hist_uf_corr, figname_of_corr)
+        if hist_ibu_corr is not None:
+            figname_ibu_corr = os.path.join(self.outdir, 'BinCorrelations_{}_IBU'.format(varname))
+            logger.info("  Plot bin correlations: {}".format(figname_ibu_corr))
+            plotting.plot_correlations(hist_ibu_corr, figname_ibu_corr)
+
+        # plot iteration history
         if iteration_history:
             iteration_dir = os.path.join(self.outdir, 'Iterations')
             if not os.path.isdir(iteration_dir):
@@ -193,11 +206,11 @@ class OmniFoldwBkg(object):
 
             figname_prefix = os.path.join(iteration_dir, varname)
 
-            hists_uf, hists_uf_err = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=True)
+            hists_uf, hists_uf_err = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=True)[:2]
             plotting.plot_iteration_distributions(figname_prefix+"_OmniFold_iterations", bins, hists_uf, hists_uf_err, **varConfig)
 
             if ibu:
-                hists_ibu, hists_ibu_err = ibu.get_unfolded_distribution(True)
+                hists_ibu, hists_ibu_err = ibu.get_unfolded_distribution(all_iterations=True)[:2]
                 plotting.plot_iteration_distributions(figname_prefix+"_IBU_iterations", bins, hists_ibu, hists_ibu_err, **varConfig)
             else:
                 hists_ibu, hists_ibu_err = [], []
@@ -355,14 +368,29 @@ class OmniFoldwBkg(object):
             hist = self.datahandle_sig.get_histogram(variable, ws, bins)[0]
             hists_resample.append(hist)
 
+        hists_err, hists_corr = None, None
         if hists_resample:
-            hists_err = np.std(np.asarray(hists_resample), axis=0)
-        else:
-            hists_err = None
+            hists_err = np.std(np.asarray(hists_resample), axis=0, ddof=1)
+            # shape = (n_iteration, n_bins) if all_iterations
+            # otherwise, shape = (n_bins,)
 
-        return  hists_err
-        # shape = (n_iteration, n_bins) if all_iterations
-        # otherwise, shape = (n_bins,)
+            # bin correlations
+            if all_iterations:
+                hists_corr = []
+                # hists_resample shape: (n_resamples, n_iterations, n_bins)
+                for i in range(self.iterations):
+                    df_i = pd.DataFrame(np.asarray(hists_resample)[:,i,:])
+                    hists_corr.append(df_i.corr()) # ddof = 1
+                    # sanity check
+                    #assert((np.asarray(df_i.std()) == hists_err[i]).all())
+            else:
+                # hists_resample shape: (n_resamples, n_bins)
+                df_i = pd.DataFrame(np.asarray(hists_resample))
+                hists_corr = df_i.corr()
+                # sanity check
+                #assert((np.asarray(df_i.std()) == hists_err).all())
+
+        return  hists_err, hists_corr
 
     def _read_weights_from_file(self, weights_file, array_name='weights'):
         # load unfolded weights from saved file
