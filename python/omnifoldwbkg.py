@@ -87,15 +87,15 @@ class OmniFoldwBkg(object):
         self._set_event_weights(rw_type=reweight_type, vars_dict=vars_dict,
                                 rescale=True)
 
-    def run(self, load_previous_iteration=True, nresamples=0):
+    def run(self, error_type='sumw2', nresamples=0, load_previous_iteration=True):
         assert(self.datahandle_obs is not None)
         assert(self.datahandle_sig is not None)
 
-        self.unfolded_weights = self._unfold(load_previous_iteration, model_name='Models', save_weights_fname='weights.npz')
+        self.unfolded_weights = self._unfold(load_previous_iter=load_previous_iteration, fname_event_weights='weights.npz')
 
         # bootstrap uncertainty
-        if nresamples:
-            self._unfold_resample(nresamples, load_previous_iteration, save_weights_fname='weights_resample{}.npz'.format(nresamples))
+        if error_type in ['bootstrap_full', 'bootstrap_stat', 'bootstrap_model']:
+            self._unfold_resample(nresamples, error_type, load_previous_iteration, fname_event_weights='weights_resample{}.npz'.format(nresamples))
 
     def load(self, unfolded_weight_files):
         # load unfolded event weights from the saved file
@@ -219,28 +219,19 @@ class OmniFoldwBkg(object):
             if self.datahandle_obs.truth_known:
                 plotting.plot_iteration_chi2s(figname_prefix+"_chi2s_wrt_Truth", hist_truth, hist_truth_err, [hists_ibu, hists_uf], [hists_ibu_err, hists_uf_err], labels=["IBU", "OmniFold"])
 
-    def _unfold(self, load_previous_iter=False, bootstrap=False, val_size=0.2,
-                model_name=None, save_weights_fname='weights.npz'):
+    def _unfold(self, resample_data=False, model_name='Models',
+                reweight_only=False, load_previous_iter=True,
+                val_size=0.2, fname_event_weights='weights.npz'):
         ################
-        # model filepaths
+        # model directory
         model_dir = os.path.join(self.outdir, model_name) if model_name else None
-        if model_dir:
-            if not os.path.isdir(model_dir):
-                logger.info("Create directory {}".format(model_dir))
-                os.makedirs(model_dir)
-
-            model_step1_fp = os.path.join(model_dir, 'model_step1_{}')
-            model_step2_fp = os.path.join(model_dir, 'model_step2_{}')
-        else:
-            model_step1_fp = None
-            model_step2_fp = None
-            if load_previous_iter:
-                logger.warn("Cannot load model from the previous iteration since the model checkpoints are not saved.")
-                load_previous_iter=False
+        if model_dir and not os.path.isdir(model_dir):
+            logger.info("Create directory {}".format(model_dir))
+            os.makedirs(model_dir)
 
         ################
         # event weights for training
-        wobs, wsim, wbkg = self._get_event_weights(normalize=True, resample=bootstrap)
+        wobs, wsim, wbkg = self._get_event_weights(normalize=True, resample=resample_data)
 
         ################
         # start iterations
@@ -254,31 +245,30 @@ class OmniFoldwBkg(object):
             # step 1: reweight sim to look like data
             logger.info("Step 1")
             # set up the model for iteration i
-            step1_fp = model_step1_fp.format(i) if model_step1_fp else None
-            step1_fp_prev = model_step1_fp.format(i-1) if model_step1_fp and i > 0 and load_previous_iter else None
-            model_step1, cb_step1 = self._set_up_model_step1(self.X_step1.shape[1:], step1_fp, step1_fp_prev)
+            model_step1, cb_step1 = self._set_up_model_step1(self.X_step1.shape[1:], i, model_dir, reweight_only, load_previous_iter)
 
             # push the latest truth-level weights to the detector level
             wm_push_i = ws_t[i] # for i=0, this is wsim
 
-            # prepare weight array for training
-            if wbkg is None:
-                w_step1 = np.concatenate([wobs, wm_push_i])
-            else:
-                w_step1 = np.concatenate([wobs, wm_push_i, wbkg])
-            assert(len(w_step1)==len(self.X_step1))
+            if not reweight_only:
+                # prepare weight array for training
+                if wbkg is None:
+                    w_step1 = np.concatenate([wobs, wm_push_i])
+                else:
+                    w_step1 = np.concatenate([wobs, wm_push_i, wbkg])
+                assert(len(w_step1)==len(self.X_step1))
 
-            # split data into training and test sets
-            X_step1_train, X_step1_test, Y_step1_train, Y_step1_test, w_step1_train, w_step1_test = train_test_split(self.X_step1, self.Y_step1, w_step1, test_size=val_size)
+                # split data into training and test sets
+                X_step1_train, X_step1_test, Y_step1_train, Y_step1_test, w_step1_train, w_step1_test = train_test_split(self.X_step1, self.Y_step1, w_step1, test_size=val_size)
 
-            logger.info("Start training")
-            self._train_model(model_step1, X_step1_train, Y_step1_train, w_step1_train, callbacks=cb_step1, val_data=(X_step1_test, Y_step1_test, w_step1_test), filepath=step1_fp)
+                logger.info("Start training")
+                fname_preds1 = model_dir+'/preds_step1_{}'.format(i) if model_dir else None
+                self._train_model(model_step1, X_step1_train, Y_step1_train, w_step1_train, callbacks=cb_step1, val_data=(X_step1_test, Y_step1_test, w_step1_test), figname_preds=fname_preds1)
 
             # reweight
             logger.info("Reweighting")
-            fname_rhist1 = step1_fp+'_rhist' if step1_fp else None
-            wm_i = wm_push_i * self._reweight_step1(model_step1, self.X_sim,
-                                                    fname_rhist1)
+            fname_rhist1 = model_dir+'/rhist_step1_{}'.format(i) if model_dir and not reweight_only else None
+            wm_i = wm_push_i * self._reweight_step1(model_step1, self.X_sim, fname_rhist1)
             # normalize the weight to the initial one
             if True: # TODO check performance
                 wm_i *= (wsim.sum()/wm_i.sum())
@@ -288,28 +278,27 @@ class OmniFoldwBkg(object):
             # step 2: reweight the simulation prior to the learned weights
             logger.info("Step 2")
             # set up the model for iteration i
-            step2_fp = model_step2_fp.format(i) if model_step2_fp else None
-            step2_fp_prev = model_step2_fp.format(i-1) if model_step2_fp and i > 0 and load_previous_iter else None
-            model_step2, cb_step2 = self._set_up_model_step2(self.X_step2.shape[1:], step2_fp, step2_fp_prev)
+            model_step2, cb_step2 = self._set_up_model_step2(self.X_step2.shape[1:], i, model_dir, reweight_only, load_previous_iter)
 
             # pull the learned weights from detector level to the truth level
             wt_pull_i = wm_i
 
-            # prepare weight array for training
-            w_step2 = np.concatenate([wt_pull_i, ws_t[i]])
+            if not reweight_only:
+                # prepare weight array for training
+                w_step2 = np.concatenate([wt_pull_i, ws_t[i]])
 
-            # split data into training and test sets
-            X_step2_train, X_step2_test, Y_step2_train, Y_step2_test, w_step2_train, w_step2_test = train_test_split(self.X_step2, self.Y_step2, w_step2, test_size=val_size)
+                # split data into training and test sets
+                X_step2_train, X_step2_test, Y_step2_train, Y_step2_test, w_step2_train, w_step2_test = train_test_split(self.X_step2, self.Y_step2, w_step2, test_size=val_size)
 
-            # train model
-            logger.info("Start training")
-            self._train_model(model_step2, X_step2_train, Y_step2_train, w_step2_train, callbacks=cb_step2, val_data=(X_step2_test, Y_step2_test, w_step2_test), filepath=step2_fp)
+                # train model
+                logger.info("Start training")
+                fname_preds2 = model_dir+'/preds_step2_{}'.format(i) if model_dir else None
+                self._train_model(model_step2, X_step2_train, Y_step2_train, w_step2_train, callbacks=cb_step2, val_data=(X_step2_test, Y_step2_test, w_step2_test), figname_preds=fname_preds2)
 
             # reweight
             logger.info("Reweighting")
-            fname_rhist2 = step2_fp+'_rhist' if step2_fp else None
-            wt_i = wt_pull_i * self._reweight_step2(model_step2, self.X_gen,
-                                                    fname_rhist2)
+            fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir and not reweight_only else None
+            wt_i = wt_pull_i * self._reweight_step2(model_step2, self.X_gen, fname_rhist2)
             # normalize the weight to the initial one
             if True: # TODO check performance
                 wt_i *= (wsim.sum()/wt_i.sum())
@@ -320,8 +309,8 @@ class OmniFoldwBkg(object):
         logger.debug("Sum of unfolded weights = {}".format(ws_t[-1].sum()))
 
         # save the weights
-        if save_weights_fname:
-            weights_file = os.path.join(self.outdir, save_weights_fname)
+        if fname_event_weights:
+            weights_file = os.path.join(self.outdir, fname_event_weights)
             np.savez(weights_file, weights = ws_t)
 
         # normalize unfolded weights to the nominal signal simulation weights
@@ -330,7 +319,7 @@ class OmniFoldwBkg(object):
         logger.debug("Sum of unfolded weights after normalization = {}".format(ws_t[-1].sum()))
 
         # Plot training log
-        if model_dir:
+        if model_dir and not reweight_only:
             logger.info("Plot model training history")
             for csvfile in glob.glob(os.path.join(model_dir, '*.csv')):
                 logger.info("  Plot training log {}".format(csvfile))
@@ -338,22 +327,25 @@ class OmniFoldwBkg(object):
 
         return ws_t
 
-    def _unfold_resample(self, nresamples, load_previous_iteration=False,
-                         save_weights_fname=None):
+    def _unfold_resample(self, nresamples, error_type='bootstrap_full',
+                         load_previous_iter=True, fname_event_weights=None):
+        if not nresamples > 1:
+            return
+
         self.unfolded_weights_resample = np.empty(shape=(nresamples, self.iterations+1, self.datahandle_sig.get_nevents()))
         # shape: (nresamples, n_iterations+1, n_events)
-        for iresample in range(nresamples):
-            # only save the model checkpoints if load_previous_iteration
-            if load_previous_iteration:
-                mname = 'Models_rs{}'.format(iresample)
-            else:
-                mname = None
 
-            ws = self._unfold(load_previous_iteration, bootstrap=True, model_name=mname, save_weights_fname=None)
+        model_name = 'Models' if error_type=='bootstrap_stat' else 'Models_rs{}'
+        reweight_only = True if error_type=='bootstrap_stat' else False
+        resample_data = False if error_type=='bootstrap_model' else True
+
+        for iresample in range(nresamples):
+            logger.info("Resample {}".format(iresample))
+            ws = self._unfold(resample_data, model_name.format(iresample), reweight_only, load_previous_iter, fname_event_weights=None)
             self.unfolded_weights_resample[iresample,:,:] = ws
 
-        if save_weights_fname:
-            weights_file = os.path.join(self.outdir, save_weights_fname)
+        if fname_event_weights:
+            weights_file = os.path.join(self.outdir, fname_event_weights)
             np.savez(weights_file, weights_resample = self.unfolded_weights_resample)
 
     def _get_unfolded_uncertainty(self, variable, bins, all_iterations=False):
@@ -488,26 +480,59 @@ class OmniFoldwBkg(object):
 
         return wobs, wsim, wbkg
 
-    def _set_up_model(self, input_shape, model_filepath=None, previous_model_filepath=None):
+    def _set_up_model(self, input_shape, filepath_save=None, filepath_load=None):
         # get model
         model = get_model(input_shape)
 
         # callbacks
-        callbacks = get_callbacks(model_filepath)
+        callbacks = get_callbacks(filepath_save)
 
         # load weights from the previous model if available
-        if previous_model_filepath:
-            model.load_weights(previous_model_filepath)
+        if filepath_load:
+            logger.info("Load model weights from {}".format(filepath_load))
+            model.load_weights(filepath_load)
 
         return model, callbacks
 
-    def _set_up_model_step1(self, input_shape, model_filepath=None, previous_model_filepath=None):
-        return self._set_up_model(input_shape, model_filepath, previous_model_filepath)
+    def _set_up_model_step1(self, input_shape, iteration, model_dir,
+                            reweight_only=False, load_previous_iter=True):
+        # model filepath
+        model_fp = os.path.join(model_dir, 'model_step1_{}') if model_dir else None
 
-    def _set_up_model_step2(self, input_shape, model_filepath=None, previous_model_filepath=None):
-        return self._set_up_model(input_shape, model_filepath, previous_model_filepath)
+        if reweight_only:
+            # load the previously trained model from model_dir
+            # apply it directly in reweighting without training
+            assert(model_fp)
+            return self._set_up_model(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
+        else:
+            # set up model for training
+            if load_previous_iter and iteration > 0:
+                # initialize model based on the previous iteration
+                assert(model_fp)
+                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
+            else:
+                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
 
-    def _train_model(self, model, X, Y, w, callbacks=[], val_data=None, filepath='', plot_performance=True):
+    def _set_up_model_step2(self, input_shape, iteration, model_dir,
+                            reweight_only=False, load_previous_iter=True):
+        # model filepath
+        model_fp = os.path.join(model_dir, 'model_step2_{}') if model_dir else None
+
+        if reweight_only:
+            # load the previously trained model from model_dir
+            # apply it directly in reweighting without training
+            assert(model_fp)
+            return self._set_up_model(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
+        else:
+            # set up model for training
+            if load_previous_iter and iteration > 0:
+                # initialize model based on the previous iteration
+                assert(model_fp)
+                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
+            else:
+                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
+
+    def _train_model(self, model, X, Y, w, callbacks=[], val_data=None, figname_preds=''):
         fitargs = {'batch_size': int(0.1*len(X)), 'epochs': 100, 'verbose': 1}
         if callbacks:
             fitargs.setdefault('callbacks', []).extend(callbacks)
@@ -516,16 +541,12 @@ class OmniFoldwBkg(object):
 
         model.fit(X, Y, sample_weight=w, **fitargs, **val_dict)
 
-        if filepath:
-            model.save_weights(filepath)
-
-            if plot_performance and val_data is not None:
-                preds_train = model.predict(X, batch_size=int(0.1*len(X)))[:,1]
-                X_val, Y_val, w_val = val_data
-                preds_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
-                figname_preds = filepath+'_preds'
-                logger.info("Plot model output distribution: {}".format(figname_preds))
-                plotting.plot_training_vs_validation(figname_preds, preds_train, Y, w, preds_val, Y_val, w_val)
+        if figname_preds:
+            preds_train = model.predict(X, batch_size=int(0.1*len(X)))[:,1]
+            X_val, Y_val, w_val = val_data
+            preds_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
+            logger.info("Plot model output distribution: {}".format(figname_preds))
+            plotting.plot_training_vs_validation(figname_preds, preds_train, Y, w, preds_val, Y_val, w_val)
 
     def _reweight(self, model, events, plotname=None):
         preds = model.predict(events, batch_size=int(0.1*len(events)))[:,1]

@@ -98,7 +98,7 @@ def unfold(**parsed_args):
         unfolder.load(parsed_args['unfolded_weights'])
     else:
         # run training
-        unfolder.run(True, parsed_args['nresamples'])
+        unfolder.run(parsed_args['error_type'], parsed_args['nresamples'], True)
 
     t_unfold_done = time.time()
     logger.info("Done!")
@@ -222,8 +222,11 @@ if __name__ == "__main__":
     parser.add_argument('--plot-history', dest='plot_history',
                         action='store_true',
                         help="If true, plot intermediate steps of unfolding")
-    parser.add_argument('--nresamples', type=int, default=0,
+    parser.add_argument('--nresamples', type=int, default=25,
                         help="number of times for resampling to estimate the unfolding uncertainty using the bootstrap method")
+    parser.add_argument('-e', '--error-type', dest='error_type',
+                        choices=['sumw2','bootstrap_full','bootstrap_stat','bootstrap_model'],
+                        default='sumw2', help="Method to evaluate uncertainties")
 
     args = parser.parse_args()
 
