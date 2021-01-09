@@ -480,7 +480,8 @@ class OmniFoldwBkg(object):
 
         return wobs, wsim, wbkg
 
-    def _set_up_model(self, input_shape, filepath_save=None, filepath_load=None):
+    def _set_up_model(self, input_shape, filepath_save=None, filepath_load=None,
+                      reweight_only=False):
         # get model
         model = get_model(input_shape)
 
@@ -490,7 +491,10 @@ class OmniFoldwBkg(object):
         # load weights from the previous model if available
         if filepath_load:
             logger.info("Load model weights from {}".format(filepath_load))
-            model.load_weights(filepath_load)
+            if reweight_only:
+                model.load_weights(filepath_load).expect_partial()
+            else:
+                model.load_weights(filepath_load)
 
         return model, callbacks
 
@@ -503,7 +507,7 @@ class OmniFoldwBkg(object):
             # load the previously trained model from model_dir
             # apply it directly in reweighting without training
             assert(model_fp)
-            return self._set_up_model(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
+            return self._set_up_model(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration), reweight_only=True)
         else:
             # set up model for training
             if load_previous_iter and iteration > 0:
@@ -522,7 +526,7 @@ class OmniFoldwBkg(object):
             # load the previously trained model from model_dir
             # apply it directly in reweighting without training
             assert(model_fp)
-            return self._set_up_model(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
+            return self._set_up_model(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration), reweight_only=True)
         else:
             # set up model for training
             if load_previous_iter and iteration > 0:
