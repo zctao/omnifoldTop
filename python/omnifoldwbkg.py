@@ -308,15 +308,15 @@ class OmniFoldwBkg(object):
         #assert(not np.isnan(ws_t).any())
         logger.debug("Sum of unfolded weights = {}".format(ws_t[-1].sum()))
 
-        # save the weights
-        if fname_event_weights:
-            weights_file = os.path.join(self.outdir, fname_event_weights)
-            np.savez(weights_file, weights = ws_t)
-
         # normalize unfolded weights to the nominal signal simulation weights
         logger.info("Normalize to nominal signal simulation weights")
         ws_t *= (self.weights_sim.sum() / ws_t.sum(axis=1)[:,np.newaxis])
         logger.debug("Sum of unfolded weights after normalization = {}".format(ws_t[-1].sum()))
+
+        # save the weights
+        if fname_event_weights:
+            weights_file = os.path.join(self.outdir, fname_event_weights)
+            np.savez(weights_file, weights = ws_t)
 
         # Plot training log
         if model_dir and not reweight_only:
