@@ -12,7 +12,7 @@ from util import getLogger, add_histograms, write_chi2
 logger = getLogger('OmniFoldwBkg')
 
 class OmniFoldwBkg(object):
-    def __init__(self, variables_det, variables_truth, iterations, outdir='.', binned_rw=False):
+    def __init__(self, variables_det, variables_truth, iterations=4, outdir='.', binned_rw=False):
         # list of detector and truth level variable names used in training
         self.vars_reco = variables_det 
         self.vars_truth = variables_truth
