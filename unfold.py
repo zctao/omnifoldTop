@@ -98,7 +98,8 @@ def unfold(**parsed_args):
         unfolder.load(parsed_args['unfolded_weights'])
     else:
         # run training
-        unfolder.run(parsed_args['error_type'], parsed_args['nresamples'], True)
+        unfolder.run(parsed_args['error_type'], parsed_args['nresamples'], True,
+                     batch_size=parsed_args['batch_size'])
 
     t_unfold_done = time.time()
     logger.info("Done!")
@@ -219,6 +220,8 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--error-type', dest='error_type',
                         choices=['sumw2','bootstrap_full','bootstrap_stat','bootstrap_model'],
                         default='sumw2', help="Method to evaluate uncertainties")
+    parser.add_argument('--batch-size', dest='batch_size', type=int, default=512,
+                        help="Batch size for training")
 
     #parser.add_argument('-n', '--normalize',
     #                    action='store_true',

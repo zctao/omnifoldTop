@@ -87,15 +87,18 @@ class OmniFoldwBkg(object):
         self._set_event_weights(rw_type=reweight_type, vars_dict=vars_dict,
                                 rescale=True)
 
-    def run(self, error_type='sumw2', nresamples=0, load_previous_iteration=True):
+    def run(self, error_type='sumw2', nresamples=0, load_previous_iteration=True,
+            batch_size=256, epochs=100):
         assert(self.datahandle_obs is not None)
         assert(self.datahandle_sig is not None)
 
-        self.unfolded_weights = self._unfold(load_previous_iter=load_previous_iteration, fname_event_weights='weights.npz')
+        fitargs = {'batch_size': batch_size, 'epochs': epochs, 'verbose': 1}
+
+        self.unfolded_weights = self._unfold(load_previous_iter=load_previous_iteration, fname_event_weights='weights.npz', **fitargs)
 
         # bootstrap uncertainty
         if error_type in ['bootstrap_full', 'bootstrap_stat', 'bootstrap_model']:
-            self._unfold_resample(nresamples, error_type, load_previous_iteration, fname_event_weights='weights_resample{}.npz'.format(nresamples))
+            self._unfold_resample(nresamples, error_type, load_previous_iteration, fname_event_weights='weights_resample{}.npz'.format(nresamples), **fitargs)
 
     def load(self, unfolded_weight_files):
         # load unfolded event weights from the saved file
@@ -221,7 +224,7 @@ class OmniFoldwBkg(object):
 
     def _unfold(self, resample_data=False, model_name='Models',
                 reweight_only=False, load_previous_iter=True,
-                val_size=0.2, fname_event_weights='weights.npz'):
+                val_size=0.2, fname_event_weights='weights.npz', **fitargs):
         ################
         # model directory
         model_dir = os.path.join(self.outdir, model_name) if model_name else None
@@ -263,7 +266,7 @@ class OmniFoldwBkg(object):
 
                 logger.info("Start training")
                 fname_preds1 = model_dir+'/preds_step1_{}'.format(i) if model_dir else None
-                self._train_model(model_step1, X_step1_train, Y_step1_train, w_step1_train, callbacks=cb_step1, val_data=(X_step1_test, Y_step1_test, w_step1_test), figname_preds=fname_preds1)
+                self._train_model(model_step1, X_step1_train, Y_step1_train, w_step1_train, callbacks=cb_step1, val_data=(X_step1_test, Y_step1_test, w_step1_test), figname_preds=fname_preds1, **fitargs)
 
             # reweight
             logger.info("Reweighting")
@@ -293,7 +296,7 @@ class OmniFoldwBkg(object):
                 # train model
                 logger.info("Start training")
                 fname_preds2 = model_dir+'/preds_step2_{}'.format(i) if model_dir else None
-                self._train_model(model_step2, X_step2_train, Y_step2_train, w_step2_train, callbacks=cb_step2, val_data=(X_step2_test, Y_step2_test, w_step2_test), figname_preds=fname_preds2)
+                self._train_model(model_step2, X_step2_train, Y_step2_train, w_step2_train, callbacks=cb_step2, val_data=(X_step2_test, Y_step2_test, w_step2_test), figname_preds=fname_preds2, **fitargs)
 
             # reweight
             logger.info("Reweighting")
@@ -328,7 +331,8 @@ class OmniFoldwBkg(object):
         return ws_t
 
     def _unfold_resample(self, nresamples, error_type='bootstrap_full',
-                         load_previous_iter=True, fname_event_weights=None):
+                         load_previous_iter=True, fname_event_weights=None,
+                         **fitargs):
         if not nresamples > 1:
             return
 
@@ -341,7 +345,7 @@ class OmniFoldwBkg(object):
 
         for iresample in range(nresamples):
             logger.info("Resample {}".format(iresample))
-            ws = self._unfold(resample_data, model_name.format(iresample), reweight_only, load_previous_iter, fname_event_weights=None)
+            ws = self._unfold(resample_data, model_name.format(iresample), reweight_only, load_previous_iter, fname_event_weights=None, **fitargs)
             self.unfolded_weights_resample[iresample,:,:] = ws
 
         if fname_event_weights:
@@ -536,8 +540,7 @@ class OmniFoldwBkg(object):
             else:
                 return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
 
-    def _train_model(self, model, X, Y, w, callbacks=[], val_data=None, figname_preds=''):
-        fitargs = {'batch_size': int(0.1*len(X)), 'epochs': 100, 'verbose': 1}
+    def _train_model(self, model, X, Y, w, callbacks=[], val_data=None, figname_preds='', **fitargs):
         if callbacks:
             fitargs.setdefault('callbacks', []).extend(callbacks)
 
