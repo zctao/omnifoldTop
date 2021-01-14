@@ -70,8 +70,8 @@ def unfold(**parsed_args):
     #################
     unfolder = OmniFoldwBkg(vars_det_train, vars_mc_train,
                             iterations = parsed_args['iterations'],
-                            outdir = parsed_args['outputdir'],
-                            binned_rw = parsed_args['alt_rw'])
+                            outdir = parsed_args['outputdir'])
+                            #binned_rw = parsed_args['alt_rw'])
     # TODO: parsed_args['background_mode']
 
     # prepare input data
@@ -186,9 +186,6 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--truth-known', dest='truth_known',
                         action='store_true',
                         help="MC truth is known for 'data' sample")
-    parser.add_argument('-n', '--normalize',
-                        action='store_true',
-                        help="Normalize the distributions when plotting the result")
     parser.add_argument('-c', '--plot-correlations', dest='plot_correlations',
                         action='store_true',
                         help="Plot pairwise correlations of training variables")
@@ -196,14 +193,9 @@ if __name__ == "__main__":
                         help="Numbers of iterations for unfolding")
     parser.add_argument('--weight', default='w',
                         help="name of event weight")
-    #parser.add_argument('--weight-mc', dest='weight_mc', default='wTruth',
-    #                    help="name of MC weight")
-    parser.add_argument('--alt-rw', dest='alt_rw',
-                        action='store_true',
-                        help="Use alternative reweighting if true")
-    parser.add_argument('-m', '--background-mode', dest='background_mode',
-                        choices=['default', 'subHist', 'negW', 'multiClass'],
-                        default='default', help="Background mode")
+    #parser.add_argument('-m', '--background-mode', dest='background_mode',
+    #                    choices=['default', 'subHist', 'negW', 'multiClass'],
+    #                    default='default', help="Background mode")
     parser.add_argument('-r', '--reweight-data', dest='reweight_data',
                         choices=['linear_th_pt', 'gaussian_bump', 'gaussian_tail'], default=None,
                         help="Reweight strategy of the input spectrum for stress tests")
@@ -227,6 +219,15 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--error-type', dest='error_type',
                         choices=['sumw2','bootstrap_full','bootstrap_stat','bootstrap_model'],
                         default='sumw2', help="Method to evaluate uncertainties")
+
+    #parser.add_argument('-n', '--normalize',
+    #                    action='store_true',
+    #                    help="Normalize the distributions when plotting the result")
+    #parser.add_argument('--weight-mc', dest='weight_mc', default='wTruth',
+    #                    help="name of MC weight")
+    #parser.add_argument('--alt-rw', dest='alt_rw',
+    #                    action='store_true',
+    #                    help="Use alternative reweighting if true")
 
     args = parser.parse_args()
 
