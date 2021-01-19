@@ -127,8 +127,18 @@ def draw_hist_as_graph(ax, bin_edges, hist, hist_unc=None, **styles):
 
     ax.errorbar(midbins, hist, xerr=xerr, yerr=yerr, **styles)
 
-def plot_graphs(figname, data_arrays, error_arrays=None, labels=None, title='', xlabel='', ylabel='', colors=None, markers=None):
+def plot_graphs(figname, data_arrays, error_arrays=None, labels=None, title='', xlabel='', ylabel='', xscale=None, yscale=None, colors=None, markers=None, **style):
     fig, ax = init_fig(title, xlabel, ylabel)
+
+    if xscale=='log':
+        ax.set_xscale('log')
+    elif xscale=='log2':
+        ax.set_xscale('log', basex=2)
+
+    if yscale=='log':
+        ax.set_yscale('log')
+    elif yscale=='log2':
+        ax.set_yscale('log', basey=2)
 
     if colors is None:
         colors = set_default_colors(len(data_arrays))
@@ -150,7 +160,7 @@ def plot_graphs(figname, data_arrays, error_arrays=None, labels=None, title='', 
             else:
                 yerr = error
 
-        ax.errorbar(x, y, xerr=xerr, yerr=yerr, label=label, marker=marker, color=colors[i], **graph_style)
+        ax.errorbar(x, y, xerr=xerr, yerr=yerr, label=label, marker=marker, color=colors[i], **style)
 
     # plot legend if needed
     if labels is not None:
