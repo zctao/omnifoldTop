@@ -54,7 +54,7 @@ class DataHandler(object):
             variable_names = tmpDataArr.dtype.names
         else:
             # add wname to the list
-            if not wname in variable_names:
+            if wname and not wname in variable_names:
                 variable_names.append(wname)
 
             # check all variable names are available
