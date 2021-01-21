@@ -273,7 +273,7 @@ class OmniFoldwBkg(object):
             fname_rhist1 = model_dir+'/rhist_step1_{}'.format(i) if model_dir and not reweight_only else None
             wm_i = wm_push_i * self._reweight_step1(model_step1, self.X_sim, fname_rhist1)
             # normalize the weight to the initial one
-            if True: # TODO check performance
+            if False: # TODO check performance
                 wm_i *= (wsim.sum()/wm_i.sum())
             logger.debug("Iteration {} step 1: wm.sum() = {}".format(i, wm_i.sum()))
 
@@ -303,18 +303,22 @@ class OmniFoldwBkg(object):
             fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir and not reweight_only else None
             wt_i = wt_pull_i * self._reweight_step2(model_step2, self.X_gen, fname_rhist2)
             # normalize the weight to the initial one
-            if True: # TODO check performance
+            if False: # TODO check performance
                 wt_i *= (wsim.sum()/wt_i.sum())
             logger.debug("Iteration {} step 2: wt.sum() = {}".format(i, wt_i.sum()))
             ws_t[i+1,:] = wt_i
         # end of iterations
         #assert(not np.isnan(ws_t).any())
+
+        # rescale unfolded weights from training to the nominal sim weights
+        logger.info("Rescale unfolded weights according to the nominal signal simulation weights and the weights used in the training")
+        ws_t *= self.weights_sim.sum() / wsim.sum()
         logger.debug("Sum of unfolded weights = {}".format(ws_t[-1].sum()))
 
         # normalize unfolded weights to the nominal signal simulation weights
-        logger.info("Normalize to nominal signal simulation weights")
-        ws_t *= (self.weights_sim.sum() / ws_t.sum(axis=1)[:,np.newaxis])
-        logger.debug("Sum of unfolded weights after normalization = {}".format(ws_t[-1].sum()))
+        #logger.info("Normalize to nominal signal simulation weights")
+        #ws_t *= (self.weights_sim.sum() / ws_t.sum(axis=1)[:,np.newaxis])
+        #logger.debug("Sum of unfolded weights after normalization = {}".format(ws_t[-1].sum()))
 
         # save the weights
         if fname_event_weights:
@@ -444,24 +448,21 @@ class OmniFoldwBkg(object):
         logger.info("Size of the label array for step 2: {:.3f} MB".format(self.Y_step2.nbytes*2**-20))
 
     def _set_event_weights(self, rw_type=None, vars_dict={}, rescale=True):
-        self.weights_obs = self.datahandle_obs.get_weights(normalize=True, rw_type=rw_type, vars_dict=vars_dict)
-        self.weights_sim = self.datahandle_sig.get_weights(normalize=False)
-        self.weights_bkg = None if self.datahandle_bkg is None else self.datahandle_bkg.get_weights(normalize=False)
+        self.weights_obs = self.datahandle_obs.get_weights(rw_type=rw_type,
+                                                           vars_dict=vars_dict)
+        self.weights_sim = self.datahandle_sig.get_weights()
+        self.weights_bkg = None if self.datahandle_bkg is None else self.datahandle_bkg.get_weights()
 
         # rescale signal and background simulation weights to data
         if rescale:
             ndata = self.weights_obs.sum()
             nsig = self.weights_sim.sum()
             nbkg = self.weights_bkg.sum() if self.datahandle_bkg else 0.
+            nsim = nsig + nbkg
 
-            # sum of simulation original weights
-            sumw_sig = self.datahandle_sig.sumw
-            sumw_bkg = self.datahandle_bkg.sumw if self.datahandle_bkg else 0.
-            sumw_sim = sumw_sig + sumw_bkg
-
-            self.weights_sim *= (sumw_sig / sumw_sim * ndata / nsig)
+            self.weights_sim *= ndata / nsim
             if self.datahandle_bkg:
-                self.weights_bkg *= (sumw_bkg / sumw_sim * ndatat / nbkg)
+                self.weights_bkg *= ndata / nsim
 
         logger.debug("weights_obs.sum() = {}".format(self.weights_obs.sum()))
         logger.debug("weights_sim.sum() = {}".format(self.weights_sim.sum()))
