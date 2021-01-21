@@ -8,8 +8,10 @@ from sklearn.model_selection import train_test_split
 import plotting
 from datahandler import DataHandler
 from model import get_model, get_callbacks
-from util import getLogger, add_histograms, write_chi2
-logger = getLogger('OmniFoldwBkg')
+from util import add_histograms, write_chi2
+import logging
+logger = logging.getLogger('OmniFoldwBkg')
+logger.setLevel(logging.DEBUG)
 
 class OmniFoldwBkg(object):
     def __init__(self, variables_det, variables_truth, iterations=4, outdir='.', binned_rw=False):

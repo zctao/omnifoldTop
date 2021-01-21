@@ -9,11 +9,31 @@ import tracemalloc
 from datahandler import DataHandler
 from omnifoldwbkg import OmniFoldwBkg
 from ibu import IBU
-from util import getLogger, read_dict_from_json, get_bins
-logger = getLogger('Unfold')
+from util import read_dict_from_json, get_bins
+import logging
+
+def configRootLogger(filename=None, level=logging.INFO):
+    msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
+    datefmt = '%Y-%m-%d %H:%M:%S'
+    logging.basicConfig(level=level, format=msgfmt, datefmt=datefmt)
+    if filename:
+        # check if the directory exists
+        dirname = os.path.dirname(filename)
+        nodir = not os.path.isdir(dirname)
+        if nodir:
+            os.makedirs(dirname)
+
+        fhdr = logging.FileHandler(filename)
+        fhdr.setFormatter(logging.Formatter(msgfmt, datefmt))
+        logging.getLogger().addHandler(fhdr)
+
+        if nodir:
+            logging.info("Create directory {}".format(dirname))
 
 def unfold(**parsed_args):
     tracemalloc.start()
+
+    logger = logging.getLogger('Unfold')
 
     #################
     # Variables
@@ -234,6 +254,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    logfile = os.path.join(args.outputdir, 'log.txt')
+    configRootLogger(filename=logfile)
+    logger = logging.getLogger('Unfold')
     logger.setLevel(logging.DEBUG if args.verbose > 0 else logging.INFO)
 
     #################

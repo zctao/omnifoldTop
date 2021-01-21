@@ -4,9 +4,10 @@ import pandas as pd
 
 import external.OmniFold.modplot as modplot
 import plotting
-from util import getLogger, add_histograms
-
-logger = getLogger('IBU')
+from util import add_histograms
+import logging
+logger = logging.getLogger('IBU')
+logger.setLevel(logging.DEBUG)
 
 class IBU(object):
     def __init__(self, varname, bins_det, bins_mc, obs, sim, gen, simbkg=None, wobs=1., wsig=1., wbkg=1., iterations=4, nresample=25, outdir='.'):

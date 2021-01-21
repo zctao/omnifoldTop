@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import json
-import logging
 from scipy import stats
 
 def parse_input_name(fname):
@@ -312,14 +311,6 @@ class DataShufflerGen(DataShufflerDet):
         self.nval = len(valperm) # number of validation events in the entire dataset
         self.perm = np.concatenate((trainperm, valperm))
         self.invperm = np.argsort(self.perm)
-
-def getLogger(name, level=logging.DEBUG):
-    msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
-    datefmt = '%Y-%m-%d %H:%M:%S'
-    logger = logging.getLogger(name)
-    logging.basicConfig(format = msgfmt, datefmt = datefmt)
-    logger.setLevel(level)
-    return logger
 
 def compute_triangular_discr(histogram_1, histogram_2):
     if len(histogram_1) != len(histogram_2):
