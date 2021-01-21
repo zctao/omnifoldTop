@@ -117,7 +117,7 @@ class OmniFoldwBkg(object):
             logger.debug("unfolded_weights_resample.shape: {}".format(self.unfolded_weights_resample.shape))
 
     def get_unfolded_distribution(self, variable, bins, all_iterations=False,
-                                    bootstrap_uncertainty=True):
+                                  bootstrap_uncertainty=True, normalize=True):
         ws = self.unfolded_weights if all_iterations else self.unfolded_weights[-1]
         hist_uf, hist_uf_err = self.datahandle_sig.get_histogram(variable, ws, bins)
 
@@ -127,6 +127,13 @@ class OmniFoldwBkg(object):
                 hist_uf_err, bin_corr = self._get_unfolded_uncertainty(variable, bins, all_iterations)
             else:
                 logger.warn("  Unable to compute bootstrap uncertainty. Use sum of weights squared in each bin instead.")
+
+        if normalize:
+            # renormalize the unfolded histograms and its error to the nominal signal simulation weights
+            hist_uf *= self.weights_sim.sum() / self.unfolded_weights[-1].sum()
+            hist_uf_err *= self.weights_sim.sum() / self.unfolded_weights[-1].sum()
+            # all iterations are rescaled based on the weights of the last one
+            # renormalize histograms of each iteration according to their individual norm instead?
 
         return hist_uf, hist_uf_err, bin_corr
 
