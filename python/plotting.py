@@ -95,7 +95,7 @@ def draw_histogram(ax, bin_edges, hist, hist_unc=None, **styles):
     # TODO: uncertainty hist_unc
 
 def draw_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
-                            colors=None):
+                            colors=None, stacked=True):
     midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
 
     if colors is None:
@@ -109,7 +109,7 @@ def draw_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
     ax.hist(np.stack([midbins]*len(hists), axis=1), bin_edges,
             weights=np.stack([h for h in hists], axis=1),
             color=colors, label=labels,
-            stacked = True, histtype='step', fill=True)
+            stacked = stacked, histtype='step', fill=True)
     # TODO: uncertainty
 
 def draw_hist_fill(ax, bin_edges, hist, hist_unc=None, **styles):
@@ -560,3 +560,40 @@ def plot_training_vs_validation(figname, predictions_train, labels_train, weight
         [hist_preds_cat1_t, hist_preds_cat0_t, hist_preds_cat1_v, hist_preds_cat0_v],
         labels=['y = 1 (training)', 'y = 0 (training)', 'y = 1 (validation)', 'y = 0 (validation)'],
         xlabel = 'Prediction (y = 1)',  plottypes=['h','h','g','g'], marker='+')
+
+def plot_hists_resamples(figname, bins, histograms, hist_prior, **config):
+
+    fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Ratio to\nPrior', **config)
+    # set x axis limit
+    for ax in axes:
+        ax.set_xlim(bins[0], bins[-1])
+    ax0, ax1 = axes
+
+    ymax=0
+    alpha=0.5
+    for i,hist in enumerate(histograms):
+        ymax = max(hist.max(), ymax)
+        color=tuple(np.random.random(3))+(alpha,)
+        label='Resampled' if i==0 else None
+        draw_hist_as_graph(ax0, bins, hist, ls='--', lw=1, color=color, label=label)
+
+    # mean of each bin
+    hist_mean = np.mean(np.asarray(histograms), axis=0)
+    draw_hist_as_graph(ax0, bins, hist_mean, ls='-', lw=1, color='black', label='Mean')
+    # the prior distribution
+    draw_hist_as_graph(ax0, bins, hist_prior, ls='-', lw=1, color='blue', label='Prior')
+    ymax = max(hist_prior.max(), ymax)
+    ax0.set_ylim(0, ymax*1.2)
+
+    # standard deviation of each bin
+    hist_std = np.std(np.asarray(histograms), axis=0, ddof=1)
+
+    # ratio
+    draw_ratios(ax1, bins, hist_prior, [hist_mean], hists_numer_unc=[hist_std],
+                colors_numer=['black'], color_denom_line='blue')
+
+    draw_legend(ax0, **config)
+
+    # save plot
+    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig)
