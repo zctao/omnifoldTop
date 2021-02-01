@@ -579,7 +579,7 @@ class OmniFoldwBkg(object):
 
     def _reweight(self, model, events, plotname=None):
         preds = model.predict(events, batch_size=int(0.1*len(events)))[:,1]
-        r = preds / (1. - preds + 10**-50)
+        r = np.nan_to_num( preds / (1. - preds) )
 
         if plotname: # plot the ratio distribution
             logger.info("Plot likelihood ratio distribution "+plotname)
