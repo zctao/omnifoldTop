@@ -316,12 +316,12 @@ class OmniFoldwBkg(object):
             # reweight
             logger.info("Reweighting")
             fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir and not reweight_only else None
-            wt_i = wt_pull_i * self._reweight_step2(model_step2, self.X_gen, fname_rhist2)
+            wt_i1 = ws_t[i] * self._reweight_step2(model_step2, self.X_gen, fname_rhist2)
             # normalize the weight to the initial one
             if False: # TODO check performance
-                wt_i *= (wsim.sum()/wt_i.sum())
-            logger.debug("Iteration {} step 2: wt.sum() = {}".format(i, wt_i.sum()))
-            ws_t[i+1,:] = wt_i
+                wt_i1 *= (wsim.sum()/wt_i1.sum())
+            logger.debug("Iteration {} step 2: wt.sum() = {}".format(i, wt_i1.sum()))
+            ws_t[i+1,:] = wt_i1
         # end of iterations
         #assert(not np.isnan(ws_t).any())
 
