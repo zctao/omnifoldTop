@@ -210,7 +210,7 @@ class OmniFoldwBkg(object):
             plotting.plot_correlations(hist_ibu_corr, figname_ibu_corr)
 
         # plot all resampled unfolded distributions
-        if plot_resamples:
+        if plot_resamples and self.unfolded_weights_resample is not None:
             hists_resample = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=False)
             figname_resamples = os.path.join(self.outdir, 'Unfold_AllResamples_{}'.format(varname))
             plotting.plot_hists_resamples(figname_resamples, bins, hists_resample, hist_gen, **varConfig)
