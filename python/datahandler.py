@@ -153,7 +153,7 @@ class DataHandler(object):
     def get_histogram(self, variable, weights, bin_edges, normalize=False):
         """
         If weights is a 1D array of the same length as the variable array, return a histogram and its error
-        If weights is a 2D array or a list of 1D array, return a list of histograms and a list of their errors
+        If weights is a 2D array or a list of 1D array, return an array of histograms and an array of their errors
         """
         if isinstance(weights, np.ndarray):
             if weights.ndim == 1: # if weights is a 1D array
@@ -174,7 +174,7 @@ class DataHandler(object):
                 h, herr = self.get_histogram(variable, w, bin_edges, normalize)
                 hists.append(h)
                 hists_err.append(herr)
-            return hists, hists_err
+            return np.asarray(hists), np.asarray(hists_err)
         else:
             raise RuntimeError("Unknown type of weights: {}".format(type(weights)))
 

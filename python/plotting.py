@@ -419,7 +419,7 @@ def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
     fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. truth')
 
     for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
-        if not hists:
+        if hists is None:
             continue
 
         Chi2s = []
@@ -439,7 +439,7 @@ def plot_iteration_diffChi2s(figname, histograms_arr, histograms_err_arr, labels
     # chi2s between iterations
     fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\Delta\\chi^2$/NDF')
     for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
-        if not hists:
+        if hists is None:
             continue
 
         dChi2s = compute_diff_chi2(hists, hists_err)
