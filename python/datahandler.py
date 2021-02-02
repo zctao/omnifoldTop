@@ -105,24 +105,24 @@ class DataHandler(object):
 
     def get_weights(self, unweighted=False, bootstrap=False, normalize=False, rw_type=None, vars_dict={}):
         if unweighted or not self.weight_name:
-            return np.ones(len(self.data))
+            weights = np.ones(len(self.data))
         else:
             # always return a copy of the original weight array in self.data
             weights = self.get_variable_arr(self.weight_name).copy()
             assert(weights.base is None)
 
-            # reweight sample if needed
-            if rw_type is not None:
-                weights *= self._reweight_sample(rw_type, vars_dict)
+        # reweight sample if needed
+        if rw_type is not None:
+            weights *= self._reweight_sample(rw_type, vars_dict)
 
-            # normalize to len(self.data)
-            if normalize:
-                weights /= np.mean(weights)
+        # normalize to len(self.data)
+        if normalize:
+            weights /= np.mean(weights)
 
-            if bootstrap:
-                weights *= np.random.poisson(1, size=len(weights))
+        if bootstrap:
+            weights *= np.random.poisson(1, size=len(weights))
 
-            return weights
+        return weights
 
     def get_dataset(self, features, label, standardize=False):
         """ features: a list of variable names
