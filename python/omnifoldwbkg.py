@@ -249,7 +249,12 @@ class OmniFoldwBkg(object):
 
         ################
         # event weights for training
+        logger.info("Get prior event weights")
         wobs, wsim, wbkg = self._get_event_weights(normalize=True, resample=resample_data)
+        logger.debug("wobs.sum() = {}".format(wobs.sum()))
+        logger.debug("wsim.sum() = {}".format(wsim.sum()))
+        if wbkg:
+            logger.debug("wbkg.sum() = {}".format(wbkg.sum()))
 
         ################
         # start iterations
@@ -282,14 +287,15 @@ class OmniFoldwBkg(object):
                 logger.info("Start training")
                 fname_preds1 = model_dir+'/preds_step1_{}'.format(i) if model_dir else None
                 self._train_model(model_step1, X_step1_train, Y_step1_train, w_step1_train, callbacks=cb_step1, val_data=(X_step1_test, Y_step1_test, w_step1_test), figname_preds=fname_preds1, **fitargs)
+                logger.info("Model training done")
 
             # reweight
             logger.info("Reweighting")
             fname_rhist1 = model_dir+'/rhist_step1_{}'.format(i) if model_dir and not reweight_only else None
             wm_i = wm_push_i * self._reweight_step1(model_step1, self.X_sim, fname_rhist1)
             # normalize the weight to the initial one
-            if False: # TODO check performance
-                wm_i *= (wsim.sum()/wm_i.sum())
+            #if False: # TODO check performance
+            #    wm_i *= (wsim.sum()/wm_i.sum())
             logger.debug("Iteration {} step 1: wm.sum() = {}".format(i, wm_i.sum()))
 
             ####
@@ -318,8 +324,8 @@ class OmniFoldwBkg(object):
             fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir and not reweight_only else None
             wt_i1 = ws_t[i] * self._reweight_step2(model_step2, self.X_gen, fname_rhist2)
             # normalize the weight to the initial one
-            if False: # TODO check performance
-                wt_i1 *= (wsim.sum()/wt_i1.sum())
+            #if False: # TODO check performance
+            #    wt_i1 *= (wsim.sum()/wt_i1.sum())
             logger.debug("Iteration {} step 2: wt.sum() = {}".format(i, wt_i1.sum()))
             ws_t[i+1,:] = wt_i1
         # end of iterations
@@ -476,6 +482,7 @@ class OmniFoldwBkg(object):
 
         # rescale signal and background simulation weights to data
         if rescale:
+            logger.info("Renormalize simulation prior weights to data")
             ndata = self.weights_obs.sum()
             nsig = self.weights_sim.sum()
             nbkg = self.weights_bkg.sum() if self.datahandle_bkg else 0.
@@ -496,6 +503,7 @@ class OmniFoldwBkg(object):
         wbkg = self.weights_bkg if self.weights_bkg else None
 
         if normalize: # normalize to len(weights)
+            logger.debug("Rescale event weights to len(weights)")
             wobs = wobs / np.mean(wobs)
             wsim = wsim / np.mean(wsim)
             if wbkg:
@@ -578,6 +586,7 @@ class OmniFoldwBkg(object):
             plotting.plot_training_vs_validation(figname_preds, preds_train, Y, w, preds_val, Y_val, w_val)
 
     def _reweight(self, model, events, plotname=None):
+
         preds = model.predict(events, batch_size=int(0.1*len(events)))[:,1]
         r = np.nan_to_num( preds / (1. - preds) )
 
