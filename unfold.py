@@ -99,7 +99,8 @@ def unfold(**parsed_args):
     t_prep_start = time.time()
 
     unfolder.prepare_inputs(data_obs, data_sig, data_bkg,
-                            parsed_args['plot_correlations'], standardize=True,
+                            parsed_args['plot_correlations'],
+                            standardize=False,
                             reweight_type=parsed_args['reweight_data'],
                             vars_dict=observable_dict)
 

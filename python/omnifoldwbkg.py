@@ -51,7 +51,7 @@ class OmniFoldwBkg(object):
         self.outdir = outdir.rstrip('/')+'/'
 
     def prepare_inputs(self, obsHandle, simHandle, bkgHandle=None,
-                        plot_corr=False, standardize=True, reweight_type=None,
+                        plot_corr=False, standardize=False, reweight_type=None,
                         vars_dict={}):
         # observed data
         self.datahandle_obs = obsHandle
@@ -426,7 +426,7 @@ class OmniFoldwBkg(object):
         wfile.close()
         return weights
 
-    def _set_arrays_step1(self, obsHandle, simHandle, bkgHandle=None, standardize=True):
+    def _set_arrays_step1(self, obsHandle, simHandle, bkgHandle=None, standardize=False):
         # step 1: observed data vs simulation at detector level
         X_obs, Y_obs = obsHandle.get_dataset(self.vars_reco, self.label_obs, standardize=False)
         X_sim, Y_sim = simHandle.get_dataset(self.vars_reco, self.label_sig, standardize=False)
@@ -455,7 +455,7 @@ class OmniFoldwBkg(object):
         logger.info("Size of the feature array for step 1: {:.3f} MB".format(self.X_step1.nbytes*2**-20))
         logger.info("Size of the label array for step 1: {:.3f} MB".format(self.Y_step1.nbytes*2**-20))
 
-    def _set_arrays_step2(self, simHandle, standardize=True):
+    def _set_arrays_step2(self, simHandle, standardize=False):
         # step 2: update simulation weights at truth level
         self.X_gen = simHandle.get_dataset(self.vars_truth, self.label_sig, standardize=False)[0]
         nsim = len(self.X_gen)
