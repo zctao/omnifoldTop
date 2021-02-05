@@ -25,18 +25,17 @@ def get_callbacks(model_filepath=None):
         return [EarlyStopping]
 
 def get_model(input_shape, nclass=2):
-    model = keras.Sequential()
-    model.add(keras.Input(shape=input_shape))
-    model.add(layers.Dense(100, activation='relu', kernel_initializer='he_uniform'))
-    model.add(layers.Dense(100, activation='relu', kernel_initializer='he_uniform'))
-    model.add(layers.Dense(100, activation='relu', kernel_initializer='he_uniform'))
-    model.add(layers.Dense(nclass, activation='softmax', kernel_initializer='he_uniform'))
+    inputs = keras.layers.Input(input_shape)
+    hidden_layer_1 = keras.layers.Dense(100, activation='relu')(inputs)
+    hidden_layer_2 = keras.layers.Dense(100, activation='relu')(hidden_layer_1)
+    hidden_layer_3 = keras.layers.Dense(100, activation='relu')(hidden_layer_2)
+    outputs = keras.layers.Dense(nclass, activation='softmax')(hidden_layer_3)
 
-    model.compile(
-        loss='categorical_crossentropy',
-        optimizer='adam',
-        metrics=['accuracy']
-    )
+    model = keras.models.Model(inputs=inputs, outputs=outputs)
+
+    model.compile(loss='categorical_crossentropy',
+                  optimizer='Adam',
+                  metrics=['accuracy'])
 
     model.summary()
 
