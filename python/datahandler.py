@@ -41,12 +41,12 @@ def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='by
 
 class DataHandler(object):
     def __init__(self, filepaths, wname='w', truth_known=True,
-                 variable_names=None, vars_dict={}):
+                 variable_names=None, vars_dict={}, array_name='arr_0'):
         self.weight_name = wname # name of event weights
         self.truth_known = truth_known
 
         # load data from npz files to numpy array
-        tmpDataArr = load_dataset(filepaths, weight_columns=wname)
+        tmpDataArr = load_dataset(filepaths, array_name=array_name, weight_columns=wname)
         assert(tmpDataArr is not None)
 
         if not variable_names:
@@ -215,3 +215,20 @@ class DataHandler(object):
             return rw
         else:
             raise RuntimeError("Unknown reweighting type: {}".format(rw_type))
+
+# Toy data
+class DataToy(DataHandler):
+    def __init__(self, nevents, mu=0., sigma=1.):
+        self.weight_name = ''
+        self.truth_known = True
+
+        # generate toy data
+        # truth level
+        var_truth = np.random.normal(mu, sigma,nevents)
+
+        # detector smearing
+        epsilon = 1. # smearing width
+        var_reco = np.array([(x + np.random.normal(0, epsilon)) for x in var_truth])
+
+        self.data = np.array([(x,y) for x,y in zip(var_reco, var_truth)],
+                             dtype=[('x_reco','float'), ('x_truth','float')])
