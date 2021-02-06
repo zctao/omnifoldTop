@@ -119,7 +119,8 @@ def unfold(**parsed_args):
         unfolder.load(parsed_args['unfolded_weights'])
     else:
         # run training
-        unfolder.run(parsed_args['error_type'], parsed_args['nresamples'], True,
+        unfolder.run(parsed_args['error_type'], parsed_args['nresamples'],
+                     load_previous_iteration=False,
                      batch_size=parsed_args['batch_size'])
 
     t_unfold_done = time.time()
