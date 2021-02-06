@@ -309,7 +309,7 @@ class OmniFoldwBkg(object):
 
             if not reweight_only:
                 # prepare weight array for training
-                w_step2 = np.concatenate([wt_pull_i, ws_t[i]])
+                w_step2 = np.concatenate([wt_pull_i, ws_t[0]])
 
                 # split data into training and test sets
                 X_step2_train, X_step2_test, Y_step2_train, Y_step2_test, w_step2_train, w_step2_test = train_test_split(self.X_step2, self.Y_step2, w_step2, test_size=val_size)
@@ -322,7 +322,7 @@ class OmniFoldwBkg(object):
             # reweight
             logger.info("Reweighting")
             fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir and not reweight_only else None
-            wt_i1 = ws_t[i] * self._reweight_step2(model_step2, self.X_gen, fname_rhist2)
+            wt_i1 = ws_t[0] * self._reweight_step2(model_step2, self.X_gen, fname_rhist2)
             # normalize the weight to the initial one
             #if False: # TODO check performance
             #    wt_i1 *= (wsim.sum()/wt_i1.sum())
