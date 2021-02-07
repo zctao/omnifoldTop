@@ -132,10 +132,13 @@ class OmniFoldwBkg(object):
 
         if normalize:
             # renormalize the unfolded histograms and its error to the nominal signal simulation weights
-            hist_uf *= self.weights_sim.sum() / self.unfolded_weights[-1].sum()
-            hist_uf_err *= self.weights_sim.sum() / self.unfolded_weights[-1].sum()
-            # all iterations are rescaled based on the weights of the last one
-            # renormalize histograms of each iteration according to their individual norm instead?
+            if all_iterations:
+                # rescale all iterations to self.weights_sim.sum()
+                hist_uf *= (self.weights_sim.sum()/ws.sum(axis=1))[:,np.newaxis]
+                hist_uf_err *= (self.weights_sim.sum()/ws.sum(axis=1))[:,np.newaxis]
+            else:
+                hist_uf *= self.weights_sim.sum() / ws.sum()
+                hist_uf_err *= self.weights_sim.sum() / ws.sum()
 
         return hist_uf, hist_uf_err, bin_corr
 
