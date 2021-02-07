@@ -366,9 +366,9 @@ def plot_response(figname, h2d, xedges, yedges, variable):
     fig.savefig(figname+'.pdf')
     plt.close(fig)
 
-def plot_iteration_distributions(figname, binedges, histograms, histograms_err, nhistmax=7, **config):
+def plot_iteration_distributions(figname, binedges, histograms, histograms_err, histogram_truth=None, histogram_truth_err=None, nhistmax=7, **config):
     # plot intermediate unfolded distributions of all iterations
-    fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Ratio to Prior', gridspec_update={'height_ratios': (3.5,2)}, **config)
+    fig, axes = modplot.axes(ratio_plot=True, gridspec_update={'height_ratios': (3.5,2)}, **config)
     for ax in axes:
         ax.set_xlim(binedges[0], binedges[-1])
 
@@ -396,16 +396,26 @@ def plot_iteration_distributions(figname, binedges, histograms, histograms_err, 
     for i, hist, color in zip(selected_i, histograms_toplot, colors):
         styles.update({'color': color, 'label': 'iteration {}'.format(i)})
         ymax = max(hist.max(), ymax)
-        draw_hist_as_graph(ax0, binedges, hist, **styles)
+        draw_hist_as_graph(ax0, binedges, hist, alpha=0.8, **styles)
 
     # set yaxis range
     ax0.set_ylim((0, ymax*1.2))
 
     # ratio
-    draw_ratios(axes[1], binedges, histograms_toplot[0], histograms_toplot[1:],
-               histograms_err_toplot[0], histograms_err_toplot[1:],
-               color_denom_line = colors[0],
-               colors_numer = colors[1:])
+    if histogram_truth is not None:
+        axes[1].set_ylabel("Ratio to Truth", fontsize=8)
+        # Draw ratio to truth
+        draw_ratios(axes[1], binedges,
+                    histogram_truth, histograms_toplot,
+                    histogram_truth_err, histograms_err_toplot,
+                    color_denom_line = 'black', colors_numer = colors)
+    else:
+        # Draw ratio to prior
+        axes[1].set_ylabel("Ratio to Prior", fontsize=8)
+        draw_ratios(axes[1], binedges,
+                    histograms_toplot[0], histograms_toplot[1:],
+                    histograms_err_toplot[0], histograms_err_toplot[1:],
+                    color_denom_line = colors[0], colors_numer = colors[1:])
 
     draw_legend(ax0, **config)
 

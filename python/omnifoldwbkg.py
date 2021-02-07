@@ -228,11 +228,11 @@ class OmniFoldwBkg(object):
             figname_prefix = os.path.join(iteration_dir, varname)
 
             hists_uf, hists_uf_err = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=True)[:2]
-            plotting.plot_iteration_distributions(figname_prefix+"_OmniFold_iterations", bins, hists_uf, hists_uf_err, **varConfig)
+            plotting.plot_iteration_distributions(figname_prefix+"_OmniFold_iterations", bins, hists_uf, hists_uf_err, hist_truth, hist_truth_err, **varConfig)
 
             if ibu:
                 hists_ibu, hists_ibu_err = ibu.get_unfolded_distribution(all_iterations=True)[:2]
-                plotting.plot_iteration_distributions(figname_prefix+"_IBU_iterations", bins, hists_ibu, hists_ibu_err, **varConfig)
+                plotting.plot_iteration_distributions(figname_prefix+"_IBU_iterations", bins, hists_ibu, hists_ibu_err, hist_truth, hist_truth_err, **varConfig)
             else:
                 hists_ibu, hists_ibu_err = [], []
 
