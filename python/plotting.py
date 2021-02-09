@@ -571,7 +571,8 @@ def plot_training_vs_validation(figname, predictions_train, labels_train, weight
         labels=['y = 1 (training)', 'y = 0 (training)', 'y = 1 (validation)', 'y = 0 (validation)'],
         xlabel = 'Prediction (y = 1)',  plottypes=['h','h','g','g'], marker='+')
 
-def plot_hists_resamples(figname, bins, histograms, hist_prior, **config):
+def plot_hists_resamples(figname, bins, histograms, hist_prior, hist_truth=None,
+                         **config):
 
     fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Ratio to\nPrior', **config)
     # set x axis limit
@@ -590,17 +591,28 @@ def plot_hists_resamples(figname, bins, histograms, hist_prior, **config):
     # mean of each bin
     hist_mean = np.mean(np.asarray(histograms), axis=0)
     draw_hist_as_graph(ax0, bins, hist_mean, ls='-', lw=1, color='black', label='Mean')
+
     # the prior distribution
     draw_hist_as_graph(ax0, bins, hist_prior, ls='-', lw=1, color='blue', label='Prior')
     ymax = max(hist_prior.max(), ymax)
+
+    # the truth distribution
+    if hist_truth is not None:
+        draw_hist_as_graph(ax0, bins, hist_prior, ls='-', lw=1, color='green', label='Truth')
+        ymax = max(hist_truth.max(), ymax)
+
     ax0.set_ylim(0, ymax*1.2)
 
     # standard deviation of each bin
     hist_std = np.std(np.asarray(histograms), axis=0, ddof=1)
 
     # ratio
-    draw_ratios(ax1, bins, hist_prior, [hist_mean], hists_numer_unc=[hist_std],
-                colors_numer=['black'], color_denom_line='blue')
+    if hist_truth is None:
+        draw_ratios(ax1, bins, hist_prior, [hist_mean], hists_numer_unc=[hist_std], colors_numer=['black'], color_denom_line='blue')
+    else:
+        # draw ratio to truth
+        ax1.set_ylabel("Ratio to\nTruth", fontsize=8)
+        draw_ratios(ax1, bins, hist_truth, [hist_mean], hists_numer_unc=[hist_std], colors_numer=['black'], color_denom_line='green')
 
     draw_legend(ax0, **config)
 
