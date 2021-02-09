@@ -98,7 +98,7 @@ class IBU(object):
             # update the unfolded given m and the observed distribution
             hists_ibu.append(np.dot(m.T, hist_obs)*wbins_det/wbins_mc)
 
-        return hists_ibu # shape: (n_iteration, nbins_hist)
+        return hists_ibu[1:] # shape: (n_iteration, nbins_hist)
 
     def _uncertainty(self, nresamples, response=None, resample_obs=True, resample_sig=True):
         hists_resample = []

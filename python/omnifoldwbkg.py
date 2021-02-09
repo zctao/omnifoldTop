@@ -228,10 +228,18 @@ class OmniFoldwBkg(object):
             figname_prefix = os.path.join(iteration_dir, varname)
 
             hists_uf, hists_uf_err = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=True)[:2]
+            # Add prior to the head of the list
+            hists_uf = [hist_gen] + list(hists_uf)
+            hists_uf_err = [hist_gen_err] + list(hists_uf_err)
+            # plot
             plotting.plot_iteration_distributions(figname_prefix+"_OmniFold_iterations", bins, hists_uf, hists_uf_err, hist_truth, hist_truth_err, **varConfig)
 
             if ibu:
                 hists_ibu, hists_ibu_err = ibu.get_unfolded_distribution(all_iterations=True)[:2]
+                # Add prior to the head of the list
+                hists_ibu = [hist_gen] + list(hists_ibu)
+                hists_ibu_err = [hist_gen_err] + list(hists_ibu_err)
+                # plot
                 plotting.plot_iteration_distributions(figname_prefix+"_IBU_iterations", bins, hists_ibu, hists_ibu_err, hist_truth, hist_truth_err, **varConfig)
             else:
                 hists_ibu, hists_ibu_err = [], []
@@ -261,9 +269,10 @@ class OmniFoldwBkg(object):
 
         ################
         # start iterations
-        ws_t = np.empty(shape=(self.iterations+1, len(wsim)))
-        ## shape: (n_iterations+1, n_events)
-        ws_t[0,:] = wsim
+        wm_push = wsim
+        wt_pull = wsim
+        weights_t = np.empty(shape=(self.iterations, len(wsim)))
+        ## shape: (n_iterations, n_events)
 
         for i in range(self.iterations):
             logger.info("Iteration {}".format(i))
@@ -273,15 +282,12 @@ class OmniFoldwBkg(object):
             # set up the model for iteration i
             model_step1, cb_step1 = self._set_up_model_step1(self.X_step1.shape[1:], i, model_dir, reweight_only, load_previous_iter)
 
-            # push the latest truth-level weights to the detector level
-            wm_push_i = ws_t[i] # for i=0, this is wsim
-
             if not reweight_only:
                 # prepare weight array for training
                 if wbkg is None:
-                    w_step1 = np.concatenate([wobs, wm_push_i])
+                    w_step1 = np.concatenate([wobs, wm_push])
                 else:
-                    w_step1 = np.concatenate([wobs, wm_push_i, wbkg])
+                    w_step1 = np.concatenate([wobs, wm_push, wbkg])
                 assert(len(w_step1)==len(self.X_step1))
 
                 # split data into training and test sets
@@ -295,11 +301,13 @@ class OmniFoldwBkg(object):
             # reweight
             logger.info("Reweighting")
             fname_rhist1 = model_dir+'/rhist_step1_{}'.format(i) if model_dir and not reweight_only else None
-            wm_i = wm_push_i * self._reweight_step1(model_step1, self.X_sim, fname_rhist1)
+            wm_i = wm_push * self._reweight_step1(model_step1, self.X_sim, fname_rhist1)
             # normalize the weight to the initial one
-            #if False: # TODO check performance
-            #    wm_i *= (wsim.sum()/wm_i.sum())
+            #wm_i *= (wsim.sum()/wm_i.sum())
             logger.debug("Iteration {} step 1: wm.sum() = {}".format(i, wm_i.sum()))
+
+            # pull the learned weights from detector level to the truth level
+            wt_pull = wm_i
 
             ####
             # step 2: reweight the simulation prior to the learned weights
@@ -307,12 +315,9 @@ class OmniFoldwBkg(object):
             # set up the model for iteration i
             model_step2, cb_step2 = self._set_up_model_step2(self.X_step2.shape[1:], i, model_dir, reweight_only, load_previous_iter)
 
-            # pull the learned weights from detector level to the truth level
-            wt_pull_i = wm_i
-
             if not reweight_only:
                 # prepare weight array for training
-                w_step2 = np.concatenate([wt_pull_i, ws_t[0]])
+                w_step2 = np.concatenate([wt_pull, wsim])
 
                 # split data into training and test sets
                 X_step2_train, X_step2_test, Y_step2_train, Y_step2_test, w_step2_train, w_step2_test = train_test_split(self.X_step2, self.Y_step2, w_step2, test_size=val_size)
@@ -325,29 +330,32 @@ class OmniFoldwBkg(object):
             # reweight
             logger.info("Reweighting")
             fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir and not reweight_only else None
-            wt_i1 = ws_t[0] * self._reweight_step2(model_step2, self.X_gen, fname_rhist2)
+            wt_i = wsim * self._reweight_step2(model_step2, self.X_gen, fname_rhist2)
             # normalize the weight to the initial one
-            #if False: # TODO check performance
-            #    wt_i1 *= (wsim.sum()/wt_i1.sum())
-            logger.debug("Iteration {} step 2: wt.sum() = {}".format(i, wt_i1.sum()))
-            ws_t[i+1,:] = wt_i1
+            #wt_i *= (wsim.sum()/wt_i.sum())
+            logger.debug("Iteration {} step 2: wt.sum() = {}".format(i, wt_i.sum()))
+
+            # push the updated truth level weights to the detector level
+            wm_push = wt_i
+            # save truth level weights of this iteration
+            weights_t[i,:] = wt_i
         # end of iterations
-        #assert(not np.isnan(ws_t).any())
+        #assert(not np.isnan(weights_t).any())
 
         # rescale unfolded weights from training to the nominal sim weights
         logger.info("Rescale unfolded weights according to the nominal signal simulation weights and the weights used in the training")
-        ws_t *= self.weights_sim.sum() / wsim.sum()
-        logger.debug("Sum of unfolded weights = {}".format(ws_t[-1].sum()))
+        weights_t *= self.weights_sim.sum() / wsim.sum()
+        logger.debug("Sum of unfolded weights = {}".format(weights_t[-1].sum()))
 
         # normalize unfolded weights to the nominal signal simulation weights
         #logger.info("Normalize to nominal signal simulation weights")
-        #ws_t *= (self.weights_sim.sum() / ws_t.sum(axis=1)[:,np.newaxis])
-        #logger.debug("Sum of unfolded weights after normalization = {}".format(ws_t[-1].sum()))
+        #weights_t *= (self.weights_sim.sum() / weights_t.sum(axis=1)[:,np.newaxis])
+        #logger.debug("Sum of unfolded weights after normalization = {}".format(weights_t[-1].sum()))
 
         # save the weights
         if fname_event_weights:
             weights_file = os.path.join(self.outdir, fname_event_weights)
-            np.savez(weights_file, weights = ws_t)
+            np.savez(weights_file, weights = weights_t)
 
         # Plot training log
         if model_dir and not reweight_only:
@@ -356,7 +364,7 @@ class OmniFoldwBkg(object):
                 logger.info("  Plot training log {}".format(csvfile))
                 plotting.plot_train_log(csvfile)
 
-        return ws_t
+        return weights_t
 
     def _unfold_resample(self, nresamples, error_type='bootstrap_full',
                          load_previous_iter=True, fname_event_weights=None,
@@ -364,8 +372,8 @@ class OmniFoldwBkg(object):
         if not nresamples > 1:
             return
 
-        self.unfolded_weights_resample = np.empty(shape=(nresamples, self.iterations+1, self.datahandle_sig.get_nevents()))
-        # shape: (nresamples, n_iterations+1, n_events)
+        self.unfolded_weights_resample = np.empty(shape=(nresamples, self.iterations, self.datahandle_sig.get_nevents()))
+        # shape: (nresamples, n_iterations, n_events)
 
         model_name = 'Models' if error_type=='bootstrap_stat' else 'Models_rs{}'
         reweight_only = True if error_type=='bootstrap_stat' else False
