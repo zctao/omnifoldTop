@@ -1,0 +1,33 @@
+{
+  "label" : "test",
+  "samples" : {
+    "elesample0" : ["input/re_ttbar_test.npz"],
+    "elesample1" : ["input/re_ttbar_test.npz"],
+    "muonsample0" : ["input/rmu_ttbar_test.npz"],
+    "muonsample1" : ["input/rmu_ttbar_test.npz"]
+  },
+  "parameters" : {
+    "iterations" : 3,
+    "observable-config" : "configs/observables/vars_klfitter.json"
+  },
+  "tests" : {
+    "eClos" : {
+      "enable" : false
+    },
+    "mClos" : {
+      "enable" : false
+    },
+    "eClosSa" : {
+      "enable" : false
+    },
+    "mClosSa" : {
+      "enable" : false
+    },
+    "desm" : {
+      "enable" : false
+    },
+    "dmse" : {
+      "enable" : true
+    }
+  }
+}

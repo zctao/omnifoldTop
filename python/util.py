@@ -1,24 +1,23 @@
+import os
 import numpy as np
-import logging
+import json
+from scipy import stats
 
-def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes'):
-    """
-    Load and return a structured numpy array from a list of npz files
-    """
-    data = None
-    for fname in file_names:
-        npzfile = np.load(fname, allow_pickle=allow_pickle, encoding=encoding)
-        di = npzfile[array_name]
-        if len(di)==0:
-            raise RuntimeError('There is no events in input file {}'.format(fname))
+def parse_input_name(fname):
+    fname_list = fname.split('*')
+    if len(fname_list) == 1:
+        return fname, 1.
+    else:
+        try:
+            name = fname_list[0]
+            rwfactor = float(fname_list[1])
+        except ValueError:
+            name = fname_list[1]
+            rwfactor = float(fname_list[0])
+        except:
+            print('Unknown data file name {}'.format(fname))
 
-        if data is None:
-            data = di
-        else:
-            data  = np.concatenate([data, di])
-        npzfile.close()
-
-    return data
+        return name, rwfactor
 
 def get_fourvector_array(pt_arr, eta_arr, phi_arr, e_arr, padding=True):
     """
@@ -86,6 +85,10 @@ def prepare_data_omnifold(ntuple, padding=True):
     return data
 
 def get_variable_arr(ntuple, variable):
+    # Moved to datahandler.py
+    # TODO delete this
+    assert(0)
+
     # Reture a 1-d numpy array of the 'variable' from a structured array 'ntuple'
     # np.hstack() ensures the returned array is always of the shape (length,)
     # in case the original array in ntuple is a column array
@@ -127,6 +130,8 @@ def prepare_data_multifold(ntuple, variables, standardize=False, reshape1D=False
     return data
 
 def read_dataset(dataset, variables, label, weight_name=None, standardize=False):
+    assert(0)
+    # deprecated. use DataHandler
     """
     Args:
         dataset: a structured numpy array labeled by variable names
@@ -147,9 +152,47 @@ def read_dataset(dataset, variables, label, weight_name=None, standardize=False)
     Y = np.full(len(X), label)
 
     # weight
-    W = np.ones(len(X)) if weight_name is None else np.hstack(dataset[weight_name])
+    W = np.hstack(dataset[weight_name]) if weight_name else np.ones(len(X))
 
     return X, Y, W
+
+def reweight_sample(weights_orig, dataset, obs_dict, reweight_type=None):
+    assert(0)
+    # move to datahandler.py
+    if reweight_type is None:
+        return weights_orig
+
+    elif reweight_type == 'linear_th_pt':
+        # truth-level hadronic top pt
+        varname_thpt = obs_dict['th_pt']['branch_mc']
+        th_pt = get_variable_arr(dataset, varname_thpt)
+        # reweight function
+        rw = 1 + 1/800.*th_pt
+        return weights_orig * rw
+
+    elif reweight_type == 'gaussian_bump':
+        # truth-level variable name of the ttbar mass
+        varname_mtt = obs_dict['mtt']['branch_mc']
+        mtt = get_variable_arr(dataset, varname_mtt)
+        # reweight function
+        k = 0.5
+        m0 = 800
+        sigma = 100
+        rw = 1 + k*np.exp( -( (mtt-m0)/sigma )**2 )
+        return weights_orig * rw
+
+    elif reweight_type == 'gaussian_tail':
+        varname_mtt = obs_dict['mtt']['branch_mc']
+        mtt = get_variable_arr(dataset, varname_mtt)
+        #  reweight function
+        k = 0.5
+        m0 = 2000
+        sigma = 1000
+        rw = 1 + k*np.exp( -( (mtt-m0)/sigma )**2 )
+        return weights_orig * rw
+
+    else:
+        raise RuntimeError("Unknown sample reweighting type: {}".format(reweight_type))
 
 def set_up_bins(xmin, xmax, nbins):
     bins = np.linspace(xmin, xmax, nbins+1)
@@ -269,32 +312,111 @@ class DataShufflerGen(DataShufflerDet):
         self.perm = np.concatenate((trainperm, valperm))
         self.invperm = np.argsort(self.perm)
 
-def getLogger(name, level=logging.DEBUG):
-    msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
-    datefmt = '%Y-%m-%d %H:%M:%S'
-    logger = logging.getLogger(name)
-    logging.basicConfig(format = msgfmt, datefmt = datefmt)
-    logger.setLevel(level)
-    return logger
-
-def triangular_discr(histogram_1, histogram_2):
+def compute_triangular_discr(histogram_1, histogram_2):
     if len(histogram_1) != len(histogram_2):
         raise RuntimeError("Input histograms are not of the same size")
 
     delta = 0.
     for p, q in zip(histogram_1, histogram_2):
-        if q==0 and q==0:
+        if p==0 and q==0:
             continue
         delta += ((p-q)**2)/(p+q)*0.5
 
     return delta * 1000
 
-def compute_triangular_discriminators(hist_ref, hists, labels):
+def write_triangular_discriminators(hist_ref, hists, labels):
     assert(len(hists)==len(labels))
     stamps = ["Triangular discriminator ($\\times 10^{-3}$):"]
 
     for h, l in zip(hists, labels):
-        d = triangular_discr(h, hist_ref)
+        d = compute_triangular_discr(h, hist_ref)
         stamps.append("{} = {:.3f}".format(l, d))
 
     return stamps
+
+def compute_chi2(hist_obs, hist_exp, hist_obs_err, hist_exp_err):
+    assert(len(hist_exp)==len(hist_obs))
+    assert(len(hist_exp)==len(hist_exp_err))
+    assert(len(hist_obs)==len(hist_obs_err))
+    ndf = len(hist_exp) # degree of freedom
+    chi2 = 0.
+
+    for o, e, oerr, eerr in zip(hist_obs, hist_exp, hist_obs_err, hist_exp_err):
+        if o == 0 and e==0:
+            ndf -= 1 # BAD histogram binning!
+            continue
+        chi2 += ((o-e)**2)/(oerr**2+eerr**2)
+
+    return chi2, ndf
+
+def compute_diff_chi2(histograms_arr, histograms_err_arr):
+    # compute the chi2 per degree of freedom between each histogram and its neighboring one in a list
+    diff_chi2s = []
+
+    for h_current, h_previous, herr_current, herr_previous in zip(histograms_arr[1:], histograms_arr[:-1], histograms_err_arr[1:], histograms_err_arr[:-1]):
+        chi2, ndf = compute_chi2(h_current, h_previous, herr_current, herr_previous)
+        diff_chi2s.append(chi2/ndf)
+
+    return diff_chi2s
+
+def compute_diff_chi2_wrt_first(histograms_arr, histograms_err_arr):
+    # compute the chi2 per degree of freedom between each histogram and the first one in the list
+    diff_chi2s_vs_first = []
+    hprior = histograms_arr[0]
+    hprior_err = histograms_err_arr[0]
+    for hist, hist_err in zip(histograms_arr, histograms_err_arr):
+        chi2, ndf = compute_chi2(hist, hprior, hist_err, hprior_err)
+        diff_chi2s_vs_first.append(chi2/ndf)
+
+    return diff_chi2s_vs_first
+
+def compute_pvalue(chi2, ndf):
+    return 1 - stats.chi2.cdf(chi2, ndf)
+
+def write_chi2(hist_ref, hist_ref_unc, hists, hists_unc, labels):
+    assert(len(hists)==len(labels))
+    stamps = ["$\\chi^2$/NDF (p-value):"]
+
+    for h, herr, l in zip(hists, hists_unc, labels):
+        if h is None:
+            continue
+        chi2, ndf = compute_chi2(h, hist_ref, herr, hist_ref_unc)
+        pval = compute_pvalue(chi2, ndf)
+
+        stamps.append("{} = {:.3f}/{} ({:.3f})".format(l, chi2, ndf, pval))
+
+    return stamps
+
+def read_dict_from_json(filename_json):
+    jfile = open(filename_json, "r")
+    try:
+        jdict = json.load(jfile)
+    except json.decoder.JSONDecodeError:
+        jdict = {}
+
+    jfile.close()
+    return jdict
+
+def write_dict_to_json(aDictionary, filename_json):
+    jfile = open(filename_json, "w")
+    json.dump(aDictionary, jfile, indent=4)
+    jfile.close()
+
+def get_bins(varname, fname_bins):
+    if os.path.isfile(fname_bins):
+        # read bins from the config
+        binning_dict = read_dict_from_json(fname_bins)
+        if varname in binning_dict:
+            if isinstance(binning_dict[varname], list):
+                return np.asarray(binning_dict[varname])
+            elif isinstance(binning_dict[varname], dict):
+                # equal bins
+                return np.linspace(binning_dict[varname]['xmin'], binning_dict[varname]['xmax'], binning_dict[varname]['nbins']+1)
+        else:
+            pass
+            print("  No binning information found is {} for {}".format(fname_bins, varname))
+    else:
+        print("  No binning config file {}".format(fname_bins))
+
+    # if the binning file does not exist or no binning info for this variable is in the dictionary
+    return None

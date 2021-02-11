@@ -7,7 +7,7 @@ import pandas as pd
 import math
 import external.OmniFold.modplot as modplot
 
-from util import add_histograms, get_variable_arr
+from util import add_histograms, compute_chi2, compute_diff_chi2
 
 # plotting styles
 hist_style = {'histtype': 'step', 'density': False, 'lw': 1, 'zorder': 2}
@@ -20,7 +20,7 @@ bkg_style = {'color': 'cyan', 'label': 'Bkg.', **hist_style}
 
 gen_style = {'linestyle': '--', 'color': 'blue', 'lw': 1.15, 'label': 'Gen.'}
 
-truth_style = {'step': 'mid', 'edgecolor': 'green', 'facecolor': (0.75, 0.875, 0.75), 'lw': 1.25, 'zorder': 0, 'label': 'Truth'}
+truth_style = {'edgecolor': 'green', 'facecolor': (0.75, 0.875, 0.75), 'lw': 1.25, 'zorder': 0, 'label': 'Truth'}
 
 ibu_style = {'ls': '-', 'marker': 'o', 'ms': 2.5, 'color': 'gray', 'zorder': 1, 'label':'IBU'}
 
@@ -43,14 +43,15 @@ def set_default_colors(ncolors):
 
 def draw_ratios(ax, bins, hist_denom, hists_numer, hist_denom_unc=None, hists_numer_unc=None, color_denom_line='tomato', color_denom_fill='silver', colors_numer=None):
     midbins = (bins[:-1] + bins[1:]) / 2
-    binwidth = bins[1] - bins[0]
+    binwidths = bins[1:] - bins[:-1]
 
     # horizontal line at y=1
-    ax.plot([np.min(midbins), np.max(midbins)], [1, 1], '-', color=color_denom_line, lw=0.75)
+    ax.plot([np.min(bins), np.max(bins)], [1, 1], '-', color=color_denom_line, lw=0.75)
 
     if hist_denom_unc is not None:
         denom_unc_ratio = np.divide(hist_denom_unc, hist_denom, out=np.zeros_like(hist_denom), where=(hist_denom!=0))
-        ax.fill_between(midbins, 1-denom_unc_ratio, 1+denom_unc_ratio, facecolor=color_denom_fill, zorder=-2)
+        denom_unc_ratio = np.append(denom_unc_ratio, denom_unc_ratio[-1])
+        ax.fill_between(bins, 1-denom_unc_ratio, 1+denom_unc_ratio, facecolor=color_denom_fill, zorder=-2, step='post')
 
     if colors_numer is not None:
         assert(len(colors_numer)==len(hists_numer))
@@ -69,7 +70,7 @@ def draw_ratios(ax, bins, hist_denom, hists_numer, hist_denom_unc=None, hists_nu
             if hists_numer_unc[i] is not None:
                 ratio_unc = np.divide(hists_numer_unc[i], hist_denom, out=np.zeros_like(hist_denom), where=(hist_denom!=0))
 
-        ax.errorbar(midbins, ratio, xerr=binwidth/2, yerr=ratio_unc, color=colors_numer[i], **modplot.style('errorbar'))
+        ax.errorbar(midbins, ratio, xerr=binwidths/2, yerr=ratio_unc, color=colors_numer[i], **modplot.style('errorbar'))
 
 def draw_legend(ax, **config):
     loc = config.get('legend_loc', 'best')
@@ -94,7 +95,7 @@ def draw_histogram(ax, bin_edges, hist, hist_unc=None, **styles):
     # TODO: uncertainty hist_unc
 
 def draw_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
-                            colors=None):
+                            colors=None, stacked=True):
     midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
 
     if colors is None:
@@ -108,26 +109,36 @@ def draw_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
     ax.hist(np.stack([midbins]*len(hists), axis=1), bin_edges,
             weights=np.stack([h for h in hists], axis=1),
             color=colors, label=labels,
-            stacked = True, histtype='step', fill=True)
+            stacked = stacked, histtype='step', fill=True)
     # TODO: uncertainty
 
 def draw_hist_fill(ax, bin_edges, hist, hist_unc=None, **styles):
     midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-    ax.fill_between(midbins, hist, **styles)
+    ax.hist(midbins, bin_edges, weights=hist, histtype='step', fill=True, **styles)
     # TODO: uncertainty?
 
 def draw_hist_as_graph(ax, bin_edges, hist, hist_unc=None, **styles):
     midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
-    binwidth = bin_edges[1] - bin_edges[0]
+    binwidths = bin_edges[1:] - bin_edges[:-1]
 
     yerr = hist_unc
-    xerr = None if yerr is None else binwidth/2
+    xerr = None if yerr is None else binwidths/2
 
     ax.errorbar(midbins, hist, xerr=xerr, yerr=yerr, **styles)
 
-def plot_graphs(figname, data_arrays, error_arrays=None, labels=None, title='', xlabel='', ylabel='', colors=None, markers=None):
+def plot_graphs(figname, data_arrays, error_arrays=None, labels=None, title='', xlabel='', ylabel='', xscale=None, yscale=None, colors=None, markers=None, **style):
     fig, ax = init_fig(title, xlabel, ylabel)
+
+    if xscale=='log':
+        ax.set_xscale('log')
+    elif xscale=='log2':
+        ax.set_xscale('log', basex=2)
+
+    if yscale=='log':
+        ax.set_yscale('log')
+    elif yscale=='log2':
+        ax.set_yscale('log', basey=2)
 
     if colors is None:
         colors = set_default_colors(len(data_arrays))
@@ -149,7 +160,7 @@ def plot_graphs(figname, data_arrays, error_arrays=None, labels=None, title='', 
             else:
                 yerr = error
 
-        ax.errorbar(x, y, xerr=xerr, yerr=yerr, label=label, marker=marker, color=colors[i], **graph_style)
+        ax.errorbar(x, y, xerr=xerr, yerr=yerr, label=label, marker=marker, color=colors[i], **style)
 
     # plot legend if needed
     if labels is not None:
@@ -214,6 +225,10 @@ def plot_reco_variable(bins, histogram_obs, histogram_sig,
     ax0 = axes[0]
     ax1 = axes[1]
 
+    # x limits
+    ax0.set_xlim(bins[0],bins[-1])
+    ax1.set_xlim(bins[0],bins[-1])
+
     # yscale
     if log_scale:
         ax0.set_yscale('log')
@@ -262,7 +277,12 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
 
     # use the plotting tools from the original omnifold package
     truth_known = histogram_truth[0] is not None
-    fig, axes = modplot.axes(ratio_plot = truth_known, **config)
+    fig, axes = modplot.axes(ratio_plot = truth_known, gridspec_update={'height_ratios': (3.5,2) if truth_known else (1,)}, **config)
+
+    # set xaxis limit according to bin edges
+    for ax in axes:
+        ax.set_xlim(bins_gen[0], bins_gen[-1])
+
     ax0 = axes[0]
     ax1 = axes[1] if truth_known else None
 
@@ -298,10 +318,20 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
 
     if ax1:
         #  ratios of the unfolded distributions to truth
-        draw_ratios(ax1, bins_gen, hist_truth, [hist_ibu, hist_of],
-                    hist_truth_unc, [hist_ibu_unc, hist_of_unc],
-                    truth_style['edgecolor'], truth_style['facecolor'],
-                    [ibu_style['color'], omnifold_style['color']])
+        hists_numerator = [hist_ibu, hist_of]
+        hists_unc_numerator = [hist_ibu_unc, hist_of_unc]
+        colors_numerator = [ibu_style['color'], omnifold_style['color']]
+        if config.get('draw_prior_ratio') is not None:
+            if config['draw_prior_ratio']:
+                hists_numerator = [hist_gen] + hists_numerator
+                hists_unc_numerator = [hist_gen_unc] + hists_unc_numerator
+                colors_numerator = [gen_style['color']] + colors_numerator
+
+        draw_ratios(ax1, bins_gen, hist_truth, hists_numerator,
+                    hist_truth_unc, hists_unc_numerator,
+                    color_denom_line = truth_style['edgecolor'],
+                    color_denom_fill= truth_style['facecolor'],
+                    colors_numer = colors_numerator)
 
     draw_legend(ax0, **config)
 
@@ -336,6 +366,101 @@ def plot_response(figname, h2d, xedges, yedges, variable):
     fig.savefig(figname+'.pdf')
     plt.close(fig)
 
+def plot_iteration_distributions(figname, binedges, histograms, histograms_err, histogram_truth=None, histogram_truth_err=None, nhistmax=7, **config):
+    # plot intermediate unfolded distributions of all iterations
+    fig, axes = modplot.axes(ratio_plot=True, gridspec_update={'height_ratios': (3.5,2)}, **config)
+    for ax in axes:
+        ax.set_xlim(binedges[0], binedges[-1])
+
+    ax0 = axes[0]
+
+    if config.get('yscale') is not None:
+        ax0.set_yscale(config['yscale'])
+
+    # if there are more than nhistmax histograms, plot at most nhistmax histograms
+    assert(nhistmax<=10) # plt.rcParams['axes.prop_cycle'] provides max 10 colors
+    if len(histograms) > nhistmax:
+        selected_i = np.linspace(1, len(histograms)-2, nhistmax-2).astype(int).tolist()
+        # the first [0] and the last [-1] are always plotted
+        selected_i = [0] + selected_i + [len(histograms)-1]
+    else:
+        selected_i = list(range(len(histograms)))
+
+    histograms_toplot = [histograms[i] for i in selected_i]
+    histograms_err_toplot = [histograms_err[i] for i in selected_i]
+
+    styles = ibu_style.copy()
+    colors = set_default_colors(len(selected_i))
+
+    ymax = 0.
+    for i, hist, color in zip(selected_i, histograms_toplot, colors):
+        styles.update({'color': color, 'label': 'iteration {}'.format(i)})
+        ymax = max(hist.max(), ymax)
+        draw_hist_as_graph(ax0, binedges, hist, alpha=0.8, **styles)
+
+    # set yaxis range
+    ax0.set_ylim((0, ymax*1.2))
+
+    # ratio
+    if histogram_truth is not None:
+        axes[1].set_ylabel("Ratio to Truth", fontsize=8)
+        # Draw ratio to truth
+        draw_ratios(axes[1], binedges,
+                    histogram_truth, histograms_toplot,
+                    histogram_truth_err, histograms_err_toplot,
+                    color_denom_line = 'black', colors_numer = colors)
+    else:
+        # Draw ratio to prior
+        axes[1].set_ylabel("Ratio to Prior", fontsize=8)
+        draw_ratios(axes[1], binedges,
+                    histograms_toplot[0], histograms_toplot[1:],
+                    histograms_err_toplot[0], histograms_err_toplot[1:],
+                    color_denom_line = colors[0], colors_numer = colors[1:])
+
+    draw_legend(ax0, **config)
+
+    # save plot
+    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig)
+
+def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
+                         histograms_arr, histograms_err_arr, labels):
+    # chi2 between the truth distribution and each unfolding iteration
+    fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. truth')
+
+    for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
+        if hists is None:
+            continue
+
+        Chi2s = []
+        for h, herr in zip(hists, hists_err):
+            chi2, ndf = compute_chi2(h, histogram_ref, herr, histogram_err_ref)
+            Chi2s.append(chi2/ndf)
+
+        iters = list(range(len(Chi2s)))
+
+        ax.plot(iters, Chi2s, marker='o', label=label)
+        ax.legend()
+
+    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig)
+
+def plot_iteration_diffChi2s(figname, histograms_arr, histograms_err_arr, labels):
+    # chi2s between iterations
+    fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\Delta\\chi^2$/NDF')
+    for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
+        if hists is None:
+            continue
+
+        dChi2s = compute_diff_chi2(hists, hists_err)
+        iters = list(range(1, len(dChi2s)+1))
+
+        ax.plot(iters, dChi2s, marker='*', label=label)
+        ax.legend()
+
+    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig)
+
 def plot_train_log(csv_file, plot_name=None):
     df = pd.read_csv(csv_file)
 
@@ -357,28 +482,20 @@ def plot_train_log(csv_file, plot_name=None):
     plt.savefig(plot_name+'.pdf', bbox_inches='tight')
     plt.close(fig)
 
-def plot_correlations(data, variables, figname):
-    df = pd.DataFrame({var:get_variable_arr(data, var) for var in variables}, columns=variables)
-    correlations = df.corr()
-
+def plot_correlations(correlations, figname):
     fig, ax = plt.subplots()
     im = ax.imshow(correlations, vmin=-1, vmax=1, cmap='coolwarm')
     fig.colorbar(im, ax=ax)
     ax.tick_params(axis='both', labelsize='small')
     ax.tick_params(axis='x', top=True, labeltop=True, bottom=False, labelbottom=False, labelrotation=30)
-    ticks = np.arange(0, len(variables), 1)
+    ticks = np.arange(0, len(correlations), 1)
     ax.set_xticks(ticks)
     ax.set_yticks(ticks)
-    ax.set_xticklabels(variables)
-    ax.set_yticklabels(variables)
+    ax.set_xticklabels(correlations.columns)
+    ax.set_yticklabels(correlations.columns)
 
     fig.savefig(figname+'.png', dpi=200)
-    fig.savefig(figname+'.pdf')
-
-    #plt.figure()
-    #pd.plotting.scatter_matrix(df, alpha=0.5)
-    #plt.savefig(figname)
-    #plt.close()
+    #fig.savefig(figname+'.pdf')
 
     plt.close(fig)
 
@@ -402,7 +519,7 @@ def plot_LR_func(figname, bins, f_lr, f_lr_unc=None):
     fig.savefig(figname+'.pdf')
     plt.close(fig)
 
-def plot_LR_distr(figname, ratios, labels):
+def plot_LR_distr(figname, ratios, labels=None):
     bins_r = np.linspace(0, max(r.max() for r in ratios), 51)
 
     hists, hists_unc = [], []
@@ -453,3 +570,52 @@ def plot_training_vs_validation(figname, predictions_train, labels_train, weight
         [hist_preds_cat1_t, hist_preds_cat0_t, hist_preds_cat1_v, hist_preds_cat0_v],
         labels=['y = 1 (training)', 'y = 0 (training)', 'y = 1 (validation)', 'y = 0 (validation)'],
         xlabel = 'Prediction (y = 1)',  plottypes=['h','h','g','g'], marker='+')
+
+def plot_hists_resamples(figname, bins, histograms, hist_prior, hist_truth=None,
+                         **config):
+
+    fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Ratio to\nPrior', **config)
+    # set x axis limit
+    for ax in axes:
+        ax.set_xlim(bins[0], bins[-1])
+    ax0, ax1 = axes
+
+    ymax=0
+    alpha=0.5
+    for i,hist in enumerate(histograms):
+        ymax = max(hist.max(), ymax)
+        color=tuple(np.random.random(3))+(alpha,)
+        label='Resampled' if i==0 else None
+        draw_hist_as_graph(ax0, bins, hist, ls='--', lw=1, color=color, label=label)
+
+    # mean of each bin
+    hist_mean = np.mean(np.asarray(histograms), axis=0)
+    draw_hist_as_graph(ax0, bins, hist_mean, ls='-', lw=1, color='black', label='Mean')
+
+    # the prior distribution
+    draw_hist_as_graph(ax0, bins, hist_prior, ls='-', lw=1, color='blue', label='Prior')
+    ymax = max(hist_prior.max(), ymax)
+
+    # the truth distribution
+    if hist_truth is not None:
+        draw_hist_as_graph(ax0, bins, hist_prior, ls='-', lw=1, color='green', label='Truth')
+        ymax = max(hist_truth.max(), ymax)
+
+    ax0.set_ylim(0, ymax*1.2)
+
+    # standard deviation of each bin
+    hist_std = np.std(np.asarray(histograms), axis=0, ddof=1)
+
+    # ratio
+    if hist_truth is None:
+        draw_ratios(ax1, bins, hist_prior, [hist_mean], hists_numer_unc=[hist_std], colors_numer=['black'], color_denom_line='blue')
+    else:
+        # draw ratio to truth
+        ax1.set_ylabel("Ratio to\nTruth", fontsize=8)
+        draw_ratios(ax1, bins, hist_truth, [hist_mean], hists_numer_unc=[hist_std], colors_numer=['black'], color_denom_line='green')
+
+    draw_legend(ax0, **config)
+
+    # save plot
+    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig)

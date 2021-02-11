@@ -3,4 +3,9 @@ input/
 output/
 output_*/
 external/
+test/
 __*__
+*tmp*
+*.pyc
+*.png
+*.pdf
