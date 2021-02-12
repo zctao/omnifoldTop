@@ -30,6 +30,26 @@ def configRootLogger(filename=None, level=logging.INFO):
         if nodir:
             logging.info("Create directory {}".format(dirname))
 
+def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
+    assert(version.parse(tf.__version__) >= version.parse('2.0.0'))
+    # tensorflow configuration
+    # device placement
+    tf.config.set_soft_device_placement(True)
+    tf.debugging.set_log_device_placement(verbose > 0)
+
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if not gpus:
+        logger.error("No GPU found!")
+        raise RuntimeError("No GPU found!")
+
+    if gpu is not None:
+        tf.config.experimental.set_visible_devices(gpus[gpu], 'GPU')
+
+    # limit GPU memory growth
+    if limit_gpu_mem:
+        for g in gpus:
+            tf.config.experimental.set_memory_growth(g,True)
+
 def unfold(**parsed_args):
     tracemalloc.start()
 
@@ -118,6 +138,9 @@ def unfold(**parsed_args):
         # load unfolded event weights from the saved files
         unfolder.load(parsed_args['unfolded_weights'])
     else:
+        # set up hardware
+        configGPUs(parsed_args['gpu'], verbose=parsed_args['verbose'])
+
         # run training
         unfolder.run(parsed_args['error_type'], parsed_args['nresamples'],
                      load_previous_iteration=False,
@@ -262,26 +285,9 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG if args.verbose > 0 else logging.INFO)
 
     #################
-    assert(version.parse(tf.__version__) >= version.parse('2.0.0'))
-    # tensorflow configuration
-    # device placement
-    tf.config.set_soft_device_placement(True)
-    tf.debugging.set_log_device_placement(args.verbose > 0)
-
-    # limit GPU memory growth
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if not gpus:
-        logger.error("No GPU found!")
-        raise RuntimeError("No GPU found!")
-
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu,True)
-
     if not os.path.isdir(args.outputdir):
         logger.info("Create output directory {}".format(args.outputdir))
         os.makedirs(args.outputdir)
 
-    if args.gpu is not None:
-        tf.config.experimental.set_visible_devices(gpus[args.gpu], 'GPU')
     #with tf.device('/GPU:{}'.format(args.gpu)):
     unfold(**vars(args))
