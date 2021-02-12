@@ -86,6 +86,7 @@ def unfold(**parsed_args):
 
     # collision data
     fnames_obs = parsed_args['data']
+    logger.info("Data files: {}".format(' '.join(fnames_obs)))
     data_obs = DataHandler(fnames_obs, wname,
                             truth_known=parsed_args['truth_known'],
                             variable_names = vars_det_all+vars_mc_all)
@@ -93,11 +94,16 @@ def unfold(**parsed_args):
 
     # signal simulation
     fnames_sig = parsed_args['signal']
+    logger.info("Simulation files: {}".format(' '.join(fnames_sig)))
     data_sig = DataHandler(fnames_sig, wname, variable_names = vars_det_all+vars_mc_all) #vars_dict = observable_dict
 
     # background simulation
     fnames_bkg = parsed_args['background']
-    data_bkg =  DataHandler(fnames_bkg, wname, variable_names = vars_det_all+vars_mc_all) if fnames_bkg else None
+    if fnames_bkg is not None:
+        logger.info("Background simulation files: {}".format(' '.join(fnames_bkg)))
+        data_bkg =  DataHandler(fnames_bkg, wname, variable_names = vars_det_all+vars_mc_all)
+    else:
+        data_bkg = None
 
     t_data_done = time.time()
     logger.info("Loading dataset took {:.2f} seconds".format(t_data_done-t_data_start))
