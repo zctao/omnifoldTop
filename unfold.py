@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 import logging
 from packaging import version
 import tensorflow as tf
@@ -49,6 +50,17 @@ def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
     if limit_gpu_mem:
         for g in gpus:
             tf.config.experimental.set_memory_growth(g,True)
+
+def expandFilePath(filepath):
+    if not os.path.isfile(filepath):
+        # try expanding the path in the directory of this file
+        src_dir = os.path.dirname(os.path.abspath(__file__))
+        filepath = os.path.join(src_dir, filepath)
+
+    if os.path.isfile(filepath):
+        return os.path.abspath(filepath)
+    else:
+        return None
 
 def unfold(**parsed_args):
     tracemalloc.start()
@@ -298,6 +310,21 @@ if __name__ == "__main__":
     if not os.path.isdir(args.outputdir):
         logger.info("Create output directory {}".format(args.outputdir))
         os.makedirs(args.outputdir)
+
+    # check if configuraiton files exist and expand the file path
+    fullpath_obsconfig = expandFilePath(args.observable_config)
+    if fullpath_obsconfig is not None:
+        args.observable_config = fullpath_obsconfig
+    else:
+        logger.error("Cannot find file: {}".format(args.observable_config))
+        sys.exit("Config Failure")
+
+    fullpath_binconfig = expandFilePath(args.binning_config)
+    if fullpath_binconfig is not None:
+        args.binning_config = fullpath_binconfig
+    else:
+        logger.error("Cannot find file: {}".format(args.binning_config))
+        sys.exit("Config Failure")
 
     #with tf.device('/GPU:{}'.format(args.gpu)):
     unfold(**vars(args))
