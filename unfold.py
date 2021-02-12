@@ -55,6 +55,12 @@ def unfold(**parsed_args):
 
     logger = logging.getLogger('Unfold')
 
+    # log arguments
+    for argkey, argvalue in sorted(parsed_args.items()):
+        if argvalue is None:
+            continue
+        logger.debug('Argument {}: {}'.format(argkey, argvalue))
+
     #################
     # Variables
     #################
