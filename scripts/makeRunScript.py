@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import json
 import argparse
 
@@ -10,6 +11,13 @@ parser.add_argument('-b', '--base-config', dest='baseConfig',
                     default='configs/run/basic_tests.json')
 parser.add_argument('-o', '--output', type=str,
                     help='output shell script file name')
+parser.add_argument('-c', '--cluster', action='store_true',
+                    help="If true, write the job file for a Slurm cluster")
+parser.add_argument('-s', '--source-dir', dest='sourceDir',
+                    default='/home/ztao/omnifoldTop/topUnfolding')
+parser.add_argument('--cluster-outdir', dest='clusterOutdir',
+                    default="/home/ztao/work/batch_output/OmniFold/latest",
+                    help="Output directory to transfer batch job results")
 
 args = parser.parse_args()
 
@@ -52,10 +60,13 @@ testLabel = runConfig.get('label','')
 # create output file
 if args.output:
     outfilename = args.output
-elif testLabel:
-    outfilename = 'runtests_{}.sh'.format(testLabel)
 else:
-    outfilename = 'runtests.sh'
+    outfilename = 'runtests'
+    if testLabel:
+        outfilename += '_{}'.format(testLabel)
+    if args.cluster:
+        outfilename += '_sbatch'
+    outfilename += '.sh'
 
 print("Run script created: {}".format(outfilename))
 f_run = open(outfilename, 'w')
@@ -63,6 +74,21 @@ f_run = open(outfilename, 'w')
 # shebang
 f_run.write("#!/bin/bash\n")
 f_run.write("\n")
+
+if args.cluster:
+    # Slurm directives
+    f_run.write("#SBATCH --gres=gpu:1\n")
+    f_run.write("#SBATCH --cpus-per-task=1\n")
+    f_run.write("#SBATCH --mem=32000M\n")
+    f_run.write("#SBATCH --time=2:00:00\n")
+    f_run.write("#SBATCH --output=%N-%j.out\n\n")
+    # environment setup
+    f_run.write("SUBMIT_DIR=$PWD\n")
+    f_run.write("SOURCE_DIR={}\n".format(args.sourceDir))
+    f_run.write("OUTPUT_DIR={}\n".format(args.clusterOutdir))
+    f_run.write("WORK_DIR=$SLURM_TMPDIR\n")
+    f_run.write("cd $WORK_DIR\n\n")
+    f_run.write("source $SOURCE_DIR/setup_cedar.sh\n\n")
 
 # samples
 f_run.write("###########\n")
@@ -119,6 +145,8 @@ def write_options(parConfig_dict):
 
     return options, labels
 
+executable = os.path.join(args.sourceDir, 'unfold.py')
+
 # tests
 for testname, testConfig in runConfig['tests'].items():
     if testname.startswith('_'):
@@ -128,7 +156,7 @@ for testname, testConfig in runConfig['tests'].items():
 
     f_run.write("###########\n")
     f_run.write('# '+testname+'\n')
-    run_str = 'python3 unfold.py'
+    run_str = 'python3 {}'.format(executable)
     run_str += ' -d '+testConfig['data']
     run_str += ' -s '+testConfig['signal']
     if 'background' in testConfig:
@@ -146,7 +174,11 @@ for testname, testConfig in runConfig['tests'].items():
     parOptions, parLabels = write_options(runConfig['parameters'])
     for opt, pl in zip(parOptions, parLabels):
         f_run.write('# '+pl+'\n')
-        out_str = ' -o ./output_'+testLabel+pl+'_'+testname
-        f_run.write(run_str + opt + out_str + '\n')
+        outname = 'output_'+testLabel+pl+'_'+testname
+        f_run.write(run_str + opt + ' -o ' + outname + '\n')
+
+        # transfer results to the output directory if running on clusters
+        if args.cluster:
+            f_run.write("cp -r "+outname+" $OUTPUT_DIR/.")
 
 f_run.close()
