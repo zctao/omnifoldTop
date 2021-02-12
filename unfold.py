@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 import logging
 from packaging import version
 import tensorflow as tf
@@ -23,7 +24,7 @@ def configRootLogger(filename=None, level=logging.INFO):
         if nodir:
             os.makedirs(dirname)
 
-        fhdr = logging.FileHandler(filename)
+        fhdr = logging.FileHandler(filename, mode='w')
         fhdr.setFormatter(logging.Formatter(msgfmt, datefmt))
         logging.getLogger().addHandler(fhdr)
 
@@ -49,6 +50,17 @@ def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
     if limit_gpu_mem:
         for g in gpus:
             tf.config.experimental.set_memory_growth(g,True)
+
+def expandFilePath(filepath):
+    if not os.path.isfile(filepath):
+        # try expanding the path in the directory of this file
+        src_dir = os.path.dirname(os.path.abspath(__file__))
+        filepath = os.path.join(src_dir, filepath)
+
+    if os.path.isfile(filepath):
+        return os.path.abspath(filepath)
+    else:
+        return None
 
 def unfold(**parsed_args):
     tracemalloc.start()
@@ -220,18 +232,18 @@ if __name__ == "__main__":
 
     parser.add_argument('--observables-train', dest='observables_train',
                         nargs='+',
-                        default=['th_pt', 'th_y', 'th_phi', 'th_m', 'tl_pt', 'tl_y', 'tl_phi', 'tl_m'],
+                        default=['th_pt', 'th_y', 'th_phi', 'th_e', 'tl_pt', 'tl_y', 'tl_phi', 'tl_e'],
                         help="List of observables to use in training.")
     parser.add_argument('--observables',
                         nargs='+',
                         default=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_pt', 'th_y', 'th_eta', 'th_phi', 'th_m', 'th_e', 'th_pout', 'tl_pt', 'tl_y', 'tl_eta', 'tl_phi', 'tl_m', 'tl_e', 'tl_pout'],
                         help="List of observables to unfold")
+    parser.add_argument('--observable-config', dest='observable_config',
+                        default='configs/observables/vars_klfitter.json ',
+                        help="JSON configurations for observables")
     parser.add_argument('-d', '--data', required=True, nargs='+',
                         type=str,
                         help="Observed data npz file names")
-    parser.add_argument('--observable-config', dest='observable_config',
-                        default='configs/observables/default.json',
-                        help="JSON configurations for observables")
     parser.add_argument('-s', '--signal', required=True, nargs='+',
                         type=str,
                         help="Signal MC npz file names")
@@ -267,7 +279,7 @@ if __name__ == "__main__":
                         nargs='*', type=str,
                         help="Unfolded weights file names. If provided, load event weights directly from the files and skip training.")
     parser.add_argument('--binning-config', dest='binning_config',
-                        default='', type=str,
+                        default='configs/binning/bins_10equal.json', type=str,
                         help="Binning config file for variables")
     parser.add_argument('--plot-history', dest='plot_history',
                         action='store_true',
@@ -275,7 +287,7 @@ if __name__ == "__main__":
     parser.add_argument('--nresamples', type=int, default=25,
                         help="number of times for resampling to estimate the unfolding uncertainty using the bootstrap method")
     parser.add_argument('-e', '--error-type', dest='error_type',
-                        choices=['sumw2','bootstrap_full','bootstrap_stat','bootstrap_model'],
+                        choices=['sumw2','bootstrap_full','bootstrap_model'],
                         default='sumw2', help="Method to evaluate uncertainties")
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=512,
                         help="Batch size for training")
@@ -283,8 +295,6 @@ if __name__ == "__main__":
     #parser.add_argument('-n', '--normalize',
     #                    action='store_true',
     #                    help="Normalize the distributions when plotting the result")
-    #parser.add_argument('--weight-mc', dest='weight_mc', default='wTruth',
-    #                    help="name of MC weight")
     #parser.add_argument('--alt-rw', dest='alt_rw',
     #                    action='store_true',
     #                    help="Use alternative reweighting if true")
@@ -300,6 +310,21 @@ if __name__ == "__main__":
     if not os.path.isdir(args.outputdir):
         logger.info("Create output directory {}".format(args.outputdir))
         os.makedirs(args.outputdir)
+
+    # check if configuraiton files exist and expand the file path
+    fullpath_obsconfig = expandFilePath(args.observable_config)
+    if fullpath_obsconfig is not None:
+        args.observable_config = fullpath_obsconfig
+    else:
+        logger.error("Cannot find file: {}".format(args.observable_config))
+        sys.exit("Config Failure")
+
+    fullpath_binconfig = expandFilePath(args.binning_config)
+    if fullpath_binconfig is not None:
+        args.binning_config = fullpath_binconfig
+    else:
+        logger.error("Cannot find file: {}".format(args.binning_config))
+        sys.exit("Config Failure")
 
     #with tf.device('/GPU:{}'.format(args.gpu)):
     unfold(**vars(args))
