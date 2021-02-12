@@ -30,10 +30,36 @@ def configRootLogger(filename=None, level=logging.INFO):
         if nodir:
             logging.info("Create directory {}".format(dirname))
 
+def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
+    assert(version.parse(tf.__version__) >= version.parse('2.0.0'))
+    # tensorflow configuration
+    # device placement
+    tf.config.set_soft_device_placement(True)
+    tf.debugging.set_log_device_placement(verbose > 0)
+
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if not gpus:
+        logger.error("No GPU found!")
+        raise RuntimeError("No GPU found!")
+
+    if gpu is not None:
+        tf.config.experimental.set_visible_devices(gpus[gpu], 'GPU')
+
+    # limit GPU memory growth
+    if limit_gpu_mem:
+        for g in gpus:
+            tf.config.experimental.set_memory_growth(g,True)
+
 def unfold(**parsed_args):
     tracemalloc.start()
 
     logger = logging.getLogger('Unfold')
+
+    # log arguments
+    for argkey, argvalue in sorted(parsed_args.items()):
+        if argvalue is None:
+            continue
+        logger.debug('Argument {}: {}'.format(argkey, argvalue))
 
     #################
     # Variables
@@ -66,6 +92,7 @@ def unfold(**parsed_args):
 
     # collision data
     fnames_obs = parsed_args['data']
+    logger.info("Data files: {}".format(' '.join(fnames_obs)))
     data_obs = DataHandler(fnames_obs, wname,
                             truth_known=parsed_args['truth_known'],
                             variable_names = vars_det_all+vars_mc_all)
@@ -73,11 +100,16 @@ def unfold(**parsed_args):
 
     # signal simulation
     fnames_sig = parsed_args['signal']
+    logger.info("Simulation files: {}".format(' '.join(fnames_sig)))
     data_sig = DataHandler(fnames_sig, wname, variable_names = vars_det_all+vars_mc_all) #vars_dict = observable_dict
 
     # background simulation
     fnames_bkg = parsed_args['background']
-    data_bkg =  DataHandler(fnames_bkg, wname, variable_names = vars_det_all+vars_mc_all) if fnames_bkg else None
+    if fnames_bkg is not None:
+        logger.info("Background simulation files: {}".format(' '.join(fnames_bkg)))
+        data_bkg =  DataHandler(fnames_bkg, wname, variable_names = vars_det_all+vars_mc_all)
+    else:
+        data_bkg = None
 
     t_data_done = time.time()
     logger.info("Loading dataset took {:.2f} seconds".format(t_data_done-t_data_start))
@@ -118,6 +150,9 @@ def unfold(**parsed_args):
         # load unfolded event weights from the saved files
         unfolder.load(parsed_args['unfolded_weights'])
     else:
+        # set up hardware
+        configGPUs(parsed_args['gpu'], verbose=parsed_args['verbose'])
+
         # run training
         unfolder.run(parsed_args['error_type'], parsed_args['nresamples'],
                      load_previous_iteration=False,
@@ -262,26 +297,9 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG if args.verbose > 0 else logging.INFO)
 
     #################
-    assert(version.parse(tf.__version__) >= version.parse('2.0.0'))
-    # tensorflow configuration
-    # device placement
-    tf.config.set_soft_device_placement(True)
-    tf.debugging.set_log_device_placement(args.verbose > 0)
-
-    # limit GPU memory growth
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if not gpus:
-        logger.error("No GPU found!")
-        raise RuntimeError("No GPU found!")
-
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu,True)
-
     if not os.path.isdir(args.outputdir):
         logger.info("Create output directory {}".format(args.outputdir))
         os.makedirs(args.outputdir)
 
-    if args.gpu is not None:
-        tf.config.experimental.set_visible_devices(gpus[args.gpu], 'GPU')
     #with tf.device('/GPU:{}'.format(args.gpu)):
     unfold(**vars(args))
