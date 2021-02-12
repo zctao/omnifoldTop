@@ -9,3 +9,4 @@ __*__
 *.pyc
 *.png
 *.pdf
+venv/

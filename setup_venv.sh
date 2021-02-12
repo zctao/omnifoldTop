@@ -1,0 +1,21 @@
+#!/bin/bash
+VENV_DIR=${1:-venv}
+REQUIREMENTS=${2:-requirements_cedar.txt}
+
+if [ -d "$VENV_DIR" ]; then
+    echo "Activate virtual environment $VENV_DIR"
+    source $VENV_DIR/bin/activate
+else
+    echo "Set up virtual environment $VENV_DIR"
+    virtualenv --no-download $VENV_DIR
+    source $VENV_DIR/bin/activate
+
+    pip install --no-index --upgrade pip
+
+    # Install packages
+    # numpy, pandas, tensorflow_gpu, packaging, matplotlib, sklearn
+    pip install --no-index -r $REQUIREMENTS
+
+    # needed by external.OmniFold.modplot
+    pip install /home/ztao/work/wheels/PyPDF2-1.26.0.tar.gz 
+fi
