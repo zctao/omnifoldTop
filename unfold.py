@@ -24,7 +24,7 @@ def configRootLogger(filename=None, level=logging.INFO):
         if nodir:
             os.makedirs(dirname)
 
-        fhdr = logging.FileHandler(filename)
+        fhdr = logging.FileHandler(filename, mode='w')
         fhdr.setFormatter(logging.Formatter(msgfmt, datefmt))
         logging.getLogger().addHandler(fhdr)
 
