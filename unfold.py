@@ -220,18 +220,18 @@ if __name__ == "__main__":
 
     parser.add_argument('--observables-train', dest='observables_train',
                         nargs='+',
-                        default=['th_pt', 'th_y', 'th_phi', 'th_m', 'tl_pt', 'tl_y', 'tl_phi', 'tl_m'],
+                        default=['th_pt', 'th_y', 'th_phi', 'th_e', 'tl_pt', 'tl_y', 'tl_phi', 'tl_e'],
                         help="List of observables to use in training.")
     parser.add_argument('--observables',
                         nargs='+',
                         default=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_pt', 'th_y', 'th_eta', 'th_phi', 'th_m', 'th_e', 'th_pout', 'tl_pt', 'tl_y', 'tl_eta', 'tl_phi', 'tl_m', 'tl_e', 'tl_pout'],
                         help="List of observables to unfold")
+    parser.add_argument('--observable-config', dest='observable_config',
+                        default='configs/observables/vars_klfitter.json ',
+                        help="JSON configurations for observables")
     parser.add_argument('-d', '--data', required=True, nargs='+',
                         type=str,
                         help="Observed data npz file names")
-    parser.add_argument('--observable-config', dest='observable_config',
-                        default='configs/observables/default.json',
-                        help="JSON configurations for observables")
     parser.add_argument('-s', '--signal', required=True, nargs='+',
                         type=str,
                         help="Signal MC npz file names")
@@ -267,7 +267,7 @@ if __name__ == "__main__":
                         nargs='*', type=str,
                         help="Unfolded weights file names. If provided, load event weights directly from the files and skip training.")
     parser.add_argument('--binning-config', dest='binning_config',
-                        default='', type=str,
+                        default='configs/binning/bins_10equal.json', type=str,
                         help="Binning config file for variables")
     parser.add_argument('--plot-history', dest='plot_history',
                         action='store_true',
@@ -275,7 +275,7 @@ if __name__ == "__main__":
     parser.add_argument('--nresamples', type=int, default=25,
                         help="number of times for resampling to estimate the unfolding uncertainty using the bootstrap method")
     parser.add_argument('-e', '--error-type', dest='error_type',
-                        choices=['sumw2','bootstrap_full','bootstrap_stat','bootstrap_model'],
+                        choices=['sumw2','bootstrap_full','bootstrap_model'],
                         default='sumw2', help="Method to evaluate uncertainties")
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=512,
                         help="Batch size for training")
@@ -283,8 +283,6 @@ if __name__ == "__main__":
     #parser.add_argument('-n', '--normalize',
     #                    action='store_true',
     #                    help="Normalize the distributions when plotting the result")
-    #parser.add_argument('--weight-mc', dest='weight_mc', default='wTruth',
-    #                    help="name of MC weight")
     #parser.add_argument('--alt-rw', dest='alt_rw',
     #                    action='store_true',
     #                    help="Use alternative reweighting if true")
