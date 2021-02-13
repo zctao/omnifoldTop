@@ -79,8 +79,8 @@ if args.cluster:
     # Slurm directives
     f_run.write("#SBATCH --gres=gpu:1\n")
     f_run.write("#SBATCH --cpus-per-task=1\n")
-    f_run.write("#SBATCH --mem=32000M\n")
-    f_run.write("#SBATCH --time=2:00:00\n")
+    f_run.write("#SBATCH --mem=8000M\n")
+    f_run.write("#SBATCH --time=1:00:00\n")
     f_run.write("#SBATCH --output=%N-%j.out\n\n")
     # environment setup
     f_run.write("SUBMIT_DIR=$PWD\n")
@@ -179,6 +179,6 @@ for testname, testConfig in runConfig['tests'].items():
 
         # transfer results to the output directory if running on clusters
         if args.cluster:
-            f_run.write("cp -r "+outname+" $OUTPUT_DIR/.")
+            f_run.write("cp -r "+outname+" $OUTPUT_DIR/.\n")
 
 f_run.close()
