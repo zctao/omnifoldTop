@@ -52,6 +52,7 @@ def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
             tf.config.experimental.set_memory_growth(g,True)
 
 def expandFilePath(filepath):
+    filepath = filepath.strip()
     if not os.path.isfile(filepath):
         # try expanding the path in the directory of this file
         src_dir = os.path.dirname(os.path.abspath(__file__))
@@ -239,7 +240,7 @@ if __name__ == "__main__":
                         default=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_pt', 'th_y', 'th_eta', 'th_phi', 'th_m', 'th_e', 'th_pout', 'tl_pt', 'tl_y', 'tl_eta', 'tl_phi', 'tl_m', 'tl_e', 'tl_pout'],
                         help="List of observables to unfold")
     parser.add_argument('--observable-config', dest='observable_config',
-                        default='configs/observables/vars_klfitter.json ',
+                        default='configs/observables/vars_klfitter.json',
                         help="JSON configurations for observables")
     parser.add_argument('-d', '--data', required=True, nargs='+',
                         type=str,
