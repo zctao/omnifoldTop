@@ -424,9 +424,13 @@ def plot_iteration_distributions(figname, binedges, histograms, histograms_err, 
     plt.close(fig)
 
 def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
-                         histograms_arr, histograms_err_arr, labels):
+                         histograms_arr, histograms_err_arr, labels=None,
+                         **style):
     # chi2 between the truth distribution and each unfolding iteration
     fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. truth')
+
+    if labels is None:
+        labels = [None]*len(histograms_arr)
 
     for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
         if hists is None:
@@ -439,8 +443,11 @@ def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
 
         iters = list(range(len(Chi2s)))
 
-        ax.plot(iters, Chi2s, marker='o', label=label)
-        ax.legend()
+        if label is None:
+            ax.plot(iters, Chi2s, marker='o', **style)
+        else:
+            ax.plot(iters, Chi2s, marker='o', label=label, **style)
+            ax.legend()
 
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
