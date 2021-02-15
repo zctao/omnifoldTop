@@ -166,8 +166,8 @@ def plot_graphs(figname, data_arrays, error_arrays=None, labels=None, title='', 
     if labels is not None:
         ax.legend(**leg_style)
 
-    fig.savefig(figname+'.png', dpi=200)
-    fig.savefig(figname+'.pdf')
+    fig.savefig(figname+'.png', dpi=300)
+    #fig.savefig(figname+'.pdf')
     plt.close(fig)
 
 def plot_histograms1d(figname, bins, hists, hists_err=None, labels=None, title="", xlabel="", ylabel="", colors=None, plottypes=None, marker='o'):
@@ -206,8 +206,8 @@ def plot_histograms1d(figname, bins, hists, hists_err=None, labels=None, title="
     if labels is not None:
         ax.legend(**leg_style)
 
-    fig.savefig(figname+'.png', dpi=200)
-    fig.savefig(figname+'.pdf')
+    fig.savefig(figname+'.png', dpi=300)
+    #fig.savefig(figname+'.pdf')
     plt.close(fig)
 
 def plot_reco_variable(bins, histogram_obs, histogram_sig,
@@ -264,8 +264,8 @@ def plot_reco_variable(bins, histogram_obs, histogram_sig,
     draw_legend(ax0, **config)
 
     # save plot
-    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
-    fig.savefig(figname+'.pdf', bbox_inches='tight')
+    fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
+    #fig.savefig(figname+'.pdf', bbox_inches='tight')
 
     plt.close(fig)
 
@@ -338,8 +338,8 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
     draw_stamp(ax0, texts, config['stamp_xy'][0], config['stamp_xy'][1])
 
     # save plot
-    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
-    fig.savefig(figname+'.pdf', bbox_inches='tight')
+    fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
+    #fig.savefig(figname+'.pdf', bbox_inches='tight')
 
     plt.close(fig)
 
@@ -362,8 +362,8 @@ def plot_response(figname, h2d, xedges, yedges, variable):
             if bin_content != 0:
                 ax.text(xc, yc, str(int(bin_content)), ha='center', va='center', fontsize=3)
 
-    fig.savefig(figname+'.png', dpi=200)
-    fig.savefig(figname+'.pdf')
+    fig.savefig(figname+'.png', dpi=300)
+    #fig.savefig(figname+'.pdf')
     plt.close(fig)
 
 def plot_iteration_distributions(figname, binedges, histograms, histograms_err, histogram_truth=None, histogram_truth_err=None, nhistmax=7, **config):
@@ -485,8 +485,8 @@ def plot_train_log(csv_file, plot_name=None):
 
     if plot_name is None:
         plot_name = csv_file.replace('.csv', '_loss')
-    plt.savefig(plot_name+'.png', dpi=200, bbox_inches='tight')
-    plt.savefig(plot_name+'.pdf', bbox_inches='tight')
+    plt.savefig(plot_name+'.png', dpi=300, bbox_inches='tight')
+    #plt.savefig(plot_name+'.pdf', bbox_inches='tight')
     plt.close(fig)
 
 def plot_correlations(correlations, figname):
@@ -522,8 +522,8 @@ def plot_LR_func(figname, bins, f_lr, f_lr_unc=None):
 
     ax.legend(**leg_style)
 
-    fig.savefig(figname+'.png', dpi=200)
-    fig.savefig(figname+'.pdf')
+    fig.savefig(figname+'.png', dpi=300)
+    #fig.savefig(figname+'.pdf')
     plt.close(fig)
 
 def plot_LR_distr(figname, ratios, labels=None):
