@@ -51,7 +51,7 @@ class DataHandler(object):
 
         if not variable_names:
             # if no variable name list is provided, read everything
-            variable_names = tmpDataArr.dtype.names
+            variable_names = list(tmpDataArr.dtype.names)
         else:
             # add wname to the list
             if wname and not wname in variable_names:
