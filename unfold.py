@@ -145,7 +145,7 @@ def unfold(**parsed_args):
 
     unfolder.prepare_inputs(data_obs, data_sig, data_bkg,
                             parsed_args['plot_correlations'],
-                            standardize=False,
+                            standardize=True,
                             reweight_type=parsed_args['reweight_data'],
                             vars_dict=observable_dict)
 

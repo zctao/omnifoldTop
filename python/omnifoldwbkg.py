@@ -465,6 +465,7 @@ class OmniFoldwBkg(object):
         self.Y_step1 = tf.keras.utils.to_categorical(self.Y_step1)
 
         if standardize:
+            logger.info("Standardize input feature arrays for step 1")
             Xmean = np.mean(self.X_step1, axis=0)
             Xstd = np.std(self.X_step1, axis=0)
             self.X_step1 -= Xmean
@@ -484,6 +485,7 @@ class OmniFoldwBkg(object):
         self.Y_step2 = tf.keras.utils.to_categorical(np.concatenate([np.ones(nsim), np.zeros(nsim)]))
 
         if standardize:
+            logger.info("Standardize input feature arrays for step 2")
             Xmean = np.mean(self.X_step2, axis=0)
             Xstd = np.std(self.X_step2, axis=0)
             self.X_step2 -= Xmean
