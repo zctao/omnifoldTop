@@ -214,7 +214,7 @@ class OmniFoldwBkg(object):
 
         # plot all resampled unfolded distributions
         if plot_resamples and self.unfolded_weights_resample is not None:
-            hists_resample = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=False)
+            hists_resample = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=False)[0]
             figname_resamples = os.path.join(self.outdir, 'Unfold_AllResamples_{}'.format(varname))
             plotting.plot_hists_resamples(figname_resamples, bins, hists_resample, hist_gen, hist_truth=hist_truth, **varConfig)
 
@@ -247,6 +247,13 @@ class OmniFoldwBkg(object):
             plotting.plot_iteration_diffChi2s(figname_prefix+"_diffChi2s", [hists_ibu, hists_uf], [hists_ibu_err, hists_uf_err], labels=["IBU", "OmniFold"])
             if self.datahandle_obs.truth_known:
                 plotting.plot_iteration_chi2s(figname_prefix+"_chi2s_wrt_Truth", hist_truth, hist_truth_err, [hists_ibu, hists_uf], [hists_ibu_err, hists_uf_err], labels=["IBU", "OmniFold"])
+
+                if self.unfolded_weights_resample is not None:
+                    hists_uf_all, hists_uf_err_all = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=True)
+                    # add prior
+                    hists_uf_all = [[hist_gen]+list(hists_uf_rs) for hists_uf_rs in hists_uf_all]
+                    hists_uf_err_all = [[hist_gen_err]+list(hists_uf_err_rs) for hists_uf_err_rs in hists_uf_err_all]
+                    plotting.plot_iteration_chi2s(figname_prefix+"_AllResamples_chi2s_wrt_Truth", hist_truth, hist_truth_err, hists_uf_all, hists_uf_err_all, lw=0.7, ms=0.7)
 
     def _unfold(self, resample_data=False, model_name='Models',
                 reweight_only=False, load_previous_iter=True,
@@ -391,7 +398,7 @@ class OmniFoldwBkg(object):
     def _get_unfolded_uncertainty(self, variable, bins, all_iterations=False):
         #assert(self.unfolded_weights_resample is not None)
         hists_resample = self._get_unfolded_hists_resample(variable, bins,
-                                                            all_iterations)
+                                                           all_iterations)[0]
 
         hists_err, hists_corr = None, None
         if hists_resample:
@@ -419,16 +426,18 @@ class OmniFoldwBkg(object):
 
     def _get_unfolded_hists_resample(self, variable, bins, all_iterations=False):
         hists_resample = []
+        hists_err_resample = [] # sum w2 errors
         for iresample in range(len(self.unfolded_weights_resample)):
             if all_iterations:
                 ws = self.unfolded_weights_resample[iresample]
             else:
                 ws = self.unfolded_weights_resample[iresample][-1]
 
-            hist = self.datahandle_sig.get_histogram(variable, ws, bins)[0]
+            hist, histerr = self.datahandle_sig.get_histogram(variable, ws, bins)
             hists_resample.append(hist)
+            hists_err_resample.append(histerr)
 
-        return hists_resample
+        return hists_resample, hists_err_resample
 
     def _read_weights_from_file(self, weights_file, array_name='weights'):
         # load unfolded weights from saved file
