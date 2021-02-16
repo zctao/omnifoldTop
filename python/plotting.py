@@ -173,6 +173,9 @@ def plot_graphs(figname, data_arrays, error_arrays=None, labels=None, title='', 
 def plot_histograms1d(figname, bins, hists, hists_err=None, labels=None, title="", xlabel="", ylabel="", colors=None, plottypes=None, marker='o'):
     fig, ax = init_fig(title, xlabel, ylabel)
 
+    ax.xaxis.get_major_formatter().set_scientific(True)
+    ax.xaxis.get_major_formatter().set_powerlimits((-3,4))
+
     if colors is None:
         colors = set_default_colors(len(hists))
     else:
@@ -209,6 +212,18 @@ def plot_histograms1d(figname, bins, hists, hists_err=None, labels=None, title="
     fig.savefig(figname+'.png', dpi=300)
     #fig.savefig(figname+'.pdf')
     plt.close(fig)
+
+def plot_data_arrays(figname, data_arrs, nbins=20, **plotstyle):
+    xmax = max([np.max(data) for data in data_arrs]) * 1.2
+    xmin = min([np.min(data) for data in data_arrs]) * 0.8
+    bins = np.linspace(xmin, xmax, nbins+1)
+
+    histograms = []
+    for data in data_arrs:
+        h = np.histogram(data, bins=bins, density=True)[0]
+        histograms.append(h)\
+
+    plot_histograms1d(figname, bins, histograms, **plotstyle)
 
 def plot_reco_variable(bins, histogram_obs, histogram_sig,
                         histogram_bkg=(None,None),

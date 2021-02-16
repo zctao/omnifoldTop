@@ -268,7 +268,7 @@ class OmniFoldwBkg(object):
         ################
         # event weights for training
         logger.info("Get prior event weights")
-        wobs, wsim, wbkg = self._get_event_weights(normalize=True, resample=resample_data)
+        wobs, wsim, wbkg = self._get_event_weights(resample=resample_data)
         logger.debug("wobs.sum() = {}".format(wobs.sum()))
         logger.debug("wsim.sum() = {}".format(wsim.sum()))
         if wbkg:
@@ -479,12 +479,7 @@ class OmniFoldwBkg(object):
         # plot training variables
         for vname, vobs, vsim in zip(self.vars_reco, X_obs.T, X_sim.T):
             logger.info("Plot step 1 training variable {}".format(vname))
-            xmax = max(np.max(vobs), np.max(vsim)) * 1.2
-            xmin = min(np.min(vobs), np.min(vsim)) * 0.8
-            bins = np.linspace(xmin, xmax, 20+1)
-            hist_obs = np.histogram(vobs, bins=bins, density=True)[0]
-            hist_sim = np.histogram(vsim, bins=bins, density=True)[0]
-            plotting.plot_histograms1d(os.path.join(self.outdir, 'Train_step1_'+vname), bins, [hist_sim, hist_obs], labels=['Sim.', 'Data'], title='Step-1 training inputs', xlabel=vname, plottypes=['h', 'h'])
+            plotting.plot_data_arrays(os.path.join(self.outdir, 'Train_step1_'+vname), [vsim, vobs], labels=['Sim.', 'Data'], title='Step-1 training inputs', xlabel=vname)
 
     def _set_arrays_step2(self, simHandle, standardize=False):
         # step 2: update simulation weights at truth level
@@ -507,17 +502,17 @@ class OmniFoldwBkg(object):
         # plot training variables
         for vname, vgen in zip(self.vars_truth, self.X_gen.T):
             logger.info("Plot step 2 training variable {}".format(vname))
-            xmax = np.max(self.X_gen) * 1.2
-            xmin = np.min(self.X_gen) * 0.8
-            bins = np.linspace(xmin, xmax, 20+1)
-            hist_gen = np.histogram(vgen, bins=bins, density=True)[0]
-            plotting.plot_histograms1d(os.path.join(self.outdir, 'Train_step2_'+vname), bins, [hist_gen], labels=['Gen.'], title='Step-2 training inputs', xlabel=vname, plottypes=['h'])
+            plotting.plot_data_arrays(os.path.join(self.outdir, 'Train_step2_'+vname), [vgen], labels=['Gen.'], title='Step-2 training inputs', xlabel=vname)
 
     def _set_event_weights(self, rw_type=None, vars_dict={}, rescale=True):
         self.weights_obs = self.datahandle_obs.get_weights(rw_type=rw_type,
                                                            vars_dict=vars_dict)
         self.weights_sim = self.datahandle_sig.get_weights()
         self.weights_bkg = None if self.datahandle_bkg is None else self.datahandle_bkg.get_weights()
+
+        # plot original event weights
+        logger.info("Plot original event weights")
+        plotting.plot_data_arrays(os.path.join(self.outdir, 'Event_weights'), [self.weights_sim, self.weights_obs], labels=['Sim.', 'Data'], title='Original event weights', xlabel='w')
 
         # rescale signal and background simulation weights to data
         if rescale:
@@ -536,7 +531,12 @@ class OmniFoldwBkg(object):
         if self.datahandle_bkg:
             logger.debug("weights_bkg.sum() = {}".format(self.weights_bkg.sum()))
 
-    def _get_event_weights(self, normalize=False, resample=False):
+        # plot event weights used in the training
+        wobs_train, wsim_train, wbkg_train = self._get_event_weights()
+        logger.info("Plot event weights used in training")
+        plotting.plot_data_arrays(os.path.join(self.outdir, 'Event_weights_train'), [wsim_train, wobs_train], labels=['Sim.', 'Data'], title='Event weights', xlabel='w (standardized)')
+
+    def _get_event_weights(self, normalize=True, resample=False):
         wobs = self.weights_obs
         wsim = self.weights_sim
         wbkg = self.weights_bkg if self.weights_bkg else None
