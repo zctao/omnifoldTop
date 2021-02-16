@@ -459,42 +459,59 @@ class OmniFoldwBkg(object):
             self.X_step1 = np.concatenate([X_obs, X_sim, X_simbkg])
             self.Y_step1 = np.concatenate([Y_obs, Y_sim, Y_simbkg])
 
-        self.X_sim = X_sim
-
-        # make Y categorical
-        self.Y_step1 = tf.keras.utils.to_categorical(self.Y_step1)
-
         if standardize:
             logger.info("Standardize input feature arrays for step 1")
             Xmean = np.mean(self.X_step1, axis=0)
             Xstd = np.std(self.X_step1, axis=0)
             self.X_step1 -= Xmean
             self.X_step1 /= Xstd
-            self.X_sim -= Xmean
-            self.X_sim /= Xstd
+
+        X_obs = self.X_step1[self.Y_step1 == self.label_obs]
+        X_sim = self.X_step1[self.Y_step1 == self.label_sig]
+        self.X_sim = X_sim
+
+        # make Y categorical
+        self.Y_step1 = tf.keras.utils.to_categorical(self.Y_step1)
 
         logger.info("Size of the feature array for step 1: {:.3f} MB".format(self.X_step1.nbytes*2**-20))
         logger.info("Size of the label array for step 1: {:.3f} MB".format(self.Y_step1.nbytes*2**-20))
+
+        # plot training variables
+        for vname, vobs, vsim in zip(self.vars_reco, X_obs.T, X_sim.T):
+            logger.info("Plot step 1 training variable {}".format(vname))
+            xmax = max(np.max(vobs), np.max(vsim)) * 1.2
+            xmin = min(np.min(vobs), np.min(vsim)) * 0.8
+            bins = np.linspace(xmin, xmax, 20+1)
+            hist_obs = np.histogram(vobs, bins=bins, density=True)[0]
+            hist_sim = np.histogram(vsim, bins=bins, density=True)[0]
+            plotting.plot_histograms1d(os.path.join(self.outdir, 'Train_step1_'+vname), bins, [hist_sim, hist_obs], labels=['Sim.', 'Data'], title='Step-1 training inputs', xlabel=vname, plottypes=['h', 'h'])
 
     def _set_arrays_step2(self, simHandle, standardize=False):
         # step 2: update simulation weights at truth level
         self.X_gen = simHandle.get_dataset(self.vars_truth, self.label_sig, standardize=False)[0]
         nsim = len(self.X_gen)
 
-        self.X_step2 = np.concatenate([self.X_gen, self.X_gen])
-        self.Y_step2 = tf.keras.utils.to_categorical(np.concatenate([np.ones(nsim), np.zeros(nsim)]))
-
         if standardize:
             logger.info("Standardize input feature arrays for step 2")
-            Xmean = np.mean(self.X_step2, axis=0)
-            Xstd = np.std(self.X_step2, axis=0)
-            self.X_step2 -= Xmean
-            self.X_step2 /= Xstd
+            Xmean = np.mean(self.X_gen, axis=0)
+            Xstd = np.std(self.X_gen, axis=0)
             self.X_gen -= Xmean
             self.X_gen /= Xstd
 
+        self.X_step2 = np.concatenate([self.X_gen, self.X_gen])
+        self.Y_step2 = tf.keras.utils.to_categorical(np.concatenate([np.ones(nsim), np.zeros(nsim)]))
+
         logger.info("Size of the feature array for step 2: {:.3f} MB".format(self.X_step2.nbytes*2**-20))
         logger.info("Size of the label array for step 2: {:.3f} MB".format(self.Y_step2.nbytes*2**-20))
+
+        # plot training variables
+        for vname, vgen in zip(self.vars_truth, self.X_gen.T):
+            logger.info("Plot step 2 training variable {}".format(vname))
+            xmax = np.max(self.X_gen) * 1.2
+            xmin = np.min(self.X_gen) * 0.8
+            bins = np.linspace(xmin, xmax, 20+1)
+            hist_gen = np.histogram(vgen, bins=bins, density=True)[0]
+            plotting.plot_histograms1d(os.path.join(self.outdir, 'Train_step2_'+vname), bins, [hist_gen], labels=['Gen.'], title='Step-2 training inputs', xlabel=vname, plottypes=['h'])
 
     def _set_event_weights(self, rw_type=None, vars_dict={}, rescale=True):
         self.weights_obs = self.datahandle_obs.get_weights(rw_type=rw_type,
