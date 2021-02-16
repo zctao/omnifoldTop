@@ -268,7 +268,7 @@ class OmniFoldwBkg(object):
         ################
         # event weights for training
         logger.info("Get prior event weights")
-        wobs, wsim, wbkg = self._get_event_weights(normalize=True, resample=resample_data)
+        wobs, wsim, wbkg = self._get_event_weights(resample=resample_data)
         logger.debug("wobs.sum() = {}".format(wobs.sum()))
         logger.debug("wsim.sum() = {}".format(wsim.sum()))
         if wbkg:
@@ -459,48 +459,60 @@ class OmniFoldwBkg(object):
             self.X_step1 = np.concatenate([X_obs, X_sim, X_simbkg])
             self.Y_step1 = np.concatenate([Y_obs, Y_sim, Y_simbkg])
 
-        self.X_sim = X_sim
-
-        # make Y categorical
-        self.Y_step1 = tf.keras.utils.to_categorical(self.Y_step1)
-
         if standardize:
             logger.info("Standardize input feature arrays for step 1")
             Xmean = np.mean(self.X_step1, axis=0)
             Xstd = np.std(self.X_step1, axis=0)
             self.X_step1 -= Xmean
             self.X_step1 /= Xstd
-            self.X_sim -= Xmean
-            self.X_sim /= Xstd
+
+        X_obs = self.X_step1[self.Y_step1 == self.label_obs]
+        X_sim = self.X_step1[self.Y_step1 == self.label_sig]
+        self.X_sim = X_sim
+
+        # make Y categorical
+        self.Y_step1 = tf.keras.utils.to_categorical(self.Y_step1)
 
         logger.info("Size of the feature array for step 1: {:.3f} MB".format(self.X_step1.nbytes*2**-20))
         logger.info("Size of the label array for step 1: {:.3f} MB".format(self.Y_step1.nbytes*2**-20))
+
+        # plot training variables
+        for vname, vobs, vsim in zip(self.vars_reco, X_obs.T, X_sim.T):
+            logger.info("Plot step 1 training variable {}".format(vname))
+            plotting.plot_data_arrays(os.path.join(self.outdir, 'Train_step1_'+vname), [vsim, vobs], labels=['Sim.', 'Data'], title='Step-1 training inputs', xlabel=vname)
 
     def _set_arrays_step2(self, simHandle, standardize=False):
         # step 2: update simulation weights at truth level
         self.X_gen = simHandle.get_dataset(self.vars_truth, self.label_sig, standardize=False)[0]
         nsim = len(self.X_gen)
 
-        self.X_step2 = np.concatenate([self.X_gen, self.X_gen])
-        self.Y_step2 = tf.keras.utils.to_categorical(np.concatenate([np.ones(nsim), np.zeros(nsim)]))
-
         if standardize:
             logger.info("Standardize input feature arrays for step 2")
-            Xmean = np.mean(self.X_step2, axis=0)
-            Xstd = np.std(self.X_step2, axis=0)
-            self.X_step2 -= Xmean
-            self.X_step2 /= Xstd
+            Xmean = np.mean(self.X_gen, axis=0)
+            Xstd = np.std(self.X_gen, axis=0)
             self.X_gen -= Xmean
             self.X_gen /= Xstd
 
+        self.X_step2 = np.concatenate([self.X_gen, self.X_gen])
+        self.Y_step2 = tf.keras.utils.to_categorical(np.concatenate([np.ones(nsim), np.zeros(nsim)]))
+
         logger.info("Size of the feature array for step 2: {:.3f} MB".format(self.X_step2.nbytes*2**-20))
         logger.info("Size of the label array for step 2: {:.3f} MB".format(self.Y_step2.nbytes*2**-20))
+
+        # plot training variables
+        for vname, vgen in zip(self.vars_truth, self.X_gen.T):
+            logger.info("Plot step 2 training variable {}".format(vname))
+            plotting.plot_data_arrays(os.path.join(self.outdir, 'Train_step2_'+vname), [vgen], labels=['Gen.'], title='Step-2 training inputs', xlabel=vname)
 
     def _set_event_weights(self, rw_type=None, vars_dict={}, rescale=True):
         self.weights_obs = self.datahandle_obs.get_weights(rw_type=rw_type,
                                                            vars_dict=vars_dict)
         self.weights_sim = self.datahandle_sig.get_weights()
         self.weights_bkg = None if self.datahandle_bkg is None else self.datahandle_bkg.get_weights()
+
+        # plot original event weights
+        logger.info("Plot original event weights")
+        plotting.plot_data_arrays(os.path.join(self.outdir, 'Event_weights'), [self.weights_sim, self.weights_obs], labels=['Sim.', 'Data'], title='Original event weights', xlabel='w')
 
         # rescale signal and background simulation weights to data
         if rescale:
@@ -519,7 +531,12 @@ class OmniFoldwBkg(object):
         if self.datahandle_bkg:
             logger.debug("weights_bkg.sum() = {}".format(self.weights_bkg.sum()))
 
-    def _get_event_weights(self, normalize=False, resample=False):
+        # plot event weights used in the training
+        wobs_train, wsim_train, wbkg_train = self._get_event_weights()
+        logger.info("Plot event weights used in training")
+        plotting.plot_data_arrays(os.path.join(self.outdir, 'Event_weights_train'), [wsim_train, wobs_train], labels=['Sim.', 'Data'], title='Event weights', xlabel='w (standardized)')
+
+    def _get_event_weights(self, normalize=True, resample=False):
         wobs = self.weights_obs
         wsim = self.weights_sim
         wbkg = self.weights_bkg if self.weights_bkg else None
