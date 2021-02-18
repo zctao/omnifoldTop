@@ -249,10 +249,11 @@ class OmniFoldwBkg(object):
                 plotting.plot_iteration_chi2s(figname_prefix+"_chi2s_wrt_Truth", hist_truth, hist_truth_err, [hists_ibu, hists_uf], [hists_ibu_err, hists_uf_err], labels=["IBU", "OmniFold"])
 
                 if self.unfolded_weights_resample is not None:
-                    hists_uf_all, hists_uf_err_all = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=True)
+                    hists_uf_all = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=True, normalize=True)[0]
                     # add prior
                     hists_uf_all = [[hist_gen]+list(hists_uf_rs) for hists_uf_rs in hists_uf_all]
-                    hists_uf_err_all = [[hist_gen_err]+list(hists_uf_err_rs) for hists_uf_err_rs in hists_uf_err_all]
+                    # use the same bin errors from bootstrap for all resamples
+                    hists_uf_err_all = [hists_uf_err] * len(hists_uf_all)
                     plotting.plot_iteration_chi2s(figname_prefix+"_AllResamples_chi2s_wrt_Truth", hist_truth, hist_truth_err, hists_uf_all, hists_uf_err_all, lw=0.7, ms=0.7)
 
     def _unfold(self, resample_data=False, model_name='Models',
@@ -424,7 +425,7 @@ class OmniFoldwBkg(object):
 
         return  hists_err, hists_corr
 
-    def _get_unfolded_hists_resample(self, variable, bins, all_iterations=False):
+    def _get_unfolded_hists_resample(self, variable, bins, all_iterations=False, normalize=False):
         hists_resample = []
         hists_err_resample = [] # sum w2 errors
         for iresample in range(len(self.unfolded_weights_resample)):
@@ -434,6 +435,17 @@ class OmniFoldwBkg(object):
                 ws = self.unfolded_weights_resample[iresample][-1]
 
             hist, histerr = self.datahandle_sig.get_histogram(variable, ws, bins)
+
+            if normalize:
+                # rescale each iteration to the nominal signal simulation weights
+                if all_iterations:
+                    rw = (self.weights_sim.sum()/ws.sum(axis=1))[:,np.newaxis]
+                else:
+                    rw = self.weights_sim.sum() / ws.sum()
+
+                hist *= rw
+                histerr *= rw
+
             hists_resample.append(hist)
             hists_err_resample.append(histerr)
 
