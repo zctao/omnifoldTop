@@ -552,9 +552,12 @@ class OmniFoldwBkg(object):
         if normalize: # normalize to len(weights)
             logger.debug("Rescale event weights to len(weights)")
             wobs = wobs / np.mean(wobs)
-            wsim = wsim / np.mean(wsim)
+            #wsim = wsim / np.mean(wsim)
+            #if wbkg is not None:
+            #    wbkg = wbkg / np.mean(wbkg)
+            wsim = wsim * wobs.sum() / self.weights_obs.sum()
             if wbkg is not None:
-                wbkg = wbkg / np.mean(wbkg)
+                wbkg = wbkg * wobs.sum() / self.weights_obs.sum()
 
         if resample:
             wobs *= np.random.poisson(1, size=len(wobs))
