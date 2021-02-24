@@ -473,8 +473,10 @@ class OmniFoldwBkg(object):
 
         if standardize:
             logger.info("Standardize input feature arrays for step 1")
-            Xmax = np.max(self.X_step1, axis=0)
-            self.X_step1 /= Xmax
+            # divide by their order of magnitude
+            Xmean = np.mean(np.abs(self.X_step1), axis=0)
+            Xoom = 10**(np.log10(Xmean).astype(int))
+            self.X_step1 /= Xoom
 
         X_obs = self.X_step1[:len(Y_obs)]
         X_sim = self.X_step1[len(Y_obs):(len(Y_obs)+len(Y_sim))]
@@ -498,8 +500,9 @@ class OmniFoldwBkg(object):
 
         if standardize:
             logger.info("Standardize input feature arrays for step 2")
-            Xmax = np.max(self.X_gen, axis=0)
-            self.X_gen /= Xmax
+            Xmean = np.mean(np.abs(self.X_gen), axis=0)
+            Xoom = 10**(np.log10(Xmean).astype(int))
+            self.X_gen /= Xoom
 
         self.X_step2 = np.concatenate([self.X_gen, self.X_gen])
         self.Y_step2 = tf.keras.utils.to_categorical(np.concatenate([np.ones(nsim), np.zeros(nsim)]))
