@@ -685,59 +685,6 @@ class OmniFoldwBkg(object):
 # Compare unfolded signal vs (data - background) at truth level
 
 ###
-# Unfold data vs signal simulation without including background
-# Subtract background histogram from unfolded signal simulation at truth level
-class OmniFoldwBkg_subHist(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_truth, iterations=4, outdir='.'):
-        super().__init__(variables_det, variables_truth, iterations, outdir)
-
-    def _set_arrays_step1(self, obsHandle, simHandle, bkgHandle, standardize=False):
-        # exclude background in the step 1
-        super()._set_arrays_step1(obsHandle, simHandle, bkgHandle=None, standardize=standardize)
-
-    def _get_event_weights(self, normalize=True, resample=False):
-        # exclude background simulation weights in the training
-        tmp_wbkg = self.weights_bkg
-
-        # call the base method while setting background weights to None
-        self.weights_bkg = None
-        wobs, wsim = super()._get_event_weights(normalize, resample)[:2]
-
-        # reset background weights for future usage e.g. plotting
-        self.weights_bkg = tmp_wbkg
-
-        return wobs, wsim, None
-
-    def get_unfolded_distribution(self, variable, bins, all_iterations=False,
-                                  bootstrap_uncertainty=True, normalize=True):
-        hist_uf, hist_uf_err, bin_corr = super().get_unfolded_distribution(variable, bins, all_iterations, bootstrap_uncertainty, normalize=False)
-
-        if normalize:
-            # to the sum of signal and background simulation
-            norm = self.weights_sim.sum() + self.weights_bkg.sum()
-            ws = self.unfolded_weights if all_iterations else self.unfolded_weights[-1]
-            if all_iterations:
-                hist_uf *= (norm/ws.sum(axis=1))[:,np.newaxis]
-                hist_uf_err *= (norm/ws.sum(axis=1))[:,np.newaxis]
-            else:
-                hist_uf *= norm / ws.sum()
-                hist_uf_err *= norm / ws.sum()
-
-        # subtract background distribution at truth level
-        hist_tbkg, hist_tbkg_err = self.datahandle_bkg.get_histogram(variable, self.weights_bkg, bins)
-        if all_iterations:
-            h_subbkg, h_subbkg_err = [], []
-            for h, herr in zip(hist_uf, hist_uf_err):
-                hs, hserr = add_histograms(h, hist_tbkg, herr, hist_tbkg_err, c1=1., c2=-1.)
-                h_subbkg.append(hs)
-                h_subbkg_err.append(hserr)
-            hist_uf = np.asarray(h_subbkg)
-            hist_uf_err = np.asarray(h_subbkg_err)
-        else:
-            hist_uf, hist_uf_err = add_histograms(hist_uf, hist_tbkg, hist_uf_err, hist_tbkg_err, c1=1., c2=-1.)
-        return hist_uf, hist_uf_err, bin_corr
-
-###
 # Add background as negatively weighted data
 class OmniFoldwBkg_negW(OmniFoldwBkg):
     def __init__(self, variables_det, variables_truth, iterations=4, outdir='.'):

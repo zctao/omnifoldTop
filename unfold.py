@@ -10,7 +10,7 @@ import tracemalloc
 
 from datahandler import DataHandler
 from omnifoldwbkg import OmniFoldwBkg
-from omnifoldwbkg import OmniFoldwBkg_subHist, OmniFoldwBkg_negW, OmniFoldwBkg_multi
+from omnifoldwbkg import OmniFoldwBkg_negW, OmniFoldwBkg_multi
 from ibu import IBU
 from util import read_dict_from_json, get_bins
 import logging
@@ -148,10 +148,6 @@ def unfold(**parsed_args):
         unfolder = OmniFoldwBkg(vars_det_train, vars_mc_train,
                                 iterations = parsed_args['iterations'],
                                 outdir = parsed_args['outputdir'])
-    elif parsed_args['background_mode'] == 'subHist':
-        unfolder = OmniFoldwBkg_subHist(vars_det_train, vars_mc_train,
-                                        iterations = parsed_args['iterations'],
-                                        outdir = parsed_args['outputdir'])
     elif parsed_args['background_mode'] == 'negW':
         unfolder = OmniFoldwBkg_negW(vars_det_train, vars_mc_train,
                                     iterations = parsed_args['iterations'],
@@ -295,7 +291,7 @@ if __name__ == "__main__":
     parser.add_argument('--weight', default='w',
                         help="name of event weight")
     parser.add_argument('-m', '--background-mode', dest='background_mode',
-                        choices=['default', 'subHist', 'negW', 'multiClass'],
+                        choices=['default', 'negW', 'multiClass'],
                         default='default', help="Background mode")
     parser.add_argument('-r', '--reweight-data', dest='reweight_data',
                         choices=['linear_th_pt', 'gaussian_bump', 'gaussian_tail'], default=None,
