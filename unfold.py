@@ -3,13 +3,14 @@ import os
 import sys
 import logging
 from packaging import version
+import numpy as np
 import tensorflow as tf
 import time
 import tracemalloc
 
 from datahandler import DataHandler
 from omnifoldwbkg import OmniFoldwBkg
-from omnifoldwbkg import OmniFoldwBkg_subHist, OmniFoldwBkg_negW, OmniFoldwBkg_multi
+from omnifoldwbkg import OmniFoldwBkg_negW, OmniFoldwBkg_multi
 from ibu import IBU
 from util import read_dict_from_json, get_bins
 import logging
@@ -107,10 +108,19 @@ def unfold(**parsed_args):
     # collision data
     fnames_obs = parsed_args['data']
     logger.info("Data files: {}".format(' '.join(fnames_obs)))
+    vars_obs = vars_det_all+vars_mc_all if parsed_args['truth_known'] else vars_det_all
     data_obs = DataHandler(fnames_obs, wname,
                             truth_known=parsed_args['truth_known'],
-                            variable_names = vars_det_all+vars_mc_all)
+                            variable_names = vars_obs)
                             #vars_dict = observable_dict
+
+    # mix background simulation for testing if needed
+    fnames_obsbkg = parsed_args['bdata']
+    if fnames_obsbkg is not None:
+        logger.info("Background simulation files to be mixed with data: {}".format(' '.join(fnames_obsbkg)))
+        data_obsbkg = DataHandler(fnames_obsbkg, wname, variable_names = vars_det_all)
+    else:
+        data_obsbkg = None
 
     # signal simulation
     fnames_sig = parsed_args['signal']
@@ -121,7 +131,7 @@ def unfold(**parsed_args):
     fnames_bkg = parsed_args['background']
     if fnames_bkg is not None:
         logger.info("Background simulation files: {}".format(' '.join(fnames_bkg)))
-        data_bkg =  DataHandler(fnames_bkg, wname, variable_names = vars_det_all+vars_mc_all)
+        data_bkg =  DataHandler(fnames_bkg, wname, variable_names = vars_det_all)
     else:
         data_bkg = None
 
@@ -138,10 +148,6 @@ def unfold(**parsed_args):
         unfolder = OmniFoldwBkg(vars_det_train, vars_mc_train,
                                 iterations = parsed_args['iterations'],
                                 outdir = parsed_args['outputdir'])
-    elif parsed_args['background_mode'] == 'subHist':
-        unfolder = OmniFoldwBkg_subHist(vars_det_train, vars_mc_train,
-                                        iterations = parsed_args['iterations'],
-                                        outdir = parsed_args['outputdir'])
     elif parsed_args['background_mode'] == 'negW':
         unfolder = OmniFoldwBkg_negW(vars_det_train, vars_mc_train,
                                     iterations = parsed_args['iterations'],
@@ -157,7 +163,7 @@ def unfold(**parsed_args):
     logger.info("Prepare data")
     t_prep_start = time.time()
 
-    unfolder.prepare_inputs(data_obs, data_sig, data_bkg,
+    unfolder.prepare_inputs(data_obs, data_sig, data_bkg, data_obsbkg,
                             parsed_args['plot_correlations'],
                             standardize=True,
                             reweight_type=parsed_args['reweight_data'],
@@ -216,6 +222,10 @@ def unfold(**parsed_args):
         # iterative Bayesian unfolding
         if True: # doIBU
             array_obs = data_obs.get_variable_arr(varConfig['branch_det'])
+            if data_obsbkg is not None:
+                array_obsbkg = data_obsbkg.get_variable_arr(varConfig['branch_det'])
+                array_obs = np.concatenate([array_obs, array_obsbkg])
+
             array_sim = data_sig.get_variable_arr(varConfig['branch_det'])
             array_gen = data_sig.get_variable_arr(varConfig['branch_mc'])
             array_simbkg = data_bkg.get_variable_arr(varConfig['branch_det']) if data_bkg else None
@@ -265,6 +275,8 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--background', nargs='+',
                         type=str,
                         help="Background MC npz file names")
+    parser.add_argument('--bdata', nargs='+', type=str, default=None,
+                        help="Background MC files to be mixed with data")
     parser.add_argument('-o', '--outputdir',
                         default='./output',
                         help="Directory for storing outputs")
@@ -279,7 +291,7 @@ if __name__ == "__main__":
     parser.add_argument('--weight', default='w',
                         help="name of event weight")
     parser.add_argument('-m', '--background-mode', dest='background_mode',
-                        choices=['default', 'subHist', 'negW', 'multiClass'],
+                        choices=['default', 'negW', 'multiClass'],
                         default='default', help="Background mode")
     parser.add_argument('-r', '--reweight-data', dest='reweight_data',
                         choices=['linear_th_pt', 'gaussian_bump', 'gaussian_tail'], default=None,

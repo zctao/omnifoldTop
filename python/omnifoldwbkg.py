@@ -30,6 +30,7 @@ class OmniFoldwBkg(object):
         self.datahandle_obs = None
         self.datahandle_sig = None
         self.datahandle_bkg = None
+        self.datahandle_obsbkg = None
         # arrays for training
         self.X_step1 = None
         self.Y_step1 = None
@@ -51,6 +52,7 @@ class OmniFoldwBkg(object):
         self.outdir = outdir.rstrip('/')+'/'
 
     def prepare_inputs(self, obsHandle, simHandle, bkgHandle=None,
+                        obsBkgHandle=None,
                         plot_corr=False, standardize=False, reweight_type=None,
                         vars_dict={}):
         # observed data
@@ -66,6 +68,12 @@ class OmniFoldwBkg(object):
         if self.datahandle_bkg is not None:
             logger.info("Total number of simulated background events: {}".format(self.datahandle_bkg.get_nevents()))
 
+        # background simulation to be mixed with data
+        if self.datahandle_bkg is not None:
+            self.datahandle_obsbkg = obsBkgHandle
+            if self.datahandle_obsbkg is not None:
+                logger.info("Total number of background events mixed with data: {}".format(self.datahandle_obsbkg.get_nevents()))
+
         # plot input variable correlations
         if plot_corr:
             logger.info("Plot input variable correlations")
@@ -79,11 +87,11 @@ class OmniFoldwBkg(object):
         logger.info("Prepare arrays")
         # arrays for step 1
         # self.X_step1, self.Y_step1, self.X_sim
-        self._set_arrays_step1(self.datahandle_obs, self.datahandle_sig, self.datahandle_bkg, standardize)
+        self._set_arrays_step1(standardize)
 
         # arrays for step 2
         # self.X_step2, self.Y_step2, self.X_gen
-        self._set_arrays_step2(self.datahandle_sig, standardize)
+        self._set_arrays_step2(standardize)
 
         # event weights for training
         self._set_event_weights(rw_type=reweight_type, vars_dict=vars_dict,
@@ -144,7 +152,13 @@ class OmniFoldwBkg(object):
 
     def plot_distributions_reco(self, varname, varConfig, bins):
         # observed
-        hist_obs, hist_obs_err = self.datahandle_obs.get_histogram(varConfig['branch_det'], self.weights_obs, bins)
+        nobs = self.datahandle_obs.get_nevents()
+        hist_obs, hist_obs_err = self.datahandle_obs.get_histogram(varConfig['branch_det'], self.weights_obs[:nobs], bins)
+
+        if self.datahandle_obsbkg is not None:
+            # add background
+            hist_obsbkg, hist_obsbkg_err = self.datahandle_obsbkg.get_histogram(varConfig['branch_det'], self.weights_obs[nobs:], bins)
+            hist_obs, hist_obs_err = add_histograms(hist_obs, hist_obsbkg, hist_obs_err, hist_obsbkg_err)
 
         # signal simulation
         hist_sim, hist_sim_err = self.datahandle_sig.get_histogram(varConfig['branch_det'], self.weights_sim, bins)
@@ -178,12 +192,11 @@ class OmniFoldwBkg(object):
 
         # MC truth if known
         if self.datahandle_obs.truth_known:
-            hist_truth, hist_truth_err = self.datahandle_obs.get_histogram(varConfig['branch_mc'], self.weights_obs, bins)
-
-            # subtract background if needed
-            if self.datahandle_bkg is not None:
-                hist_genbkg, hist_genbkg_err = self.datahandle_bkg.get_histogram(varConfig['branch_mc'], self.weights_bkg, bins)
-                hist_truth, hist_truth_err = add_histograms(hist_truth, hist_genbkg, hist_truth_err, hist_genbkg_err, c1=1., c2=-1.)
+            nobs = self.datahandle_obs.get_nevents()
+            hist_truth, hist_truth_err = self.datahandle_obs.get_histogram(varConfig['branch_mc'], self.weights_obs[:nobs], bins)
+            # renormalize to self.weights_sim.sum()
+            hist_truth *= (self.weights_sim.sum()/hist_truth.sum())
+            hist_truth_err *= (self.weights_sim.sum()/hist_truth.sum())
         else:
             hist_truth, hist_truth_err = None, None
 
@@ -458,16 +471,22 @@ class OmniFoldwBkg(object):
         wfile.close()
         return weights
 
-    def _set_arrays_step1(self, obsHandle, simHandle, bkgHandle=None, standardize=False):
+    def _set_arrays_step1(self, standardize=False):
         # step 1: observed data vs simulation at detector level
-        X_obs, Y_obs = obsHandle.get_dataset(self.vars_reco, self.label_obs, standardize=False)
-        X_sim, Y_sim = simHandle.get_dataset(self.vars_reco, self.label_sig, standardize=False)
+        X_obs, Y_obs = self.datahandle_obs.get_dataset(self.vars_reco, self.label_obs, standardize=False)
+        if self.datahandle_obsbkg is not None:
+            assert(self.datahandle_bkg is not None)
+            X_obsbkg, Y_obsbkg = self.datahandle_obsbkg.get_dataset(self.vars_reco, self.label_obs, standardize=False)
+            X_obs = np.concatenate([X_obs, X_obsbkg])
+            Y_obs = np.concatenate([Y_obs, Y_obsbkg])
 
-        if bkgHandle is None:
+        X_sim, Y_sim = self.datahandle_sig.get_dataset(self.vars_reco, self.label_sig, standardize=False)
+
+        if self.datahandle_bkg is None:
             self.X_step1 = np.concatenate([X_obs, X_sim])
             self.Y_step1 = np.concatenate([Y_obs, Y_sim])
         else:
-            X_simbkg, Y_simbkg = bkgHandle.get_dataset(self.vars_reco, self.label_bkg, standardize=False)
+            X_simbkg, Y_simbkg = self.datahandle_bkg.get_dataset(self.vars_reco, self.label_bkg, standardize=False)
             self.X_step1 = np.concatenate([X_obs, X_sim, X_simbkg])
             self.Y_step1 = np.concatenate([Y_obs, Y_sim, Y_simbkg])
 
@@ -493,9 +512,9 @@ class OmniFoldwBkg(object):
             logger.info("Plot step 1 training variable {}".format(vname))
             plotting.plot_data_arrays(os.path.join(self.outdir, 'Train_step1_'+vname), [vsim, vobs], labels=['Sim.', 'Data'], title='Step-1 training inputs', xlabel=vname)
 
-    def _set_arrays_step2(self, simHandle, standardize=False):
+    def _set_arrays_step2(self, standardize=False):
         # step 2: update simulation weights at truth level
-        self.X_gen = simHandle.get_dataset(self.vars_truth, self.label_sig, standardize=False)[0]
+        self.X_gen = self.datahandle_sig.get_dataset(self.vars_truth, self.label_sig, standardize=False)[0]
         nsim = len(self.X_gen)
 
         if standardize:
@@ -518,6 +537,9 @@ class OmniFoldwBkg(object):
     def _set_event_weights(self, rw_type=None, vars_dict={}, rescale=True):
         self.weights_obs = self.datahandle_obs.get_weights(rw_type=rw_type,
                                                            vars_dict=vars_dict)
+        if self.datahandle_obsbkg is not None:
+            self.weights_obs = np.concatenate([self.weights_obs, self.datahandle_obsbkg.get_weights()])
+
         self.weights_sim = self.datahandle_sig.get_weights()
         self.weights_bkg = None if self.datahandle_bkg is None else self.datahandle_bkg.get_weights()
 
@@ -666,59 +688,6 @@ class OmniFoldwBkg(object):
 # Compare unfolded signal vs (data - background) at truth level
 
 ###
-# Unfold data vs signal simulation without including background
-# Subtract background histogram from unfolded signal simulation at truth level
-class OmniFoldwBkg_subHist(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_truth, iterations=4, outdir='.'):
-        super().__init__(variables_det, variables_truth, iterations, outdir)
-
-    def _set_arrays_step1(self, obsHandle, simHandle, bkgHandle, standardize=False):
-        # exclude background in the step 1
-        super()._set_arrays_step1(obsHandle, simHandle, bkgHandle=None, standardize=standardize)
-
-    def _get_event_weights(self, normalize=True, resample=False):
-        # exclude background simulation weights in the training
-        tmp_wbkg = self.weights_bkg
-
-        # call the base method while setting background weights to None
-        self.weights_bkg = None
-        wobs, wsim = super()._get_event_weights(normalize, resample)[:2]
-
-        # reset background weights for future usage e.g. plotting
-        self.weights_bkg = tmp_wbkg
-
-        return wobs, wsim, None
-
-    def get_unfolded_distribution(self, variable, bins, all_iterations=False,
-                                  bootstrap_uncertainty=True, normalize=True):
-        hist_uf, hist_uf_err, bin_corr = super().get_unfolded_distribution(variable, bins, all_iterations, bootstrap_uncertainty, normalize=False)
-
-        if normalize:
-            # to the sum of signal and background simulation
-            norm = self.weights_sim.sum() + self.weights_bkg.sum()
-            ws = self.unfolded_weights if all_iterations else self.unfolded_weights[-1]
-            if all_iterations:
-                hist_uf *= (norm/ws.sum(axis=1))[:,np.newaxis]
-                hist_uf_err *= (norm/ws.sum(axis=1))[:,np.newaxis]
-            else:
-                hist_uf *= norm / ws.sum()
-                hist_uf_err *= norm / ws.sum()
-
-        # subtract background distribution at truth level
-        hist_tbkg, hist_tbkg_err = self.datahandle_bkg.get_histogram(variable, self.weights_bkg, bins)
-        if all_iterations:
-            h_subbkg, h_subbkg_err = [], []
-            for h, herr in zip(hist_uf, hist_uf_err):
-                hs, hserr = add_histograms(h, hist_tbkg, herr, hist_tbkg_err, c1=1., c2=-1.)
-                h_subbkg.append(hs)
-                h_subbkg_err.append(hserr)
-            hist_uf = np.asarray(h_subbkg)
-            hist_uf_err = np.asarray(h_subbkg_err)
-        else:
-            hist_uf, hist_uf_err = add_histograms(hist_uf, hist_tbkg, hist_uf_err, hist_tbkg_err, c1=1., c2=-1.)
-        return hist_uf, hist_uf_err, bin_corr
-
-###
 # Add background as negatively weighted data
 class OmniFoldwBkg_negW(OmniFoldwBkg):
     def __init__(self, variables_det, variables_truth, iterations=4, outdir='.'):
@@ -767,8 +736,9 @@ class OmniFoldwBkg_multi(OmniFoldwBkg):
 
         preds_obs = model.predict(events, batch_size=int(0.1*len(events)))[:,self.label_obs]
         preds_sig = model.predict(events, batch_size=int(0.1*len(events)))[:,self.label_sig]
+        preds_bkg = model.predict(events, batch_size=int(0.1*len(events)))[:,self.label_bkg]
 
-        r = np.nan_to_num( preds_obs / preds_sig )
+        r = np.nan_to_num( preds_obs / preds_sig - preds_bkg / preds_sig)
 
         if plotname: # plot the ratio distribution
             logger.info("Plot likelihood ratio distribution "+plotname)

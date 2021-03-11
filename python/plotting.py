@@ -109,7 +109,7 @@ def draw_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
     ax.hist(np.stack([midbins]*len(hists), axis=1), bin_edges,
             weights=np.stack([h for h in hists], axis=1),
             color=colors, label=labels,
-            stacked = stacked, histtype='step', fill=True)
+            stacked = stacked, histtype='bar', fill=True)
     # TODO: uncertainty
 
 def draw_hist_fill(ax, bin_edges, hist, hist_unc=None, **styles):
