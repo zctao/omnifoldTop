@@ -16,7 +16,8 @@ def load_unfolders(result_dirs, data_sim, vars_mc, vars_det=[], fname_weights='w
 
         wfiles = []
         wfiles.append(os.path.join(outdir, fname_weights))
-        wfiles.append(os.path.join(outdir, fname_weights_resample))
+        if fname_weights_resample is not None:
+            wfiles.append(os.path.join(outdir, fname_weights_resample))
         print('Load event weights from', wfiles)
         unfolder.load(wfiles)
 
@@ -25,7 +26,7 @@ def load_unfolders(result_dirs, data_sim, vars_mc, vars_det=[], fname_weights='w
     return unfolders
 
 # f_plot
-def plot_error_vs_label(unfolders, xlabels, figname, bins, varConfig, **style):
+def _plot_error_vs_label(unfolders, xlabels, figname, bins, varConfig, **style):
     assert(len(unfolders)==len(xlabels))
 
     # relative bin errors
@@ -42,12 +43,12 @@ def plot_error_vs_label(unfolders, xlabels, figname, bins, varConfig, **style):
                 labels=['bin {}'.format(i) for i in range(1, nbins+1)],
                 ms=3, ls='-', lw=1, **style)
 
-def plot_error_vs_variable(unfolders, labels, figname, bins, varConfig, **style):
+def _plot_error_vs_variable(unfolders, labels, figname, bins, varConfig, plot_sumw2=True, **style):
     assert(len(unfolders)==len(labels))
 
     relerrs_dict = {}
     for i, (uf, label) in enumerate(zip(unfolders, labels)):
-        if i==0: # sumw2 error
+        if i==0 and plot_sumw2: # sumw2 error
             hist, hist_err = uf.get_unfolded_distribution(varConfig['branch_mc'], bins, bootstrap_uncertainty=False, normalize=False)[:2]
             relerrs_dict['sumw2'] = hist_err / hist
 
@@ -56,7 +57,7 @@ def plot_error_vs_variable(unfolders, labels, figname, bins, varConfig, **style)
 
     plot_histograms1d(figname, bins, hists=list(relerrs_dict.values()),
                       labels=list(relerrs_dict.keys()),
-                      xlabel=varConfig['xlabel'], ylabel='bin error %',
+                      xlabel=varConfig['xlabel'], ylabel='relative bin error',
                       plottypes=['h']*len(relerrs_dict), **style)
 
 def compare(result_dirs, labels, f_plot, plot_label, sim_samples,
@@ -65,6 +66,8 @@ def compare(result_dirs, labels, f_plot, plot_label, sim_samples,
             observables=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_pt','th_y','th_phi','th_e','tl_pt','tl_y','tl_phi','tl_e'],
             observable_config='configs/observables/vars_klfitter.json',
             bin_config='configs/binning/bins_10equal.json',
+            fname_weights='weights.npz',
+            fname_weights_resample='weights_resample25.npz',
             **plot_style):
 
     # dictionary for observables
@@ -92,7 +95,7 @@ def compare(result_dirs, labels, f_plot, plot_label, sim_samples,
 
     # load unfolded weights from all result directories
     print("Load unfolded weights")
-    unfolders = load_unfolders(result_dirs, data_sim, vars_mc)
+    unfolders = load_unfolders(result_dirs, data_sim, vars_mc, fname_weights=fname_weights, fname_weights_resample=fname_weights_resample)
 
     # output directory
     if not os.path.isdir(outdir):
@@ -122,3 +125,27 @@ def get_time_from_log(logfile):
 
     print("No timing information found in ", logfile)
     return None
+
+def plot_error_vs_label(result_dirs, xlabels, plot_label, sim_samples,
+                        outdir='output_compare',
+                        observables=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_pt','th_y','th_phi','th_e','tl_pt','tl_y','tl_phi','tl_e'],
+                        observable_config='configs/observables/vars_klfitter.json',
+                        bin_config='configs/binning/bins_10equal.json',
+                        fname_weights='weights.npz',
+                        fname_weights_resample='weights_resample25.npz',
+                        **plot_style):
+    compare(result_dirs, xlabels, _plot_error_vs_label, plot_label, sim_samples,
+            outdir, observables, observable_config, bin_config, fname_weights,
+            fname_weights_resample, **plot_style)
+
+def plot_error_vs_variable(result_dirs, labels, plot_label, sim_samples,
+                        outdir='output_compare',
+                        observables=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_pt','th_y','th_phi','th_e','tl_pt','tl_y','tl_phi','tl_e'],
+                        observable_config='configs/observables/vars_klfitter.json',
+                        bin_config='configs/binning/bins_10equal.json',
+                        fname_weights='weights.npz',
+                        fname_weights_resample='weights_resample25.npz',
+                        **plot_style):
+    compare(result_dirs, labels, _plot_error_vs_variable, plot_label,
+            sim_samples, outdir, observables, observable_config, bin_config,
+            fname_weights, fname_weights_resample, **plot_style)
