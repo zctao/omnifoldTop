@@ -178,7 +178,7 @@ class OmniFoldwBkg(object):
                                     figname=figname, log_scale=False,
                                     **varConfig)
 
-    def plot_distributions_unfold(self, varname, varConfig, bins, ibu=None, iteration_history=False, plot_resamples=True):
+    def plot_distributions_unfold(self, varname, varConfig, bins, ibu=None, iteration_history=False, plot_resamples=True, plot_bins=True):
         # unfolded distribution
         hist_uf, hist_uf_err, hist_uf_corr = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=False)
 
@@ -229,7 +229,20 @@ class OmniFoldwBkg(object):
         if plot_resamples and self.unfolded_weights_resample is not None:
             hists_resample = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=False)[0]
             figname_resamples = os.path.join(self.outdir, 'Unfold_AllResamples_{}'.format(varname))
+            logger.info("  Plot unfolded distributions for all trials: {}".format(figname_resamples))
             plotting.plot_hists_resamples(figname_resamples, bins, hists_resample, hist_gen, hist_truth=hist_truth, **varConfig)
+
+        # plot distributions of bin entries
+        if plot_bins and self.unfolded_weights_resample is not None:
+            histo_uf_all = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=iteration_history)[0]
+            # histo_uf_all shape:
+            # if not iteration_history: (nresamples, nbins)
+            # if iteration_history: (nresamples, niterations, nbins)
+
+            # plot pulls of each bin entries
+            figname_bindistr = os.path.join(self.outdir, 'Unfold_BinDistr_{}'.format(varname))
+            logger.info("  Plot distributions of bin entries from all trials: {}".format(figname_bindistr))
+            plotting.plot_hists_bin_distr(figname_bindistr, bins, histo_uf_all, hist_truth)
 
         # plot iteration history
         if iteration_history:

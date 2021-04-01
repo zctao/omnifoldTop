@@ -2,6 +2,7 @@ import os
 import numpy as np
 import json
 from scipy import stats
+from scipy.optimize import curve_fit
 
 def parse_input_name(fname):
     fname_list = fname.split('*')
@@ -420,3 +421,33 @@ def get_bins(varname, fname_bins):
 
     # if the binning file does not exist or no binning info for this variable is in the dictionary
     return None
+
+def gaus(x, a, mu, sigma):
+    return a*np.exp(-(x-mu)**2/(2*sigma**2))
+
+import math
+def fit_gaussian_to_hist(histogram, binedges, dofit=True):
+
+    midbins = (binedges[:-1] + binedges[1:]) / 2.
+
+    # initial value
+    mu0 = sum(midbins*histogram)/sum(histogram)
+    sigma0 = np.sqrt(sum(histogram * (midbins - mu0)**2) / sum(histogram))
+    a0 = max(histogram) #sum(histogram)/(math.sqrt(2*math.pi)*sigma0)
+    par0 = [a0, mu0, sigma0]
+
+    # fit
+    if dofit:
+        try:
+            popt, pcov = curve_fit(gaus, midbins, histogram, p0=par0)
+
+            A, mu, sigma = popt
+            #A_err, mu_err, sigma_err = np.sqrt(np.diag(pcov))
+        except RuntimeError as e:
+            print("WARNING: fit failed with message: {}".format(e))
+            print("Return initial value estimated from sample")
+            A, mu, sigma = tuple(par0)
+    else:
+        A, mu, sigma = tuple(par0)
+
+    return A, mu, sigma

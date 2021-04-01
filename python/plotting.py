@@ -8,6 +8,7 @@ import math
 import external.OmniFold.modplot as modplot
 
 from util import add_histograms, compute_chi2, compute_diff_chi2
+from util import gaus, fit_gaussian_to_hist
 
 # plotting styles
 hist_style = {'histtype': 'step', 'density': False, 'lw': 1, 'zorder': 2}
@@ -641,3 +642,69 @@ def plot_hists_resamples(figname, bins, histograms, hist_prior, hist_truth=None,
     # save plot
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
+
+def plot_hists_bin_distr(figname, binedges, histograms_list, histogram_ref):
+    # histograms_list can be either dimension 3 if all iterations are included
+    # or dimension 2 if only the final unfolded ones for all trials
+    histograms_arr = np.asarray(histograms_list)
+
+    nbins = len(binedges) - 1
+    assert(nbins == len(histogram_ref))
+    assert(nbins == histograms_arr.shape[-1])
+    niterations = histograms_arr.shape[1] if histograms_arr.ndim > 2 else 1
+
+    fig, ax = plt.subplots(nrows=niterations, ncols=nbins,
+                            sharey='row', sharex='col',
+                            figsize=((nbins+1)*1.1, niterations*1.1),
+                            constrained_layout=True)
+
+    # loop over bins
+    for ibin in range(nbins):
+        nentries = histograms_arr[..., ibin]
+        # nentries is of the shape (nresamples, niterations) if include iteration history
+        # otherwise it is of the shape (nresamples,)
+
+        #mu = np.mean(nentries, axis=0)
+        #sigma = np.std(nentries, ddof=1, axis=0)
+        #pulls = (nentries - mu) / sigma
+
+        # compare and standardize to ref
+        ref = histogram_ref[ibin]
+        nentries_ref = nentries - ref
+
+        # plot
+        if niterations == 1: # only the final results
+            h, b = ax[ibin].hist(nentries_ref, density=True)[:2]
+            plot_gaussian(ax[ibin], h, b, dofit=False)
+            ax[ibin].set_xlabel("Bin {}".format(ibin+1))
+            ax[ibin].xaxis.set_label_position('top')
+            ax[ibin].tick_params(labelsize=7)
+            ax[ibin].ticklabel_format(style='sci', scilimits=(-2,2), useMathText=True)
+            ax[ibin].xaxis.get_offset_text().set_fontsize(7)
+        else: # all iterations
+            for it in range(niterations):
+                h, b = ax[it][ibin].hist(nentries_ref[...,it], density=False)[:2]
+                plot_gaussian(ax[it][ibin], h, b, dofit=False)
+                # labels
+                if ibin == 0:
+                    ax[it][ibin].set_ylabel("Iter {}".format(it+1))
+                if it == 0:
+                    ax[it][ibin].set_xlabel("Bin {}".format(ibin+1))
+                    ax[it][ibin].xaxis.set_label_position('top')
+                ax[it][ibin].tick_params(labelsize=7)
+                ax[it][ibin].ticklabel_format(style='sci', scilimits=(-2,2), useMathText=True)
+                ax[it][ibin].xaxis.get_offset_text().set_fontsize(7)
+
+    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig)
+
+def plot_gaussian(ax, histogram, binedges, dofit=False):
+    A, mu, sigma = fit_gaussian_to_hist(histogram, binedges, dofit)
+
+    x = np.linspace(binedges[0], binedges[-1], 50)
+    y = gaus(x, A, mu, sigma)
+    style = '-' if dofit else '--'
+    ax.plot(x, y, style)
+
+    #yref = gaus(x, sum(histogram)/math.sqrt(2*math.pi), 0, 1)
+    #ax.plot(x, yref, '--')
