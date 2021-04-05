@@ -152,7 +152,7 @@
   "th_px": {
     "branch_det": "th_px_klfitter", "branch_mc": "th_px_MC",
     "nbins_det": 50, "nbins_mc": 50,
-    "xlim": [0, 500],
+    "xlim": [-500, 500],
     "xlabel": "$p_{x}^{t,had}$ [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
@@ -162,8 +162,18 @@
   "th_py": {
     "branch_det": "th_py_klfitter", "branch_mc": "th_py_MC",
     "nbins_det": 50, "nbins_mc": 50,
-    "xlim": [0, 500],
+    "xlim": [-500, 500],
     "xlabel": "$p_{y}^{t,had}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "th_pz": {
+    "branch_det": "th_pz_klfitter", "branch_mc": "th_pz_MC",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-1000, 1000],
+    "xlabel": "$p_{z}^{t,had}$ [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true
@@ -242,7 +252,7 @@
   "tl_px": {
     "branch_det": "tl_px_klfitter", "branch_mc": "tl_px_MC",
     "nbins_det": 50, "nbins_mc": 50,
-    "xlim": [0, 500],
+    "xlim": [-500, 500],
     "xlabel": "$p_{x}^{t,lep}$ [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
@@ -252,8 +262,18 @@
   "tl_py": {
     "branch_det": "tl_py_klfitter", "branch_mc": "tl_py_MC",
     "nbins_det": 50, "nbins_mc": 50,
-    "xlim": [0, 500],
+    "xlim": [-500, 500],
     "xlabel": "$p_{y}^{t,lep}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "tl_pz": {
+    "branch_det": "tl_pz_klfitter", "branch_mc": "tl_pz_MC",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-1000, 1000],
+    "xlabel": "$p_{z}^{t,lep}$ [GeV]", "ylabel":"a.u.",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true

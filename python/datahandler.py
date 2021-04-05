@@ -57,6 +57,8 @@ class DataHandler(object):
             if wname and not wname in variable_names:
                 variable_names.append(wname)
 
+            variable_names = self._filter_variable_names(variable_names)
+
             # check all variable names are available
             for vname in variable_names:
                 if not vname in tmpDataArr.dtype.names:
@@ -215,6 +217,30 @@ class DataHandler(object):
             return rw
         else:
             raise RuntimeError("Unknown reweighting type: {}".format(rw_type))
+
+    def _filter_variable_names(self, variable_names):
+        varnames_skimmed = set()
+
+        for vname in variable_names:
+            if '_px' in vname:
+                vname_pt = vname.replace('_px', '_pt')
+                vname_phi = vname.replace('_px', '_phi')
+                varnames_skimmed.add(vname_pt)
+                varnames_skimmed.add(vname_phi)
+            elif '_py' in vname:
+                vname_pt = vname.replace('_py', '_pt')
+                vname_phi = vname.replace('_py', '_phi')
+                varnames_skimmed.add(vname_pt)
+                varnames_skimmed.add(vname_phi)
+            elif '_pz' in vname:
+                vname_pt = vname.replace('_pz', '_pt')
+                vname_eta = vname.replace('_pz', '_eta')
+                varnames_skimmed.add(vname_pt)
+                varnames_skimmed.add(vname_eta)
+            else:
+                varnames_skimmed.add(vname)
+
+        return list(varnames_skimmed)
 
 # Toy data
 class DataToy(DataHandler):
