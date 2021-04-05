@@ -214,15 +214,20 @@ def plot_histograms1d(figname, bins, hists, hists_err=None, labels=None, title="
     #fig.savefig(figname+'.pdf')
     plt.close(fig)
 
-def plot_data_arrays(figname, data_arrs, nbins=20, **plotstyle):
+def plot_data_arrays(figname, data_arrs, weight_arrs=None, nbins=20, **plotstyle):
     xmax = max([np.max(data) for data in data_arrs]) * 1.2
     xmin = min([np.min(data) for data in data_arrs]) * 0.8
     bins = np.linspace(xmin, xmax, nbins+1)
 
+    if weight_arrs is None:
+        weight_arrs = [None] * len(data_arrs)
+    else:
+        assert(len(weight_arrs) == len(data_arrs))
+
     histograms = []
-    for data in data_arrs:
-        h = np.histogram(data, bins=bins, density=True)[0]
-        histograms.append(h)\
+    for data, w in zip(data_arrs, weight_arrs):
+        h = np.histogram(data, bins=bins, weights=w, density=True)[0]
+        histograms.append(h)
 
     plot_histograms1d(figname, bins, histograms, **plotstyle)
 

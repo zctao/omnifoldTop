@@ -84,6 +84,11 @@ class OmniFoldwBkg(object):
             corr_sim_gen = simHandle.get_correlations(self.vars_truth)
             plotting.plot_correlations(corr_sim_gen, os.path.join(self.outdir, 'correlations_gen_sig'))
 
+        # event weights for training
+        logger.info("Prepare event weights")
+        self._set_event_weights(rw_type=reweight_type, vars_dict=vars_dict,
+                                rescale=True)
+
         logger.info("Prepare arrays")
         # arrays for step 1
         # self.X_step1, self.Y_step1, self.X_sim
@@ -92,10 +97,6 @@ class OmniFoldwBkg(object):
         # arrays for step 2
         # self.X_step2, self.Y_step2, self.X_gen
         self._set_arrays_step2(standardize)
-
-        # event weights for training
-        self._set_event_weights(rw_type=reweight_type, vars_dict=vars_dict,
-                                rescale=True)
 
     def run(self, error_type='sumw2', nresamples=0, load_previous_iteration=True,
             batch_size=256, epochs=100):
@@ -524,9 +525,11 @@ class OmniFoldwBkg(object):
         logger.info("Size of the label array for step 1: {:.3f} MB".format(self.Y_step1.nbytes*2**-20))
 
         # plot training variables
+        # event weights for training
+        wobs, wsim = self._get_event_weights()[:2]
         for vname, vobs, vsim in zip(self.vars_reco, X_obs.T, X_sim.T):
             logger.info("Plot step 1 training variable {}".format(vname))
-            plotting.plot_data_arrays(os.path.join(self.outdir, 'Train_step1_'+vname), [vsim, vobs], labels=['Sim.', 'Data'], title='Step-1 training inputs', xlabel=vname)
+            plotting.plot_data_arrays(os.path.join(self.outdir, 'Train_step1_'+vname), [vsim, vobs], weight_arrs=[wsim, wobs], labels=['Sim.', 'Data'], title='Step-1 training inputs', xlabel=vname)
 
     def _set_arrays_step2(self, standardize=False):
         # step 2: update simulation weights at truth level
@@ -546,9 +549,11 @@ class OmniFoldwBkg(object):
         logger.info("Size of the label array for step 2: {:.3f} MB".format(self.Y_step2.nbytes*2**-20))
 
         # plot training variables
+        # event weights for training
+        wsig = self._get_event_weights()[1]
         for vname, vgen in zip(self.vars_truth, self.X_gen.T):
             logger.info("Plot step 2 training variable {}".format(vname))
-            plotting.plot_data_arrays(os.path.join(self.outdir, 'Train_step2_'+vname), [vgen], labels=['Gen.'], title='Step-2 training inputs', xlabel=vname)
+            plotting.plot_data_arrays(os.path.join(self.outdir, 'Train_step2_'+vname), [vgen], [wsig], labels=['Gen.'], title='Step-2 training inputs', xlabel=vname)
 
     def _set_event_weights(self, rw_type=None, vars_dict={}, rescale=True):
         self.weights_obs = self.datahandle_obs.get_weights(rw_type=rw_type,
