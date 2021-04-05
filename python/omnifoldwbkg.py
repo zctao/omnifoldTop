@@ -192,11 +192,14 @@ class OmniFoldwBkg(object):
 
         # MC truth if known
         if self.datahandle_obs.truth_known:
+            # number of observed signal events
             nobs = self.datahandle_obs.get_nevents()
-            hist_truth, hist_truth_err = self.datahandle_obs.get_histogram(varConfig['branch_mc'], self.weights_obs[:nobs], bins)
-            # renormalize to self.weights_sim.sum()
-            hist_truth *= (self.weights_sim.sum()/hist_truth.sum())
-            hist_truth_err *= (self.weights_sim.sum()/hist_truth.sum())
+
+            # Factor to rescale signal truth to signal sim
+            # Should be 1 in case there is no background
+            f_sig = self.weights_sim.sum() / self.weights_obs[:nobs].sum()
+
+            hist_truth, hist_truth_err = self.datahandle_obs.get_histogram(varConfig['branch_mc'], self.weights_obs[:nobs]*f_sig, bins)
         else:
             hist_truth, hist_truth_err = None, None
 
