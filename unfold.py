@@ -2,7 +2,6 @@
 import os
 import sys
 import logging
-from packaging import version
 import numpy as np
 import tensorflow as tf
 import time
@@ -13,57 +12,8 @@ from omnifoldwbkg import OmniFoldwBkg
 from omnifoldwbkg import OmniFoldwBkg_negW, OmniFoldwBkg_multi
 from ibu import IBU
 from util import read_dict_from_json, get_bins
+from util import configGPUs, expandFilePath, configRootLogger
 import logging
-
-def configRootLogger(filename=None, level=logging.INFO):
-    msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
-    datefmt = '%Y-%m-%d %H:%M:%S'
-    logging.basicConfig(level=level, format=msgfmt, datefmt=datefmt)
-    if filename:
-        # check if the directory exists
-        dirname = os.path.dirname(filename)
-        nodir = not os.path.isdir(dirname)
-        if nodir:
-            os.makedirs(dirname)
-
-        fhdr = logging.FileHandler(filename, mode='w')
-        fhdr.setFormatter(logging.Formatter(msgfmt, datefmt))
-        logging.getLogger().addHandler(fhdr)
-
-        if nodir:
-            logging.info("Create directory {}".format(dirname))
-
-def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
-    assert(version.parse(tf.__version__) >= version.parse('2.0.0'))
-    # tensorflow configuration
-    # device placement
-    tf.config.set_soft_device_placement(True)
-    tf.debugging.set_log_device_placement(verbose > 0)
-
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if not gpus:
-        logger.error("No GPU found!")
-        raise RuntimeError("No GPU found!")
-
-    if gpu is not None:
-        tf.config.experimental.set_visible_devices(gpus[gpu], 'GPU')
-
-    # limit GPU memory growth
-    if limit_gpu_mem:
-        for g in gpus:
-            tf.config.experimental.set_memory_growth(g,True)
-
-def expandFilePath(filepath):
-    filepath = filepath.strip()
-    if not os.path.isfile(filepath):
-        # try expanding the path in the directory of this file
-        src_dir = os.path.dirname(os.path.abspath(__file__))
-        filepath = os.path.join(src_dir, filepath)
-
-    if os.path.isfile(filepath):
-        return os.path.abspath(filepath)
-    else:
-        return None
 
 def unfold(**parsed_args):
     tracemalloc.start()

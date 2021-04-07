@@ -3,6 +3,9 @@ import numpy as np
 import json
 from scipy import stats
 from scipy.optimize import curve_fit
+from packaging import version
+import tensorflow as tf
+import logging
 
 def parse_input_name(fname):
     fname_list = fname.split('*')
@@ -19,6 +22,56 @@ def parse_input_name(fname):
             print('Unknown data file name {}'.format(fname))
 
         return name, rwfactor
+
+def expandFilePath(filepath):
+    filepath = filepath.strip()
+    if not os.path.isfile(filepath):
+        # try expanding the path in the directory of this file
+        src_dir = os.path.dirname(os.path.abspath(__file__))
+        filepath = os.path.join(src_dir, filepath)
+
+    if os.path.isfile(filepath):
+        return os.path.abspath(filepath)
+    else:
+        return None
+
+def configRootLogger(filename=None, level=logging.INFO):
+    msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
+    datefmt = '%Y-%m-%d %H:%M:%S'
+    logging.basicConfig(level=level, format=msgfmt, datefmt=datefmt)
+    if filename:
+        # check if the directory exists
+        dirname = os.path.dirname(filename)
+        nodir = not os.path.isdir(dirname)
+        if nodir:
+            os.makedirs(dirname)
+
+        fhdr = logging.FileHandler(filename, mode='w')
+        fhdr.setFormatter(logging.Formatter(msgfmt, datefmt))
+        logging.getLogger().addHandler(fhdr)
+
+        if nodir:
+            logging.info("Create directory {}".format(dirname))
+
+def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
+    assert(version.parse(tf.__version__) >= version.parse('2.0.0'))
+    # tensorflow configuration
+    # device placement
+    tf.config.set_soft_device_placement(True)
+    tf.debugging.set_log_device_placement(verbose > 0)
+
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if not gpus:
+        logger.error("No GPU found!")
+        raise RuntimeError("No GPU found!")
+
+    if gpu is not None:
+        tf.config.experimental.set_visible_devices(gpus[gpu], 'GPU')
+
+    # limit GPU memory growth
+    if limit_gpu_mem:
+        for g in gpus:
+            tf.config.experimental.set_memory_growth(g,True)
 
 def get_fourvector_array(pt_arr, eta_arr, phi_arr, e_arr, padding=True):
     """
@@ -85,34 +138,6 @@ def prepare_data_omnifold(ntuple, padding=True):
 
     return data
 
-def get_variable_arr(ntuple, variable):
-    # Moved to datahandler.py
-    # TODO delete this
-    assert(0)
-
-    # Reture a 1-d numpy array of the 'variable' from a structured array 'ntuple'
-    # np.hstack() ensures the returned array is always of the shape (length,)
-    # in case the original array in ntuple is a column array
-
-    # check if variable is in the structured array
-    if variable in ntuple.dtype.names:
-        return np.hstack( ntuple[variable] )
-    # special cases
-    elif '_px' in variable:
-        var_pt = variable.replace('_px', '_pt')
-        var_phi = variable.replace('_px', '_phi')
-        return np.hstack(ntuple[var_pt])*np.cos(np.hstack(ntuple[var_phi]))
-    elif '_py' in variable:
-        var_pt = variable.replace('_py', '_pt')
-        var_phi = variable.replace('_py', '_phi')
-        return np.hstack(ntuple[var_pt])*np.sin(np.hstack(ntuple[var_phi]))
-    elif variable == 'pz':
-        var_pt = variable.replace('_pz', '_pt')
-        var_eta = variable.replace('_pz', '_eta')
-        return np.hstack(ntuple[var_pt])*np.sinh(np.hstack(ntuple[var_eta]))
-    else:
-        raise RuntimeError("Unknown variable {}".format(variable))
-
 def prepare_data_multifold(ntuple, variables, standardize=False, reshape1D=False):
     """
     ntuple: structure array from root tree
@@ -129,71 +154,6 @@ def prepare_data_multifold(ntuple, variables, standardize=False, reshape1D=False
         data = data.reshape(len(data))
 
     return data
-
-def read_dataset(dataset, variables, label, weight_name=None, standardize=False):
-    assert(0)
-    # deprecated. use DataHandler
-    """
-    Args:
-        dataset: a structured numpy array labeled by variable names
-        variables: a list of feature names
-        label: int for class label
-        weight_name: name of the variable for sample weights
-    Return:
-        X: 2-d numpy array of the shape (n_events, n_features)
-        Y: 1-d numpy array for label
-        W: 1-d numpy array for sample weights
-    """
-    # features
-    X = np.hstack([np.vstack( get_variable_arr(dataset,var) ) for var in variables])
-    if standardize:
-        X = (X - np.mean(X, axis=0))/np.std(X, axis=0)
-
-    # label
-    Y = np.full(len(X), label)
-
-    # weight
-    W = np.hstack(dataset[weight_name]) if weight_name else np.ones(len(X))
-
-    return X, Y, W
-
-def reweight_sample(weights_orig, dataset, obs_dict, reweight_type=None):
-    assert(0)
-    # move to datahandler.py
-    if reweight_type is None:
-        return weights_orig
-
-    elif reweight_type == 'linear_th_pt':
-        # truth-level hadronic top pt
-        varname_thpt = obs_dict['th_pt']['branch_mc']
-        th_pt = get_variable_arr(dataset, varname_thpt)
-        # reweight function
-        rw = 1 + 1/800.*th_pt
-        return weights_orig * rw
-
-    elif reweight_type == 'gaussian_bump':
-        # truth-level variable name of the ttbar mass
-        varname_mtt = obs_dict['mtt']['branch_mc']
-        mtt = get_variable_arr(dataset, varname_mtt)
-        # reweight function
-        k = 0.5
-        m0 = 800
-        sigma = 100
-        rw = 1 + k*np.exp( -( (mtt-m0)/sigma )**2 )
-        return weights_orig * rw
-
-    elif reweight_type == 'gaussian_tail':
-        varname_mtt = obs_dict['mtt']['branch_mc']
-        mtt = get_variable_arr(dataset, varname_mtt)
-        #  reweight function
-        k = 0.5
-        m0 = 2000
-        sigma = 1000
-        rw = 1 + k*np.exp( -( (mtt-m0)/sigma )**2 )
-        return weights_orig * rw
-
-    else:
-        raise RuntimeError("Unknown sample reweighting type: {}".format(reweight_type))
 
 def set_up_bins(xmin, xmax, nbins):
     bins = np.linspace(xmin, xmax, nbins+1)
@@ -259,59 +219,6 @@ def divide_histograms(h_numer, h_denom, h_numer_err=None, h_denom_err=None):
     ratio_err = np.sqrt(rerrsq)
 
     return ratio, ratio_err
-
-# Data shuffle and split for step 1 (detector-level) reweighting
-# Adapted based on https://github.com/ericmetodiev/OmniFold/blob/master/omnifold.py#L54-L59
-class DataShufflerDet(object):
-    def __init__(self, ndata, val):
-        """
-        ndata: number of events
-        val: percentage of data for validation
-        """
-        self.nval = int(ndata * val)
-        self.perm = np.random.permutation(ndata)
-        self.invperm = np.argsort(self.perm)
-
-    def shuffle(self, arr):
-        assert(len(arr)==len(self.perm))
-        return arr[self.perm]
-
-    def shuffle_and_split(self, arr):
-        assert(len(arr)==len(self.perm))
-        arr_train = arr[self.perm[:-self.nval]]
-        arr_val = arr[self.perm[-self.nval:]]
-        return arr_train, arr_val
-
-    def unshuffle(self, arr):
-        assert(len(arr)==len(self.invperm))
-        return arr[self.invperm]
-
-# Data shuffle and split for step 2 (simulation-level) reweighting
-# Adapted based on https://github.com/ericmetodiev/OmniFold/blob/master/omnifold.py#L69-L86
-class DataShufflerGen(DataShufflerDet):
-    # The dataset consists of two identical sets of events
-    # A event is labelled as "1" if its event weight is updated from step 1
-    # Otherwise it is labelled as "0"
-    def __init__(self, ndata, val):
-        """
-        ndata: number of total events
-        val: percentage of data for validation
-        """     
-        nevt = int(ndata/2) # number of events labeled either as "1" or as "0"
-        nval = int(val*nevt)
-        # initial permuation for events with new weights and events with old weights
-        baseperm0 = np.random.permutation(nevt)
-        baseperm1 = baseperm0 + nevt # same permutation but with an offset
-
-        # wish to have the same event end up in the training (or validation) dataset
-        trainperm = np.concatenate((baseperm0[:-nval], baseperm1[:-nval]))
-        valperm = np.concatenate((baseperm0[-nval:], baseperm1[-nval:]))
-        np.random.shuffle(trainperm)
-        np.random.shuffle(valperm)
-
-        self.nval = len(valperm) # number of validation events in the entire dataset
-        self.perm = np.concatenate((trainperm, valperm))
-        self.invperm = np.argsort(self.perm)
 
 def compute_triangular_discr(histogram_1, histogram_2):
     if len(histogram_1) != len(histogram_2):
