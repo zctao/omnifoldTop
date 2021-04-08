@@ -10,6 +10,9 @@ import external.OmniFold.modplot as modplot
 from util import add_histograms, compute_chi2, compute_diff_chi2
 from util import gaus, fit_gaussian_to_hist
 
+from sklearn.metrics import roc_curve, auc, roc_auc_score
+from sklearn.calibration import calibration_curve
+
 # plotting styles
 hist_style = {'histtype': 'step', 'density': False, 'lw': 1, 'zorder': 2}
 graph_style = {'fmt': 'o', 'lw': 1.5, 'capsize': 1.5, 'capthick': 1, 'markersize': 1.5}
@@ -489,13 +492,11 @@ def plot_iteration_diffChi2s(figname, histograms_arr, histograms_err_arr, labels
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
 
-def plot_train_log(csv_file, plot_name=None):
-    df = pd.read_csv(csv_file)
-
+def plot_train_loss(figname, loss, val_loss):
     fig, ax = init_fig(title='', xlabel='Epochs', ylabel='loss')
 
-    ax.plot(df['epoch'], df['loss'], label='loss')
-    ax.plot(df['epoch'], df['val_loss'], label='val loss')
+    ax.plot(loss, label='loss')
+    ax.plot(val_loss, label='val loss')
 
     ax.yaxis.get_major_formatter().set_useOffset(False)
     ax.yaxis.get_major_formatter().set_useMathText(True)
@@ -504,11 +505,17 @@ def plot_train_log(csv_file, plot_name=None):
 
     ax.legend(**leg_style)
 
-    if plot_name is None:
-        plot_name = csv_file.replace('.csv', '_loss')
-    plt.savefig(plot_name+'.png', dpi=300, bbox_inches='tight')
+    plt.savefig(figname+'.png', dpi=300, bbox_inches='tight')
     #plt.savefig(plot_name+'.pdf', bbox_inches='tight')
     plt.close(fig)
+
+def plot_train_log(csv_file, plot_name=None):
+    df = pd.read_csv(csv_file)
+
+    if plot_name is None:
+        plot_name = csv_file.replace('.csv', '_loss')
+
+    plot_train_loss(plot_name, df['loss'], df['val_loss'])
 
 def plot_correlations(correlations, figname):
     fig, ax = plt.subplots()
@@ -713,3 +720,47 @@ def plot_gaussian(ax, histogram, binedges, dofit=False):
 
     #yref = gaus(x, sum(histogram)/math.sqrt(2*math.pi), 0, 1)
     #ax.plot(x, yref, '--')
+
+def plot_roc_curves(figname, Y_predicts, Y_true, weights, labels=None):
+    if labels is None:
+        labels = [''] * len(Y_predicts)
+    else:
+        assert(len(Y_predicts)==len(labels))
+
+    fig, ax = init_fig(title='ROC curve', xlabel='False positive rate', ylabel='True positive rate')
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 1.0)
+    ax.grid()
+
+    for Y_pred, label in zip(Y_predicts, labels):
+        fpr, tpr, threshold = roc_curve(Y_true, Y_pred, sample_weight=weights)
+        try:
+            auroc = roc_auc_score(Y_true, Y_pred, sample_weight=weights)
+        except ValueError as ve:
+            print("ValueError: {}".format(ve))
+            auroc = auc(fpr, tpr, reorder=True)
+
+        ax.plot(fpr, tpr, lw=1, label='{} (auc = {:.3f})'.format(label, auroc))
+        ax.legend()
+
+    fig.savefig(figname+'.png', dpi=300)
+    plt.close(fig)
+
+def plot_calibrations(figname, Y_predicts, Y_true, labels=None):
+    if labels is None:
+        labels = [''] * len(Y_predicts)
+    else:
+        assert(len(Y_predicts)==len(labels))
+
+    fig, ax = init_fig(title='Reliability curve', xlabel='Mean predicted value', ylabel='Fraction of positives')
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 1.0)
+    ax.grid()
+
+    for Y_pred, label in zip(Y_predicts, labels):
+        fraction_of_positives, mean_predicted_value = calibration_curve(Y_true, Y_pred, n_bins=10)
+        ax.plot(mean_predicted_value, fraction_of_positives, "s-", label=label)
+        ax.legend()
+
+    fig.savefig(figname+'.png', dpi=300)
+    plt.close(fig)
