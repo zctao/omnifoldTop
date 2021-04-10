@@ -47,7 +47,7 @@ def get_training_inputs(variables, dataHandle, simHandle, rw_type=None, vars_dic
     return X, Y, w
 
 def set_up_model(model_name, input_shape, outputdir):
-    model_dir = os.path.join(outputdir, model_name)
+    model_dir = os.path.join(outputdir, 'Models', model_name)
     if not os.path.isdir(model_dir):
         logger.info("Create directory {}".format(model_dir))
         os.makedirs(model_dir)
@@ -110,16 +110,24 @@ def evaluateModels(**parsed_args):
     model, callbacks = set_up_model('Model', input_shape=X.shape[1:], outputdir=parsed_args['outputdir'])
 
     # Train
-    history = model.fit(X_train, Y_train, sample_weight=w_train,
-                        validation_data=(X_val, Y_val, w_val),
-                        callbacks=callbacks,
-                        batch_size=parsed_args['batch_size'],
-                        epochs=200, verbose=1)
+    if parsed_args['load_model'] is None:
+        history = model.fit(X_train, Y_train, sample_weight=w_train,
+                            validation_data=(X_val, Y_val, w_val),
+                            callbacks=callbacks,
+                            batch_size=parsed_args['batch_size'],
+                            epochs=200, verbose=1)
 
-    logger.info("Plot training history")
-    fname_loss = os.path.join(parsed_args['outputdir'], 'Loss')
-    plotting.plot_train_loss(fname_loss, history.history['loss'], history.history['val_loss'])
-    
+        logger.info("Plot training history")
+        fname_loss = os.path.join(parsed_args['outputdir'], 'Loss')
+        plotting.plot_train_loss(fname_loss, history.history['loss'], history.history['val_loss'])
+    else:
+        logger.info("Try loading model weights from {}".format(parsed_args['load_model']))
+        try:
+            model.load_weights(parsed_args['load_model']).expect_partial()
+        except:
+            logger.error("Failed to load model weights from {}".format(parsed_args['load_model']))
+            return
+
     #################
     # Evaluate performance
     Y_pred = model.predict(X_test, batch_size=int(0.1*len(X_test)))[:,1]
@@ -166,6 +174,9 @@ if __name__ == "__main__":
     parser.add_argument('--binning-config', dest='binning_config',
                         default='configs/binning/bins_10equal.json', type=str,
                         help="Binning config file for variables")
+    parser.add_argument('--load-model', dest='load_model',
+                        default=None, type=str,
+                        help="Path to trained model weights to be loaded")
 
     args = parser.parse_args()
     
@@ -181,4 +192,5 @@ if __name__ == "__main__":
         logger.error("Cannot find file: {}".format(args.observable_config))
         sys.exit("Config Failure")
 
+    configGPUs(args.gpu)
     evaluateModels(**vars(args))
