@@ -9,6 +9,7 @@ from model import get_model, get_callbacks
 
 from datahandler import DataHandler, DataToy
 from util import configGPUs, expandFilePath, read_dict_from_json
+from util import get_bins, write_chi2
 import plotting
 import logging
 
@@ -58,6 +59,11 @@ def set_up_model(model_name, input_shape, outputdir):
     callbacks = get_callbacks(model_dir)
 
     return model, callbacks
+
+def reweight(model, events):
+    preds = model.predict(events, batch_size=int(0.1*len(events)))[:,1]
+    r = np.nan_to_num( preds / (1. - preds) )
+    return r
 
 def evaluateModels(**parsed_args):
     #################
@@ -130,10 +136,16 @@ def evaluateModels(**parsed_args):
 
     #################
     # Evaluate performance
+    logger.info("Plot prediction distributions")
+    pred_train = model.predict(X_train, batch_size=int(0.1*len(X_train)))[:,1]
+    pred_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
+    fname_preds = os.path.join(parsed_args['outputdir'], 'preds')
+    plotting.plot_training_vs_validation(fname_preds, pred_train, Y_train, w_train, pred_val, Y_val, w_val)
+
+    # ROC curve
     Y_pred = model.predict(X_test, batch_size=int(0.1*len(X_test)))[:,1]
     Y_true = np.argmax(Y_test, axis=1)
 
-    # ROC curve
     logger.info("Plot ROC curve")
     fname_roc = os.path.join(parsed_args['outputdir'], 'ROC')
     plotting.plot_roc_curves(fname_roc, [Y_pred], Y_true, w_test)
@@ -142,6 +154,47 @@ def evaluateModels(**parsed_args):
     logger.info("Plot reliability curve")
     fname_cal = os.path.join(parsed_args['outputdir'], 'Calibration')
     plotting.plot_calibrations(fname_cal, [Y_pred], Y_true)
+
+    # Reweight simulation prior to truth in pseudo data
+    w_d = dataHandle.get_weights(rw_type=parsed_args['reweight_data'], vars_dict=observable_dict)
+
+    w_s = simHandle.get_weights()
+    # rescale simulation weights to pseudo data
+    ndata = w_d.sum()
+    nsim = w_s.sum()
+    w_s *= ndata / nsim
+
+    # New weights for simulation
+    X_prior = X[np.argmax(Y, axis=1)==0]
+    lr = reweight(model, X_prior)
+
+    fname_hlr = os.path.join(parsed_args['outputdir'], 'rhist')
+    plotting.plot_LR_distr(fname_hlr, [lr])
+
+    w_s_rw = w_s * lr
+
+    # Compare reweighted simulation prior to pseudo truth
+    for varname in parsed_args['observables']:
+        bins = get_bins(varname, parsed_args['binning_config'])
+        vname_mc = observable_dict[varname]['branch_mc']
+
+        # simulation prior
+        hist_prior, hist_prior_err = simHandle.get_histogram(vname_mc, w_s, bins)
+
+        # reweighted simulation distribution
+        hist_rw, hist_rw_err = simHandle.get_histogram(vname_mc, w_s_rw, bins)
+
+        # pseudo truth
+        hist_truth, hist_truth_err = dataHandle.get_histogram(vname_mc, w_d, bins)
+
+        # plot histograms and their ratio
+        figname = os.path.join(parsed_args['outputdir'], 'Reweight_{}'.format(varname))
+        logger.info("Plot reweighted distribution: {}".format(figname))
+
+        # Compute chi2s
+        text_chi2 = write_chi2(hist_truth, hist_truth_err, [hist_rw, hist_prior], [hist_rw_err, hist_truth_err], labels=['Reweighted', 'Prior'])
+        logger.info("  "+"    ".join(text_chi2))
+        plotting.plot_results(bins, (hist_prior, hist_prior_err), (hist_rw, hist_rw_err), histogram_truth=(hist_truth, hist_truth_err), figname=figname, texts=text_chi2, **observable_dict[varname])
 
 if __name__ == "__main__":
     import argparse
