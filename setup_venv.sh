@@ -13,7 +13,7 @@ else
     pip install --no-index --upgrade pip
 
     # Install packages
-    # numpy, pandas, tensorflow_gpu, packaging, matplotlib, sklearn
+    # packaging, matplotlib==3.3.2, pandas==1.1.5, scipy, scikit_learn==0.23.2, tensorflow_gpu, # numpy
     pip install --no-index -r $REQUIREMENTS
 
     # needed by external.OmniFold.modplot
