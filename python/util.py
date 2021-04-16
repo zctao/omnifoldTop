@@ -358,3 +358,49 @@ def fit_gaussian_to_hist(histogram, binedges, dofit=True):
         A, mu, sigma = tuple(par0)
 
     return A, mu, sigma
+
+def ks_2samp_weighted(data1, data2, weights1, weights2):
+    # Two sample Kolmogorov–Smirnov test with weighted data
+    # scipy.stats.ks_2samp does not support sample weights yet
+    # cf. https://github.com/scipy/scipy/issues/12315
+    # The following implementation is based on the solution here:
+    # https://stackoverflow.com/questions/40044375
+
+    index1 = np.argsort(data1)
+    index2 = np.argsort(data2)
+
+    d1_sorted = data1[index1]
+    d2_sorted = data2[index2]
+
+    w1_sorted = weights1[index1]
+    w2_sorted = weights2[index2]
+    w1_sorted /= np.mean(w1_sorted)
+    w2_sorted /= np.mean(w2_sorted)
+    n1 = sum(w1_sorted)
+    n2 = sum(w2_sorted)
+
+    d_all = np.concatenate([d1_sorted, d2_sorted])
+
+    cw1 = np.hstack([0, np.cumsum(w1_sorted)/n1])
+    cw2 = np.hstack([0, np.cumsum(w2_sorted)/n2])
+
+    cdf1_w = cw1[np.searchsorted(d1_sorted, d_all, side='right')]
+    cdf2_w = cw2[np.searchsorted(d2_sorted, d_all, side='right')]
+
+    ks = np.max(np.abs(cdf1_w - cdf2_w))
+
+    en = np.sqrt(n1 * n2 / (n1 + n2))
+    prob = stats.kstwobign.sf(ks * en)
+
+    return ks, prob
+
+def write_ks(data_ref, weights_ref, data_list, weights_list, labels):
+    assert(len(data_list)==len(labels))
+    stamps = ["KS test (two-sided p-value)"] #["$D_{KS}$:"]
+
+    for data, w, l in zip(data_list, weights_list, labels):
+        ks, prob = ks_2samp_weighted(data_ref, data, weights_ref, w)
+
+        stamps.append("{} = {:.2e} ({:.3f})".format(l, ks, prob))
+
+    return stamps
