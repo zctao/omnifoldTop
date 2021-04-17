@@ -53,7 +53,7 @@ def set_up_model(model_name, input_shape, outputdir):
         logger.info("Create directory {}".format(model_dir))
         os.makedirs(model_dir)
 
-    model = get_model(input_shape, nclass=2) # fixme
+    model = get_model(input_shape, model_name, nclass=2) # fixme
 
     # callbacks
     callbacks = get_callbacks(model_dir)
@@ -113,7 +113,7 @@ def evaluateModels(**parsed_args):
     #################
     # Model
     #################
-    model, callbacks = set_up_model('Model', input_shape=X.shape[1:], outputdir=parsed_args['outputdir'])
+    model, callbacks = set_up_model(parsed_args['model_name'], input_shape=X.shape[1:], outputdir=parsed_args['outputdir'])
 
     # Train
     if parsed_args['load_model'] is None:
@@ -221,6 +221,9 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--signal', required=True, nargs='+',
                         type=str,
                         help="Signal MC npz file names")
+    parser.add_argument('-n', '--model-name', dest='model_name', type=str,
+                        default = 'dense_3hl',
+                        help="Model name")
     parser.add_argument('-o', '--outputdir', default='./output_models',
                         help="Output directory")
     parser.add_argument('-r', '--reweight-data', dest='reweight_data',
