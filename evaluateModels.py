@@ -9,7 +9,7 @@ from model import get_model, get_callbacks
 
 from datahandler import DataHandler, DataToy
 from util import configGPUs, expandFilePath, read_dict_from_json
-from util import get_bins, write_chi2, write_ks
+from util import get_bins, write_chi2, write_ks, write_triangular_discriminators
 import plotting
 import logging
 
@@ -192,16 +192,21 @@ def evaluateModels(**parsed_args):
         logger.info("Plot reweighted distribution: {}".format(figname))
 
         # Compute chi2s
-        #text_metrics = write_chi2(hist_truth, hist_truth_err, [hist_rw, hist_prior], [hist_rw_err, hist_truth_err], labels=['Reweighted', 'Prior'])
+        text_chi2 = write_chi2(hist_truth, hist_truth_err, [hist_rw, hist_prior], [hist_rw_err, hist_truth_err], labels=['Reweighted', 'Prior'])
+        logger.info("  "+"    ".join(text_chi2))
+
+        # Compute triangular discriminator
+        text_tria = write_triangular_discriminators(hist_truth, [hist_rw, hist_prior], labels=['Reweighted', 'Prior'])
+        logger.info("  "+"    ".join(text_tria))
 
         # Compute KS test statistic
         arr_truth = dataHandle.get_variable_arr(vname_mc)
         arr_sim = simHandle.get_variable_arr(vname_mc)
-        text_metrics = write_ks(arr_truth, w_d, [arr_sim, arr_sim], [w_s_rw, w_s], labels=['Reweighted', 'Prior'])
+        text_ks = write_ks(arr_truth, w_d, [arr_sim, arr_sim], [w_s_rw, w_s], labels=['Reweighted', 'Prior'])
 
-        logger.info("  "+"    ".join(text_metrics))
+        logger.info("  "+"    ".join(text_ks))
 
-        plotting.plot_results(bins, (hist_prior, hist_prior_err), (hist_rw, hist_rw_err), histogram_truth=(hist_truth, hist_truth_err), figname=figname, texts=text_metrics, **observable_dict[varname])
+        plotting.plot_results(bins, (hist_prior, hist_prior_err), (hist_rw, hist_rw_err), histogram_truth=(hist_truth, hist_truth_err), figname=figname, texts=text_ks, **observable_dict[varname])
 
 if __name__ == "__main__":
     import argparse
