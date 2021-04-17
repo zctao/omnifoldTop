@@ -738,7 +738,11 @@ def plot_roc_curves(figname, Y_predicts, Y_true, weights, labels=None):
             auroc = roc_auc_score(Y_true, Y_pred, sample_weight=weights)
         except ValueError as ve:
             print("ValueError: {}".format(ve))
-            auroc = auc(fpr, tpr, reorder=True)
+            # sort
+            idx = np.argsort(fpr)
+            fpr = fpr[idx]
+            tpr = tpr[idx]
+            auroc = auc(fpr, tpr)
 
         ax.plot(fpr, tpr, lw=1, label='{} (auc = {:.3f})'.format(label, auroc))
         ax.legend()
