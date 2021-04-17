@@ -8,16 +8,10 @@ from sklearn.model_selection import train_test_split
 from model import get_model, get_callbacks
 
 from datahandler import DataHandler, DataToy
-from util import configGPUs, expandFilePath, read_dict_from_json
+from util import configGPUs, configRootLogger, expandFilePath, read_dict_from_json
 from util import get_bins, write_chi2, write_ks, write_triangular_discriminators
 import plotting
 import logging
-
-msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
-datefmt = '%Y-%m-%d %H:%M:%S'
-logging.basicConfig(format=msgfmt, datefmt=datefmt)
-logger = logging.getLogger("EvaluateModels")
-logger.setLevel(logging.DEBUG)
 
 def get_training_inputs(variables, dataHandle, simHandle, rw_type=None, vars_dict=None):
     ###
@@ -66,6 +60,15 @@ def reweight(model, events):
     return r
 
 def evaluateModels(**parsed_args):
+
+    logger = logging.getLogger('EvalModel')
+
+    # log arguments
+    for argkey, argvalue in sorted(parsed_args.items()):
+        if argvalue is None:
+            continue
+        logger.info('Argument {}: {}'.format(argkey, argvalue))
+
     #################
     # Variables
     #################
@@ -236,6 +239,9 @@ if __name__ == "__main__":
                         help="Batch size for training")
     parser.add_argument('--weight', default='w',
                         help="name of event weight")
+    parser.add_argument('-v', '--verbose',
+                        action='count', default=0,
+                        help="Verbosity level")
     parser.add_argument('--observable-config', dest='observable_config',
                         default='configs/observables/vars_klfitter.json',
                         help="JSON configurations for observables")
@@ -247,7 +253,12 @@ if __name__ == "__main__":
                         help="Path to trained model weights to be loaded")
 
     args = parser.parse_args()
-    
+
+    logfile = os.path.join(args.outputdir, 'log.txt')
+    configRootLogger(filename=logfile)
+    logger = logging.getLogger('EvalModel')
+    logger.setLevel(logging.DEBUG if args.verbose > 0 else logging.INFO)
+
     if not os.path.isdir(args.outputdir):
         logger.info("Create output directory {}".format(args.outputdir))
         os.makedirs(args.outputdir)
