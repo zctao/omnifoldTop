@@ -24,14 +24,34 @@ def get_callbacks(model_filepath=None):
     else:
         return [EarlyStopping]
 
-def get_model(input_shape, nclass=2):
+def dense_3hl(input_shape, nclass=2):
     inputs = keras.layers.Input(input_shape)
     hidden_layer_1 = keras.layers.Dense(100, activation='relu')(inputs)
     hidden_layer_2 = keras.layers.Dense(100, activation='relu')(hidden_layer_1)
     hidden_layer_3 = keras.layers.Dense(100, activation='relu')(hidden_layer_2)
     outputs = keras.layers.Dense(nclass, activation='softmax')(hidden_layer_3)
 
-    model = keras.models.Model(inputs=inputs, outputs=outputs)
+    nn = keras.models.Model(inputs=inputs, outputs=outputs)
+
+    return nn
+
+def dense_6hl(input_shape, nclass=2):
+    inputs = keras.layers.Input(input_shape)
+    hidden_layer_1 = keras.layers.Dense(100, activation='relu')(inputs)
+    hidden_layer_2 = keras.layers.Dense(100, activation='relu')(hidden_layer_1)
+    hidden_layer_3 = keras.layers.Dense(100, activation='relu')(hidden_layer_2)
+    hidden_layer_4 = keras.layers.Dense(100, activation='relu')(hidden_layer_3)
+    hidden_layer_5 = keras.layers.Dense(100, activation='relu')(hidden_layer_4)
+    hidden_layer_6 = keras.layers.Dense(100, activation='relu')(hidden_layer_5)
+    outputs = keras.layers.Dense(nclass, activation='softmax')(hidden_layer_6)
+
+    nn = keras.models.Model(inputs=inputs, outputs=outputs)
+
+    return nn
+
+def get_model(input_shape, model_name='dense_3hl', nclass=2):
+
+    model = eval(model_name+"(input_shape, nclass)")
 
     model.compile(loss='categorical_crossentropy',
                   optimizer='Adam',
