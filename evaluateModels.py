@@ -91,10 +91,12 @@ def evaluateModels(**parsed_args):
     fnames_d = parsed_args['data']
     logger.info("(Pseudo) data files: {}".format(' '.join(fnames_d)))
     dataHandle = DataHandler(fnames_d, wname, variable_names=vars_det+vars_mc)
+    logger.info("Total number of pseudo data events: {}".format(dataHandle.get_nevents()))
 
     fnames_s = parsed_args['signal']
     logger.info("Simulation files: {}".format(' '.join(fnames_s)))
     simHandle = DataHandler(fnames_s, wname, variable_names=vars_det+vars_mc)
+    logger.info("Total number of simulation events: {}".format(simHandle.get_nevents()))
 
     ####
     #dataHandle = DataToy(1000000, 1, 1.5)
