@@ -42,15 +42,15 @@ def get_training_inputs(variables, dataHandle, simHandle, rw_type=None, vars_dic
     return X, Y, w
 
 def set_up_model(model_name, input_shape, outputdir):
-    model_dir = os.path.join(outputdir, 'Models', model_name)
+    model_dir = os.path.join(outputdir, 'Models')
     if not os.path.isdir(model_dir):
         logger.info("Create directory {}".format(model_dir))
         os.makedirs(model_dir)
 
-    model = get_model(input_shape, model_name, nclass=2) # fixme
+    model = get_model(input_shape, model_name, nclass=2)
 
     # callbacks
-    callbacks = get_callbacks(model_dir)
+    callbacks = get_callbacks(os.path.join(model_dir, model_name))
 
     return model, callbacks
 
