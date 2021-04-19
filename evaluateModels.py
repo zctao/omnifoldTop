@@ -107,6 +107,12 @@ def evaluateModels(**parsed_args):
     #################
     # Training arrays
     # Truth level
+
+    # FIXME hard code input variables for pfn for now
+    if parsed_args['model_name'] == 'pfn':
+        vars_mc = [['th_pt_MC', 'th_y_MC', 'th_phi_MC', 'th_e_MC'],
+                   ['tl_pt_MC', 'tl_y_MC', 'tl_phi_MC', 'tl_e_MC']]
+
     X, Y, w = get_training_inputs(vars_mc, dataHandle, simHandle, rw_type=parsed_args['reweight_data'], vars_dict=observable_dict)
 
     # Split into training, validation, and test sets: 75%, 15%, 10%

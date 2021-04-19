@@ -126,6 +126,17 @@ class DataHandler(object):
 
         return weights
 
+    def get_features_array(self, features):
+        ndim_features = np.asarray(features).ndim
+        if ndim_features == 1:
+            # ndarray of shape (n_events, n_features)
+            X = np.vstack([self.get_variable_arr(varname) for varname in features]).T
+            return X
+        else:
+            # ndarray of shape (n_events, <feature shape>)
+            X = np.stack([self.get_features_array(varnames) for varnames in features], axis=1)
+            return X
+
     def get_dataset(self, features, label, standardize=False):
         """ features: a list of variable names
             label: int for class label
@@ -133,8 +144,7 @@ class DataHandler(object):
                 X: numpy array of the shape (n_events, n_features)
                 Y: numpy array for event label of the shape (n_events,)
         """
-        # ndarray of shape (n_events, n_features) for training
-        X = np.vstack([self.get_variable_arr(varname) for varname in features]).T
+        X = self.get_features_array(features)
 
         if standardize:
             Xmean = np.mean(X, axis=0)

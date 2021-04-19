@@ -24,6 +24,18 @@ def get_callbacks(model_filepath=None):
     else:
         return [EarlyStopping]
 
+def get_model(input_shape, model_name='dense_3hl', nclass=2):
+
+    model = eval(model_name+"(input_shape, nclass)")
+
+    model.compile(loss='categorical_crossentropy',
+                  optimizer='Adam',
+                  metrics=['accuracy'])
+
+    model.summary()
+
+    return model
+
 def dense_3hl(input_shape, nclass=2):
     inputs = keras.layers.Input(input_shape)
     hidden_layer_1 = keras.layers.Dense(100, activation='relu')(inputs)
@@ -49,14 +61,35 @@ def dense_6hl(input_shape, nclass=2):
 
     return nn
 
-def get_model(input_shape, model_name='dense_3hl', nclass=2):
+def pfn(input_shape, nclass=2, nlatent=8):
+    # https://arxiv.org/pdf/1810.05165.pdf
 
-    model = eval(model_name+"(input_shape, nclass)")
+    # expected input_shape: (n_particles, n_features...)
+    assert(len(input_shape) > 1)
+    nparticles = input_shape[0]
 
-    model.compile(loss='categorical_crossentropy',
-                  optimizer='Adam',
-                  metrics=['accuracy'])
+    inputs = keras.layers.Input(input_shape, name='Input')
 
-    model.summary()
+    latent_layers = []
+    for i in range(nparticles):
+        particle_input = keras.layers.Lambda(lambda x: x[:,i,:], name='Lambda_{}'.format(i))(inputs)
 
-    return model
+        # per particle map to the latent space
+        Phi_1 = keras.layers.Dense(100, activation='relu', name='Phi_{}_1'.format(i))(particle_input)
+        Phi_2 = keras.layers.Dense(100, activation='relu', name='Phi_{}_2'.format(i))(Phi_1)
+        Phi = keras.layers.Dense(nlatent, activation='relu', name='Phi_{}'.format(i))(Phi_2)
+        latent_layers.append(Phi)
+
+    # add the latent representation
+    added = keras.layers.Add()(latent_layers)
+
+    F_1 = keras.layers.Dense(100, activation='relu', name='F_1')(added)
+    F_2 = keras.layers.Dense(100, activation='relu', name='F_2')(F_1)
+    F_3 = keras.layers.Dense(100, activation='relu', name='F_3')(F_2)
+
+    # output
+    outputs = keras.layers.Dense(nclass, activation='softmax', name='Output')(F_3)
+
+    nn = keras.models.Model(inputs=inputs, outputs=outputs)
+
+    return nn
