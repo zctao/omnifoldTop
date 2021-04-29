@@ -62,7 +62,7 @@ def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
 
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if not gpus:
-        logger.error("No GPU found!")
+        logging.error("No GPU found!")
         raise RuntimeError("No GPU found!")
 
     if gpu is not None:
