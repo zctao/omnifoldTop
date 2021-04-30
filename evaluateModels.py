@@ -9,7 +9,7 @@ from model import get_model, get_callbacks
 
 from datahandler import DataHandler, DataToy
 from util import configGPUs, configRootLogger, expandFilePath, read_dict_from_json
-from util import get_bins, write_chi2, write_ks, write_triangular_discriminators
+from util import get_bins, write_chi2, write_ks, write_triangular_discriminators, ks_2samp_weighted
 import plotting
 import logging
 
@@ -157,7 +157,20 @@ def evaluateModels(**parsed_args):
     ####
 
     #################
-    # Training data
+    # Event weights
+    # pseudo data weights
+    w_d = dataHandle.get_weights(rw_type=parsed_args['reweight_data'], vars_dict=observable_dict)
+
+    # prior simulation weights
+    w_s = simHandle.get_weights()
+
+    # normalize simulation weights to pseudo data
+    ndata = w_d.sum()
+    nsim = w_s.sum()
+    w_s *= ndata / nsim
+
+    #################
+    # Input datasets
     #################
     # Training arrays
     # Truth level
@@ -174,57 +187,58 @@ def evaluateModels(**parsed_args):
     X_val, X_test, Y_val, Y_test, w_val, w_test = train_test_split(X_test, Y_test, w_test, test_size=0.4)
 
     #################
-    # Model
-    #################
-    model_dir = os.path.join(parsed_args['outputdir'], 'Models')
+    # Train model and reweight simulation
+    weights_rw = []
+    for i in range(parsed_args['nrun']):
+        logger.info("RUN {}".format(i))
 
-    model = train_model((X_train, Y_train, w_train),
-                        (X_val,   Y_val,   w_val),
-                        (X_test,  Y_test,  w_test),
-                        model_name = parsed_args['model_name'],
-                        model_dir = model_dir,
-                        batch_size = parsed_args['batch_size'],
-                        load_model = parsed_args['load_model'])
+        model_dir = os.path.join(parsed_args['outputdir'], 'Models_{}'.format(i))
 
-    #################
-    # Reweight simulation to the truth in pseudo data
+        model = train_model((X_train, Y_train, w_train),
+                            (X_val,   Y_val,   w_val),
+                            (X_test,  Y_test,  w_test),
+                            model_name = parsed_args['model_name'],
+                            model_dir = model_dir,
+                            batch_size = parsed_args['batch_size'],
+                            load_model = parsed_args['load_model'])
 
-    # reweighting factors
-    X_prior = X[np.argmax(Y, axis=1)==0]
-    lr = reweight(model, X_prior)
+        # Reweight simulation to the truth in pseudo data
+        # reweighting factors
+        X_prior = X[np.argmax(Y, axis=1)==0]
+        lr = reweight(model, X_prior)
 
-    logger.info("Plot distribution of reweighitng factors")
-    fname_hlr = os.path.join(model_dir, 'rhist')
-    plotting.plot_LR_distr(fname_hlr, [lr])
+        logger.info("Plot distribution of reweighitng factors")
+        fname_hlr = os.path.join(model_dir, 'rhist')
+        plotting.plot_LR_distr(fname_hlr, [lr])
 
-    # pseudo data weights
-    w_d = dataHandle.get_weights(rw_type=parsed_args['reweight_data'], vars_dict=observable_dict)
-
-    # prior simulation weights
-    w_s = simHandle.get_weights()
-
-    # normalize simulation weights to pseudo data
-    ndata = w_d.sum()
-    nsim = w_s.sum()
-    w_s *= ndata / nsim
-
-    # New weights for simulation
-    w_s_rw = w_s * lr
+        # New weights for simulation
+        weights_rw.append(w_s * lr)
 
     #################
     # Compare reweighted simulation prior to pseudo truth
+
+    w_s_rw = weights_rw[0]
+
     for varname in parsed_args['observables']:
+        logger.info(varname)
         bins = get_bins(varname, parsed_args['binning_config'])
         vname_mc = observable_dict[varname]['branch_mc']
+
+        # pseudo truth
+        hist_truth, hist_truth_err = dataHandle.get_histogram(vname_mc, w_d, bins)
 
         # simulation prior
         hist_prior, hist_prior_err = simHandle.get_histogram(vname_mc, w_s, bins)
 
-        # reweighted simulation distribution
-        hist_rw, hist_rw_err = simHandle.get_histogram(vname_mc, w_s_rw, bins)
+        # reweighted simulation distributions
+        hists_rw, hists_rw_err = simHandle.get_histogram(vname_mc, weights_rw, bins)
 
-        # pseudo truth
-        hist_truth, hist_truth_err = dataHandle.get_histogram(vname_mc, w_d, bins)
+        # plot the first reweighted distribution
+        assert(len(hists_rw) > 0)
+        hist_rw = hists_rw[0]
+        hist_rw_err = hists_rw_err[0]
+        #hist_rw = np.mean(np.asarray(hists_rw), axis=0)
+        #hist_rw_err = np.std(np.asarray(hists_rw), axis=0, ddof=1)
 
         # plot histograms and their ratio
         figname = os.path.join(parsed_args['outputdir'], 'Reweight_{}'.format(varname))
@@ -247,6 +261,21 @@ def evaluateModels(**parsed_args):
 
         plotting.plot_results(bins, (hist_prior, hist_prior_err), (hist_rw, hist_rw_err), histogram_truth=(hist_truth, hist_truth_err), figname=figname, texts=text_ks, **observable_dict[varname])
 
+        ####
+        # plot all trials
+        if len(hists_rw) > 1:
+            figname_all = os.path.join(parsed_args['outputdir'], 'Reweight_{}_allruns'.format(varname))
+            plotting.plot_hists_resamples(figname_all, bins, hists_rw, hist_prior, hist_truth, **observable_dict[varname])
+
+        # plot the distribution of KS test statistic
+        ks_list = []
+        for rw_s in weights_rw:
+            ks = ks_2samp_weighted(arr_truth, arr_sim, w_d, rw_s)[0]
+            ks_list.append(ks)
+        hist_ks, bins_ks = np.histogram(ks_list)
+        fname_ks = os.path.join(parsed_args['outputdir'], 'KSDistr_{}'.format(varname))
+        plotting.plot_histograms1d(fname_ks, bins_ks, [hist_ks], xlabel="KS")
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
@@ -260,7 +289,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--signal', required=True, nargs='+',
                         type=str,
                         help="Signal MC npz file names")
-    parser.add_argument('-n', '--model-name', dest='model_name', type=str,
+    parser.add_argument('-m', '--model-name', dest='model_name', type=str,
                         default = 'dense_3hl',
                         help="Model name")
     parser.add_argument('-o', '--outputdir', default='./output_models',
@@ -273,6 +302,8 @@ if __name__ == "__main__":
                         help="Manually select one of the GPUs to run")
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=512,
                         help="Batch size for training")
+    parser.add_argument('-n', '--nrun', type=int, default=1,
+                        help="Number of times to repeat the reweighting")
     parser.add_argument('--weight', default='w',
                         help="name of event weight")
     parser.add_argument('-v', '--verbose',

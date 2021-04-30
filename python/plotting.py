@@ -620,7 +620,7 @@ def plot_hists_resamples(figname, bins, histograms, hist_prior, hist_truth=None,
     for i,hist in enumerate(histograms):
         ymax = max(hist.max(), ymax)
         color=tuple(np.random.random(3))+(alpha,)
-        label='Resampled' if i==0 else None
+        label='Rerun' if i==0 else None
         draw_hist_as_graph(ax0, bins, hist, ls='--', lw=1, color=color, label=label)
 
     # mean of each bin
