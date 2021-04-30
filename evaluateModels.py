@@ -41,8 +41,7 @@ def get_training_inputs(variables, dataHandle, simHandle, rw_type=None, vars_dic
 
     return X, Y, w
 
-def set_up_model(model_name, input_shape, outputdir):
-    model_dir = os.path.join(outputdir, 'Models')
+def set_up_model(model_name, input_shape, model_dir):
     if not os.path.isdir(model_dir):
         logger.info("Create directory {}".format(model_dir))
         os.makedirs(model_dir)
@@ -58,6 +57,59 @@ def reweight(model, events):
     preds = model.predict(events, batch_size=int(0.1*len(events)))[:,1]
     r = np.nan_to_num( preds / (1. - preds) )
     return r
+
+def train_model(Data_train, Data_val, Data_test, model_name, model_dir,
+                batch_size, load_model=None):
+
+    X_train, Y_train, w_train = Data_train
+    X_val, Y_val, w_val = Data_val
+    X_test, Y_test, w_test = Data_test
+
+    model, callbacks = set_up_model(model_name, model_dir=model_dir,
+                                    input_shape=X_train.shape[1:])
+
+    if load_model is None:
+        # start training
+        history = model.fit(X_train, Y_train, sample_weight=w_train,
+                            validation_data=(X_val, Y_val, w_val),
+                            callbacks=callbacks,
+                            batch_size=batch_size,
+                            epochs=200, verbose=1)
+
+        logger.info("Plot training history")
+        fname_loss = os.path.join(model_dir, 'Loss')
+        plotting.plot_train_loss(fname_loss, history.history['loss'], history.history['val_loss'])
+    else:
+        logger.info("Try loading model weights from {}".format(load_model))
+        try:
+            model.load_weights(parsed_args['load_model']).expect_partial()
+        except:
+            logger.error("Failed to load model weights from {}".format(parsed_args['load_model']))
+            exit()
+
+    # report performance
+    pred_train = model.predict(X_train, batch_size=int(0.1*len(X_train)))[:,1]
+    pred_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
+
+    logger.info("Plot prediction distributions")
+    fname_preds = os.path.join(model_dir, 'preds')
+    plotting.plot_training_vs_validation(fname_preds, pred_train, Y_train, w_train, pred_val, Y_val, w_val)
+
+    #
+    Y_pred = model.predict(X_test, batch_size=int(0.1*len(X_test)))[:,1]
+    Y_true = np.argmax(Y_test, axis=1)
+
+    # ROC curve
+    logger.info("Plot ROC curve")
+    fname_roc = os.path.join(model_dir, 'ROC')
+    plotting.plot_roc_curves(fname_roc, [Y_pred], Y_true, w_test)
+
+    # Calibration plot
+    logger.info("Plot reliability curve")
+    fname_cal = os.path.join(model_dir, 'Calibration')
+    plotting.plot_calibrations(fname_cal, [Y_pred], Y_true)
+
+    return model
 
 def evaluateModels(**parsed_args):
 
@@ -124,66 +176,42 @@ def evaluateModels(**parsed_args):
     #################
     # Model
     #################
-    model, callbacks = set_up_model(parsed_args['model_name'], input_shape=X.shape[1:], outputdir=parsed_args['outputdir'])
+    model_dir = os.path.join(parsed_args['outputdir'], 'Models')
 
-    # Train
-    if parsed_args['load_model'] is None:
-        history = model.fit(X_train, Y_train, sample_weight=w_train,
-                            validation_data=(X_val, Y_val, w_val),
-                            callbacks=callbacks,
-                            batch_size=parsed_args['batch_size'],
-                            epochs=200, verbose=1)
-
-        logger.info("Plot training history")
-        fname_loss = os.path.join(parsed_args['outputdir'], 'Loss')
-        plotting.plot_train_loss(fname_loss, history.history['loss'], history.history['val_loss'])
-    else:
-        logger.info("Try loading model weights from {}".format(parsed_args['load_model']))
-        try:
-            model.load_weights(parsed_args['load_model']).expect_partial()
-        except:
-            logger.error("Failed to load model weights from {}".format(parsed_args['load_model']))
-            return
+    model = train_model((X_train, Y_train, w_train),
+                        (X_val,   Y_val,   w_val),
+                        (X_test,  Y_test,  w_test),
+                        model_name = parsed_args['model_name'],
+                        model_dir = model_dir,
+                        batch_size = parsed_args['batch_size'],
+                        load_model = parsed_args['load_model'])
 
     #################
-    # Evaluate performance
-    logger.info("Plot prediction distributions")
-    pred_train = model.predict(X_train, batch_size=int(0.1*len(X_train)))[:,1]
-    pred_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
-    fname_preds = os.path.join(parsed_args['outputdir'], 'preds')
-    plotting.plot_training_vs_validation(fname_preds, pred_train, Y_train, w_train, pred_val, Y_val, w_val)
+    # Reweight simulation to the truth in pseudo data
 
-    # ROC curve
-    Y_pred = model.predict(X_test, batch_size=int(0.1*len(X_test)))[:,1]
-    Y_true = np.argmax(Y_test, axis=1)
+    # reweighting factors
+    X_prior = X[np.argmax(Y, axis=1)==0]
+    lr = reweight(model, X_prior)
 
-    logger.info("Plot ROC curve")
-    fname_roc = os.path.join(parsed_args['outputdir'], 'ROC')
-    plotting.plot_roc_curves(fname_roc, [Y_pred], Y_true, w_test)
+    logger.info("Plot distribution of reweighitng factors")
+    fname_hlr = os.path.join(model_dir, 'rhist')
+    plotting.plot_LR_distr(fname_hlr, [lr])
 
-    # Calibration plot
-    logger.info("Plot reliability curve")
-    fname_cal = os.path.join(parsed_args['outputdir'], 'Calibration')
-    plotting.plot_calibrations(fname_cal, [Y_pred], Y_true)
-
-    # Reweight simulation prior to truth in pseudo data
+    # pseudo data weights
     w_d = dataHandle.get_weights(rw_type=parsed_args['reweight_data'], vars_dict=observable_dict)
 
+    # prior simulation weights
     w_s = simHandle.get_weights()
-    # rescale simulation weights to pseudo data
+
+    # normalize simulation weights to pseudo data
     ndata = w_d.sum()
     nsim = w_s.sum()
     w_s *= ndata / nsim
 
     # New weights for simulation
-    X_prior = X[np.argmax(Y, axis=1)==0]
-    lr = reweight(model, X_prior)
-
-    fname_hlr = os.path.join(parsed_args['outputdir'], 'rhist')
-    plotting.plot_LR_distr(fname_hlr, [lr])
-
     w_s_rw = w_s * lr
 
+    #################
     # Compare reweighted simulation prior to pseudo truth
     for varname in parsed_args['observables']:
         bins = get_bins(varname, parsed_args['binning_config'])
