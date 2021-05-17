@@ -214,7 +214,7 @@ if __name__ == "__main__":
                         default=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_pt', 'th_y', 'th_eta', 'th_phi', 'th_m', 'th_e', 'th_pout', 'tl_pt', 'tl_y', 'tl_eta', 'tl_phi', 'tl_m', 'tl_e', 'tl_pout'],
                         help="List of observables to unfold")
     parser.add_argument('--observable-config', dest='observable_config',
-                        default='configs/observables/vars_klfitter.json',
+                        default='configs/observables/vars_ttbardiffXs.json',
                         help="JSON configurations for observables")
     parser.add_argument('-d', '--data', required=True, nargs='+',
                         type=str,
@@ -238,7 +238,7 @@ if __name__ == "__main__":
                         help="Plot pairwise correlations of training variables")
     parser.add_argument('-i', '--iterations', type=int, default=4,
                         help="Numbers of iterations for unfolding")
-    parser.add_argument('--weight', default='w',
+    parser.add_argument('--weight', default='totalWeight_nominal',
                         help="name of event weight")
     parser.add_argument('-m', '--background-mode', dest='background_mode',
                         choices=['default', 'negW', 'multiClass'],
