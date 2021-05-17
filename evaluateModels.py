@@ -304,13 +304,13 @@ if __name__ == "__main__":
                         help="Batch size for training")
     parser.add_argument('-n', '--nrun', type=int, default=1,
                         help="Number of times to repeat the reweighting")
-    parser.add_argument('--weight', default='w',
+    parser.add_argument('--weight', default='totalWeight_nominal',
                         help="name of event weight")
     parser.add_argument('-v', '--verbose',
                         action='count', default=0,
                         help="Verbosity level")
     parser.add_argument('--observable-config', dest='observable_config',
-                        default='configs/observables/vars_klfitter.json',
+                        default='configs/observables/vars_ttbardiffXs.json',
                         help="JSON configurations for observables")
     parser.add_argument('--binning-config', dest='binning_config',
                         default='configs/binning/bins_10equal.json', type=str,
