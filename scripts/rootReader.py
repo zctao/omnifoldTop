@@ -96,9 +96,13 @@ def readRoot(**parsed_args):
         nparr_truth = arrays_truth_matched.to_numpy()
 
     # apply reco level selections
-    sel = nparr_reco['klfitter_logLikelihood'] > -52.0
-    nparr_reco = nparr_reco[sel]
-    nparr_truth = nparr_truth[sel]
+    if parsed_args['truth_level'] == 'parton':
+        sel = nparr_reco['klfitter_logLikelihood'] > -52.0
+        nparr_reco = nparr_reco[sel]
+        nparr_truth = nparr_truth[sel]
+    else:
+        # cut on PseudoTop for now
+        pass
 
     if parsed_args['pad_unmatched']:
         # place unmatched truth events at the end and pad reco array with dummy events
@@ -109,12 +113,13 @@ def readRoot(**parsed_args):
     assert(len(nparr_reco)==len(nparr_truth))
 
     #####
-    # somehow some branches of the truth events have value nan or inf
-    # e.g. 'MC_thad_afterFSR_y'
-    sel_notnan = np.invert(np.isnan(nparr_truth['MC_thad_afterFSR_y']))
-    nparr_reco = nparr_reco[sel_notnan]
-    nparr_truth = nparr_truth[sel_notnan]
-    assert(not np.any(np.isnan(nparr_truth['MC_thad_afterFSR_y'])))
+    if parsed_args['truth_level'] == 'parton':
+        # somehow some branches of the parton events have value nan or inf
+        # e.g. 'MC_thad_afterFSR_y'
+        sel_notnan = np.invert(np.isnan(nparr_truth['MC_thad_afterFSR_y']))
+        nparr_reco = nparr_reco[sel_notnan]
+        nparr_truth = nparr_truth[sel_notnan]
+        assert(not np.any(np.isnan(nparr_truth['MC_thad_afterFSR_y'])))
     #####
 
     # rename truth array fields if needed
