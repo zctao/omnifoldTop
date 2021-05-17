@@ -22,7 +22,7 @@ def MeVtoGeV(array):
         # jet_pt, jet_e, met_met, mwt, lep_pt, lep_m
         isObjectVar = fname in ['jet_pt', 'jet_e', 'met_met', 'mwt', 'lep_pt', 'lep_m']
         # MC_*_afterFSR_[pt,m,E]
-        isPartonVar = fname.startswith('MC_') and ( fname.endswith('_pt') or fname.endswith('_m') or fname.endswith('_E') )
+        isPartonVar = fname.startswith('MC_') and ( fname.endswith('_pt') or fname.endswith('_m') or fname.endswith('_E') or fname.endswith('_Ht') or fname.endswith('_pout'))
 
         if isObjectVar or isPartonVar:
             try:
