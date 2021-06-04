@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
 from util import parse_input_name, normalize_histogram
-# for now
-import external.OmniFold.modplot as modplot
+from util import make_hist
 
 def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes', weight_columns=[]):
     """
@@ -172,10 +171,11 @@ class DataHandler(object):
                 varr = self.get_variable_arr(variable)
                 # check the weight array length is the same as the variable array
                 assert(len(varr) == len(weights))
-                hist, hist_err = modplot.calc_hist(varr, weights=weights, bins=bin_edges, density=False)[:2]
+                h, h_err = make_hist(varr, weights=weights, bins=bin_edges, density=False)[:2]
+
                 if normalize:
-                    normalize_histogram(bin_edges, hist, hist_err)
-                return hist, hist_err
+                    normalize_histogram(bin_edges, h, h_err)
+                return h, h_err
             elif weights.ndim == 2: # make the 2D array into a list of 1D array
                 return self.get_histogram(variable, list(weights), bin_edges, normalize)
             else:

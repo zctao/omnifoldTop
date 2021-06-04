@@ -5,11 +5,11 @@ import time
 import tracemalloc
 
 from resolution import resolution
-import external.OmniFold.modplot as modplot
 
 from plotting import plot_histograms1d
 from util import getLogger, load_dataset, get_variable_arr
 from util import read_dict_from_json, write_dict_to_json
+from util import make_hist
 
 logger = getLogger('Binning')
 
@@ -100,7 +100,7 @@ def compute_bins(varname, data_reco_arr, data_truth_arr, weights_reco, weights_t
     # merge bins from left to right based on variable resolutions
     # as well as statistical uncertainties in reco bins
 
-    hist_fine, hist_fine_err = modplot.calc_hist(data_reco_arr, weights=weights_reco, bins=fineBins, density=False)[:2]
+    hist_fine, hist_fine_err = make_hist(data_reco_arr, weights=weights_reco, bins=fineBins)
 
     delta = observable_dict[varname].get('delta_res', 1.)
     max_bin_err = observable_dict[varname].get('max_bin_error', 0.05)
@@ -110,8 +110,8 @@ def compute_bins(varname, data_reco_arr, data_truth_arr, weights_reco, weights_t
     if do_plot:
         figname_var = os.path.join(outdir,'{}_binning'.format(varname))
         xlabel_var = observable_dict[varname].get('xlabel')
-        hist_reco, hist_reco_err = modplot.calc_hist(data_reco_arr, weights=weights_reco, bins=resBins, density=False)[:2]
-        hist_truth, hist_truth_err = modplot.calc_hist(data_truth_arr, weights=weights_truth, bins=resBins, density=False)[:2]
+        hist_reco, hist_reco_err = make_hist(data_reco_arr, weights=weights_reco, bins=resBins)
+        hist_truth, hist_truth_err = make_hist(data_truth_arr, weights=weights_truth, bins=resBins)
         plot_histograms1d(figname_var, resBins, [hist_reco, hist_truth], [hist_reco_err, hist_truth_err], labels=['Reco', 'Truth'], xlabel=xlabel_var,plottypes=['g','h'], marker='+')
 
     return resBins

@@ -5,9 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import math
-import external.OmniFold.modplot as modplot
 
-from util import add_histograms, compute_chi2, compute_diff_chi2
+from util import make_hist, add_histograms, compute_chi2, compute_diff_chi2
 from util import gaus, fit_gaussian_to_hist
 
 from sklearn.metrics import roc_curve, auc, roc_auc_score
@@ -559,7 +558,7 @@ def plot_LR_distr(figname, ratios, labels=None):
 
     hists, hists_unc = [], []
     for r in ratios:
-        hist_r, hist_r_unc = modplot.calc_hist(r, bins=bins_r, density=True)[:2]
+        hist_r, hist_r_unc = make_hist(r, bins=bins_r, density=True)
         hists.append(hist_r)
         hists_unc.append(hist_r_unc)
 

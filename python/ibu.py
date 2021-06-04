@@ -2,9 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 
-import external.OmniFold.modplot as modplot
 import plotting
-from util import add_histograms
+from util import make_hist, add_histograms
 import logging
 logger = logging.getLogger('IBU')
 logger.setLevel(logging.DEBUG)
@@ -71,17 +70,17 @@ class IBU(object):
         ######
         # detector level
         # observed distribution
-        hist_obs, hist_obs_err = modplot.calc_hist(self.array_obs, weights=weights_obs, bins=self.bins_det, density=False)[:2]
+        hist_obs, hist_obs_err = make_hist(self.array_obs, weights=weights_obs, bins=self.bins_det)
 
         # if background is not none, subtract background
         if self.array_bkg is not None:
-            hist_bkg, hist_bkg_err = modplot.calc_hist(self.array_bkg, weights=weights_bkg, bins=self.bins_det, density=False)[:2]
+            hist_bkg, hist_bkg_err = make_hist(self.array_bkg, weights=weights_bkg, bins=self.bins_det)
             hist_obs, hist_obs_err = add_histograms(hist_obs, hist_bkg, hist_obs_err, hist_bkg_err, c1=1., c2=-1.)
 
         ######
         # truth level
         # prior distribution
-        hist_prior, hist_prior_err = modplot.calc_hist(self.array_gen, weights=weights_sig, bins=self.bins_mc, density=False)[:2]
+        hist_prior, hist_prior_err = make_hist(self.array_gen, weights=weights_sig, bins=self.bins_mc)
 
         # bin widths
         wbins_det = self.bins_det[1:] - self.bins_det[:-1]

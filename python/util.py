@@ -7,6 +7,9 @@ from packaging import version
 import tensorflow as tf
 import logging
 
+import hist
+from hist import Hist
+
 def parse_input_name(fname):
     fname_list = fname.split('*')
     if len(fname_list) == 1:
@@ -219,6 +222,18 @@ def divide_histograms(h_numer, h_denom, h_numer_err=None, h_denom_err=None):
     ratio_err = np.sqrt(rerrsq)
 
     return ratio, ratio_err
+
+def make_hist(data, bins, weights=None, density=False):
+    h = Hist(hist.axis.Variable(bins), storage=hist.storage.Weight())
+    h.fill(data, weight=weights)
+
+    hval = h.view()['value']
+    herr = np.sqrt(h.view()['variance'])
+
+    if density:
+        normalize_histogram(bins, hval, herr)
+
+    return hval, herr
 
 def compute_triangular_discr(histogram_1, histogram_2):
     if len(histogram_1) != len(histogram_2):
