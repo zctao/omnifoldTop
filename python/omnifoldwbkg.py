@@ -8,7 +8,9 @@ from sklearn.model_selection import train_test_split
 import plotting
 from datahandler import DataHandler
 from model import get_model, get_callbacks
-from util import add_histograms, write_chi2
+from util import write_chi2
+from histogramming import set_hist_errors, get_values_and_errors
+
 import logging
 logger = logging.getLogger('OmniFoldwBkg')
 logger.setLevel(logging.DEBUG)
@@ -130,12 +132,15 @@ class OmniFoldwBkg(object):
     def get_unfolded_distribution(self, variable, bins, all_iterations=False,
                                   bootstrap_uncertainty=True, normalize=True):
         ws = self.unfolded_weights if all_iterations else self.unfolded_weights[-1]
-        hist_uf, hist_uf_err = self.datahandle_sig.get_histogram(variable, ws, bins)
+        h_uf = self.datahandle_sig.get_histogram(variable, ws, bins)
+        # h_uf is a hist object or a list of hist objects
 
         bin_corr = None # bin correlations
         if bootstrap_uncertainty:
             if self.unfolded_weights_resample is not None:
-                hist_uf_err, bin_corr = self._get_unfolded_uncertainty(variable, bins, all_iterations)
+                h_uf_err, bin_corr = self._get_unfolded_uncertainty(variable, bins, all_iterations)
+                # replace the sumw2 error with the bootstrap error
+                set_hist_errors(h_uf, h_uf_err)
             else:
                 logger.warn("  Unable to compute bootstrap uncertainty. Use sum of weights squared in each bin instead.")
 
@@ -143,53 +148,51 @@ class OmniFoldwBkg(object):
             # renormalize the unfolded histograms and its error to the nominal signal simulation weights
             if all_iterations:
                 # rescale all iterations to self.weights_sim.sum()
-                hist_uf *= (self.weights_sim.sum()/ws.sum(axis=1))[:,np.newaxis]
-                hist_uf_err *= (self.weights_sim.sum()/ws.sum(axis=1))[:,np.newaxis]
+                rw = self.weights_sim.sum() / ws.sum(axis=1)
+                for h, r in zip(h_uf, rw):
+                    h *= r
             else:
-                hist_uf *= self.weights_sim.sum() / ws.sum()
-                hist_uf_err *= self.weights_sim.sum() / ws.sum()
+                h_uf *= self.weights_sim.sum() / ws.sum()
 
-        return hist_uf, hist_uf_err, bin_corr
+        return h_uf, bin_corr
 
     def plot_distributions_reco(self, varname, varConfig, bins):
         # observed
         nobs = self.datahandle_obs.get_nevents()
-        hist_obs, hist_obs_err = self.datahandle_obs.get_histogram(varConfig['branch_det'], self.weights_obs[:nobs], bins)
+        h_obs = self.datahandle_obs.get_histogram(varConfig['branch_det'], self.weights_obs[:nobs], bins)
 
         if self.datahandle_obsbkg is not None:
             # add background
-            hist_obsbkg, hist_obsbkg_err = self.datahandle_obsbkg.get_histogram(varConfig['branch_det'], self.weights_obs[nobs:], bins)
-            hist_obs, hist_obs_err = add_histograms(hist_obs, hist_obsbkg, hist_obs_err, hist_obsbkg_err)
+            h_obsbkg = self.datahandle_obsbkg.get_histogram(varConfig['branch_det'], self.weights_obs[nobs:], bins)
+            h_obs = h_obs + h_obsbkg
 
         # signal simulation
-        hist_sim, hist_sim_err = self.datahandle_sig.get_histogram(varConfig['branch_det'], self.weights_sim, bins)
+        h_sim = self.datahandle_sig.get_histogram(varConfig['branch_det'], self.weights_sim, bins)
 
         # background simulation
         if self.datahandle_bkg is None:
-            hist_simbkg, hist_simbkg_err = None, None
+            h_simbkg = None
         else:
-            hist_simbkg, hist_simbkg_err = self.datahandle_bkg.get_histogram(varConfig['branch_det'], self.weights_bkg, bins)
+            h_simbkg = self.datahandle_bkg.get_histogram(varConfig['branch_det'], self.weights_bkg, bins)
 
         # plot
         figname = os.path.join(self.outdir, 'Reco_{}'.format(varname))
         logger.info("  Plot detector-level distribution: {}".format(figname))
-        plotting.plot_reco_variable(bins, (hist_obs, hist_obs_err),
-                                    (hist_sim, hist_sim_err),
-                                    (hist_simbkg, hist_simbkg_err),
+        plotting.plot_reco_variable(h_obs, h_sim, h_simbkg,
                                     figname=figname, log_scale=False,
                                     **varConfig)
 
     def plot_distributions_unfold(self, varname, varConfig, bins, ibu=None, iteration_history=False, plot_resamples=True, plot_bins=True):
         # unfolded distribution
-        hist_uf, hist_uf_err, hist_uf_corr = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=False)
+        h_uf, h_uf_corr = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=False)
 
         if ibu:
-            hist_ibu, hist_ibu_err, hist_ibu_corr = ibu.get_unfolded_distribution()
+            h_ibu, h_ibu_corr = ibu.get_unfolded_distribution()
         else:
-            hist_ibu, hist_ibu_err, hist_ibu_corr = None, None, None
+            h_ibu, h_ibu_corr = None, None
 
         # signal prior distribution
-        hist_gen, hist_gen_err = self.datahandle_sig.get_histogram(varConfig['branch_mc'], self.weights_sim, bins)
+        h_gen = self.datahandle_sig.get_histogram(varConfig['branch_mc'], self.weights_sim, bins)
 
         # MC truth if known
         if self.datahandle_obs.truth_known:
@@ -200,45 +203,42 @@ class OmniFoldwBkg(object):
             # Should be 1 in case there is no background
             f_sig = self.weights_sim.sum() / self.weights_obs[:nobs].sum()
 
-            hist_truth, hist_truth_err = self.datahandle_obs.get_histogram(varConfig['branch_mc'], self.weights_obs[:nobs]*f_sig, bins)
+            h_truth = self.datahandle_obs.get_histogram(varConfig['branch_mc'], self.weights_obs[:nobs]*f_sig, bins)
         else:
-            hist_truth, hist_truth_err = None, None
+            h_truth = None
 
         # compute chi2s
         text_td = []
         if self.datahandle_obs.truth_known:
-            text_td = write_chi2(hist_truth, hist_truth_err, [hist_uf, hist_ibu, hist_gen], [hist_uf_err, hist_ibu_err, hist_gen_err], labels=['OmniFold', 'IBU', 'Prior'])
+            text_td = write_chi2(h_truth, [h_uf, h_ibu, h_gen], labels=['OmniFold', 'IBU', 'Prior'])
             logger.info("  "+"    ".join(text_td))
 
         # plot
         figname = os.path.join(self.outdir, 'Unfold_{}'.format(varname))
         logger.info("  Plot unfolded distribution: {}".format(figname))
-        plotting.plot_results(bins, (hist_gen, hist_gen_err),
-                              (hist_uf, hist_uf_err),
-                              (hist_ibu, hist_ibu_err),
-                              (hist_truth, hist_truth_err),
+        plotting.plot_results(h_gen, h_uf, h_ibu, h_truth,
                               figname=figname, texts=text_td, **varConfig)
 
         # bin correlations
-        if hist_uf_corr is not None:
+        if h_uf_corr is not None:
             figname_of_corr = os.path.join(self.outdir, 'BinCorrelations_{}_OmniFold'.format(varname))
             logger.info("  Plot bin correlations: {}".format(figname_of_corr))
-            plotting.plot_correlations(hist_uf_corr, figname_of_corr)
-        if hist_ibu_corr is not None:
+            plotting.plot_correlations(h_uf_corr, figname_of_corr)
+        if h_ibu_corr is not None:
             figname_ibu_corr = os.path.join(self.outdir, 'BinCorrelations_{}_IBU'.format(varname))
             logger.info("  Plot bin correlations: {}".format(figname_ibu_corr))
-            plotting.plot_correlations(hist_ibu_corr, figname_ibu_corr)
+            plotting.plot_correlations(h_ibu_corr, figname_ibu_corr)
 
         # plot all resampled unfolded distributions
         if plot_resamples and self.unfolded_weights_resample is not None:
-            hists_resample = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=False)[0]
+            hists_resample = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=False)
             figname_resamples = os.path.join(self.outdir, 'Unfold_AllResamples_{}'.format(varname))
             logger.info("  Plot unfolded distributions for all trials: {}".format(figname_resamples))
-            plotting.plot_hists_resamples(figname_resamples, bins, hists_resample, hist_gen, hist_truth=hist_truth, **varConfig)
+            plotting.plot_hists_resamples(figname_resamples, hists_resample, h_gen, hist_truth=h_truth, **varConfig)
 
         # plot distributions of bin entries
         if plot_bins and self.unfolded_weights_resample is not None:
-            histo_uf_all = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=iteration_history)[0]
+            histo_uf_all = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=iteration_history)
             # histo_uf_all shape:
             # if not iteration_history: (nresamples, nbins)
             # if iteration_history: (nresamples, niterations, nbins)
@@ -246,7 +246,7 @@ class OmniFoldwBkg(object):
             # plot pulls of each bin entries
             figname_bindistr = os.path.join(self.outdir, 'Unfold_BinDistr_{}'.format(varname))
             logger.info("  Plot distributions of bin entries from all trials: {}".format(figname_bindistr))
-            plotting.plot_hists_bin_distr(figname_bindistr, bins, histo_uf_all, hist_truth)
+            plotting.plot_hists_bin_distr(figname_bindistr, histo_uf_all, h_truth)
 
         # plot iteration history
         if iteration_history:
@@ -257,34 +257,37 @@ class OmniFoldwBkg(object):
 
             figname_prefix = os.path.join(iteration_dir, varname)
 
-            hists_uf, hists_uf_err = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=True)[:2]
+            hists_uf = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=True)[0]
             # Add prior to the head of the list
-            hists_uf = [hist_gen] + list(hists_uf)
-            hists_uf_err = [hist_gen_err] + list(hists_uf_err)
+            hists_uf = [h_gen] + list(hists_uf)
             # plot
-            plotting.plot_iteration_distributions(figname_prefix+"_OmniFold_iterations", bins, hists_uf, hists_uf_err, hist_truth, hist_truth_err, **varConfig)
+            plotting.plot_iteration_distributions(figname_prefix+"_OmniFold_iterations", hists_uf, h_truth, **varConfig)
 
             if ibu:
-                hists_ibu, hists_ibu_err = ibu.get_unfolded_distribution(all_iterations=True)[:2]
+                hists_ibu = ibu.get_unfolded_distribution(all_iterations=True)[0]
                 # Add prior to the head of the list
-                hists_ibu = [hist_gen] + list(hists_ibu)
-                hists_ibu_err = [hist_gen_err] + list(hists_ibu_err)
+                hists_ibu = [h_gen] + list(hists_ibu)
                 # plot
-                plotting.plot_iteration_distributions(figname_prefix+"_IBU_iterations", bins, hists_ibu, hists_ibu_err, hist_truth, hist_truth_err, **varConfig)
+                plotting.plot_iteration_distributions(figname_prefix+"_IBU_iterations", hists_ibu, h_truth, **varConfig)
             else:
-                hists_ibu, hists_ibu_err = [], []
+                hists_ibu = []
 
-            plotting.plot_iteration_diffChi2s(figname_prefix+"_diffChi2s", [hists_ibu, hists_uf], [hists_ibu_err, hists_uf_err], labels=["IBU", "OmniFold"])
+            plotting.plot_iteration_diffChi2s(figname_prefix+"_diffChi2s", [hists_ibu, hists_uf], labels=["IBU", "OmniFold"])
             if self.datahandle_obs.truth_known:
-                plotting.plot_iteration_chi2s(figname_prefix+"_chi2s_wrt_Truth", hist_truth, hist_truth_err, [hists_ibu, hists_uf], [hists_ibu_err, hists_uf_err], labels=["IBU", "OmniFold"])
+                plotting.plot_iteration_chi2s(figname_prefix+"_chi2s_wrt_Truth", h_truth, [hists_ibu, hists_uf], labels=["IBU", "OmniFold"])
 
                 if self.unfolded_weights_resample is not None:
-                    hists_uf_all = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=True, normalize=True)[0]
+                    hists_uf_all = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=True, normalize=True)
                     # add prior
-                    hists_uf_all = [[hist_gen]+list(hists_uf_rs) for hists_uf_rs in hists_uf_all]
-                    # use the same bin errors from bootstrap for all resamples
-                    hists_uf_err_all = [hists_uf_err] * len(hists_uf_all)
-                    plotting.plot_iteration_chi2s(figname_prefix+"_AllResamples_chi2s_wrt_Truth", hist_truth, hist_truth_err, hists_uf_all, hists_uf_err_all, lw=0.7, ms=0.7)
+                    hists_uf_all = [[h_gen]+list(hists_uf_rs) for hists_uf_rs in hists_uf_all]
+
+                    # TODO:
+                    # Should we use the same bin errors from boostrap for all trails?
+                    if False:
+                        uf_err_all = [get_values_and_errors(hists_uf)[1]] * len(hists_uf_all)
+                        set_hist_errors(hists_uf_all, uf_err_all)
+
+                    plotting.plot_iteration_chi2s(figname_prefix+"_AllResamples_chi2s_wrt_Truth", h_truth, hists_uf_all, lw=0.7, ms=0.7)
 
     def _unfold(self, resample_data=False, model_name='Models',
                 reweight_only=False, load_previous_iter=True,
@@ -429,11 +432,12 @@ class OmniFoldwBkg(object):
     def _get_unfolded_uncertainty(self, variable, bins, all_iterations=False):
         #assert(self.unfolded_weights_resample is not None)
         hists_resample = self._get_unfolded_hists_resample(variable, bins,
-                                                           all_iterations)[0]
+                                                           all_iterations)
 
         hists_err, hists_corr = None, None
         if hists_resample:
-            hists_err = np.std(np.asarray(hists_resample), axis=0, ddof=1)
+            hists_resample = np.asarray(hists_resample)['value']
+            hists_err = np.std(hists_resample, axis=0, ddof=1)
             # shape = (n_iteration, n_bins) if all_iterations
             # otherwise, shape = (n_bins,)
 
@@ -442,13 +446,13 @@ class OmniFoldwBkg(object):
                 hists_corr = []
                 # hists_resample shape: (n_resamples, n_iterations, n_bins)
                 for i in range(self.iterations):
-                    df_i = pd.DataFrame(np.asarray(hists_resample)[:,i,:])
+                    df_i = pd.DataFrame(hists_resample[:,i,:])
                     hists_corr.append(df_i.corr()) # ddof = 1
                     # sanity check
                     #assert((np.asarray(df_i.std()) == hists_err[i]).all())
             else:
                 # hists_resample shape: (n_resamples, n_bins)
-                df_i = pd.DataFrame(np.asarray(hists_resample))
+                df_i = pd.DataFrame(hists_resample)
                 hists_corr = df_i.corr()
                 # sanity check
                 #assert((np.asarray(df_i.std()) == hists_err).all())
@@ -457,29 +461,27 @@ class OmniFoldwBkg(object):
 
     def _get_unfolded_hists_resample(self, variable, bins, all_iterations=False, normalize=False):
         hists_resample = []
-        hists_err_resample = [] # sum w2 errors
         for iresample in range(len(self.unfolded_weights_resample)):
             if all_iterations:
                 ws = self.unfolded_weights_resample[iresample]
             else:
                 ws = self.unfolded_weights_resample[iresample][-1]
 
-            hist, histerr = self.datahandle_sig.get_histogram(variable, ws, bins)
+            h = self.datahandle_sig.get_histogram(variable, ws, bins)
 
             if normalize:
                 # rescale each iteration to the nominal signal simulation weights
                 if all_iterations:
-                    rw = (self.weights_sim.sum()/ws.sum(axis=1))[:,np.newaxis]
+                    rw = self.weights_sim.sum()/ws.sum(axis=1)
+                    for hh, r in zip(h, rw):
+                        hh *= r
                 else:
                     rw = self.weights_sim.sum() / ws.sum()
+                    h *= rw
 
-                hist *= rw
-                histerr *= rw
+            hists_resample.append(h)
 
-            hists_resample.append(hist)
-            hists_err_resample.append(histerr)
-
-        return hists_resample, hists_err_resample
+        return hists_resample
 
     def _read_weights_from_file(self, weights_file, array_name='weights'):
         # load unfolded weights from saved file

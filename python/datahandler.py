@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from util import parse_input_name, normalize_histogram
-from util import make_hist
+from util import parse_input_name
+from histogramming import calc_hist
 
 def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes', weight_columns=[]):
     """
@@ -161,32 +161,27 @@ class DataHandler(object):
         correlations = df.corr()
         return correlations
 
-    def get_histogram(self, variable, weights, bin_edges, normalize=False):
+    def get_histogram(self, variable, weights, bin_edges, density=False):
         """
-        If weights is a 1D array of the same length as the variable array, return a histogram and its error
-        If weights is a 2D array or a list of 1D array, return an array of histograms and an array of their errors
+        If weights is a 1D array of the same length as the variable array, return a histogram object
+        If weights is a 2D array or a list of 1D array, return an array of histogram objects
         """
         if isinstance(weights, np.ndarray):
             if weights.ndim == 1: # if weights is a 1D array
                 varr = self.get_variable_arr(variable)
                 # check the weight array length is the same as the variable array
                 assert(len(varr) == len(weights))
-                h, h_err = make_hist(varr, weights=weights, bins=bin_edges, density=False)[:2]
-
-                if normalize:
-                    normalize_histogram(bin_edges, h, h_err)
-                return h, h_err
+                return calc_hist(varr, weights=weights, bins=bin_edges, density=density)
             elif weights.ndim == 2: # make the 2D array into a list of 1D array
-                return self.get_histogram(variable, list(weights), bin_edges, normalize)
+                return self.get_histogram(variable, list(weights), bin_edges, density)
             else:
                 raise RuntimeError("Only 1D or 2D array or a list of 1D array of weights can be processed.")
         elif isinstance(weights, list): # if weights is a list of 1D array
-            hists, hists_err = [], []
+            hists = []
             for w in weights:
-                h, herr = self.get_histogram(variable, w, bin_edges, normalize)
+                h = self.get_histogram(variable, w, bin_edges, density)
                 hists.append(h)
-                hists_err.append(herr)
-            return np.asarray(hists), np.asarray(hists_err)
+            return hists
         else:
             raise RuntimeError("Unknown type of weights: {}".format(type(weights)))
 
