@@ -1,8 +1,24 @@
+"""
+Define model architectures.
+"""
+
 from tensorflow import keras
 from tensorflow.keras import layers
 
-def get_callbacks(model_filepath=None):
 
+def get_callbacks(model_filepath=None):
+    """
+    Set up a list of standard callbacks used while training the models.
+
+    Parameters
+    ----------
+    model_filepath : str, optional
+        If provided, location to save metrics from training the model
+
+    Returns
+    -------
+    sequence of `tf.keras.callbacks.Callback`
+    """
     EarlyStopping = keras.callbacks.EarlyStopping(
         monitor='val_loss', patience=10, verbose=1, restore_best_weights=True
     )
@@ -24,8 +40,26 @@ def get_callbacks(model_filepath=None):
     else:
         return [EarlyStopping]
 
-def get_model(input_shape, model_name='dense_3hl', nclass=2):
 
+def get_model(input_shape, model_name='dense_3hl', nclass=2):
+    """
+    Build and compile the classifier for OmniFold.
+
+    Parameters
+    ----------
+    input_shape : sequence of positive int
+        Shape of the input layer of the model.
+    model_name : str, default: "dense_3hl"
+        The name of a function in the `model` module that builds an architecture and
+        returns a `tf.keras.models.Model`.
+    nclass : positive int, default: 2
+        Number of classes in the classifier.
+
+    Returns
+    -------
+    tf.keras.models.Model
+        Model compiled with categorical crossentropy loss, Adam optimizer and accuracy metrics.
+    """
     model = eval(model_name+"(input_shape, nclass)")
 
     model.compile(loss='categorical_crossentropy',
@@ -36,7 +70,23 @@ def get_model(input_shape, model_name='dense_3hl', nclass=2):
 
     return model
 
+
 def dense_3hl(input_shape, nclass=2):
+    """
+    A classifier with 3 dense hidden layers of 100 neurons each. All layers use ReLU
+    activation except the output, which uses softmax.
+
+    Parameters
+    ----------
+    input_shape : sequence of positive int
+        Shape of the input layer of the model.
+    nclass : positive int, default: 2
+        Number of classes in the classifier.
+
+    Returns
+    -------
+    tf.keras.models.Model
+    """
     inputs = keras.layers.Input(input_shape)
     hidden_layer_1 = keras.layers.Dense(100, activation='relu')(inputs)
     hidden_layer_2 = keras.layers.Dense(100, activation='relu')(hidden_layer_1)
@@ -47,7 +97,23 @@ def dense_3hl(input_shape, nclass=2):
 
     return nn
 
+
 def dense_6hl(input_shape, nclass=2):
+    """
+    A classifier with 6 dense hidden layers of 100 neurons each. All layers use ReLU
+    activation except the output, which uses softmax.
+
+    Parameters
+    ----------
+    input_shape : sequence of positive int
+        Shape of the input layer of the model.
+    nclass : positive int, default: 2
+        Number of classes in the classifier.
+
+    Returns
+    -------
+    tf.keras.models.Model
+    """
     inputs = keras.layers.Input(input_shape)
     hidden_layer_1 = keras.layers.Dense(100, activation='relu')(inputs)
     hidden_layer_2 = keras.layers.Dense(100, activation='relu')(hidden_layer_1)
@@ -61,10 +127,38 @@ def dense_6hl(input_shape, nclass=2):
 
     return nn
 
-def pfn(input_shape, nclass=2, nlatent=8):
-    # https://arxiv.org/pdf/1810.05165.pdf
 
-    # expected input_shape: (n_particles, n_features...)
+def pfn(input_shape, nclass=2, nlatent=8):
+    """
+    A particle flow network [1]_ architecture.
+
+    Parameters
+    ----------
+    input_shape : sequence of positive int
+        Shape of the input layer of the model. Expect at least two dimensions:
+        `(n_particles, n_features...)`
+    nclass : positive int, default: 2
+        Number of classes in the classifier.
+    nlatent : positive int, default: 8
+        Dimension of the latent space for per-particle representation.
+
+    Returns
+    -------
+    tf.keras.models.Model
+
+    Notes
+    -----
+    Particle flow networks learn a mapping from per-particle representation to a point
+    in the latent space (of dimension `nlatent`), then adds the adds the latent space
+    vectors to get a latent event representation . The event representation is the input
+    to a learned function that returns the desired output observable. Both the
+    particle-to-latent space and the event-to-observable steps are learned in the same
+    training loop.
+
+    .. [1] P. T. Komiske et al., "Energy Flow Networks: Deep Sets for Particle Jets,"
+       arXiv:1810.05165 [hep-ph].
+
+    """
     assert(len(input_shape) > 1)
     nparticles = input_shape[0]
 
@@ -87,7 +181,6 @@ def pfn(input_shape, nclass=2, nlatent=8):
     F_2 = keras.layers.Dense(100, activation='relu', name='F_2')(F_1)
     F_3 = keras.layers.Dense(100, activation='relu', name='F_3')(F_2)
 
-    # output
     outputs = keras.layers.Dense(nclass, activation='softmax', name='Output')(F_3)
 
     nn = keras.models.Model(inputs=inputs, outputs=outputs)
