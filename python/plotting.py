@@ -1,3 +1,7 @@
+"""
+Functions to create OmniFold plots in some default styles.
+"""
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -31,6 +35,19 @@ ibu_style = {'ls': '-', 'marker': 'o', 'ms': 2.5, 'color': 'gray', 'zorder': 1, 
 omnifold_style = {'ls': '-', 'marker': 's', 'ms': 2.5, 'color': 'tab:red', 'zorder': 3, 'label':'MultiFold'}
 
 def init_fig(title='', xlabel='', ylabel=''):
+    """
+    Set up a figure with a title and axis labels.
+
+    Parameters
+    ----------
+    title : str, default: ""
+    xlabel : str, default: ""
+    ylabel : str, default: ""
+
+    Returns
+    -------
+    matplotlib.figure.Figure, matplotlib.axes.Axes
+    """
     fig, ax = plt.subplots()
 
     if title:
@@ -43,9 +60,69 @@ def init_fig(title='', xlabel='', ylabel=''):
     return fig, ax
 
 def set_default_colors(ncolors):
+    """
+    Get up to the first `ncolors` of the default colour cycle used by matplotlib.
+
+    Parameters
+    ----------
+    ncolors : non-negative int
+
+    Returns
+    -------
+    sequence of str
+         The first `ncolors` items in the matplotlib colour cycle, as a sequence of
+         6-digit RGB hex strings (i.e. "#rrggbb"). Return a number of colours equal to
+         the shorter of (`ncolors`, length of the cycle).
+    """
     return plt.rcParams['axes.prop_cycle'].by_key()['color'][:ncolors]
 
-def draw_ratios(ax, bins, hist_denom, hists_numer, hist_denom_unc=None, hists_numer_unc=None, color_denom_line='tomato', color_denom_fill='silver', colors_numer=None):
+def draw_ratios(
+        ax,
+        bins,
+        hist_denom,
+        hists_numer,
+        hist_denom_unc=None,
+        hists_numer_unc=None,
+        color_denom_line='tomato',
+        color_denom_fill='silver',
+        colors_numer=None
+):
+    """
+    Plot the ratio several numerator histograms to one denominator histogram.
+
+    The denominator is plotted as a horizontal line at y = 1, with optional shaded
+    rectangles to indicate the error bar for each bin. Numerators are drawn as points in
+    the middle of the bin. If y error bars are provided, the x errors are +/- half the
+    bin width.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+    bins : (n,) array-like
+        Locations of the edges of the histogram bins.
+    hist_denom : (n - 1,) array-like
+        Bin heights for the denominator.
+    hists_numer : sequence of (n - 1,) array-likes
+        Each numerator is a sequence of bin heights. num / denom will be plotted for
+        each bin.
+    hist_denom_unc : (n - 1,) array-like, optional
+        Error bars on the denominator. These will be scaled by the values of the
+        denominator histogram.
+    hists_numer_unc : sequence of (n - 1,) array-likes, optional
+        Uncertainties of the heights of each numerator histogram. These will be scaled
+        by the values of the denominator histogram.
+    color_denom_line : color, default: tomato
+        Colour of the horizontal line at y = 1.
+    color_denom_fill : color, default: silver
+        Colour for denominator uncertainty.
+    colors_numer : sequence of colors, optional
+        Colour of each numerator series.
+
+    See Also
+    --------
+    matplotlib.color : documentation of colours
+    """
+
     midbins = (bins[:-1] + bins[1:]) / 2
     binwidths = bins[1:] - bins[:-1]
 
@@ -77,12 +154,41 @@ def draw_ratios(ax, bins, hist_denom, hists_numer, hist_denom_unc=None, hists_nu
         ax.errorbar(midbins, ratio, xerr=binwidths/2, yerr=ratio_unc, color=colors_numer[i], **modplot.style('errorbar'))
 
 def draw_legend(ax, **config):
+    """
+    Add a legend to the axes.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+    **config : dict, optional
+        Configuration dict for the plot. This function uses `legend_loc` and
+        `legend_ncol` to specify the location and number of columns.
+
+    See also
+    --------
+    matplotlib.axes.Axes.legend :
+        `legend_loc` and `legend_ncol` are equivalent to `loc` and `ncol`, respectively
+    """
     loc = config.get('legend_loc', 'best')
     ncol = config.get('legend_ncol', 2)
     #order = [3, 4, 2, 5, 0, 1] if ncol==2 else [3, 5, 4, 0, 2, 1]
     modplot.legend(ax=ax, loc=loc, ncol=ncol, frameon=False, fontsize='x-small')
 
 def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045):
+    """
+    Add a series of text to the axis, one line per text.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+    texts : iterable of str
+        Each item in the iterable will be drawn on its own line.
+    x, y : float, default: 0.5
+        Position of the text in data coordinates.
+    dy : float, default: 0.045
+        Separation between texts. Note that this will not set interline separation if a
+        text includes a \n.
+    """
     textopts = {'horizontalalignment': 'left',
                 'verticalalignment': 'center',
                 'fontsize': 5.,
@@ -93,6 +199,21 @@ def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045):
             ax.text(x, y-i*dy, txt, **textopts)
 
 def draw_histogram(ax, bin_edges, hist, hist_unc=None, **styles):
+    """
+    Plot a 1D histogram in the axes.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+    bin_edges : (n,) ndarray
+        Location of the edges of the bins of the histogram.
+    hist : (n - 1,) array-like
+        Height of each bin in the histogram.
+    hist_unc : optional
+        Currently unused.
+    **styles : dict, optional
+        Additional keyword arguments passed to matplotlib.axes.Axes.hist
+    """
     midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
 
     ax.hist(midbins, bin_edges, weights=hist, **styles)
@@ -100,6 +221,29 @@ def draw_histogram(ax, bin_edges, hist, hist_unc=None, **styles):
 
 def draw_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
                             colors=None, stacked=True):
+    """
+    Plot 1D stacked histograms in the axes.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+    bin_edges : (n,) array-like
+        Location of the edges of the bins of the histogram.
+    hists : sequence of (n - 1,) array-likes
+        Sequence of histograms. Each item is the heights of the bins of a histogram for
+        one dataset.
+    hists_unc : optional
+        Currently unused.
+    labels : sequence of str, optional
+        Label for each dataset. Must be the same length as `hists`. If not provided, the
+        histograms will be numbered from 0.
+    colors : sequence of colours, optional
+        Colours of the histograms. Must be the same length as `hists`. If not provided,
+        uses the standard line colour sequence.
+    stacked : bool, default: True
+        If True, histograms are stacked on top of each other. Otherwise histograms are
+        arranged side-by-side.
+    """
     midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
 
     if colors is None:
@@ -117,12 +261,51 @@ def draw_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
     # TODO: uncertainty
 
 def draw_hist_fill(ax, bin_edges, hist, hist_unc=None, **styles):
+    """
+    Plot a filled 1D histogram in the axes.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+    bin_edges : (n,) ndarray
+        Location of the edges of the bins of the histogram.
+    hist : (n - 1,) array-like
+        Height of each bin in the histogram.
+    hist_unc : optional
+        Currently unused.
+    **styles : dict, optional
+        Additional keyword arguments passed to matplotlib.axes.Axes.hist.
+    """
     midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
 
     ax.hist(midbins, bin_edges, weights=hist, histtype='step', fill=True, **styles)
     # TODO: uncertainty?
 
 def draw_hist_as_graph(ax, bin_edges, hist, hist_unc=None, **styles):
+    """
+    Draw a histogram as a scatter plot with error bars.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+    bin_edges : (n,) ndarray
+        Location of the edges of the bins of the histogram.
+    hist : (n - 1,) array-like
+        Height of each bin in the histogram.
+    hist_unc : float, (n - 1,) array-like, or (2, n - 1) array-like, optional
+        If used, error bars in the y axis.
+    **styles : dict, optional
+        Additional keyword arguments passed to matplotlib.axes.Axes.errorbar.
+
+    Notes
+    -----
+    Points are plotted in the middle of each bin. If `hist_unc` is used, the x error
+    bars are set to +/- half the width of each bin.
+
+    See Also
+    --------
+    matplotlib.axes.Axes.errorbar : see `xerr` and `yerr` for interpretation `hist_unc`
+    """
     midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
     binwidths = bin_edges[1:] - bin_edges[:-1]
 
@@ -131,7 +314,49 @@ def draw_hist_as_graph(ax, bin_edges, hist, hist_unc=None, **styles):
 
     ax.errorbar(midbins, hist, xerr=xerr, yerr=yerr, **styles)
 
-def plot_graphs(figname, data_arrays, error_arrays=None, labels=None, title='', xlabel='', ylabel='', xscale=None, yscale=None, colors=None, markers=None, **style):
+def plot_graphs(
+        figname,
+        data_arrays,
+        error_arrays=None,
+        labels=None,
+        title='',
+        xlabel='',
+        ylabel='',
+        xscale=None,
+        yscale=None,
+        colors=None,
+        markers=None,
+        **style
+):
+    """
+    Create scatter plots of several data series on the same x and y axes.
+
+    The generated figure is saved to "{figname}.png".
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    data_arrays : sequence of n (xdata, ydata) pairs where xdata, ydata are array-like
+        Data positions to plot. Each element is one data series.
+    error_arrays : sequence of n floats or 2-tuples, optional
+        Error bars. Sequence of floats is interpreted as y error bars; 2-tuples are
+        interpreted as (x error bars, y error bars).
+    labels : sequence of n str, optional
+         Data series labels. If provided, the plot will contain a legend.
+    title : str, default: ""
+        Title of the figure.
+    xlabel, ylabel : str, default: ""
+        Axis labels.
+    xscale, yscale : {"log", "log2"}, optional
+        Set the axis scale to log base 10 or log base 2. If omitted, the axis is linear.
+    colors : sequence of n colors, optional
+        Line/marker colours for each data series. See also matplotlib.colors.
+    markers : sequence of n str or matplotlib.markers.MarkerStyle, optional
+        Marker style for each series. See also matplotlib.markers.
+    **style : dict, optional
+        Additional keyword arguments passed to matplotlib.axes.Axes.errorbar.
+    """
     fig, ax = init_fig(title, xlabel, ylabel)
 
     if xscale=='log':
@@ -174,7 +399,55 @@ def plot_graphs(figname, data_arrays, error_arrays=None, labels=None, title='', 
     #fig.savefig(figname+'.pdf')
     plt.close(fig)
 
-def plot_histograms1d(figname, bins, hists, hists_err=None, labels=None, title="", xlabel="", ylabel="", colors=None, plottypes=None, marker='o'):
+def plot_histograms1d(
+        figname,
+        bins,
+        hists,
+        hists_err=None,
+        labels=None,
+        title="",
+        xlabel="",
+        ylabel="",
+        colors=None,
+        plottypes=None,
+        marker='o'
+):
+    """
+    Create histograms of several datasets on the same x and y axes.
+
+    The generated figure is saved to "{figname}.png".
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    bins : sequence of n floats
+        Location of the edges of the bins.
+    hists : (m, n - 1) array-like
+        Sequence of histograms; each histogram is a sequence of bin heights.
+    hists_err : optional
+        Currently unused.
+    labels : sequence of n str, optional
+         Data series labels. If provided, the plot will contain a legend.
+    title : str, default: ""
+        Title of the figure.
+    xlabel, ylabel : str, default: ""
+        Axis labels.
+    xscale, yscale : {"log", "log2"}, optional
+        Set the axis scale to log base 10 or log base 2. If omitted, the axis is linear.
+    colors : sequence of m colors, optional
+        Line/marker colours for each data series. See also matplotlib.colors.
+    plottypes : sequence of m {"g", "h"}, optional
+        Plot a dataset as a graph (scatter plot) or histogram (bins). If not provided,
+        uses histogram style.
+    markers : str or matplotlib.markers.MarkerStyle, default: "o"
+        Marker style for the histograms (only used when `plottype` is "g"). See also
+        matplotlib.markers.
+
+    See Also
+    --------
+    plotting.draw_histogram, plotting.draw_hist_as_graph
+    """
     fig, ax = init_fig(title, xlabel, ylabel)
 
     ax.xaxis.get_major_formatter().set_scientific(True)
@@ -218,6 +491,26 @@ def plot_histograms1d(figname, bins, hists, hists_err=None, labels=None, title="
     plt.close(fig)
 
 def plot_data_arrays(figname, data_arrs, weight_arrs=None, nbins=20, **plotstyle):
+    """
+    Plot a series of datasets as 1d histograms.
+
+    Each dataset uses the same binning, which is evenly distributed across the full
+    range of all combined datasets. The generated figure is saved to "{figname}.png".
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    data_arrs : sequence of n array-like
+        Unbinned data.
+    weight_arrs : sequence of n array-like, optional
+        Each weight array should be the same shape as the corresponding data. Each data
+        point contributes only its associated weight to the bin count instead of 1.
+    nbins : positive int, default: 20
+        Number of bins in the histogram.
+    **plotstyle : dict, optional
+        Additional keyword arguments passed to plotting.plot_histograms1d.
+    """
     xmax = max([np.max(data) for data in data_arrs]) * 1.2
     xmin = min([np.min(data) for data in data_arrs]) * 0.8
     bins = np.linspace(xmin, xmax, nbins+1)
@@ -238,7 +531,21 @@ def plot_reco_variable(bins, histogram_obs, histogram_sig,
                         histogram_bkg=(None,None),
                         figname='var_reco', log_scale = False, **config):
     """
-    Plot detector-level variable distributions
+    Plot detector-level variable distributions.
+
+    Parameters
+    ----------
+    bins : (n,) array-like
+        Location of the edges of the bins of the histogram.
+    histogram_obs, histogram_sig, histogram_bkg : tuple of (data, uncertainty)
+        Bin heights and uncertainties for observables, signal, and background,
+        respectively. Uncertainties are currently unused.
+    figname : str, default: "var_reco"
+        Path to save the generated figure, excluding the file extension.
+    log_scale : bool, default: False
+        Use a log scale on the y axis.
+    **config : dict, optional
+        Additional keyword arguments passed to modplot.axes and plotting.draw_legend.
     """
     hist_obs, hist_obs_unc = histogram_obs
     hist_sig, hist_sig_unc = histogram_sig
