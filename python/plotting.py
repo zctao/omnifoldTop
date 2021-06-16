@@ -153,26 +153,32 @@ def draw_ratios(
 
         ax.errorbar(midbins, ratio, xerr=binwidths/2, yerr=ratio_unc, color=colors_numer[i], **modplot.style('errorbar'))
 
-def draw_legend(ax, **config):
+def draw_legend(ax, legend_loc="best", legend_ncol=2, **config):
     """
     Add a legend to the axes.
 
     Parameters
     ----------
     ax : matplotlib.axes.Axes
+    legend_loc : str or pair of floats, default: "best"
+        Controls placement of the legend on the plot.
+    legend_ncol : positive int, default: 2
+        Number of columns in the legend.
     **config : dict, optional
-        Configuration dict for the plot. This function uses `legend_loc` and
-        `legend_ncol` to specify the location and number of columns.
+        Additional keyword arguments (unused).
 
-    See also
+    See Also
     --------
     matplotlib.axes.Axes.legend :
         `legend_loc` and `legend_ncol` are equivalent to `loc` and `ncol`, respectively
     """
-    loc = config.get('legend_loc', 'best')
-    ncol = config.get('legend_ncol', 2)
-    #order = [3, 4, 2, 5, 0, 1] if ncol==2 else [3, 5, 4, 0, 2, 1]
-    modplot.legend(ax=ax, loc=loc, ncol=ncol, frameon=False, fontsize='x-small')
+    modplot.legend(
+        ax=ax,
+        loc=legend_loc,
+        ncol=legend_ncol,
+        frameon=False,
+        fontsize="x-small"
+    )
 
 def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045):
     """
@@ -527,9 +533,16 @@ def plot_data_arrays(figname, data_arrs, weight_arrs=None, nbins=20, **plotstyle
 
     plot_histograms1d(figname, bins, histograms, **plotstyle)
 
-def plot_reco_variable(bins, histogram_obs, histogram_sig,
-                        histogram_bkg=(None,None),
-                        figname='var_reco', log_scale = False, **config):
+def plot_reco_variable(
+        bins,
+        histogram_obs,
+        histogram_sig,
+        histogram_bkg=(None, None),
+        figname="var_reco",
+        log_scale=False,
+        yscale=None,
+        **config
+):
     """
     Plot detector-level variable distributions.
 
@@ -538,12 +551,15 @@ def plot_reco_variable(bins, histogram_obs, histogram_sig,
     bins : (n,) array-like
         Location of the edges of the bins of the histogram.
     histogram_obs, histogram_sig, histogram_bkg : tuple of (data, uncertainty)
-        Bin heights and uncertainties for observables, signal, and background,
-        respectively. Uncertainties are currently unused.
+        Bin heights and uncertainties for observables, signal, and background (optional),
+        respectively. Use `(data, None)` to indicate no uncertainty. Uncertainties are
+        currently unused.
     figname : str, default: "var_reco"
         Path to save the generated figure, excluding the file extension.
     log_scale : bool, default: False
         Use a log scale on the y axis.
+    yscale : str, optional
+        Sets the axis scale if `log_scale` is `False`.
     **config : dict, optional
         Additional keyword arguments passed to modplot.axes and plotting.draw_legend.
     """
@@ -563,8 +579,8 @@ def plot_reco_variable(bins, histogram_obs, histogram_sig,
     # yscale
     if log_scale:
         ax0.set_yscale('log')
-    elif config.get('yscale') is not None:
-        ax0.set_yscale(config['yscale'])
+    elif yscale is not None:
+        ax0.set_yscale(yscale)
 
     # y limits
     ymax = max(hist_obs.max(), hist_sig.max())
@@ -600,7 +616,19 @@ def plot_reco_variable(bins, histogram_obs, histogram_sig,
 
     plt.close(fig)
 
-def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None), histogram_truth=(None,None), figname='unfolded', texts=[], **config):
+def plot_results(
+        bins_gen,
+        histogram_gen,
+        histogram_of,
+        histogram_ibu=(None, None),
+        histogram_truth=(None, None),
+        figname="unfolded",
+        texts=[],
+        yscale=None,
+        draw_prior_ratio=False,
+        stamp_xy=None,
+        **config
+):
     """
     Plot and compare the unfolded distributions
     """
@@ -617,8 +645,8 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
     ax0 = axes[0]
     ax1 = axes[1] if truth_known else None
 
-    if config.get('yscale') is not None:
-        ax0.set_yscale(config['yscale'])
+    if yscale is not None:
+        ax0.set_yscale(yscale)
 
     # generator-level
     # signal prior
@@ -652,11 +680,10 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
         hists_numerator = [hist_ibu, hist_of]
         hists_unc_numerator = [hist_ibu_unc, hist_of_unc]
         colors_numerator = [ibu_style['color'], omnifold_style['color']]
-        if config.get('draw_prior_ratio') is not None:
-            if config['draw_prior_ratio']:
-                hists_numerator = [hist_gen] + hists_numerator
-                hists_unc_numerator = [hist_gen_unc] + hists_unc_numerator
-                colors_numerator = [gen_style['color']] + colors_numerator
+        if draw_prior_ratio:
+            hists_numerator = [hist_gen] + hists_numerator
+            hists_unc_numerator = [hist_gen_unc] + hists_unc_numerator
+            colors_numerator = [gen_style['color']] + colors_numerator
 
         draw_ratios(ax1, bins_gen, hist_truth, hists_numerator,
                     hist_truth_unc, hists_unc_numerator,
@@ -666,7 +693,7 @@ def plot_results(bins_gen, histogram_gen, histogram_of, histogram_ibu=(None,None
 
     draw_legend(ax0, **config)
 
-    draw_stamp(ax0, texts, config['stamp_xy'][0], config['stamp_xy'][1])
+    draw_stamp(ax0, texts, stamp_xy[0], stamp_xy[1])
 
     # save plot
     fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
@@ -697,16 +724,25 @@ def plot_response(figname, h2d, xedges, yedges, variable):
     #fig.savefig(figname+'.pdf')
     plt.close(fig)
 
-def plot_iteration_distributions(figname, binedges, histograms, histograms_err, histogram_truth=None, histogram_truth_err=None, nhistmax=7, **config):
-    # plot intermediate unfolded distributions of all iterations
+def plot_iteration_distributions(
+        figname,
+        binedges,
+        histograms,
+        histograms_err,
+        histogram_truth=None,
+        histogram_truth_err=None,
+        nhistmax=7,
+        yscale=None,
+        **config
+):
     fig, axes = modplot.axes(ratio_plot=True, gridspec_update={'height_ratios': (3.5,2)}, **config)
     for ax in axes:
         ax.set_xlim(binedges[0], binedges[-1])
 
     ax0 = axes[0]
 
-    if config.get('yscale') is not None:
-        ax0.set_yscale(config['yscale'])
+    if yscale is not None:
+        ax0.set_yscale(yscale)
 
     # if there are more than nhistmax histograms, plot at most nhistmax histograms
     assert(nhistmax<=10) # plt.rcParams['axes.prop_cycle'] provides max 10 colors
