@@ -670,13 +670,19 @@ class OmniFoldwBkg(object):
         if callbacks:
             fitargs.setdefault('callbacks', []).extend(callbacks)
 
-        val_dict = {'validation_data': val_data} if val_data is not None else {}
-
-        model.fit(X, Y, sample_weight=w, **fitargs, **val_dict)
-
-        if figname_preds:
-            preds_train = model.predict(X, batch_size=int(0.1*len(X)))[:,1]
+        # zip event weights with labels
+        Yw = np.column_stack((Y, w))
+        if val_data is not None:
             X_val, Y_val, w_val = val_data
+            Yw_val = np.column_stack((Y_val, w_val))
+            val_dict = {'validation_data': (X_val, Yw_val)}
+        else:
+            val_dict = {}
+
+        model.fit(X, Yw, **fitargs, **val_dict)
+
+        if figname_preds and val_data is not None:
+            preds_train = model.predict(X, batch_size=int(0.1*len(X)))[:,1]
             preds_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
             logger.info("Plot model output distribution: {}".format(figname_preds))
             plotting.plot_training_vs_validation(figname_preds, preds_train, Y, w, preds_val, Y_val, w_val)

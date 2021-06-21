@@ -65,13 +65,18 @@ def train_model(Data_train, Data_val, Data_test, model_name, model_dir,
     X_val, Y_val, w_val = Data_val
     X_test, Y_test, w_test = Data_test
 
+    # zip event weights with labels
+    Yw_train = np.column_stack((Y_train, w_train))
+    Yw_val = np.column_stack((Y_val, w_val))
+    Yw_test = np.column_stack((Y_test, w_test))
+
     model, callbacks = set_up_model(model_name, model_dir=model_dir,
                                     input_shape=X_train.shape[1:])
 
     if load_model is None:
         # start training
-        history = model.fit(X_train, Y_train, sample_weight=w_train,
-                            validation_data=(X_val, Y_val, w_val),
+        history = model.fit(X_train, Yw_train,
+                            validation_data=(X_val, Yw_val),
                             callbacks=callbacks,
                             batch_size=batch_size,
                             epochs=200, verbose=1)

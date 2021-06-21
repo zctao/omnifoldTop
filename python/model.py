@@ -1,5 +1,8 @@
+import numpy as np
+import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+import tensorflow.keras.backend as K
 
 def get_callbacks(model_filepath=None):
 
@@ -24,11 +27,39 @@ def get_callbacks(model_filepath=None):
     else:
         return [EarlyStopping]
 
+def weighted_binary_crossentropy(y_true, y_pred):
+    # https://github.com/bnachman/ATLASOmniFold/blob/master/GaussianToyExample.ipynb
+    # event weights are zipped with the labels in y_true
+    event_weights = tf.gather(y_true, [1], axis=1)
+    y_true = tf.gather(y_true, [0], axis=1)
+
+    epsilon = K.epsilon()
+    y_pred = K.clip(y_pred, epsilon, 1.-epsilon)
+    loss = -event_weights * ((y_true) * K.log(y_pred) + (1-y_true) * K.log(1-y_pred))
+    return K.mean(loss)
+
+def weighted_categorical_crossentropy(y_true, y_pred):
+    # event weights are zipped with the labels in y_true
+    ncat = y_true.shape[1] - 1
+    event_weights = tf.squeeze(tf.gather(y_true, [ncat], axis=1))
+    y_true = tf.gather(y_true, list(range(ncat)), axis=1)
+
+    # scale preds so that the class probabilites of each sample sum to 1
+    y_pred = y_pred / tf.reduce_sum(y_pred, axis=-1, keepdims=True)
+
+    epsilon = K.epsilon()
+    y_pred = K.clip(y_pred, epsilon, 1.-epsilon)
+
+    # compute cross entropy
+    loss = -event_weights * tf.reduce_sum(y_true * K.log(y_pred), axis=-1)
+    return K.mean(loss)
+
 def get_model(input_shape, model_name='dense_3hl', nclass=2):
 
     model = eval(model_name+"(input_shape, nclass)")
 
-    model.compile(loss='categorical_crossentropy',
+    model.compile(loss=weighted_categorical_crossentropy,
+                  #loss='categorical_crossentropy',
                   optimizer='Adam',
                   metrics=['accuracy'])
 
