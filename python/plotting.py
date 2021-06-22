@@ -630,7 +630,31 @@ def plot_results(
         **config
 ):
     """
-    Plot and compare the unfolded distributions
+    Plot and compare the unfolded distributions.
+
+    Parameters
+    ----------
+    bins_gen : (n,) array-like
+        Locations of the edges of the histogram bins.
+    histogram_gen, histogram_of, histogram_ibu, histogram_truth : tuple of (data, uncertainty)
+        Bin heights and uncertainties for generator, OmniFold, IBU (optional), and truth
+        (optional) distributions, respectively. Use `(data, None)` to indicate no
+        uncertainty. Uncertainties are currently unused.
+    figname : str, default: "unfolded"
+        Path to save the generated figure, excluding the file extension.
+    texts : sequence of str, default: []
+        Additional text to draw on the axes.
+    yscale : str, optional
+    draw_prior_ratio, default: False
+        If `True`, include the generator-level distribution in the ratio plot.
+    stamp_xy : tuple of (float, float)
+        Position of the additional text in data coordinates.
+    **config : dict, optional
+        Additional keyword arguments passed to modplot.axes and plotting.draw_legend.
+
+    See Also
+    --------
+    plotting.draw_stamp : details of how `texts` are drawn
     """
     ymax = 0.
 
@@ -702,6 +726,20 @@ def plot_results(
     plt.close(fig)
 
 def plot_response(figname, h2d, xedges, yedges, variable):
+    """
+    Plot the unfolded detector response matrix.
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the generated figure, excluding the file extension.
+    h2d : (nx, ny) array-like
+        Detector response matrix. Entries are percentages in the range [0, 1].
+    xedges, yedges : (nx + 1,) and (ny + 1,) array-likes
+        Bin edges in the x and y axis, respectively.
+    variable : str
+        Name of the plotted variable.
+    """
     fig, ax = init_fig(
         title='Detector Response',
         xlabel='Detector-level {}'.format(variable),
@@ -735,6 +773,28 @@ def plot_iteration_distributions(
         yscale=None,
         **config
 ):
+    """
+    Plot intermediate unfolded distributions of all iterations.
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the generated figure, excluding the file extension.
+    binedges : (n,) array-like
+        Locations of the edges of the histogram bins.
+    histograms : sequence of array-likes of shape (n - 1,)
+        Bin heights for the results of unfolding at each iteration.
+    histograms_err : sequence of array-likes of shape (n - 1,)
+        Uncertainties of the bin heights for each iteration.
+    histogram_truth : (n - 1,) array-like, optional
+        Bin heights of the truth distribution.
+    histogram_truth_err : (n - 1,) array-like, optional
+        Uncertainties of the bin heights on the truth distribution.
+    nhistmax : int <= 10, default: 7
+        Plot at most this many histograms.
+    **config : dict, optional
+        Additional keyword arguments passed to modplot.axes and plotting.draw_legend
+    """
     fig, axes = modplot.axes(ratio_plot=True, gridspec_update={'height_ratios': (3.5,2)}, **config)
     for ax in axes:
         ax.set_xlim(binedges[0], binedges[-1])
@@ -793,6 +853,26 @@ def plot_iteration_distributions(
 def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
                          histograms_arr, histograms_err_arr, labels=None,
                          **style):
+    """
+    Plot the chi^2 between the truth distribution and each unfolding iteration.
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    histogram_ref : (n,) array-like
+        Histogram of the truth distribution.
+    histogram_err_ref : (n,) array-like
+        Uncertainties on the bin heights of the truth distribution.
+    histograms_arr : sequence of (n,) array-like
+        Histograms of the unfolded distribution for each iteration.
+    histograms_err_ref : sequence of (n,) array-like
+        Sequence of uncertainties on the bin heights of the unfolded distributions.
+    labels : sequence of str, optional
+        Labels for each item of `histogram_err`.
+    **style : dict, optional
+        Additional keyword arguments passed to matplotlib.axes.Axes.plot.
+    """
     # chi2 between the truth distribution and each unfolding iteration
     fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. truth')
 
@@ -820,7 +900,20 @@ def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
     plt.close(fig)
 
 def plot_iteration_diffChi2s(figname, histograms_arr, histograms_err_arr, labels):
-    # chi2s between iterations
+    """
+    Plot the chi^2 between sequential iterations.
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    histograms_arr : sequence of (n,) array-like
+        Bin heights of the histogram for each iteration.
+    histograms_err_arr : sequence of (n,) array-like
+        Uncertainty of the bin height for each iteration.
+    labels : sequence of str
+        Labels for each item of `histogram_arr`.
+    """
     fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\Delta\\chi^2$/NDF')
     for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
         if hists is None:
@@ -836,6 +929,18 @@ def plot_iteration_diffChi2s(figname, histograms_arr, histograms_err_arr, labels
     plt.close(fig)
 
 def plot_train_loss(figname, loss, val_loss):
+    """
+    Generate a plot of training losses vs. epoch.
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    loss : array-like
+        History of the loss on the training set while training the model.
+    val_loss : array-like
+        History of the loss on the validation set while training the model.
+    """
     fig, ax = init_fig(title='', xlabel='Epochs', ylabel='loss')
 
     ax.plot(loss, label='loss')
@@ -853,6 +958,18 @@ def plot_train_loss(figname, loss, val_loss):
     plt.close(fig)
 
 def plot_train_log(csv_file, plot_name=None):
+    """
+    Generate a plot of training loss from a training history file.
+
+    Parameters
+    ----------
+    csv_file : str
+        Path to the training history CSV file.
+    plot_name : str, optional
+        Path to save the figure, excluding the file extension. If omitted, the
+        generated figure will have the same name as the input file with the file
+        extension replaced.
+    """
     df = pd.read_csv(csv_file)
 
     if plot_name is None:
@@ -861,6 +978,16 @@ def plot_train_log(csv_file, plot_name=None):
     plot_train_loss(plot_name, df['loss'], df['val_loss'])
 
 def plot_correlations(correlations, figname):
+    """
+    Generate inter-bin correlation plot.
+
+    Parameters
+    ----------
+    correlations : (n, n) array-like
+        The correlation matrix between bins in a histogram.
+    figname : str
+        Path to save the figure, excluding the file extension.
+    """
     fig, ax = plt.subplots()
     im = ax.imshow(correlations, vmin=-1, vmax=1, cmap='coolwarm')
     fig.colorbar(im, ax=ax)
@@ -878,6 +1005,20 @@ def plot_correlations(correlations, figname):
     plt.close(fig)
 
 def plot_LR_func(figname, bins, f_lr, f_lr_unc=None):
+    """
+    Plot likelihood ratio as a function of model predictions.
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    bins : (n,) array-like
+        Bin edges of the histogram
+    f_lr : (n - 1,) array-like
+        Binned likelihood ratios vs. prediction
+    f_lr_unc : (n - 1,) array-like, optional
+        Uncertainty on `f_lr`
+    """
     # Likelihood ratio as a function of model prediction
     x = (bins[:-1] + bins[1:]) / 2
     xerr = (bins[1:] - bins[:-1]) / 2
@@ -898,6 +1039,18 @@ def plot_LR_func(figname, bins, f_lr, f_lr_unc=None):
     plt.close(fig)
 
 def plot_LR_distr(figname, ratios, labels=None):
+    """
+    Plot the distribution of likelihood ratios.
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    ratios : sequence of array-like
+        Datasets of unbinned likelihood ratios.
+    labels : sequence of str, optional
+        Labels for each set of likelihood ratios in `ratios`.
+    """
     bins_r = np.linspace(0, max(r.max() for r in ratios), 51)
 
     hists, hists_unc = [], []
@@ -908,7 +1061,40 @@ def plot_LR_distr(figname, ratios, labels=None):
 
     plot_histograms1d(figname, bins_r, hists, hists_unc, labels, xlabel='r')
 
-def plot_training_vs_validation(figname, predictions_train, labels_train, weights_train, predictions_val, labels_val, weights_val, nbins=100):
+def plot_training_vs_validation(
+        figname,
+        predictions_train,
+        labels_train,
+        weights_train,
+        predictions_val,
+        labels_val,
+        weights_val,
+        nbins=100
+):
+    """
+    Compare the model's performance on the training vs. validation set
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    predictions_train : (n_pred,) array-like of floats in [0, 1]
+        Probability that each event in the training set is in category 1.
+    labels_train : (n_pred,) or (n_pred, m) array-like
+        Labels for events in the test set, either as a 1d array or categorical.
+    weights_train : (n_pred,) array-like
+        Weight per event in the training set. Each event contributes its associated
+        weight to its bin instead of 1.
+    predictions_val : (n_val,) array-like of floats in [0, 1]
+        Probability that each event in the validation set is in category 1.
+    labels_val : (n_val,) or (n_val, m) array-like
+        Labels for events in the validation set, either as a 1d array or categorical.
+    weights_val : (n_val,) array-like
+        Weight per event in the validation set. Each event contributes its associated
+        weight to its bin instead of 1.
+    nbins : positive int, default: 100
+        Number of bins in the generated histogram.
+    """
     # determine bins of histograms to plot
     bins_min = math.floor(min(predictions_train.min(), predictions_val.min())*10)/10
     bins_max = math.ceil(max(predictions_train.max(), predictions_val.max())*10)/10
@@ -951,7 +1137,24 @@ def plot_training_vs_validation(figname, predictions_train, labels_train, weight
 
 def plot_hists_resamples(figname, bins, histograms, hist_prior, hist_truth=None,
                          **config):
+    """
+    Generate a plot of the results of several resamples of the unfolding problem.
 
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    bins : (n,) array-like
+        Locations of the bin edges of the histogram.
+    histograms : sequence of array-likes of shape (n - 1,)
+        Unfolded distributions for each resample, binned according to `bins`.
+    hist_prior : (n - 1,) array-like
+        Histogram of the prior distribution binned according to `bins`.
+    hist_truth : (n - 1,) array-like, optional
+        Histogram of the truth distribution binned according to `bins`.
+    **config : dict, optional
+        Additional keyword arguments passed to modplot.axes and plotting.draw_legend.
+    """
     fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Ratio to\nPrior', **config)
     # set x axis limit
     for ax in axes:
@@ -999,8 +1202,24 @@ def plot_hists_resamples(figname, bins, histograms, hist_prior, hist_truth=None,
     plt.close(fig)
 
 def plot_hists_bin_distr(figname, binedges, histograms_list, histogram_ref):
-    # histograms_list can be either dimension 3 if all iterations are included
-    # or dimension 2 if only the final unfolded ones for all trials
+    """
+    Generate a plot of the results of several resamples of the unfolding problem.
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    bins : (n,) array-like
+        Locations of the bin edges of the histogram.
+    histograms : sequence of array-likes of shape (n - 1,)
+        Unfolded distributions for each resample, binned according to `bins`.
+    hist_prior : (n - 1,) array-like
+        Histogram of the prior distribution binned according to `bins`.
+    hist_truth : (n - 1,) array-like, optional
+        Histogram of the truth distribution binned according to `bins`.
+    **config : dict, optional
+        Additional keyword arguments passed to modplot.axes and plotting.draw_legend.
+    """
     histograms_arr = np.asarray(histograms_list)
 
     nbins = len(binedges) - 1
@@ -1054,6 +1273,20 @@ def plot_hists_bin_distr(figname, binedges, histograms_list, histogram_ref):
     plt.close(fig)
 
 def plot_gaussian(ax, histogram, binedges, dofit=False):
+    """
+    Draw a Gaussian fit to a histogram on the axes.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+    histogram : (n,) array-like
+        Bin heights in a histogram.
+    binedges : (n + 1,) array-like
+        Location of bin edges for `histogram`.
+    dofit : bool, default: False
+        If True, fit the Gaussian to the histogram using least-squares. If False, use a
+        Gaussian with the same mean, standard deviation, and maximum as the histogram.
+    """
     A, mu, sigma = fit_gaussian_to_hist(histogram, binedges, dofit)
 
     x = np.linspace(binedges[0], binedges[-1], 50)
@@ -1065,6 +1298,27 @@ def plot_gaussian(ax, histogram, binedges, dofit=False):
     #ax.plot(x, yref, '--')
 
 def plot_roc_curves(figname, Y_predicts, Y_true, weights, labels=None):
+    """
+    Generate a receiver operating curve for several classifiers.
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    Y_predicts : sequence of array-like of shape (n,)
+        Each sequence is the predicted binary labels on the same set of samples for
+        different classifiers.
+    Y_true : (n,) array-like
+        Correct binary labels for each sample.
+    weights : (n,) array-like
+        Weights for each sample.
+    labels : sequence of str, optional
+        If provided, labels for each classifier.
+
+    See Also
+    --------
+    sklearn.metrics.roc_curve
+    """
     if labels is None:
         labels = [''] * len(Y_predicts)
     else:
@@ -1094,6 +1348,24 @@ def plot_roc_curves(figname, Y_predicts, Y_true, weights, labels=None):
     plt.close(fig)
 
 def plot_calibrations(figname, Y_predicts, Y_true, labels=None):
+    """
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    Y_predicts : sequence of array-like of shape (n,)
+        Each sequence is the predicted probability of the positive class on the same set
+        of samples for different classifiers.
+    Y_true : (n,) array-like
+        Correct binary labels for each sample.
+    labels : sequence of str, optional
+        If provided, labels for each classifier.
+
+    See Also
+    --------
+    sklearn.metrics.calibration_curve
+    """
+
     if labels is None:
         labels = [''] * len(Y_predicts)
     else:
