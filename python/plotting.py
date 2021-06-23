@@ -1310,8 +1310,9 @@ def plot_gaussian(ax, histogram, binedges, dofit=False):
     binedges : (n + 1,) array-like
         Location of bin edges for `histogram`.
     dofit : bool, default: False
-        If True, fit the Gaussian to the histogram using least-squares. If False, use a
-        Gaussian with the same mean, standard deviation, and maximum as the histogram.
+        If True, fit the Gaussian to the histogram using least-squares. If
+        False, use a Gaussian with the same mean, standard deviation, and
+        maximum as the histogram.
     """
     A, mu, sigma = fit_gaussian_to_hist(histogram, binedges, dofit)
 
