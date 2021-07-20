@@ -45,6 +45,21 @@ def get_callbacks(model_filepath=None):
         return [EarlyStopping]
 
 def weighted_binary_crossentropy(y_true, y_pred):
+    """
+    Binary crossentropy loss, taking into account event weights.
+
+    Parameters
+    ----------
+    y_true : (n, 3) tf.Tensor
+       Ground truth zipped with event weights.
+    y_pred : (n, 2) tf.Tensor
+       Predicted categories.
+
+    Returns
+    -------
+    (n,) tensor
+        Calculated loss for each batch
+    """
     # https://github.com/bnachman/ATLASOmniFold/blob/master/GaussianToyExample.ipynb
     # event weights are zipped with the labels in y_true
     event_weights = tf.gather(y_true, [1], axis=1)
@@ -56,6 +71,20 @@ def weighted_binary_crossentropy(y_true, y_pred):
     return K.mean(loss)
 
 def weighted_categorical_crossentropy(y_true, y_pred):
+    """
+    Categorical crossentropy loss, taking into account event weights.
+
+    Parameters
+    ----------
+    y_true : (n, ncategories + 1) tf.Tensor
+        Ground truth zipped with event weights.
+    y_pred : (n, ncategories) tf.Tensor
+        Predicted cateogires.
+
+    Returns
+    -------
+    (n,) tf.Tensor
+    """
     # event weights are zipped with the labels in y_true
     ncat = y_true.shape[1] - 1
     event_weights = tf.squeeze(tf.gather(y_true, [ncat], axis=1))
