@@ -131,7 +131,7 @@ class DataHandler(object):
             if wname and not wname in variable_names:
                 variable_names.append(wname)
 
-            variable_names = self._filter_variable_names(variable_names)
+            variable_names = _filter_variable_names(variable_names)
 
             # check all variable names are available
             for vname in variable_names:
@@ -457,47 +457,47 @@ class DataHandler(object):
         else:
             raise RuntimeError("Unknown reweighting type: {}".format(rw_type))
 
-    def _filter_variable_names(self, variable_names):
-        """
-        Normalize a list of variables.
+def _filter_variable_names(variable_names):
+    """
+    Normalize a list of variables.
 
-        Replaces Cartesian variables with equivalent cylindrical variables
-        and removes duplicate variable names.
+    Replaces Cartesian variables with equivalent cylindrical variables
+    and removes duplicate variable names.
 
-        Parameters
-        ----------
-        variable_names : iterable of str
-            Variable names to process. If a variable ends in ``_px``,
-            ``_py``, or ``_pz``, it is interpreted as a Cartesian variable.
+    Parameters
+    ----------
+    variable_names : iterable of str
+        Variable names to process. If a variable ends in ``_px``,
+        ``_py``, or ``_pz``, it is interpreted as a Cartesian variable.
 
-        Returns
-        -------
-        list of str
-            Processed variable names. Not guaranteed to preserve order from
-            the input iterable.
-        """
-        varnames_skimmed = set()
+    Returns
+    -------
+    list of str
+        Processed variable names. Not guaranteed to preserve order from
+        the input iterable.
+    """
+    varnames_skimmed = set()
 
-        for vname in variable_names:
-            if '_px' in vname:
-                vname_pt = vname.replace('_px', '_pt')
-                vname_phi = vname.replace('_px', '_phi')
-                varnames_skimmed.add(vname_pt)
-                varnames_skimmed.add(vname_phi)
-            elif '_py' in vname:
-                vname_pt = vname.replace('_py', '_pt')
-                vname_phi = vname.replace('_py', '_phi')
-                varnames_skimmed.add(vname_pt)
-                varnames_skimmed.add(vname_phi)
-            elif '_pz' in vname:
-                vname_pt = vname.replace('_pz', '_pt')
-                vname_eta = vname.replace('_pz', '_eta')
-                varnames_skimmed.add(vname_pt)
-                varnames_skimmed.add(vname_eta)
-            else:
-                varnames_skimmed.add(vname)
+    for vname in variable_names:
+        if '_px' in vname:
+            vname_pt = vname.replace('_px', '_pt')
+            vname_phi = vname.replace('_px', '_phi')
+            varnames_skimmed.add(vname_pt)
+            varnames_skimmed.add(vname_phi)
+        elif '_py' in vname:
+            vname_pt = vname.replace('_py', '_pt')
+            vname_phi = vname.replace('_py', '_phi')
+            varnames_skimmed.add(vname_pt)
+            varnames_skimmed.add(vname_phi)
+        elif '_pz' in vname:
+            vname_pt = vname.replace('_pz', '_pt')
+            vname_eta = vname.replace('_pz', '_eta')
+            varnames_skimmed.add(vname_pt)
+            varnames_skimmed.add(vname_eta)
+        else:
+            varnames_skimmed.add(vname)
 
-        return list(varnames_skimmed)
+    return list(varnames_skimmed)
 
 # Toy data
 class DataToy(DataHandler):
