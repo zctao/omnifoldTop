@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 import plotting
 from datahandler import DataHandler
 from model import get_model, get_callbacks
-from util import add_histograms, write_chi2
+from util import add_histograms, write_chi2, write_ks
 import logging
 logger = logging.getLogger('OmniFoldwBkg')
 logger.setLevel(logging.DEBUG)
@@ -215,10 +215,18 @@ class OmniFoldwBkg(object):
             hist_truth, hist_truth_err = None, None
 
         # compute chi2s
-        text_td = []
+        text_chi2 = []
         if self.datahandle_obs.truth_known:
-            text_td = write_chi2(hist_truth, hist_truth_err, [hist_uf, hist_ibu, hist_gen], [hist_uf_err, hist_ibu_err, hist_gen_err], labels=['OmniFold', 'IBU', 'Prior'])
-            logger.info("  "+"    ".join(text_td))
+            text_chi2 = write_chi2(hist_truth, hist_truth_err, [hist_uf, hist_ibu, hist_gen], [hist_uf_err, hist_ibu_err, hist_gen_err], labels=['OmniFold', 'IBU', 'Prior'])
+            logger.info("  "+"    ".join(text_chi2))
+
+        # Compute KS test statistic
+        text_ks = []
+        if self.datahandle_obs.truth_known:
+            arr_truth = self.datahandle_obs.get_variable_arr(varConfig['branch_mc'])
+            arr_sim = self.datahandle_sig.get_variable_arr(varConfig['branch_mc'])
+            text_ks = write_ks(arr_truth, self.weights_obs[:nobs]*f_sig, [arr_sim, arr_sim], [self.unfolded_weights[-1], self.weights_sim], labels=['OmniFold', 'Prior'])
+            logger.info("  "+"    ".join(text_ks))
 
         # plot
         figname = os.path.join(self.outdir, 'Unfold_{}'.format(varname))
@@ -227,7 +235,7 @@ class OmniFoldwBkg(object):
                               (hist_uf, hist_uf_err),
                               (hist_ibu, hist_ibu_err),
                               (hist_truth, hist_truth_err),
-                              figname=figname, texts=text_td, **varConfig)
+                              figname=figname, texts=text_chi2, **varConfig)
 
         # bin correlations
         if hist_uf_corr is not None:
