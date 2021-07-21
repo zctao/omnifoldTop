@@ -135,7 +135,17 @@ class OmniFoldwBkg(object):
         bin_corr = None # bin correlations
         if bootstrap_uncertainty:
             if self.unfolded_weights_resample is not None:
-                hist_uf_err, bin_corr = self._get_unfolded_uncertainty(variable, bins, all_iterations)
+                hist_uf_rs, hist_uf_err_rs = self._get_unfolded_hists_resample(variable, bins, all_iterations)
+
+                # combine the "nominal" hist with the resampled ones
+                hist_uf_rs.append(hist_uf)
+                hist_uf_err_rs.append(hist_uf_err)
+
+                # take the mean as the new nominal
+                hist_uf = self._get_mean_from_hists(hist_uf_rs)
+
+                # standard deviaion and correlations
+                hist_uf_err, bin_corr = self._get_uncertainties_from_hists(hist_uf_rs)
             else:
                 logger.warn("  Unable to compute bootstrap uncertainty. Use sum of weights squared in each bin instead.")
 
@@ -426,34 +436,53 @@ class OmniFoldwBkg(object):
             weights_file = os.path.join(self.outdir, fname_event_weights)
             np.savez(weights_file, weights_resample = self.unfolded_weights_resample)
 
-    def _get_unfolded_uncertainty(self, variable, bins, all_iterations=False):
-        #assert(self.unfolded_weights_resample is not None)
-        hists_resample = self._get_unfolded_hists_resample(variable, bins,
-                                                           all_iterations)[0]
+    def _get_mean_from_hists(self, hists):
+        # get the mean of each bin from a list of histograms
+        # The shape np.asarray(hists) is expected to be either (n_resamples, n_bins) or (n_resamples, n_iterations, n_bin)
+        if len(hists) == 0: # in case it is empty
+            return None
+        else:
+            return np.mean(np.asarray(hists), axis=0)
 
-        hists_err, hists_corr = None, None
-        if hists_resample:
-            hists_err = np.std(np.asarray(hists_resample), axis=0, ddof=1)
-            # shape = (n_iteration, n_bins) if all_iterations
-            # otherwise, shape = (n_bins,)
+    def _get_uncertainties_from_hists(self, hists):
+        # get the standard deviation of each bin and correlations between bins from a list of histograms
+        bins_std, bins_corr = None, None
+        if len(hists) == 0: # in case it is empty
+            return bins_std, bins_corr
 
-            # bin correlations
-            if all_iterations:
-                hists_corr = []
-                # hists_resample shape: (n_resamples, n_iterations, n_bins)
-                for i in range(self.iterations):
-                    df_i = pd.DataFrame(np.asarray(hists_resample)[:,i,:])
-                    hists_corr.append(df_i.corr()) # ddof = 1
-                    # sanity check
-                    #assert((np.asarray(df_i.std()) == hists_err[i]).all())
-            else:
-                # hists_resample shape: (n_resamples, n_bins)
-                df_i = pd.DataFrame(np.asarray(hists_resample))
-                hists_corr = df_i.corr()
+        # np.asarray(hists) is expected to be of dimension (n_resamples, n_bins)
+        # or (n_resamples, n_iterations, n_bins)
+        if np.asarray(hists).ndim == 2:
+            all_iterations = False
+        elif np.asarray(hists).ndim == 3:
+            all_iterations = True
+        else:
+            logger.error("Cannot handle hists of dimension {}".format(np.asarray(hists).ndim))
+            return bins_std, bins_corr
+
+        bins_std = np.std(np.asarray(hists), axis=0, ddof=1)
+        # shape = (n_iteration, n_bins) if all_iterations
+        # otherwise, shape = (n_bins,)
+
+        # bin correlations
+        if all_iterations:
+            bins_corr = []
+            # np.asarray(hists) shape: (n_resamples, n_iterations, n_bins)
+            niters = np.asarray(hists).shape[1]
+            assert(niters == self.iterations)
+            for i in range(niters):
+                df_i = pd.DataFrame(np.asarray(hists)[:,i,:])
+                bins_corr.append(df_i.corr()) # ddof = 1
                 # sanity check
-                #assert((np.asarray(df_i.std()) == hists_err).all())
+                #assert((np.asarray(df_i.std()) == bins_std[i]).all())
+        else:
+            # np.asarray(hists) shape: (n_resamples, n_bins)
+            df_i = pd.DataFrame(np.asarray(hists))
+            bins_corr = df_i.corr()
+            # sanity check
+            #assert((np.asarray(df_i.std()) == bins_std).all())
 
-        return  hists_err, hists_corr
+        return bins_std, bins_corr
 
     def _get_unfolded_hists_resample(self, variable, bins, all_iterations=False, normalize=False):
         hists_resample = []
