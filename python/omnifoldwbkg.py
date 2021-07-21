@@ -189,7 +189,7 @@ class OmniFoldwBkg(object):
                                     figname=figname, log_scale=False,
                                     **varConfig)
 
-    def plot_distributions_unfold(self, varname, varConfig, bins, ibu=None, iteration_history=False, plot_resamples=True, plot_bins=True):
+    def plot_distributions_unfold(self, varname, varConfig, bins, ibu=None, iteration_history=False, plot_resamples=True, plot_bins=False):
         # unfolded distribution
         hist_uf, hist_uf_err, hist_uf_corr = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=False)
 
