@@ -404,3 +404,21 @@ def write_ks(data_ref, weights_ref, data_list, weights_list, labels):
         stamps.append("{} = {:.2e} ({:.3f})".format(l, ks, prob))
 
     return stamps
+
+def labels_for_dataset(array, label):
+    """
+    Make a label array for events in a dataset.
+
+    Parameters
+    ----------
+    array : sequence
+        Dataset of events.
+    label : int
+        Class label for events in the dataset.
+
+    Returns
+    -------
+    np.ndarray of shape (nevents,)
+        ndarray full of `label`
+    """
+    return np.full(len(array), label)

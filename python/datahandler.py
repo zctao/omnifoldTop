@@ -290,14 +290,14 @@ class DataHandler(object):
             X = np.stack([self.get_features_array(varnames) for varnames in features], axis=1)
             return X
 
-    def get_dataset(self, features, label, standardize=False):
+    def get_dataset(self, features, standardize=False):
         """
+        Get a set of features from the dataset.
+
         Parameters
         ----------
         features : array-like of str
             Features to extract from the dataset.
-        label : int
-            Class number.
         standardize : bool, default: False
             Adjust the dataset so that the mean is 0 and standard deviation
             is 1.
@@ -306,8 +306,6 @@ class DataHandler(object):
         -------
         X : np.ndarray of shape (n_events, *features.shape)
             Extracted features.
-        Y : np.ndarray of shape (n_events,)
-            Class labels.
         """
         X = self.get_features_array(features)
 
@@ -317,10 +315,7 @@ class DataHandler(object):
             X -= Xmean
             X /= Xstd
 
-        # label
-        Y = np.full(len(X), label)
-
-        return X, Y
+        return X
 
     def get_correlations(self, variables):
         """

@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from model import get_model, get_callbacks
 
 from datahandler import DataHandler, DataToy
+import util
 from util import configGPUs, configRootLogger, expandFilePath, read_dict_from_json
 from util import get_bins, write_chi2, write_ks, write_triangular_discriminators, ks_2samp_weighted
 import plotting
@@ -15,8 +16,10 @@ import logging
 
 def get_training_inputs(variables, dataHandle, simHandle, rw_type=None, vars_dict=None):
     ###
-    X_d, Y_d = dataHandle.get_dataset(variables, 1)
-    X_s, Y_s = simHandle.get_dataset(variables, 0)
+    X_d = dataHandle.get_dataset(variables)
+    Y_d = util.labels_for_dataset(X_d, 1)
+    X_s = simHandle.get_dataset(variables)
+    Y_s = util.labels_for_dataset(X_s, 0)
 
     X = np.concatenate([X_d, X_s])
 
