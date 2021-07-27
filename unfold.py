@@ -171,14 +171,14 @@ def unfold(**parsed_args):
 
         # iterative Bayesian unfolding
         if True: # doIBU
-            array_obs = data_obs.get_variable_arr(varConfig['branch_det'])
+            array_obs = data_obs[varConfig['branch_det']]
             if data_obsbkg is not None:
-                array_obsbkg = data_obsbkg.get_variable_arr(varConfig['branch_det'])
+                array_obsbkg = data_obsbkg[varConfig['branch_det']]
                 array_obs = np.concatenate([array_obs, array_obsbkg])
 
-            array_sim = data_sig.get_variable_arr(varConfig['branch_det'])
-            array_gen = data_sig.get_variable_arr(varConfig['branch_mc'])
-            array_simbkg = data_bkg.get_variable_arr(varConfig['branch_det']) if data_bkg else None
+            array_sim = data_sig[varConfig['branch_det']]
+            array_gen = data_sig[varConfig['branch_mc']]
+            array_simbkg = data_bkg[varConfig['branch_det']] if data_bkg else None
             ibu = IBU(varname, bins_det, bins_mc,
                       array_obs, array_sim, array_gen, array_simbkg,
                       # use the same weights from OmniFold

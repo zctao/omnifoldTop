@@ -2,6 +2,8 @@
 Classes for working with OmniFold datasets.
 """
 
+from collections.abc import Mapping
+
 import numpy as np
 import pandas as pd
 from util import parse_input_name, normalize_histogram
@@ -80,7 +82,7 @@ def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='by
 
     return data
 
-class DataHandler(object):
+class DataHandler(Mapping):
     """
     Load data from a series of npy files.
 
@@ -147,7 +149,7 @@ class DataHandler(object):
         if wname and wname in self.data.dtype.names:
             self.sumw = self.data[wname].sum()
 
-    def get_nevents(self):
+    def __len__(self):
         """
         Get the number of events in the dataset.
 
@@ -157,7 +159,7 @@ class DataHandler(object):
         """
         return len(self.data)
 
-    def get_variable_arr(self, variable):
+    def __getitem__(self, variable):
         """
         Get a variable in the dataset.
 
@@ -184,23 +186,38 @@ class DataHandler(object):
         elif '_px' in variable:
             var_pt = variable.replace('_px', '_pt')
             var_phi = variable.replace('_px', '_phi')
-            arr_pt = self.get_variable_arr(var_pt)
-            arr_phi = self.get_variable_arr(var_phi)
+            arr_pt = self[var_pt]
+            arr_phi = self[var_phi]
             return arr_pt * np.cos(arr_phi)
         elif '_py' in variable:
             var_pt = variable.replace('_py', '_pt')
             var_phi = variable.replace('_py', '_phi')
-            arr_pt = self.get_variable_arr(var_pt)
-            arr_phi = self.get_variable_arr(var_phi)
+            arr_pt = self[var_pt]
+            arr_phi = self[var_phi]
             return arr_pt * np.sin(arr_phi)
         elif '_pz' in variable:
             var_pt = variable.replace('_pz', '_pt')
             var_eta = variable.replace('_pz', '_eta')
-            arr_pt = self.get_variable_arr(var_pt)
-            arr_eta = self.get_variable_arr(var_eta)
+            arr_pt = self[var_pt]
+            arr_eta = self[var_eta]
             return arr_pt * np.sinh(arr_eta)
         else:
-            raise RuntimeError("Unknown variable {}. \nAvailable variable names: {}".format(variable, self.data.dtype.names))
+            raise KeyError(
+                "Unknown variable {}. \nAvailable variable names: {}".format(
+                    variable,
+                    list(self.keys()),
+                )
+            )
+
+    def __iter__(self):
+        """
+        Create an iterator over the variable names in the dataset.
+
+        Returns
+        -------
+        iterator of strings
+        """
+        return iter(self.data.dtype.names)
 
     def get_weights(
             self,
@@ -242,10 +259,10 @@ class DataHandler(object):
         bootstrapping.
         """
         if unweighted or not self.weight_name:
-            weights = np.ones(len(self.data))
+            weights = np.ones(len(self))
         else:
             # always return a copy of the original weight array in self.data
-            weights = self.get_variable_arr(self.weight_name).copy()
+            weights = self[self.weight_name].copy()
             assert(weights.base is None)
 
         # reweight sample if needed
@@ -283,7 +300,7 @@ class DataHandler(object):
         ndim_features = np.asarray(features).ndim
         if ndim_features == 1:
             # ndarray of shape (n_events, n_features)
-            X = np.vstack([self.get_variable_arr(varname) for varname in features]).T
+            X = np.vstack([self[varname] for varname in features]).T
             return X
         else:
             # ndarray of shape (n_events, <feature shape>)
@@ -330,7 +347,7 @@ class DataHandler(object):
         -------
         pandas.DataFrame
         """
-        df = pd.DataFrame({var:self.get_variable_arr(var) for var in variables}, columns=variables)
+        df = pd.DataFrame({var: self[var] for var in variables}, columns=variables)
         correlations = df.corr()
         return correlations
 
@@ -360,7 +377,7 @@ class DataHandler(object):
         """
         if isinstance(weights, np.ndarray):
             if weights.ndim == 1: # if weights is a 1D array
-                varr = self.get_variable_arr(variable)
+                varr = self[variable]
                 # check the weight array length is the same as the variable array
                 assert(len(varr) == len(weights))
                 hist, hist_err = modplot.calc_hist(varr, weights=weights, bins=bin_edges, density=False)[:2]
@@ -422,7 +439,7 @@ class DataHandler(object):
             assert('th_pt' in vars_dict)
             assert(self.truth_known)
             varname_thpt = vars_dict['th_pt']['branch_mc']
-            th_pt = self.get_variable_arr(varname_thpt)
+            th_pt = self[varname_thpt]
             # reweight factor
             rw = 1. + 1/800.*th_pt
             return rw
@@ -431,7 +448,7 @@ class DataHandler(object):
             assert('mtt' in vars_dict)
             assert(self.truth_known)
             varname_mtt = vars_dict['mtt']['branch_mc']
-            mtt = self.get_variable_arr(varname_mtt)
+            mtt = self[varname_mtt]
             #reweight factor
             k = 0.5
             m0 = 800.
@@ -442,7 +459,7 @@ class DataHandler(object):
             assert('mtt' in vars_dict)
             assert(self.truth_known)
             varname_mtt = vars_dict['mtt']['branch_mc']
-            mtt = self.get_variable_arr(varname_mtt)
+            mtt = self[varname_mtt]
             #reweight factor
             k = 0.5
             m0 = 2000.

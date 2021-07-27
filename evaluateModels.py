@@ -151,12 +151,12 @@ def evaluateModels(**parsed_args):
     fnames_d = parsed_args['data']
     logger.info("(Pseudo) data files: {}".format(' '.join(fnames_d)))
     dataHandle = DataHandler(fnames_d, wname, variable_names=vars_det+vars_mc)
-    logger.info("Total number of pseudo data events: {}".format(dataHandle.get_nevents()))
+    logger.info("Total number of pseudo data events: {}".format(len(dataHandle)))
 
     fnames_s = parsed_args['signal']
     logger.info("Simulation files: {}".format(' '.join(fnames_s)))
     simHandle = DataHandler(fnames_s, wname, variable_names=vars_det+vars_mc)
-    logger.info("Total number of simulation events: {}".format(simHandle.get_nevents()))
+    logger.info("Total number of simulation events: {}".format(len(simHandle)))
 
     ####
     #dataHandle = DataToy(1000000, 1, 1.5)
@@ -261,8 +261,8 @@ def evaluateModels(**parsed_args):
         logger.info("  "+"    ".join(text_tria))
 
         # Compute KS test statistic
-        arr_truth = dataHandle.get_variable_arr(vname_mc)
-        arr_sim = simHandle.get_variable_arr(vname_mc)
+        arr_truth = dataHandle[vname_mc]
+        arr_sim = simHandle[vname_mc]
         text_ks = write_ks(arr_truth, w_d, [arr_sim, arr_sim], [w_s_rw, w_s], labels=['Reweighted', 'Prior'])
 
         logger.info("  "+"    ".join(text_ks))

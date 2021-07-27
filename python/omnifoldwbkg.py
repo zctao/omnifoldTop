@@ -58,22 +58,34 @@ class OmniFoldwBkg(object):
                         vars_dict={}):
         # observed data
         self.datahandle_obs = obsHandle
-        logger.info("Total number of observed events: {}".format(self.datahandle_obs.get_nevents()))
+        logger.info(
+            "Total number of observed events: {}".format(len(self.datahandle_obs))
+        )
 
         # simulation
         self.datahandle_sig = simHandle
-        logger.info("Total number of simulated events: {}".format(self.datahandle_sig.get_nevents()))
+        logger.info(
+            "Total number of simulated events: {}".format(len(self.datahandle_sig))
+        )
 
         # background simulation if needed
         self.datahandle_bkg = bkgHandle
         if self.datahandle_bkg is not None:
-            logger.info("Total number of simulated background events: {}".format(self.datahandle_bkg.get_nevents()))
+            logger.info(
+                "Total number of simulated background events: {}".format(
+                    len(self.datahandle_bkg)
+                )
+            )
 
         # background simulation to be mixed with data
         if self.datahandle_bkg is not None:
             self.datahandle_obsbkg = obsBkgHandle
             if self.datahandle_obsbkg is not None:
-                logger.info("Total number of background events mixed with data: {}".format(self.datahandle_obsbkg.get_nevents()))
+                logger.info(
+                    "Total number of background events mixed with data: {}".format(
+                        len(self.datahandle_obsbkg)
+                    )
+                )
 
         # plot input variable correlations
         if plot_corr:
@@ -154,7 +166,7 @@ class OmniFoldwBkg(object):
 
     def plot_distributions_reco(self, varname, varConfig, bins):
         # observed
-        nobs = self.datahandle_obs.get_nevents()
+        nobs = len(self.datahandle_obs)
         hist_obs, hist_obs_err = self.datahandle_obs.get_histogram(varConfig['branch_det'], self.weights_obs[:nobs], bins)
 
         if self.datahandle_obsbkg is not None:
@@ -195,7 +207,7 @@ class OmniFoldwBkg(object):
         # MC truth if known
         if self.datahandle_obs.truth_known:
             # number of observed signal events
-            nobs = self.datahandle_obs.get_nevents()
+            nobs = len(self.datahandle_obs)
 
             # Factor to rescale signal truth to signal sim
             # Should be 1 in case there is no background
@@ -411,7 +423,7 @@ class OmniFoldwBkg(object):
         if not nresamples > 1:
             return
 
-        self.unfolded_weights_resample = np.empty(shape=(nresamples, self.iterations, self.datahandle_sig.get_nevents()))
+        self.unfolded_weights_resample = np.empty(shape=(nresamples, self.iterations, len(self.datahandle_sig)))
         # shape: (nresamples, n_iterations, n_events)
 
         model_name = 'Models' if error_type=='bootstrap_stat' else 'Models_rs{}'
