@@ -59,9 +59,7 @@ def unfold(**parsed_args):
     fnames_obs = parsed_args['data']
     logger.info("Data files: {}".format(' '.join(fnames_obs)))
     vars_obs = vars_det_all+vars_mc_all if parsed_args['truth_known'] else vars_det_all
-    data_obs = DataHandler(fnames_obs, wname,
-                            truth_known=parsed_args['truth_known'],
-                            variable_names = vars_obs)
+    data_obs = DataHandler(fnames_obs, wname, variable_names=vars_obs)
                             #vars_dict = observable_dict
 
     # mix background simulation for testing if needed
@@ -95,17 +93,29 @@ def unfold(**parsed_args):
     # Unfold
     #################
     if parsed_args['background_mode'] == 'default':
-        unfolder = OmniFoldwBkg(vars_det_train, vars_mc_train,
-                                iterations = parsed_args['iterations'],
-                                outdir = parsed_args['outputdir'])
+        unfolder = OmniFoldwBkg(
+            vars_det_train,
+            vars_mc_train,
+            iterations=parsed_args["iterations"],
+            outdir=parsed_args["outputdir"],
+            truth_known=parsed_args["truth_known"],
+        )
     elif parsed_args['background_mode'] == 'negW':
-        unfolder = OmniFoldwBkg_negW(vars_det_train, vars_mc_train,
-                                    iterations = parsed_args['iterations'],
-                                    outdir = parsed_args['outputdir'])
+        unfolder = OmniFoldwBkg_negW(
+            vars_det_train,
+            vars_mc_train,
+            iterations=parsed_args["iterations"],
+            outdir=parsed_args["outputdir"],
+            truth_known=parsed_args["truth_known"],
+        )
     elif parsed_args['background_mode'] == 'multiClass':
-        unfolder = OmniFoldwBkg_multi(vars_det_train, vars_mc_train,
-                                    iterations = parsed_args['iterations'],
-                                    outdir = parsed_args['outputdir'])
+        unfolder = OmniFoldwBkg_multi(
+            vars_det_train,
+            vars_mc_train,
+            iterations=parsed_args["iterations"],
+            outdir=parsed_args["outputdir"],
+            truth_known=parsed_args["truth_known"],
+        )
     else:
         logger.error("Unknown background mode {}".format(parsed_args['background_mode']))
 

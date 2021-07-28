@@ -15,10 +15,19 @@ logger = logging.getLogger('OmniFoldwBkg')
 logger.setLevel(logging.DEBUG)
 
 class OmniFoldwBkg(object):
-    def __init__(self, variables_det, variables_truth, iterations=4, outdir='.', binned_rw=False):
+    def __init__(
+        self,
+        variables_det,
+        variables_truth,
+        iterations=4,
+        outdir=".",
+        binned_rw=False,
+        truth_known=True,
+    ):
         # list of detector and truth level variable names used in training
-        self.vars_reco = variables_det 
+        self.vars_reco = variables_det
         self.vars_truth = variables_truth
+        self.truth_known = truth_known
         # number of iterations
         self.iterations = iterations
         # reweighting method
@@ -205,7 +214,7 @@ class OmniFoldwBkg(object):
         hist_gen, hist_gen_err = self.datahandle_sig.get_histogram(varConfig['branch_mc'], self.weights_sim, bins)
 
         # MC truth if known
-        if self.datahandle_obs.truth_known:
+        if self.truth_known:
             # number of observed signal events
             nobs = len(self.datahandle_obs)
 
@@ -219,7 +228,7 @@ class OmniFoldwBkg(object):
 
         # compute chi2s
         text_td = []
-        if self.datahandle_obs.truth_known:
+        if self.truth_known:
             text_td = write_chi2(hist_truth, hist_truth_err, [hist_uf, hist_ibu, hist_gen], [hist_uf_err, hist_ibu_err, hist_gen_err], labels=['OmniFold', 'IBU', 'Prior'])
             logger.info("  "+"    ".join(text_td))
 
@@ -288,7 +297,7 @@ class OmniFoldwBkg(object):
                 hists_ibu, hists_ibu_err = [], []
 
             plotting.plot_iteration_diffChi2s(figname_prefix+"_diffChi2s", [hists_ibu, hists_uf], [hists_ibu_err, hists_uf_err], labels=["IBU", "OmniFold"])
-            if self.datahandle_obs.truth_known:
+            if self.truth_known:
                 plotting.plot_iteration_chi2s(figname_prefix+"_chi2s_wrt_Truth", hist_truth, hist_truth_err, [hists_ibu, hists_uf], [hists_ibu_err, hists_uf_err], labels=["IBU", "OmniFold"])
 
                 if self.unfolded_weights_resample is not None:
@@ -734,8 +743,15 @@ class OmniFoldwBkg(object):
 ###
 # Add background as negatively weighted data
 class OmniFoldwBkg_negW(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_truth, iterations=4, outdir='.'):
-        super().__init__(variables_det, variables_truth, iterations, outdir)
+    def __init__(
+        self,
+        variables_det,
+        variables_truth,
+        iterations=4,
+        outdir=".",
+        truth_known=True
+    ):
+        super().__init__(variables_det, variables_truth, iterations, outdir, truth_known)
 
         # set background simulation label the same as data
         self.label_bkg = self.label_obs
@@ -751,8 +767,15 @@ class OmniFoldwBkg_negW(OmniFoldwBkg):
 ###
 # multi-class classification
 class OmniFoldwBkg_multi(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_truth, iterations=4, outdir='.'):
-        super().__init__(variables_det, variables_truth, iterations, outdir)
+    def __init__(
+        self,
+        variables_det,
+        variables_truth,
+        iterations=4,
+        outdir=".",
+        truth_known=True,
+    ):
+        super().__init__(variables_det, variables_truth, iterations, outdir, truth_known)
 
         # new class label for background
         self.label_bkg = 2

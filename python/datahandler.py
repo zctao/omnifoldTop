@@ -93,8 +93,6 @@ class DataHandler(Mapping):
         provide the filename as "{path}*{reweight factor}".
     wname : str, default: "w"
         Name of the event weight column.
-    truth_known : bool, default: True
-        If the truth distribution is known.
     variable_names : list of str, optional
         List of variables to read. If not provided, read all variables in
         the dataset.
@@ -116,10 +114,15 @@ class DataHandler(Mapping):
         A file using reweighting doesn't contain `wname`.
     """
 
-    def __init__(self, filepaths, wname='w', truth_known=True,
-                 variable_names=None, vars_dict={}, array_name='arr_0'):
+    def __init__(
+        self,
+        filepaths,
+        wname="w",
+        variable_names=None,
+        vars_dict={},
+        array_name="arr_0",
+    ):
         self.weight_name = wname # name of event weights
-        self.truth_known = truth_known
 
         # load data from npz files to numpy array
         tmpDataArr = load_dataset(filepaths, array_name=array_name, weight_columns=wname)
@@ -437,7 +440,6 @@ class DataHandler(Mapping):
         elif rw_type == 'linear_th_pt':
             # truth-level hadronic top pt
             assert('th_pt' in vars_dict)
-            assert(self.truth_known)
             varname_thpt = vars_dict['th_pt']['branch_mc']
             th_pt = self[varname_thpt]
             # reweight factor
@@ -446,7 +448,6 @@ class DataHandler(Mapping):
         elif rw_type == 'gaussian_bump':
             # truth-level ttbar mass
             assert('mtt' in vars_dict)
-            assert(self.truth_known)
             varname_mtt = vars_dict['mtt']['branch_mc']
             mtt = self[varname_mtt]
             #reweight factor
@@ -457,7 +458,6 @@ class DataHandler(Mapping):
             return rw
         elif rw_type == 'gaussian_tail':
             assert('mtt' in vars_dict)
-            assert(self.truth_known)
             varname_mtt = vars_dict['mtt']['branch_mc']
             mtt = self[varname_mtt]
             #reweight factor
@@ -531,7 +531,6 @@ class DataToy(DataHandler):
     """
     def __init__(self, nevents, mu=0., sigma=1.):
         self.weight_name = ''
-        self.truth_known = True
 
         # generate toy data
         # truth level
