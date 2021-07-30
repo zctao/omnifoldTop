@@ -512,23 +512,23 @@ class OmniFoldwBkg(object):
 
     def _set_arrays_step1(self, standardize=False):
         # step 1: observed data vs simulation at detector level
-        X_obs = self.datahandle_obs.get_dataset(self.vars_reco)
+        X_obs = self.datahandle_obs[self.vars_reco]
         Y_obs = util.labels_for_dataset(X_obs, self.label_obs)
 
         if self.datahandle_obsbkg is not None:
             assert(self.datahandle_bkg is not None)
-            X_obsbkg = self.datahandle_obsbkg.get_dataset(self.vars_reco)
+            X_obsbkg = self.datahandle_obsbkg[self.vars_reco]
             X_obs = np.concatenate([X_obs, X_obsbkg])
             Y_obs = np.concatenate([Y_obs, Y_obsbkg])
 
-        X_sim = self.datahandle_sig.get_dataset(self.vars_reco)
+        X_sim = self.datahandle_sig[self.vars_reco]
         Y_sim = util.labels_for_dataset(X_sim, self.label_sig)
 
         if self.datahandle_bkg is None:
             self.X_step1 = np.concatenate([X_obs, X_sim])
             self.Y_step1 = np.concatenate([Y_obs, Y_sim])
         else:
-            X_simbkg = self.datahandle_bkg.get_dataset(self.vars_reco)
+            X_simbkg = self.datahandle_bkg[self.vars_reco]
             Y_simbkg = util.labels_for_dataset(X_simbkg, self.label_bkg)
             self.X_step1 = np.concatenate([X_obs, X_sim, X_simbkg])
             self.Y_step1 = np.concatenate([Y_obs, Y_sim, Y_simbkg])
@@ -559,7 +559,7 @@ class OmniFoldwBkg(object):
 
     def _set_arrays_step2(self, standardize=False):
         # step 2: update simulation weights at truth level
-        self.X_gen = self.datahandle_sig.get_dataset(self.vars_truth)
+        self.X_gen = self.datahandle_sig[self.vars_truth]
         nsim = len(self.X_gen)
 
         if standardize:

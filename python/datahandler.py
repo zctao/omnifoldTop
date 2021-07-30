@@ -233,33 +233,6 @@ class DataHandler(Mapping):
             X = np.stack([self[varnames] for varnames in features], axis=1)
             return X
 
-    def get_dataset(self, features, standardize=False):
-        """
-        Get a set of features from the dataset.
-
-        Parameters
-        ----------
-        features : array-like of str
-            Features to extract from the dataset.
-        standardize : bool, default: False
-            Adjust the dataset so that the mean is 0 and standard deviation
-            is 1.
-
-        Returns
-        -------
-        X : np.ndarray of shape (n_events, *features.shape)
-            Extracted features.
-        """
-        X = self[features]
-
-        if standardize:
-            Xmean = np.mean(X, axis=0)
-            Xstd = np.std(X, axis=0)
-            X -= Xmean
-            X /= Xstd
-
-        return X
-
     def __iter__(self):
         """
         Create an iterator over the variable names in the dataset.
@@ -502,6 +475,39 @@ def _filter_variable_names(variable_names):
             varnames_skimmed.add(vname)
 
     return list(varnames_skimmed)
+
+def standardize_dataset(features):
+        """
+        Standardize the distribution of a set of features.
+
+        Adjust the dataset so that the mean is 0 and standard deviation is 1.
+
+        Parameters
+        ----------
+        features : array-like (n_events, *feature_shape)
+            Array of data. The data is interpreted as a series of feature
+            arrays, one per event. Standardization is performed along the
+            event axis.
+
+        Returns
+        -------
+        np.ndarray of shape (n_events, *feature_shape)
+            Standardized dataset.
+
+        Examples
+        --------
+        >>> a = np.asarray([
+        ...     [1, 2, 3],
+        ...     [4, 5, 6],
+        ... ])
+        >>> datahandler.standardize_dataset(a)
+        array([[-1., -1., -1.],
+               [ 1.,  1.,  1.]])
+        """
+        centred_at_zero = features - np.mean(features, axis=0)
+        deviation_one = centred_at_zero / np.std(centred_at_zero, axis=0)
+
+        return deviation_one
 
 # Toy data
 class DataToy(DataHandler):

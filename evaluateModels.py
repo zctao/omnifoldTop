@@ -16,9 +16,9 @@ import logging
 
 def get_training_inputs(variables, dataHandle, simHandle, rw_type=None, vars_dict=None):
     ###
-    X_d = dataHandle.get_dataset(variables)
+    X_d = dataHandle[variables]
     Y_d = util.labels_for_dataset(X_d, 1)
-    X_s = simHandle.get_dataset(variables)
+    X_s = simHandle[variables]
     Y_s = util.labels_for_dataset(X_s, 0)
 
     X = np.concatenate([X_d, X_s])
