@@ -162,55 +162,103 @@ class DataHandler(Mapping):
         """
         return len(self.data)
 
-    def __getitem__(self, variable):
+    def __contains__(self, variable):
         """
-        Get a variable in the dataset.
+        Check if a variable is in the dataset.
+
+        Parameters
+        ----------
+        variable : str
+
+        Returns
+        -------
+        bool
+        """
+        return variable in self.data.dtype.names
+
+    def __getitem__(self, features):
+        """
+        Retrieve features from each event in the dataset.
 
         Returns a view (NOT copy) of self.data if possible. Otherwise,
         tries to make a new array from self.data.
 
         Parameters
         ----------
-        variable : str
-            Name of the variable to retrieve.
+        features : array-like of str
+            Names of the features to extract from each event. The shape of
+            the returned array will reflect the shape of this array.
 
         Returns
         -------
-        np.ndarray, shape (nevents,)
+        np.ndarray of shape (n_events, *features.shape)
 
         Raises
         ------
-        RuntimeError
-            If `variable` is not in the dataset.
+        KeyError
+            If a variable name in `features` is not in the dataset.
         """
-        if variable in self.data.dtype.names:
-            return self.data[variable]
-        # special cases
-        elif '_px' in variable:
-            var_pt = variable.replace('_px', '_pt')
-            var_phi = variable.replace('_px', '_phi')
-            arr_pt = self[var_pt]
-            arr_phi = self[var_phi]
-            return arr_pt * np.cos(arr_phi)
-        elif '_py' in variable:
-            var_pt = variable.replace('_py', '_pt')
-            var_phi = variable.replace('_py', '_phi')
-            arr_pt = self[var_pt]
-            arr_phi = self[var_phi]
-            return arr_pt * np.sin(arr_phi)
-        elif '_pz' in variable:
-            var_pt = variable.replace('_pz', '_pt')
-            var_eta = variable.replace('_pz', '_eta')
-            arr_pt = self[var_pt]
-            arr_eta = self[var_eta]
-            return arr_pt * np.sinh(arr_eta)
-        else:
-            raise KeyError(
-                "Unknown variable {}. \nAvailable variable names: {}".format(
-                    variable,
-                    list(self.keys()),
+        ndim_features = np.asarray(features).ndim
+        if ndim_features == 0:
+            if features in self:
+                return self.data[features]
+            # special cases
+            elif '_px' in features:
+                var_pt = features.replace('_px', '_pt')
+                var_phi = features.replace('_px', '_phi')
+                arr_pt = self[var_pt]
+                arr_phi = self[var_phi]
+                return arr_pt * np.cos(arr_phi)
+            elif '_py' in features:
+                var_pt = features.replace('_py', '_pt')
+                var_phi = features.replace('_py', '_phi')
+                arr_pt = self[var_pt]
+                arr_phi = self[var_phi]
+                return arr_pt * np.sin(arr_phi)
+            elif '_pz' in features:
+                var_pt = features.replace('_pz', '_pt')
+                var_eta = features.replace('_pz', '_eta')
+                arr_pt = self[var_pt]
+                arr_eta = self[var_eta]
+                return arr_pt * np.sinh(arr_eta)
+            else:
+                raise KeyError(
+                    "Unknown variable {}. \nAvailable variable names: {}".format(
+                        features,
+                        list(self.keys()),
+                    )
                 )
-            )
+        else:
+            # ndarray of shape (n_events, <feature shape>)
+            X = np.stack([self[varnames] for varnames in features], axis=1)
+            return X
+
+    def get_dataset(self, features, standardize=False):
+        """
+        Get a set of features from the dataset.
+
+        Parameters
+        ----------
+        features : array-like of str
+            Features to extract from the dataset.
+        standardize : bool, default: False
+            Adjust the dataset so that the mean is 0 and standard deviation
+            is 1.
+
+        Returns
+        -------
+        X : np.ndarray of shape (n_events, *features.shape)
+            Extracted features.
+        """
+        X = self[features]
+
+        if standardize:
+            Xmean = np.mean(X, axis=0)
+            Xstd = np.std(X, axis=0)
+            X -= Xmean
+            X /= Xstd
+
+        return X
 
     def __iter__(self):
         """
@@ -280,62 +328,6 @@ class DataHandler(Mapping):
             weights *= np.random.poisson(1, size=len(weights))
 
         return weights
-
-    def get_features_array(self, features):
-        """
-        Retrieve features from each event in the dataset.
-
-        Parameters
-        ----------
-        features : array-like of str
-            Names of the features to extract from each event. The shape of
-            the returned array will reflect the shape of this array.
-
-        Returns
-        -------
-        np.ndarray of shape (n_events, *features.shape)
-
-        Raises
-        ------
-        RuntimeError
-            If a variable name in `features` is not in the dataset.
-        """
-        ndim_features = np.asarray(features).ndim
-        if ndim_features == 1:
-            # ndarray of shape (n_events, n_features)
-            X = np.vstack([self[varname] for varname in features]).T
-            return X
-        else:
-            # ndarray of shape (n_events, <feature shape>)
-            X = np.stack([self.get_features_array(varnames) for varnames in features], axis=1)
-            return X
-
-    def get_dataset(self, features, standardize=False):
-        """
-        Get a set of features from the dataset.
-
-        Parameters
-        ----------
-        features : array-like of str
-            Features to extract from the dataset.
-        standardize : bool, default: False
-            Adjust the dataset so that the mean is 0 and standard deviation
-            is 1.
-
-        Returns
-        -------
-        X : np.ndarray of shape (n_events, *features.shape)
-            Extracted features.
-        """
-        X = self.get_features_array(features)
-
-        if standardize:
-            Xmean = np.mean(X, axis=0)
-            Xstd = np.std(X, axis=0)
-            X -= Xmean
-            X /= Xstd
-
-        return X
 
     def get_correlations(self, variables):
         """
