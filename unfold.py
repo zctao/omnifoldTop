@@ -265,7 +265,7 @@ if __name__ == "__main__":
                         default='default', help="Background mode")
     parser.add_argument('-r', '--reweight-data', dest='reweight_data',
                         choices=reweight.rw.keys(), default=None,
-                        help="Reweight strategy of the input spectrum for stress tests")
+                        help="Reweight strategy of the input spectrum for stress tests. Requires --truth-known.")
     parser.add_argument('-v', '--verbose',
                         action='count', default=0,
                         help="Verbosity level")
@@ -297,6 +297,11 @@ if __name__ == "__main__":
     #                    help="Use alternative reweighting if true")
 
     args = parser.parse_args()
+
+    # Verify truth is known when reweighting
+    if args.reweight_data is not None and not args.truth_known:
+        print("--reweight-data requires --truth-known", file=sys.stderr)
+        sys.exit(2)
 
     logfile = os.path.join(args.outputdir, 'log.txt')
     configRootLogger(filename=logfile)
