@@ -11,6 +11,7 @@ from datahandler import DataHandler
 from omnifoldwbkg import OmniFoldwBkg
 from omnifoldwbkg import OmniFoldwBkg_negW, OmniFoldwBkg_multi
 from ibu import IBU
+import reweight
 from util import read_dict_from_json, get_bins
 from util import configGPUs, expandFilePath, configRootLogger
 import logging
@@ -60,7 +61,6 @@ def unfold(**parsed_args):
     logger.info("Data files: {}".format(' '.join(fnames_obs)))
     vars_obs = vars_det_all+vars_mc_all if parsed_args['truth_known'] else vars_det_all
     data_obs = DataHandler(fnames_obs, wname, variable_names=vars_obs)
-                            #vars_dict = observable_dict
 
     # mix background simulation for testing if needed
     fnames_obsbkg = parsed_args['bdata']
@@ -73,7 +73,7 @@ def unfold(**parsed_args):
     # signal simulation
     fnames_sig = parsed_args['signal']
     logger.info("Simulation files: {}".format(' '.join(fnames_sig)))
-    data_sig = DataHandler(fnames_sig, wname, variable_names = vars_det_all+vars_mc_all) #vars_dict = observable_dict
+    data_sig = DataHandler(fnames_sig, wname, variable_names = vars_det_all+vars_mc_all)
 
     # background simulation
     fnames_bkg = parsed_args['background']
@@ -119,15 +119,25 @@ def unfold(**parsed_args):
     else:
         logger.error("Unknown background mode {}".format(parsed_args['background_mode']))
 
+    rw = None
+    if parsed_args["reweight_data"]:
+        var_lookup = np.vectorize(lambda v: observable_dict[v]["branch_mc"])
+        rw = reweight.rw[parsed_args["reweight_data"]]
+        rw.variables = var_lookup(rw.variables)
+
     # prepare input data
     logger.info("Prepare data")
     t_prep_start = time.time()
 
-    unfolder.prepare_inputs(data_obs, data_sig, data_bkg, data_obsbkg,
-                            parsed_args['plot_correlations'],
-                            standardize=True,
-                            reweight_type=parsed_args['reweight_data'],
-                            vars_dict=observable_dict)
+    unfolder.prepare_inputs(
+        data_obs,
+        data_sig,
+        data_bkg,
+        data_obsbkg,
+        parsed_args["plot_correlations"],
+        standardize=True,
+        reweighter=rw,
+    )
 
     t_prep_done = time.time()
     logger.info("Preparing data took {:.2f} seconds".format(t_prep_done - t_prep_start))
@@ -254,7 +264,7 @@ if __name__ == "__main__":
                         choices=['default', 'negW', 'multiClass'],
                         default='default', help="Background mode")
     parser.add_argument('-r', '--reweight-data', dest='reweight_data',
-                        choices=['linear_th_pt', 'gaussian_bump', 'gaussian_tail'], default=None,
+                        choices=reweight.rw.keys(), default=None,
                         help="Reweight strategy of the input spectrum for stress tests")
     parser.add_argument('-v', '--verbose',
                         action='count', default=0,

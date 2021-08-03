@@ -61,10 +61,16 @@ class OmniFoldwBkg(object):
             os.makedirs(outdir)
         self.outdir = outdir.rstrip('/')+'/'
 
-    def prepare_inputs(self, obsHandle, simHandle, bkgHandle=None,
-                        obsBkgHandle=None,
-                        plot_corr=False, standardize=False, reweight_type=None,
-                        vars_dict={}):
+    def prepare_inputs(
+        self,
+        obsHandle,
+        simHandle,
+        bkgHandle=None,
+        obsBkgHandle=None,
+        plot_corr=False,
+        standardize=False,
+        reweighter=None,
+    ):
         # observed data
         self.datahandle_obs = obsHandle
         logger.info(
@@ -108,8 +114,7 @@ class OmniFoldwBkg(object):
 
         # event weights for training
         logger.info("Prepare event weights")
-        self._set_event_weights(rw_type=reweight_type, vars_dict=vars_dict,
-                                rescale=True)
+        self._set_event_weights(reweighter)
 
         logger.info("Prepare arrays")
         # arrays for step 1
@@ -581,9 +586,9 @@ class OmniFoldwBkg(object):
             logger.info("Plot step 2 training variable {}".format(vname))
             plotting.plot_data_arrays(os.path.join(self.outdir, 'Train_step2_'+vname), [vgen], [wsig], labels=['Gen.'], title='Step-2 training inputs', xlabel=vname)
 
-    def _set_event_weights(self, rw_type=None, vars_dict={}, rescale=True):
-        self.weights_obs = self.datahandle_obs.get_weights(rw_type=rw_type,
-                                                           vars_dict=vars_dict)
+    def _set_event_weights(self, reweighter=None, rescale=True):
+        self.weights_obs = self.datahandle_obs.get_weights(reweighter=reweighter)
+
         if self.datahandle_obsbkg is not None:
             self.weights_obs = np.concatenate([self.weights_obs, self.datahandle_obsbkg.get_weights()])
 

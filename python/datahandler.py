@@ -201,7 +201,9 @@ class DataHandler(Mapping):
         ndim_features = np.asarray(features).ndim
         if ndim_features == 0:
             if features in self:
-                return self.data[features]
+                 # Can't index data by np Unicode arrays, have to
+                 # convert back to str first.
+                return self.data[str(features)]
             # special cases
             elif '_px' in features:
                 var_pt = features.replace('_px', '_pt')
@@ -248,8 +250,7 @@ class DataHandler(Mapping):
             unweighted=False,
             bootstrap=False,
             normalize=False,
-            rw_type=None,
-            vars_dict={},
+            reweighter=None
     ):
         """
         Get event weights for the dataset.
@@ -264,23 +265,17 @@ class DataHandler(Mapping):
         normalize : bool, default: False
             If True, normalize the weights by expressing them as the ratio
             to the mean of the weights.
-        rw_type : str, optional
-            Multiply the weights by a predefined reweighting function.
-        vars_dict : dict, default: {}
-            Dict describing how to access variables.
+        reweighter : reweight.Reweighter, optional
+            A function that takes events and returns event weights, and the
+            variables it expects.
 
         Returns
         -------
         np.ndarray of numbers, shape (nevents,)
 
-        See Also
-        --------
-        datahandler.DataHandler._reweight_sample
-
         Notes
         -----
-        Normalization is applied after reweighting and before
-        bootstrapping.
+        Order of operations: reweighting, normalization, bootstrapping.
         """
         if unweighted or not self.weight_name:
             weights = np.ones(len(self))
@@ -290,8 +285,8 @@ class DataHandler(Mapping):
             assert(weights.base is None)
 
         # reweight sample if needed
-        if rw_type is not None:
-            weights *= self._reweight_sample(rw_type, vars_dict)
+        if reweighter is not None:
+            weights *= reweighter.func(self[reweighter.variables])
 
         # normalize to len(self.data)
         if normalize:
@@ -365,74 +360,6 @@ class DataHandler(Mapping):
             return np.asarray(hists), np.asarray(hists_err)
         else:
             raise RuntimeError("Unknown type of weights: {}".format(type(weights)))
-
-    def _reweight_sample(self, rw_type, vars_dict):
-        """
-        Return sample weights calculated by a function of the dataset.
-
-        Parameters
-        ----------
-        rw_type : {Falsey, "linear_th_pt", "gaussian_bump", "gaussian_tail"}
-            Name of the reweighting function to use. See Notes for the
-            function corresponding to each value.
-        vars_dict : dict
-            Variable configuration dict mapping variables to their name in
-            the dataset.
-
-        Returns
-        -------
-        np.ndarray of shape (nevents,)
-             Event weights.
-
-        Raises
-        ------
-        RuntimeError
-            If an unknown `rw_type` is passed.
-
-        Notes
-        -----
-        =================== ===============================================
-        Value of `rw_type`  Reweighting function
-        =================== ===============================================
-        Any Falsey value    ``1``
-        ``"linear_th_pt"``  ``1 + th_pt / 800``
-        ``"gaussian_bump"`` ``1 + 0.5 * exp( -((mtt - 800) / 100) ** 2)``
-        ``"gaussian_tail"`` ``1 + 0.5 * exp( -((mtt - 2000) / 1000) ** 2)``
-        =================== ===============================================
-        """
-        if not rw_type:
-            return 1.
-        elif rw_type == 'linear_th_pt':
-            # truth-level hadronic top pt
-            assert('th_pt' in vars_dict)
-            varname_thpt = vars_dict['th_pt']['branch_mc']
-            th_pt = self[varname_thpt]
-            # reweight factor
-            rw = 1. + 1/800.*th_pt
-            return rw
-        elif rw_type == 'gaussian_bump':
-            # truth-level ttbar mass
-            assert('mtt' in vars_dict)
-            varname_mtt = vars_dict['mtt']['branch_mc']
-            mtt = self[varname_mtt]
-            #reweight factor
-            k = 0.5
-            m0 = 800.
-            sigma = 100.
-            rw = 1. + k*np.exp( -( (mtt-m0)/sigma )**2 )
-            return rw
-        elif rw_type == 'gaussian_tail':
-            assert('mtt' in vars_dict)
-            varname_mtt = vars_dict['mtt']['branch_mc']
-            mtt = self[varname_mtt]
-            #reweight factor
-            k = 0.5
-            m0 = 2000.
-            sigma = 1000.
-            rw = 1. + k*np.exp( -( (mtt-m0)/sigma )**2 )
-            return rw
-        else:
-            raise RuntimeError("Unknown reweighting type: {}".format(rw_type))
 
 def _filter_variable_names(variable_names):
     """
