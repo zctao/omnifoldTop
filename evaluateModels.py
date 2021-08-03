@@ -11,6 +11,7 @@ from datahandler import DataHandler, DataToy
 from util import configGPUs, configRootLogger, expandFilePath, read_dict_from_json
 from util import get_bins, write_chi2, write_ks, write_triangular_discriminators, ks_2samp_weighted
 import plotting
+from histogramming import calc_hist
 import logging
 
 def get_training_inputs(variables, dataHandle, simHandle, rw_type=None, vars_dict=None):
@@ -230,18 +231,17 @@ def evaluateModels(**parsed_args):
         vname_mc = observable_dict[varname]['branch_mc']
 
         # pseudo truth
-        hist_truth, hist_truth_err = dataHandle.get_histogram(vname_mc, w_d, bins)
+        hist_truth = dataHandle.get_histogram(vname_mc, w_d, bins)
 
         # simulation prior
-        hist_prior, hist_prior_err = simHandle.get_histogram(vname_mc, w_s, bins)
+        hist_prior = simHandle.get_histogram(vname_mc, w_s, bins)
 
         # reweighted simulation distributions
-        hists_rw, hists_rw_err = simHandle.get_histogram(vname_mc, weights_rw, bins)
+        hists_rw = simHandle.get_histogram(vname_mc, weights_rw, bins)
 
         # plot the first reweighted distribution
         assert(len(hists_rw) > 0)
         hist_rw = hists_rw[0]
-        hist_rw_err = hists_rw_err[0]
         #hist_rw = np.mean(np.asarray(hists_rw), axis=0)
         #hist_rw_err = np.std(np.asarray(hists_rw), axis=0, ddof=1)
 
@@ -250,7 +250,7 @@ def evaluateModels(**parsed_args):
         logger.info("Plot reweighted distribution: {}".format(figname))
 
         # Compute chi2s
-        text_chi2 = write_chi2(hist_truth, hist_truth_err, [hist_rw, hist_prior], [hist_rw_err, hist_truth_err], labels=['Reweighted', 'Prior'])
+        text_chi2 = write_chi2(hist_truth, [hist_rw, hist_prior], labels=['Reweighted', 'Prior'])
         logger.info("  "+"    ".join(text_chi2))
 
         # Compute triangular discriminator
@@ -264,22 +264,22 @@ def evaluateModels(**parsed_args):
 
         logger.info("  "+"    ".join(text_ks))
 
-        plotting.plot_results(bins, (hist_prior, hist_prior_err), (hist_rw, hist_rw_err), histogram_truth=(hist_truth, hist_truth_err), figname=figname, texts=text_ks, **observable_dict[varname])
+        plotting.plot_results(hist_prior, hist_rw, histogram_truth=hist_truth, figname=figname, texts=text_ks, **observable_dict[varname])
 
         ####
         # plot all trials
         if len(hists_rw) > 1:
             figname_all = os.path.join(parsed_args['outputdir'], 'Reweight_{}_allruns'.format(varname))
-            plotting.plot_hists_resamples(figname_all, bins, hists_rw, hist_prior, hist_truth, **observable_dict[varname])
+            plotting.plot_hists_resamples(figname_all, hists_rw, hist_prior, hist_truth, **observable_dict[varname])
 
         # plot the distribution of KS test statistic
         ks_list = []
         for rw_s in weights_rw:
             ks = ks_2samp_weighted(arr_truth, arr_sim, w_d, rw_s)[0]
             ks_list.append(ks)
-        hist_ks, bins_ks = np.histogram(ks_list)
+        hist_ks = calc_hist(ks_list)
         fname_ks = os.path.join(parsed_args['outputdir'], 'KSDistr_{}'.format(varname))
-        plotting.plot_histograms1d(fname_ks, bins_ks, [hist_ks], xlabel="KS")
+        plotting.plot_histograms1d(fname_ks, [hist_ks], xlabel="KS")
 
 if __name__ == "__main__":
     import argparse

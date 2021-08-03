@@ -27,9 +27,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import math
+
+# for now
 import external.OmniFold.modplot as modplot
 
-from util import add_histograms, compute_chi2, compute_diff_chi2
+from histogramming import calc_hist, get_hist, get_values_and_errors, set_hist_errors
+
+from util import compute_chi2, compute_diff_chi2
 from util import gaus, fit_gaussian_to_hist
 
 from sklearn.metrics import roc_curve, auc, roc_auc_score
@@ -97,11 +101,8 @@ def set_default_colors(ncolors):
 
 def draw_ratios(
         ax,
-        bins,
-        hist_denom,
-        hists_numer,
-        hist_denom_unc=None,
-        hists_numer_unc=None,
+        histogram_denom,
+        histograms_numer,
         color_denom_line='tomato',
         color_denom_fill='silver',
         colors_numer=None
@@ -117,19 +118,11 @@ def draw_ratios(
     Parameters
     ----------
     ax : matplotlib.axes.Axes
-    bins : (n,) array-like
-        Locations of the edges of the histogram bins.
-    hist_denom : (n - 1,) array-like
-        Bin heights for the denominator.
-    hists_numer : sequence of (n - 1,) array-likes
-        Each numerator is a sequence of bin heights. num / denom will be
+    histogram_denom : Hist object.
+        Histogram for the denominator.
+    histograms_numer : sequence of Hist objects
+        Each numerator is a sequence of histograms. num / denom will be
         plotted for each bin.
-    hist_denom_unc : (n - 1,) array-like, optional
-        Error bars on the denominator. These will be scaled by the values
-        of the denominator histogram.
-    hists_numer_unc : sequence of (n - 1,) array-likes, optional
-        Uncertainties of the heights of each numerator histogram. These
-        will be scaled by the values of the denominator histogram.
     color_denom_line : color, default: tomato
         Colour of the horizontal line at y = 1.
     color_denom_fill : color, default: silver
@@ -142,11 +135,14 @@ def draw_ratios(
     matplotlib.color : documentation of colours
     """
 
-    midbins = (bins[:-1] + bins[1:]) / 2
-    binwidths = bins[1:] - bins[:-1]
+    bins = histogram_denom.axes[0].edges
+    midbins = histogram_denom.axes[0].centers
+    binwidths = histogram_denom.axes[0].widths
 
     # horizontal line at y=1
     ax.plot([np.min(bins), np.max(bins)], [1, 1], '-', color=color_denom_line, lw=0.75)
+
+    hist_denom, hist_denom_unc = get_values_and_errors(histogram_denom)
 
     if hist_denom_unc is not None:
         denom_unc_ratio = np.divide(hist_denom_unc, hist_denom, out=np.zeros_like(hist_denom), where=(hist_denom!=0))
@@ -154,21 +150,21 @@ def draw_ratios(
         ax.fill_between(bins, 1-denom_unc_ratio, 1+denom_unc_ratio, facecolor=color_denom_fill, zorder=-2, step='post')
 
     if colors_numer is not None:
-        assert(len(colors_numer)==len(hists_numer))
+        assert(len(colors_numer)==len(histograms_numer))
     else:
-        colors_numer = set_default_colors(len(hists_numer))
+        colors_numer = set_default_colors(len(histograms_numer))
 
-    for i, hist_num in enumerate(hists_numer):
-        if hist_num is None:
+    for i, histogram_num in enumerate(histograms_numer):
+        if histogram_num is None:
             continue
+        hist_num, hist_num_unc = get_values_and_errors(histogram_num)
+
         ymin, ymax = ax.get_ylim()
         ratio = np.divide(hist_num, hist_denom, out=np.ones_like(hist_denom)*ymin, where=(hist_denom!=0))
 
         ratio_unc = None
-        if hists_numer_unc is not None:
-            assert(len(hists_numer_unc)==len(hists_numer))
-            if hists_numer_unc[i] is not None:
-                ratio_unc = np.divide(hists_numer_unc[i], hist_denom, out=np.zeros_like(hist_denom), where=(hist_denom!=0))
+        if hist_num_unc is not None:
+            ratio_unc = np.divide(hist_num_unc, hist_denom, out=np.zeros_like(hist_denom), where=(hist_denom!=0))
 
         ax.errorbar(midbins, ratio, xerr=binwidths/2, yerr=ratio_unc, color=colors_numer[i], **modplot.style('errorbar'))
 
@@ -224,28 +220,23 @@ def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045):
         if txt is not None:
             ax.text(x, y-i*dy, txt, **textopts)
 
-def draw_histogram(ax, bin_edges, hist, hist_unc=None, **styles):
+def draw_histogram(ax, histogram, **styles):
     """
     Plot a 1D histogram in the axes.
 
     Parameters
     ----------
     ax : matplotlib.axes.Axes
-    bin_edges : (n,) ndarray
-        Location of the edges of the bins of the histogram.
-    hist : (n - 1,) array-like
-        Height of each bin in the histogram.
-    hist_unc : optional
-        Currently unused.
+    histogram : Hist object
     **styles : dict, optional
         Additional keyword arguments passed to matplotlib.axes.Axes.hist
     """
-    midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
+    midbins = histogram.axes[0].centers
+    bin_edges = histogram.axes[0].edges
 
-    ax.hist(midbins, bin_edges, weights=hist, **styles)
-    # TODO: uncertainty hist_unc
+    ax.hist(midbins, bin_edges, weights=histogram.values(), **styles)
 
-def draw_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
+def draw_stacked_histograms(ax, histograms, labels=None,
                             colors=None, stacked=True):
     """
     Plot 1D stacked histograms in the axes.
@@ -253,13 +244,8 @@ def draw_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
     Parameters
     ----------
     ax : matplotlib.axes.Axes
-    bin_edges : (n,) array-like
-        Location of the edges of the bins of the histogram.
-    hists : sequence of (n - 1,) array-likes
-        Sequence of histograms. Each item is the heights of the bins of a
-        histogram for one dataset.
-    hists_unc : optional
-        Currently unused.
+    histograms : sequence of Hist objects
+        Sequence of histograms. Each item is the histogram for one dataset.
     labels : sequence of str, optional
         Label for each dataset. Must be the same length as `hists`. If not
         provided, the histograms will be numbered from 0.
@@ -270,76 +256,66 @@ def draw_stacked_histograms(ax, bin_edges, hists, hists_unc=None, labels=None,
         If True, histograms are stacked on top of each other. Otherwise
         histograms are arranged side-by-side.
     """
-    midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
+    midbins = histograms[0].axes[0].centers
+    bin_edges = histograms[0].axes[0].edges
 
     if colors is None:
-        colors = set_default_colors(len(hists))
-    assert(len(colors)==len(hists))
+        colors = set_default_colors(len(histograms))
+    assert(len(colors)==len(histograms))
 
     if labels is None:
-        labels = [str(i) for i in range(len(hists))]
-    assert(len(labels)==len(hists))
+        labels = [str(i) for i in range(len(histograms))]
+    assert(len(labels)==len(histograms))
 
-    ax.hist(np.stack([midbins]*len(hists), axis=1), bin_edges,
-            weights=np.stack([h for h in hists], axis=1),
+    ax.hist(np.stack([midbins]*len(histograms), axis=1), bin_edges,
+            weights=np.stack([h.values() for h in histograms], axis=1),
             color=colors, label=labels,
             stacked = stacked, histtype='bar', fill=True)
     # TODO: uncertainty
 
-def draw_hist_fill(ax, bin_edges, hist, hist_unc=None, **styles):
+def draw_hist_fill(ax, histogram, **styles):
     """
     Plot a filled 1D histogram in the axes.
 
     Parameters
     ----------
     ax : matplotlib.axes.Axes
-    bin_edges : (n,) ndarray
-        Location of the edges of the bins of the histogram.
-    hist : (n - 1,) array-like
-        Height of each bin in the histogram.
-    hist_unc : optional
-        Currently unused.
+    histogram : Hist object
     **styles : dict, optional
         Additional keyword arguments passed to matplotlib.axes.Axes.hist.
     """
-    midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
+    midbins = histogram.axes[0].centers
+    bin_edges = histogram.axes[0].edges
 
-    ax.hist(midbins, bin_edges, weights=hist, histtype='step', fill=True, **styles)
+    ax.hist(midbins, bin_edges, weights=histogram.values(), histtype='step', fill=True, **styles)
     # TODO: uncertainty?
 
-def draw_hist_as_graph(ax, bin_edges, hist, hist_unc=None, **styles):
+def draw_hist_as_graph(ax, histogram, **styles):
     """
     Draw a histogram as a scatter plot with error bars.
 
     Parameters
     ----------
     ax : matplotlib.axes.Axes
-    bin_edges : (n,) ndarray
-        Location of the edges of the bins of the histogram.
-    hist : (n - 1,) array-like
-        Height of each bin in the histogram.
-    hist_unc : float, (n - 1,) array-like, or (2, n - 1) array-like, optional
-        If used, error bars in the y axis.
+    histogram : Hist object
     **styles : dict, optional
         Additional keyword arguments passed to matplotlib.axes.Axes.errorbar.
 
     Notes
     -----
-    Points are plotted in the middle of each bin. If `hist_unc` is used,
+    Points are plotted in the middle of each bin. If bin errors are plotted,
     the x error bars are set to +/- half the width of each bin.
-
-    See Also
-    --------
-    matplotlib.axes.Axes.errorbar :
-        See `xerr` and `yerr` for interpretation of `hist_unc`
     """
-    midbins = (bin_edges[:-1] + bin_edges[1:]) / 2
-    binwidths = bin_edges[1:] - bin_edges[:-1]
+    midbins = histogram.axes[0].centers
+    binwidths = histogram.axes[0].widths
+    bin_edges = histogram.axes[0].edges
 
-    yerr = hist_unc
+    hval, herr = get_values_and_errors(histogram)
+
+    yerr = herr
     xerr = None if yerr is None else binwidths/2
 
-    ax.errorbar(midbins, hist, xerr=xerr, yerr=yerr, **styles)
+    ax.errorbar(midbins, hval, xerr=xerr, yerr=yerr, **styles)
 
 def plot_graphs(
         figname,
@@ -429,9 +405,7 @@ def plot_graphs(
 
 def plot_histograms1d(
         figname,
-        bins,
-        hists,
-        hists_err=None,
+        histograms,
         labels=None,
         title="",
         xlabel="",
@@ -441,7 +415,7 @@ def plot_histograms1d(
         marker='o'
 ):
     """
-    Create histograms of several datasets on the same x and y axes.
+    Plot histograms of several datasets on the same x and y axes.
 
     The generated figure is saved to "{figname}.png".
 
@@ -449,12 +423,8 @@ def plot_histograms1d(
     ----------
     figname : str
         Path to save the figure, excluding the file extension.
-    bins : sequence of n floats
-        Location of the edges of the bins.
-    hists : (m, n - 1) array-like
-        Sequence of histograms; each histogram is a sequence of bin heights.
-    hists_err : optional
-        Currently unused.
+    histograms : list of Hist objects
+        Sequence of histograms.
     labels : sequence of n str, optional
          Data series labels. If provided, the plot will contain a legend.
     title : str, default: ""
@@ -483,31 +453,26 @@ def plot_histograms1d(
     ax.xaxis.get_major_formatter().set_powerlimits((-3,4))
 
     if colors is None:
-        colors = set_default_colors(len(hists))
+        colors = set_default_colors(len(histograms))
     else:
-        assert(len(colors)==len(hists))
+        assert(len(colors)==len(histograms))
 
     if labels is None:
-        labels = [""]*len(hists)
+        labels = [""]*len(histograms)
     else:
-        assert(len(labels)==len(hists))
-
-    if hists_err is not None:
-        assert(len(hists_err)==len(hists))
-    else:
-        hists_err = [np.zeros_like(h) for h in hists]
+        assert(len(labels)==len(histograms))
 
     if plottypes is None:
-        plottypes = ['h']*len(hists)
+        plottypes = ['h']*len(histograms)
     else:
-        assert(len(plottypes)==len(hists))
+        assert(len(plottypes)==len(histograms))
 
-    for i, h in enumerate(hists):
+    for i, h in enumerate(histograms):
         label = None if labels is None else labels[i]
         if plottypes[i] == "g":
-            draw_hist_as_graph(ax, bins, h, hists_err[i], label=label, color=colors[i], marker=marker, **graph_style)
+            draw_hist_as_graph(ax, h, label=label, color=colors[i], marker=marker, **graph_style)
         elif plottypes[i] == "h":
-            draw_histogram(ax, bins, h, hists_err[i], label=label, color=colors[i], fill=False, **hist_style)
+            draw_histogram(ax, h, label=label, color=colors[i], fill=False, **hist_style)
         else:
             raise RuntimeError("Unknown plot type {}".format(plottypes[i]))
 
@@ -553,16 +518,15 @@ def plot_data_arrays(figname, data_arrs, weight_arrs=None, nbins=20, **plotstyle
 
     histograms = []
     for data, w in zip(data_arrs, weight_arrs):
-        h = np.histogram(data, bins=bins, weights=w, density=True)[0]
+        h = calc_hist(data, bins, weights=w, density=True)
         histograms.append(h)
 
-    plot_histograms1d(figname, bins, histograms, **plotstyle)
+    plot_histograms1d(figname, histograms, **plotstyle)
 
 def plot_reco_variable(
-        bins,
         histogram_obs,
         histogram_sig,
-        histogram_bkg=(None, None),
+        histogram_bkg=None,
         figname="var_reco",
         log_scale=False,
         yscale=None,
@@ -573,12 +537,9 @@ def plot_reco_variable(
 
     Parameters
     ----------
-    bins : (n,) array-like
-        Location of the edges of the bins of the histogram.
-    histogram_obs, histogram_sig, histogram_bkg : tuple of (data, uncertainty)
-        Bin heights and uncertainties for observables, signal, and
-        background (optional), respectively. Use `(data, None)` to indicate
-        no uncertainty. Uncertainties are currently unused.
+    histogram_obs, histogram_sig, histogram_bkg : Hist objects
+        Histograms for observables, signal, and
+        background (optional), respectively.
     figname : str, default: "var_reco"
         Path to save the generated figure, excluding the file extension.
     log_scale : bool, default: False
@@ -588,9 +549,6 @@ def plot_reco_variable(
     **config : dict, optional
         Additional keyword arguments passed to modplot.axes and plotting.draw_legend.
     """
-    hist_obs, hist_obs_unc = histogram_obs
-    hist_sig, hist_sig_unc = histogram_sig
-    hist_bkg, hist_bkg_unc = histogram_bkg
 
     # use the plotting tools from the original omnifold package
     fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Data \/\nMC', **config)
@@ -598,6 +556,7 @@ def plot_reco_variable(
     ax1 = axes[1]
 
     # x limits
+    bins = histogram_obs.axes[0].edges
     ax0.set_xlim(bins[0],bins[-1])
     ax1.set_xlim(bins[0],bins[-1])
 
@@ -608,29 +567,29 @@ def plot_reco_variable(
         ax0.set_yscale(yscale)
 
     # y limits
-    ymax = max(hist_obs.max(), hist_sig.max())
-    if hist_bkg is not None:
-        ymax = max(hist_bkg.max(), ymax)
+    ymax = max(histogram_obs.values().max(), histogram_sig.values().max())
+    if histogram_bkg is not None:
+        ymax = max(histogram_bkg.values().max(), ymax)
 
     ymin = 1e-4 if log_scale else 0
     ymax = ymax*10 if log_scale else ymax*1.2
 
     ax0.set_ylim(ymin, ymax*1.2)
 
-    hists_stack = [hist_sig]
+    hists_stack = [histogram_sig]
     labels = [sim_style['label']]
     colors = [sim_style['color']]
-    if hist_bkg is not None:
-        hists_stack = [hist_bkg, hist_sig]
+    if histogram_bkg is not None:
+        hists_stack = [histogram_bkg, histogram_sig]
         labels = [bkg_style['label'], sim_style['label']]
         colors = [bkg_style['color'], sim_style['color']]
 
-    draw_stacked_histograms(ax0, bins, hists_stack, labels=labels, colors=colors)
-    draw_histogram(ax0, bins, hist_obs, **data_style)
+    draw_stacked_histograms(ax0, hists_stack, labels=labels, colors=colors)
+    draw_histogram(ax0, histogram_obs, **data_style)
 
     # data/mc ratio
-    hist_mc, hist_mc_unc = add_histograms(hist_sig, hist_bkg, hist_sig_unc, hist_bkg_unc)
-    draw_ratios(ax1, bins, hist_mc, [hist_obs], hist_mc_unc, [hist_obs_unc], colors_numer=[data_style['color']])
+    histogram_mc = histogram_sig if histogram_bkg is None else histogram_sig + histogram_bkg
+    draw_ratios(ax1, histogram_mc, [histogram_obs], colors_numer=[data_style['color']])
 
     # legend
     draw_legend(ax0, **config)
@@ -642,11 +601,10 @@ def plot_reco_variable(
     plt.close(fig)
 
 def plot_results(
-        bins_gen,
         histogram_gen,
         histogram_of,
-        histogram_ibu=(None, None),
-        histogram_truth=(None, None),
+        histogram_ibu=None,
+        histogram_truth=None,
         figname="unfolded",
         texts=[],
         yscale=None,
@@ -659,13 +617,9 @@ def plot_results(
 
     Parameters
     ----------
-    bins_gen : (n,) array-like
-        Locations of the edges of the histogram bins.
-    histogram_gen, histogram_of, histogram_ibu, histogram_truth : tuple of (data, uncertainty)
-        Bin heights and uncertainties for generator, OmniFold, IBU
-        (optional), and truth (optional) distributions, respectively. Use
-        `(data, None)` to indicate no uncertainty. Uncertainties are
-        currently unused.
+    histogram_gen, histogram_of, histogram_ibu, histogram_truth : Hist objects
+        Histograms for generator, OmniFold, IBU (optional), and truth (optional) 
+        distributions, respectively.
     figname : str, default: "unfolded"
         Path to save the generated figure, excluding the file extension.
     texts : sequence of str, default: []
@@ -685,12 +639,13 @@ def plot_results(
     ymax = 0.
 
     # use the plotting tools from the original omnifold package
-    truth_known = histogram_truth[0] is not None
+    truth_known = histogram_truth is not None
     fig, axes = modplot.axes(ratio_plot = truth_known, gridspec_update={'height_ratios': (3.5,2) if truth_known else (1,)}, **config)
 
     # set xaxis limit according to bin edges
+    bin_edges = histogram_gen.axes[0].edges
     for ax in axes:
-        ax.set_xlim(bins_gen[0], bins_gen[-1])
+        ax.set_xlim(bin_edges[0], bin_edges[-1])
 
     ax0 = axes[0]
     ax1 = axes[1] if truth_known else None
@@ -700,43 +655,36 @@ def plot_results(
 
     # generator-level
     # signal prior
-    hist_gen, hist_gen_unc = histogram_gen
-    ymax = max(hist_gen.max(), ymax)
-    draw_hist_as_graph(ax0, bins_gen, hist_gen, **gen_style)
+    ymax = max(histogram_gen.values().max(), ymax)
+    draw_hist_as_graph(ax0, histogram_gen, **gen_style)
 
     # if truth is known
-    hist_truth, hist_truth_unc = histogram_truth
-    if hist_truth is not None:
-        ymax = max(hist_truth.max(), ymax)
-        draw_hist_fill(ax0, bins_gen, hist_truth, **truth_style)
+    if histogram_truth is not None:
+        ymax = max(histogram_truth.values().max(), ymax)
+        draw_hist_fill(ax0, histogram_truth, **truth_style)
 
     # unfolded distributions
     # omnifold
-    hist_of, hist_of_unc = histogram_of
-    ymax = max(hist_of.max(), ymax)
-    draw_hist_as_graph(ax0, bins_gen, hist_of, **omnifold_style)
+    ymax = max(histogram_of.values().max(), ymax)
+    draw_hist_as_graph(ax0, histogram_of, **omnifold_style)
 
     # iterative Bayesian unfolding
-    hist_ibu, hist_ibu_unc = histogram_ibu
-    if hist_ibu is not None:
-        ymax = max(hist_ibu.max(), ymax)
-        draw_hist_as_graph(ax0, bins_gen, hist_ibu, **ibu_style)
+    if histogram_ibu is not None:
+        ymax = max(histogram_ibu.values().max(), ymax)
+        draw_hist_as_graph(ax0, histogram_ibu, **ibu_style)
 
     # update y-axis limit
     ax0.set_ylim((0, ymax*1.2))
 
     if ax1:
         #  ratios of the unfolded distributions to truth
-        hists_numerator = [hist_ibu, hist_of]
-        hists_unc_numerator = [hist_ibu_unc, hist_of_unc]
+        hists_numerator = [histogram_ibu, histogram_of]
         colors_numerator = [ibu_style['color'], omnifold_style['color']]
         if draw_prior_ratio:
-            hists_numerator = [hist_gen] + hists_numerator
-            hists_unc_numerator = [hist_gen_unc] + hists_unc_numerator
+            hists_numerator = [histogram_gen] + hists_numerator
             colors_numerator = [gen_style['color']] + colors_numerator
 
-        draw_ratios(ax1, bins_gen, hist_truth, hists_numerator,
-                    hist_truth_unc, hists_unc_numerator,
+        draw_ratios(ax1, histogram_truth, hists_numerator,
                     color_denom_line = truth_style['edgecolor'],
                     color_denom_fill= truth_style['facecolor'],
                     colors_numer = colors_numerator)
@@ -751,7 +699,7 @@ def plot_results(
 
     plt.close(fig)
 
-def plot_response(figname, h2d, xedges, yedges, variable):
+def plot_response(figname, histogram2d, variable):
     """
     Plot the unfolded detector response matrix.
 
@@ -759,13 +707,15 @@ def plot_response(figname, h2d, xedges, yedges, variable):
     ----------
     figname : str
         Path to save the generated figure, excluding the file extension.
-    h2d : (nx, ny) array-like
+    histogram2d :Hist object. 2D histogram.
         Detector response matrix. Entries are percentages in the range [0, 1].
-    xedges, yedges : (nx + 1,) and (ny + 1,) array-likes
-        Bin edges in the x and y axis, respectively.
     variable : str
         Name of the plotted variable.
     """
+    h2d = histogram2d.values()
+    xedges = histogram2d.axes[0].edges
+    yedges = histogram2d.axes[1].edges
+
     fig, ax = init_fig(
         title='Detector Response',
         xlabel='Detector-level {}'.format(variable),
@@ -790,11 +740,8 @@ def plot_response(figname, h2d, xedges, yedges, variable):
 
 def plot_iteration_distributions(
         figname,
-        binedges,
         histograms,
-        histograms_err,
         histogram_truth=None,
-        histogram_truth_err=None,
         nhistmax=7,
         yscale=None,
         **config
@@ -806,21 +753,16 @@ def plot_iteration_distributions(
     ----------
     figname : str
         Path to save the generated figure, excluding the file extension.
-    binedges : (n,) array-like
-        Locations of the edges of the histogram bins.
-    histograms : sequence of array-likes of shape (n - 1,)
-        Bin heights for the results of unfolding at each iteration.
-    histograms_err : sequence of array-likes of shape (n - 1,)
-        Uncertainties of the bin heights for each iteration.
-    histogram_truth : (n - 1,) array-like, optional
-        Bin heights of the truth distribution.
-    histogram_truth_err : (n - 1,) array-like, optional
-        Uncertainties of the bin heights on the truth distribution.
+    histograms : sequence of Hist objects
+        Histograms of unfolding at each iteration.
+    histogram_truth : Hist object
+        Histogram of the truth distribution.
     nhistmax : int <= 10, default: 7
         Plot at most this many histograms.
     **config : dict, optional
         Additional keyword arguments passed to modplot.axes and plotting.draw_legend
     """
+    binedges = histograms[0].axes[0].edges
     fig, axes = modplot.axes(ratio_plot=True, gridspec_update={'height_ratios': (3.5,2)}, **config)
     for ax in axes:
         ax.set_xlim(binedges[0], binedges[-1])
@@ -840,16 +782,15 @@ def plot_iteration_distributions(
         selected_i = list(range(len(histograms)))
 
     histograms_toplot = [histograms[i] for i in selected_i]
-    histograms_err_toplot = [histograms_err[i] for i in selected_i]
 
     styles = ibu_style.copy()
     colors = set_default_colors(len(selected_i))
 
     ymax = 0.
-    for i, hist, color in zip(selected_i, histograms_toplot, colors):
+    for i, h, color in zip(selected_i, histograms_toplot, colors):
         styles.update({'color': color, 'label': 'iteration {}'.format(i)})
-        ymax = max(hist.max(), ymax)
-        draw_hist_as_graph(ax0, binedges, hist, alpha=0.8, **styles)
+        ymax = max(h.values().max(), ymax)
+        draw_hist_as_graph(ax0, h, alpha=0.8, **styles)
 
     # set yaxis range
     ax0.set_ylim((0, ymax*1.2))
@@ -858,16 +799,12 @@ def plot_iteration_distributions(
     if histogram_truth is not None:
         axes[1].set_ylabel("Ratio to Truth", fontsize=8)
         # Draw ratio to truth
-        draw_ratios(axes[1], binedges,
-                    histogram_truth, histograms_toplot,
-                    histogram_truth_err, histograms_err_toplot,
+        draw_ratios(axes[1], histogram_truth, histograms_toplot,
                     color_denom_line = 'black', colors_numer = colors)
     else:
         # Draw ratio to prior
         axes[1].set_ylabel("Ratio to Prior", fontsize=8)
-        draw_ratios(axes[1], binedges,
-                    histograms_toplot[0], histograms_toplot[1:],
-                    histograms_err_toplot[0], histograms_err_toplot[1:],
+        draw_ratios(axes[1], histograms_toplot[0], histograms_toplot[1:],
                     color_denom_line = colors[0], colors_numer = colors[1:])
 
     draw_legend(ax0, **config)
@@ -876,8 +813,7 @@ def plot_iteration_distributions(
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
 
-def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
-                         histograms_arr, histograms_err_arr, labels=None,
+def plot_iteration_chi2s(figname, histogram_ref, histograms_arr, labels=None,
                          **style):
     """
     Plot the chi^2 between the truth distribution and each unfolding iteration.
@@ -886,14 +822,10 @@ def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
     ----------
     figname : str
         Path to save the figure, excluding the file extension.
-    histogram_ref : (n,) array-like
+    histogram_ref : Hist object
         Histogram of the truth distribution.
-    histogram_err_ref : (n,) array-like
-        Uncertainties on the bin heights of the truth distribution.
-    histograms_arr : sequence of (n,) array-like
+    histograms_arr : sequence of Hist objects
         Histograms of the unfolded distribution for each iteration.
-    histograms_err_ref : sequence of (n,) array-like
-        Sequence of uncertainties on the bin heights of the unfolded distributions.
     labels : sequence of str, optional
         Labels for each item of `histogram_err`.
     **style : dict, optional
@@ -905,13 +837,13 @@ def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
     if labels is None:
         labels = [None]*len(histograms_arr)
 
-    for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
+    for hists, label in zip(histograms_arr, labels):
         if hists is None:
             continue
 
         Chi2s = []
-        for h, herr in zip(hists, hists_err):
-            chi2, ndf = compute_chi2(h, histogram_ref, herr, histogram_err_ref)
+        for h in hists:
+            chi2, ndf = compute_chi2(h, histogram_ref)
             Chi2s.append(chi2/ndf)
 
         iters = list(range(len(Chi2s)))
@@ -925,7 +857,7 @@ def plot_iteration_chi2s(figname, histogram_ref, histogram_err_ref,
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
 
-def plot_iteration_diffChi2s(figname, histograms_arr, histograms_err_arr, labels):
+def plot_iteration_diffChi2s(figname, histograms_arr, labels):
     """
     Plot the chi^2 between sequential iterations.
 
@@ -933,19 +865,17 @@ def plot_iteration_diffChi2s(figname, histograms_arr, histograms_err_arr, labels
     ----------
     figname : str
         Path to save the figure, excluding the file extension.
-    histograms_arr : sequence of (n,) array-like
-        Bin heights of the histogram for each iteration.
-    histograms_err_arr : sequence of (n,) array-like
-        Uncertainty of the bin height for each iteration.
+    histograms_arr : sequence of Hist objects
+        Histograms for each iteration.
     labels : sequence of str
         Labels for each item of `histogram_arr`.
     """
     fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\Delta\\chi^2$/NDF')
-    for hists, hists_err, label in zip(histograms_arr, histograms_err_arr, labels):
+    for hists, label in zip(histograms_arr, labels):
         if hists is None:
             continue
 
-        dChi2s = compute_diff_chi2(hists, hists_err)
+        dChi2s = compute_diff_chi2(hists)
         iters = list(range(1, len(dChi2s)+1))
 
         ax.plot(iters, dChi2s, marker='*', label=label)
@@ -1030,40 +960,6 @@ def plot_correlations(correlations, figname):
 
     plt.close(fig)
 
-def plot_LR_func(figname, bins, f_lr, f_lr_unc=None):
-    """
-    Plot likelihood ratio as a function of model predictions.
-
-    Parameters
-    ----------
-    figname : str
-        Path to save the figure, excluding the file extension.
-    bins : (n,) array-like
-        Bin edges of the histogram
-    f_lr : (n - 1,) array-like
-        Binned likelihood ratios vs. prediction
-    f_lr_unc : (n - 1,) array-like, optional
-        Uncertainty on `f_lr`
-    """
-    # Likelihood ratio as a function of model prediction
-    x = (bins[:-1] + bins[1:]) / 2
-    xerr = (bins[1:] - bins[:-1]) / 2
-    #plot_graphs(figname, [(x, f_lr)], [(xerr, f_lr_unc)], xlabel='Prediction (y = 1)', ylabel='LR')
-
-    fig, ax = init_fig(title='', xlabel='Prediction (y = 1)', ylabel='LR')
-
-    ax.errorbar(x, f_lr, xerr=xerr, yerr=f_lr_unc, label='Binned LR', **graph_style)
-
-    # likelihood ratio directly computed from predictions
-    xtrim = x[(x>0.1)&(x<0.85)]
-    ax.plot(xtrim, xtrim / (1 - xtrim +10**-50), label='f(x) = x/(1-x)')
-
-    ax.legend(**leg_style)
-
-    fig.savefig(figname+'.png', dpi=300)
-    #fig.savefig(figname+'.pdf')
-    plt.close(fig)
-
 def plot_LR_distr(figname, ratios, labels=None):
     """
     Plot the distribution of likelihood ratios.
@@ -1079,13 +975,12 @@ def plot_LR_distr(figname, ratios, labels=None):
     """
     bins_r = np.linspace(0, max(r.max() for r in ratios), 51)
 
-    hists, hists_unc = [], []
+    histograms = []
     for r in ratios:
-        hist_r, hist_r_unc = modplot.calc_hist(r, bins=bins_r, density=True)[:2]
-        hists.append(hist_r)
-        hists_unc.append(hist_r_unc)
+        hr = calc_hist(r, bins_r, density=True )
+        histograms.append(hr)
 
-    plot_histograms1d(figname, bins_r, hists, hists_unc, labels, xlabel='r')
+    plot_histograms1d(figname, histograms, labels, xlabel='r')
 
 def plot_training_vs_validation(
         figname,
@@ -1137,8 +1032,8 @@ def plot_training_vs_validation(
         w_cat1_t = weights_train[labels_train.argmax(axis=1)==1]
         w_cat0_t = weights_train[labels_train.argmax(axis=1)==0]
 
-    hist_preds_cat1_t = np.histogram(preds_cat1_t, bins=bins_preds, weights=w_cat1_t, density=True)[0]
-    hist_preds_cat0_t = np.histogram(preds_cat0_t, bins=bins_preds, weights=w_cat0_t, density=True)[0]
+    hist_preds_cat1_t = calc_hist(preds_cat1_t, bins_preds, weights=w_cat1_t, density=True)
+    hist_preds_cat0_t = calc_hist(preds_cat0_t, bins_preds, weights=w_cat0_t, density=True)
 
     # validation data
     if labels_val.ndim == 1: # label array is simply a 1D array
@@ -1152,16 +1047,15 @@ def plot_training_vs_validation(
         w_cat1_v = weights_val[labels_val.argmax(axis=1)==1]
         w_cat0_v = weights_val[labels_val.argmax(axis=1)==0]
 
-    hist_preds_cat1_v = np.histogram(preds_cat1_v, bins=bins_preds, weights=w_cat1_v, density=True)[0]
-    hist_preds_cat0_v = np.histogram(preds_cat0_v, bins=bins_preds, weights=w_cat0_v, density=True)[0]
+    hist_preds_cat1_v = calc_hist(preds_cat1_v, bins_preds, weights=w_cat1_v, density=True)
+    hist_preds_cat0_v = calc_hist(preds_cat0_v, bins_preds, weights=w_cat0_v, density=True)
 
-    plot_histograms1d(
-        figname, bins_preds,
+    plot_histograms1d(figname,
         [hist_preds_cat1_t, hist_preds_cat0_t, hist_preds_cat1_v, hist_preds_cat0_v],
         labels=['y = 1 (training)', 'y = 0 (training)', 'y = 1 (validation)', 'y = 0 (validation)'],
         xlabel = 'Prediction (y = 1)',  plottypes=['h','h','g','g'], marker='+')
 
-def plot_hists_resamples(figname, bins, histograms, hist_prior, hist_truth=None,
+def plot_hists_resamples(figname, histograms, hist_prior, hist_truth=None,
                          **config):
     """
     Generate a plot of the results of several resamples of the unfolding problem.
@@ -1183,43 +1077,47 @@ def plot_hists_resamples(figname, bins, histograms, hist_prior, hist_truth=None,
     """
     fig, axes = modplot.axes(ratio_plot=True, ylabel_ratio='Ratio to\nPrior', **config)
     # set x axis limit
+    bins = hist_prior.axes[0].edges
     for ax in axes:
         ax.set_xlim(bins[0], bins[-1])
     ax0, ax1 = axes
 
     ymax=0
     alpha=0.5
-    for i,hist in enumerate(histograms):
-        ymax = max(hist.max(), ymax)
+    for i, h in enumerate(histograms):
+        ymax = max(h.values().max(), ymax)
         color=tuple(np.random.random(3))+(alpha,)
         label='Rerun' if i==0 else None
-        draw_hist_as_graph(ax0, bins, hist, ls='--', lw=1, color=color, label=label)
+        draw_hist_as_graph(ax0, h, ls='--', lw=1, color=color, label=label)
 
     # mean of each bin
-    hist_mean = np.mean(np.asarray(histograms), axis=0)
-    draw_hist_as_graph(ax0, bins, hist_mean, ls='-', lw=1, color='black', label='Mean')
+    hmean = np.mean(np.asarray(histograms)['value'], axis=0)
+    hist_mean = get_hist(bins, hmean)
+    draw_hist_as_graph(ax0, hist_mean, ls='-', lw=1, color='black', label='Mean')
 
     # the prior distribution
-    draw_hist_as_graph(ax0, bins, hist_prior, ls='-', lw=1, color='blue', label='Prior')
-    ymax = max(hist_prior.max(), ymax)
+    draw_hist_as_graph(ax0, hist_prior, ls='-', lw=1, color='blue', label='Prior')
+    ymax = max(hist_prior.values().max(), ymax)
 
     # the truth distribution
     if hist_truth is not None:
-        draw_hist_as_graph(ax0, bins, hist_prior, ls='-', lw=1, color='green', label='Truth')
-        ymax = max(hist_truth.max(), ymax)
+        draw_hist_as_graph(ax0, hist_truth, ls='-', lw=1, color='green', label='Truth')
+        ymax = max(hist_truth.values().max(), ymax)
 
     ax0.set_ylim(0, ymax*1.2)
 
     # standard deviation of each bin
-    hist_std = np.std(np.asarray(histograms), axis=0, ddof=1)
+    hist_std = np.std(np.asarray(histograms)['value'], axis=0, ddof=1)
+    # set it as the uncertainty of the mean distribution
+    set_hist_errors(hist_mean, hist_std)
 
     # ratio
     if hist_truth is None:
-        draw_ratios(ax1, bins, hist_prior, [hist_mean], hists_numer_unc=[hist_std], colors_numer=['black'], color_denom_line='blue')
+        draw_ratios(ax1, hist_prior, [hist_mean], colors_numer=['black'], color_denom_line='blue')
     else:
         # draw ratio to truth
         ax1.set_ylabel("Ratio to\nTruth", fontsize=8)
-        draw_ratios(ax1, bins, hist_truth, [hist_mean], hists_numer_unc=[hist_std], colors_numer=['black'], color_denom_line='green')
+        draw_ratios(ax1, hist_truth, [hist_mean], colors_numer=['black'], color_denom_line='green')
 
     draw_legend(ax0, **config)
 
@@ -1227,30 +1125,12 @@ def plot_hists_resamples(figname, bins, histograms, hist_prior, hist_truth=None,
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
 
-def plot_hists_bin_distr(figname, binedges, histograms_list, histogram_ref):
-    """
-    Generate a plot of the results of several resamples of the unfolding problem.
+def plot_hists_bin_distr(figname, histograms_list, histogram_ref):
+    # histograms_list can be either dimension 3 if all iterations are included
+    # or dimension 2 if only the final unfolded ones for all trials
+    histograms_arr = np.asarray(histograms_list)['value']
 
-    Parameters
-    ----------
-    figname : str
-        Path to save the figure, excluding the file extension.
-    bins : (n,) array-like
-        Locations of the bin edges of the histogram.
-    histograms : sequence of array-likes of shape (n - 1,)
-        Unfolded distributions for each resample, binned according to `bins`.
-    hist_prior : (n - 1,) array-like
-        Histogram of the prior distribution binned according to `bins`.
-    hist_truth : (n - 1,) array-like, optional
-        Histogram of the truth distribution binned according to `bins`.
-    **config : dict, optional
-        Additional keyword arguments passed to modplot.axes and plotting.draw_legend.
-    """
-    histograms_arr = np.asarray(histograms_list)
-
-    nbins = len(binedges) - 1
-    assert(nbins == len(histogram_ref))
-    assert(nbins == histograms_arr.shape[-1])
+    nbins = histogram_ref.axes[0].size
     niterations = histograms_arr.shape[1] if histograms_arr.ndim > 2 else 1
 
     fig, ax = plt.subplots(nrows=niterations, ncols=nbins,
@@ -1269,7 +1149,7 @@ def plot_hists_bin_distr(figname, binedges, histograms_list, histogram_ref):
         #pulls = (nentries - mu) / sigma
 
         # compare and standardize to ref
-        ref = histogram_ref[ibin]
+        ref = histogram_ref.values()[ibin]
         nentries_ref = nentries - ref
 
         # plot
