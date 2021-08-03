@@ -1,3 +1,7 @@
+"""
+Classes for working with OmniFold datasets.
+"""
+
 import numpy as np
 import pandas as pd
 from util import parse_input_name
@@ -5,7 +9,44 @@ from histogramming import calc_hist
 
 def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes', weight_columns=[]):
     """
-    Load and return a structured numpy array from a list of npz files
+    Load and return a structured numpy array from a list of npz files.
+
+    Parameters
+    ----------
+    file_names : str or file-like object; or sequence of str or file-like objects
+        List of npz files to load. If columns in the file should be
+        reweighted, provide the filename as "{path}*{reweight factor}".
+        Columns identified in `weight_columns` will be multiplied by
+        `reweight factor`.
+    array_name : str, default: "arr_0"
+        Name of the array to load from each file in `file_names`
+    allow_pickle : bool, default: True
+        Allow loading pickled object arrays. Loading pickled data can
+        execute arbitrary code. If False, object arrays will fail to load.
+    encoding : {"bytes", "ASCII", "latin1"}, default: "bytes"
+        Text encoding to use when loading Python 2 strings in Python 3.
+    weight_columns : str or sequence of str, default: []
+        Names of columns to reweight, if reweighting is being used.
+
+    Returns
+    -------
+    np.ndarray
+        Arrays saved in each file, concatenated.
+
+    Raises
+    ------
+    IOError
+        If a file does not exist or can't be read.
+    RuntimeError
+        If a file doesn't contain an array named `array_name`.
+    ValueError
+        If a file contains an object array but `allow_pickle` is False.
+    ValueError
+        A file using reweighting doesn't contain `weight_columns`.
+
+    See Also
+    --------
+    np.load : details of how NumPy loads files
     """
     data = None
     if not isinstance(file_names, list):
@@ -39,6 +80,39 @@ def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='by
     return data
 
 class DataHandler(object):
+    """
+    Load data from a series of npy files.
+
+    Parameters
+    ----------
+    file_names : str or file-like object; or sequence of str or file-like objects
+        List of npz files to load. If the weight column should be adjusted,
+        provide the filename as "{path}*{reweight factor}".
+    wname : str, default: "w"
+        Name of the event weight column.
+    truth_known : bool, default: True
+        If the truth distribution is known.
+    variable_names : list of str, optional
+        List of variables to read. If not provided, read all variables in
+        the dataset.
+    vars_dict : dict, default: {}
+        Use the key "vtype" to set the dtype of the loaded data. If not
+        provided, defaults to "float".
+    array_name : str, default: "arr_0"
+        Name of the array to load from each file.
+
+    Raises
+    ------
+    IOError
+        If a file does not exist or can't be read.
+    RuntimeError
+        A file doesn't contain one of `variable_names`.
+    RuntimeError
+        A file doesn't contain an array named `array_name`.
+    ValueError
+        A file using reweighting doesn't contain `wname`.
+    """
+
     def __init__(self, filepaths, wname='w', truth_known=True,
                  variable_names=None, vars_dict={}, array_name='arr_0'):
         self.weight_name = wname # name of event weights
@@ -73,13 +147,36 @@ class DataHandler(object):
             self.sumw = self.data[wname].sum()
 
     def get_nevents(self):
+        """
+        Get the number of events in the dataset.
+
+        Returns
+        -------
+        non-negative int
+        """
         return len(self.data)
 
     def get_variable_arr(self, variable):
-        # return a view (NOT copy) of self.data if possible
-        # otherwise, try to make a new array from self.data
-        # the output shape is (len(self.data), )
+        """
+        Get a variable in the dataset.
 
+        Returns a view (NOT copy) of self.data if possible. Otherwise,
+        tries to make a new array from self.data.
+
+        Parameters
+        ----------
+        variable : str
+            Name of the variable to retrieve.
+
+        Returns
+        -------
+        np.ndarray, shape (nevents,)
+
+        Raises
+        ------
+        RuntimeError
+            If `variable` is not in the dataset.
+        """
         if variable in self.data.dtype.names:
             return self.data[variable]
         # special cases
@@ -104,7 +201,45 @@ class DataHandler(object):
         else:
             raise RuntimeError("Unknown variable {}. \nAvailable variable names: {}".format(variable, self.data.dtype.names))
 
-    def get_weights(self, unweighted=False, bootstrap=False, normalize=False, rw_type=None, vars_dict={}):
+    def get_weights(
+            self,
+            unweighted=False,
+            bootstrap=False,
+            normalize=False,
+            rw_type=None,
+            vars_dict={},
+    ):
+        """
+        Get event weights for the dataset.
+
+        Parameters
+        ----------
+        unweighted : bool, default: False
+            Ignore weights saved in the dataset and use unity instead.
+        bootstrap : bool, default: False
+            Multiply each weight by a random value drawn from a Poisson
+            distribution with lambda = 1.
+        normalize : bool, default: False
+            If True, normalize the weights by expressing them as the ratio
+            to the mean of the weights.
+        rw_type : str, optional
+            Multiply the weights by a predefined reweighting function.
+        vars_dict : dict, default: {}
+            Dict describing how to access variables.
+
+        Returns
+        -------
+        np.ndarray of numbers, shape (nevents,)
+
+        See Also
+        --------
+        datahandler.DataHandler._reweight_sample
+
+        Notes
+        -----
+        Normalization is applied after reweighting and before
+        bootstrapping.
+        """
         if unweighted or not self.weight_name:
             weights = np.ones(len(self.data))
         else:
@@ -126,6 +261,24 @@ class DataHandler(object):
         return weights
 
     def get_features_array(self, features):
+        """
+        Retrieve features from each event in the dataset.
+
+        Parameters
+        ----------
+        features : array-like of str
+            Names of the features to extract from each event. The shape of
+            the returned array will reflect the shape of this array.
+
+        Returns
+        -------
+        np.ndarray of shape (n_events, *features.shape)
+
+        Raises
+        ------
+        RuntimeError
+            If a variable name in `features` is not in the dataset.
+        """
         ndim_features = np.asarray(features).ndim
         if ndim_features == 1:
             # ndarray of shape (n_events, n_features)
@@ -137,11 +290,23 @@ class DataHandler(object):
             return X
 
     def get_dataset(self, features, label, standardize=False):
-        """ features: a list of variable names
-            label: int for class label
-            Return:
-                X: numpy array of the shape (n_events, n_features)
-                Y: numpy array for event label of the shape (n_events,)
+        """
+        Parameters
+        ----------
+        features : array-like of str
+            Features to extract from the dataset.
+        label : int
+            Class number.
+        standardize : bool, default: False
+            Adjust the dataset so that the mean is 0 and standard deviation
+            is 1.
+
+        Returns
+        -------
+        X : np.ndarray of shape (n_events, *features.shape)
+            Extracted features.
+        Y : np.ndarray of shape (n_events,)
+            Class labels.
         """
         X = self.get_features_array(features)
 
@@ -157,14 +322,40 @@ class DataHandler(object):
         return X, Y
 
     def get_correlations(self, variables):
+        """
+        Calculate the correlation matrix between several variables.
+
+        Parameters
+        ----------
+        variables : sequence of str
+            Names of the variables to include in the correlation matrix.
+
+        Returns
+        -------
+        pandas.DataFrame
+        """
         df = pd.DataFrame({var:self.get_variable_arr(var) for var in variables}, columns=variables)
         correlations = df.corr()
         return correlations
 
     def get_histogram(self, variable, weights, bin_edges, density=False):
         """
-        If weights is a 1D array of the same length as the variable array, return a histogram object
-        If weights is a 2D array or a list of 1D array, return an array of histogram objects
+        Retrieve the histogram of a weighted variable in the dataset.
+
+        Parameters
+        ----------
+        variable : str
+            Name of the variable in the dataset to histogram.
+        weights : array-like of shape (nevents,) or (nweights, nevents)
+            Array of per-event weights. If 2D, then a sequence of different
+            per-event weightings.
+        bin_edges : array-like of shape (nbins + 1,)
+            Locations of the edges of the bins of the histogram.
+
+        Returns
+        -------
+        A Hist object if `weights` is 1D, a list of Hist objects if `weights` 
+            is 2D.
         """
         if isinstance(weights, np.ndarray):
             if weights.ndim == 1: # if weights is a 1D array
@@ -186,6 +377,39 @@ class DataHandler(object):
             raise RuntimeError("Unknown type of weights: {}".format(type(weights)))
 
     def _reweight_sample(self, rw_type, vars_dict):
+        """
+        Return sample weights calculated by a function of the dataset.
+
+        Parameters
+        ----------
+        rw_type : {Falsey, "linear_th_pt", "gaussian_bump", "gaussian_tail"}
+            Name of the reweighting function to use. See Notes for the
+            function corresponding to each value.
+        vars_dict : dict
+            Variable configuration dict mapping variables to their name in
+            the dataset.
+
+        Returns
+        -------
+        np.ndarray of shape (nevents,)
+             Event weights.
+
+        Raises
+        ------
+        RuntimeError
+            If an unknown `rw_type` is passed.
+
+        Notes
+        -----
+        =================== ===============================================
+        Value of `rw_type`  Reweighting function
+        =================== ===============================================
+        Any Falsey value    ``1``
+        ``"linear_th_pt"``  ``1 + th_pt / 800``
+        ``"gaussian_bump"`` ``1 + 0.5 * exp( -((mtt - 800) / 100) ** 2)``
+        ``"gaussian_tail"`` ``1 + 0.5 * exp( -((mtt - 2000) / 1000) ** 2)``
+        =================== ===============================================
+        """
         if not rw_type:
             return 1.
         elif rw_type == 'linear_th_pt':
@@ -224,6 +448,24 @@ class DataHandler(object):
             raise RuntimeError("Unknown reweighting type: {}".format(rw_type))
 
     def _filter_variable_names(self, variable_names):
+        """
+        Normalize a list of variables.
+
+        Replaces Cartesian variables with equivalent cylindrical variables
+        and removes duplicate variable names.
+
+        Parameters
+        ----------
+        variable_names : iterable of str
+            Variable names to process. If a variable ends in ``_px``,
+            ``_py``, or ``_pz``, it is interpreted as a Cartesian variable.
+
+        Returns
+        -------
+        list of str
+            Processed variable names. Not guaranteed to preserve order from
+            the input iterable.
+        """
         varnames_skimmed = set()
 
         for vname in variable_names:
@@ -249,6 +491,22 @@ class DataHandler(object):
 
 # Toy data
 class DataToy(DataHandler):
+    """
+    A randomly generated toy dataset.
+
+    The truth distribution is sampled from a normal distribution specified
+    by `mu` and `sigma`. The reconstructed distribution is obtained by adding
+    Gaussian noise with standard deviation 1 to the truth distribution.
+
+    Parameters
+    ----------
+    nevents : positive int
+        Number of events in the dataset
+    mu : float, default: 0
+        Mean of the truth distribution.
+    sigma : positive float, default: 1
+        Standard deviation of the truth distribution.
+    """
     def __init__(self, nevents, mu=0., sigma=1.):
         self.weight_name = ''
         self.truth_known = True

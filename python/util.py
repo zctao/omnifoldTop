@@ -335,7 +335,7 @@ def ks_2samp_weighted(data1, data2, weights1, weights2):
 
 def write_ks(data_ref, weights_ref, data_list, weights_list, labels):
     assert(len(data_list)==len(labels))
-    stamps = ["KS test (two-sided p-value)"] #["$D_{KS}$:"]
+    stamps = ["KS test (two-sided p-value):"] #["$D_{KS}$:"]
 
     for data, w, l in zip(data_list, weights_list, labels):
         ks, prob = ks_2samp_weighted(data_ref, data, weights_ref, w)

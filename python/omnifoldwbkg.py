@@ -1,15 +1,14 @@
 import os
 import glob
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
 import plotting
 from datahandler import DataHandler
 from model import get_model, get_callbacks
-from util import write_chi2
-from histogramming import set_hist_errors, get_values_and_errors
+from util import write_chi2, write_ks
+from histogramming import set_hist_contents, set_hist_errors, get_values_and_errors, get_mean_from_hists, get_sigma_from_hists, get_bin_correlations_from_hists
 
 import logging
 logger = logging.getLogger('OmniFoldwBkg')
@@ -138,9 +137,23 @@ class OmniFoldwBkg(object):
         bin_corr = None # bin correlations
         if bootstrap_uncertainty:
             if self.unfolded_weights_resample is not None:
-                h_uf_err, bin_corr = self._get_unfolded_uncertainty(variable, bins, all_iterations)
-                # replace the sumw2 error with the bootstrap error
-                set_hist_errors(h_uf, h_uf_err)
+                hists_uf_rs = self._get_unfolded_hists_resample(variable, bins, all_iterations)
+
+                # combine the "nominal" hist with the resampled ones
+                hists_uf_rs.append(h_uf)
+
+                # take the mean of each bin as the new nominal
+                hmean = get_mean_from_hists(hists_uf_rs)
+
+                # take the standardard deviation of each bin as bin errors
+                hsigma = get_sigma_from_hists(hists_uf_rs)
+
+                # compute bin correlations
+                bin_corr = get_bin_correlations_from_hists(hists_uf_rs)
+
+                # update the unfolded histogram
+                set_hist_contents(h_uf, hmean)
+                set_hist_errors(h_uf, hsigma)
             else:
                 logger.warn("  Unable to compute bootstrap uncertainty. Use sum of weights squared in each bin instead.")
 
@@ -182,7 +195,7 @@ class OmniFoldwBkg(object):
                                     figname=figname, log_scale=False,
                                     **varConfig)
 
-    def plot_distributions_unfold(self, varname, varConfig, bins, ibu=None, iteration_history=False, plot_resamples=True, plot_bins=True):
+    def plot_distributions_unfold(self, varname, varConfig, bins, ibu=None, iteration_history=False, plot_resamples=True, plot_bins=False):
         # unfolded distribution
         h_uf, h_uf_corr = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=False)
 
@@ -208,16 +221,24 @@ class OmniFoldwBkg(object):
             h_truth = None
 
         # compute chi2s
-        text_td = []
+        text_chi2 = []
         if self.datahandle_obs.truth_known:
-            text_td = write_chi2(h_truth, [h_uf, h_ibu, h_gen], labels=['OmniFold', 'IBU', 'Prior'])
-            logger.info("  "+"    ".join(text_td))
+            text_chi2 = write_chi2(h_truth, [h_uf, h_ibu, h_gen], labels=['OmniFold', 'IBU', 'Prior'])
+            logger.info("  "+"    ".join(text_chi2))
+
+        # Compute KS test statistic
+        text_ks = []
+        if self.datahandle_obs.truth_known:
+            arr_truth = self.datahandle_obs.get_variable_arr(varConfig['branch_mc'])
+            arr_sim = self.datahandle_sig.get_variable_arr(varConfig['branch_mc'])
+            text_ks = write_ks(arr_truth, self.weights_obs[:nobs]*f_sig, [arr_sim, arr_sim], [self.unfolded_weights[-1], self.weights_sim], labels=['OmniFold', 'Prior'])
+            logger.info("  "+"    ".join(text_ks))
 
         # plot
         figname = os.path.join(self.outdir, 'Unfold_{}'.format(varname))
         logger.info("  Plot unfolded distribution: {}".format(figname))
         plotting.plot_results(h_gen, h_uf, h_ibu, h_truth,
-                              figname=figname, texts=text_td, **varConfig)
+                              figname=figname, texts=text_chi2, **varConfig)
 
         # bin correlations
         if h_uf_corr is not None:
@@ -428,36 +449,6 @@ class OmniFoldwBkg(object):
         if fname_event_weights:
             weights_file = os.path.join(self.outdir, fname_event_weights)
             np.savez(weights_file, weights_resample = self.unfolded_weights_resample)
-
-    def _get_unfolded_uncertainty(self, variable, bins, all_iterations=False):
-        #assert(self.unfolded_weights_resample is not None)
-        hists_resample = self._get_unfolded_hists_resample(variable, bins,
-                                                           all_iterations)
-
-        hists_err, hists_corr = None, None
-        if hists_resample:
-            hists_resample = np.asarray(hists_resample)['value']
-            hists_err = np.std(hists_resample, axis=0, ddof=1)
-            # shape = (n_iteration, n_bins) if all_iterations
-            # otherwise, shape = (n_bins,)
-
-            # bin correlations
-            if all_iterations:
-                hists_corr = []
-                # hists_resample shape: (n_resamples, n_iterations, n_bins)
-                for i in range(self.iterations):
-                    df_i = pd.DataFrame(hists_resample[:,i,:])
-                    hists_corr.append(df_i.corr()) # ddof = 1
-                    # sanity check
-                    #assert((np.asarray(df_i.std()) == hists_err[i]).all())
-            else:
-                # hists_resample shape: (n_resamples, n_bins)
-                df_i = pd.DataFrame(hists_resample)
-                hists_corr = df_i.corr()
-                # sanity check
-                #assert((np.asarray(df_i.std()) == hists_err).all())
-
-        return  hists_err, hists_corr
 
     def _get_unfolded_hists_resample(self, variable, bins, all_iterations=False, normalize=False):
         hists_resample = []
@@ -672,13 +663,19 @@ class OmniFoldwBkg(object):
         if callbacks:
             fitargs.setdefault('callbacks', []).extend(callbacks)
 
-        val_dict = {'validation_data': val_data} if val_data is not None else {}
-
-        model.fit(X, Y, sample_weight=w, **fitargs, **val_dict)
-
-        if figname_preds:
-            preds_train = model.predict(X, batch_size=int(0.1*len(X)))[:,1]
+        # zip event weights with labels
+        Yw = np.column_stack((Y, w))
+        if val_data is not None:
             X_val, Y_val, w_val = val_data
+            Yw_val = np.column_stack((Y_val, w_val))
+            val_dict = {'validation_data': (X_val, Yw_val)}
+        else:
+            val_dict = {}
+
+        model.fit(X, Yw, **fitargs, **val_dict)
+
+        if figname_preds and val_data is not None:
+            preds_train = model.predict(X, batch_size=int(0.1*len(X)))[:,1]
             preds_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
             logger.info("Plot model output distribution: {}".format(figname_preds))
             plotting.plot_training_vs_validation(figname_preds, preds_train, Y, w, preds_val, Y_val, w_val)

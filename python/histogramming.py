@@ -1,5 +1,9 @@
-# Utilities for histogramming
+"""
+Helper functions to handle Hist objects.
+"""
+
 import numpy as np
+import pandas as pd
 
 import hist
 from hist import Hist
@@ -138,3 +142,76 @@ def get_values_and_errors(histogram):
         hval = histogram.values()
         herr = np.sqrt(histogram.variances()) if histogram.variances() is not None else np.zeros_like(hval)
         return hval, herr
+
+def get_mean_from_hists(histogram_list):
+    """
+    Get mean of each bin from a list of histograms.
+
+    Parameters:
+    ----------
+    histogram_list: a list of histogram objects.
+        The shape of np.asarray(histogram_list) is expected to be either (n_resamples, n_bins) or (n_resamples, n_iterations, n_bins)
+
+    Returns
+    -------
+    np.ndarray
+        The shape of the array is either (n_bins,) or (n_iterations, n_bins)
+    """
+    if len(histogram_list) == 0: # in case it is empty
+        return None
+    else:
+        return np.mean(np.asarray(histogram_list)['value'], axis=0)
+
+def get_sigma_from_hists(histogram_list):
+    """
+    Get standard deviation of each bin from a list of histograms
+
+    Parameters:
+    ----------
+    histogram_list: a list of histogram objects.
+        The shape of np.asarray(histogram_list) is expected to be either (n_resamples, n_bins) or (n_resamples, n_iterations, n_bins)
+
+    Returns
+    -------
+    np.ndarray
+        The shape of the array is either (n_bins,) or (n_iterations, n_bins)
+    """
+    if len(histogram_list) == 0: # in case it is empty
+        return None
+    else:
+        return np.std(np.asarray(histogram_list)['value'], axis=0, ddof=1)
+
+def get_bin_correlations_from_hists(histogram_list):
+    """
+    Get bin correlations from a list of histograms
+
+    Parameters:
+    ----------
+    histogram_list: a list of histogram objects.
+        The shape of np.asarray(histogram_list) is expected to be either (n_resamples, n_bins) or (n_resamples, n_iterations, n_bins)
+
+    Returns
+    -------
+    DataFrame correlation matrix or a list of them
+    """
+    if len(histogram_list) == 0: # in case it is empty
+        return None
+
+    hists_content = np.asarray(histogram_list)['value']
+    if hists_content.ndim == 2:
+        # input shape: (n_resamples, n_bins)
+        df_i = pd.DataFrame(hists_content)
+        bins_corr = df_i.corr()
+        return bins_corr
+
+    elif hists_content.ndim == 3: # all iterations
+        # input shape: (n_resamples, n_iterations, n_bins)
+        niters = hists_content.shape[1]
+        bins_corr = []
+        for i in range(niters):
+            df_i = pd.DataFrame(hists_content[:,i,:])
+            bins_corr.append(df_i.corr()) # ddof = 1
+        return bins_corr
+    else:
+        logger.error("Cannot handle the histogram collection of dimension {}".format(hists_content.ndim))
+        return None
