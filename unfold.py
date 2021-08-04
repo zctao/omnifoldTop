@@ -11,6 +11,7 @@ from datahandler import DataHandler
 from omnifoldwbkg import OmniFoldwBkg
 from omnifoldwbkg import OmniFoldwBkg_negW, OmniFoldwBkg_multi
 from ibu import IBU
+import reweight
 from util import read_dict_from_json, get_bins
 from util import configGPUs, expandFilePath, configRootLogger
 import logging
@@ -59,10 +60,7 @@ def unfold(**parsed_args):
     fnames_obs = parsed_args['data']
     logger.info("Data files: {}".format(' '.join(fnames_obs)))
     vars_obs = vars_det_all+vars_mc_all if parsed_args['truth_known'] else vars_det_all
-    data_obs = DataHandler(fnames_obs, wname,
-                            truth_known=parsed_args['truth_known'],
-                            variable_names = vars_obs)
-                            #vars_dict = observable_dict
+    data_obs = DataHandler(fnames_obs, wname, variable_names=vars_obs)
 
     # mix background simulation for testing if needed
     fnames_obsbkg = parsed_args['bdata']
@@ -75,7 +73,7 @@ def unfold(**parsed_args):
     # signal simulation
     fnames_sig = parsed_args['signal']
     logger.info("Simulation files: {}".format(' '.join(fnames_sig)))
-    data_sig = DataHandler(fnames_sig, wname, variable_names = vars_det_all+vars_mc_all) #vars_dict = observable_dict
+    data_sig = DataHandler(fnames_sig, wname, variable_names = vars_det_all+vars_mc_all)
 
     # background simulation
     fnames_bkg = parsed_args['background']
@@ -95,29 +93,51 @@ def unfold(**parsed_args):
     # Unfold
     #################
     if parsed_args['background_mode'] == 'default':
-        unfolder = OmniFoldwBkg(vars_det_train, vars_mc_train,
-                                iterations = parsed_args['iterations'],
-                                outdir = parsed_args['outputdir'])
+        unfolder = OmniFoldwBkg(
+            vars_det_train,
+            vars_mc_train,
+            iterations=parsed_args["iterations"],
+            outdir=parsed_args["outputdir"],
+            truth_known=parsed_args["truth_known"],
+        )
     elif parsed_args['background_mode'] == 'negW':
-        unfolder = OmniFoldwBkg_negW(vars_det_train, vars_mc_train,
-                                    iterations = parsed_args['iterations'],
-                                    outdir = parsed_args['outputdir'])
+        unfolder = OmniFoldwBkg_negW(
+            vars_det_train,
+            vars_mc_train,
+            iterations=parsed_args["iterations"],
+            outdir=parsed_args["outputdir"],
+            truth_known=parsed_args["truth_known"],
+        )
     elif parsed_args['background_mode'] == 'multiClass':
-        unfolder = OmniFoldwBkg_multi(vars_det_train, vars_mc_train,
-                                    iterations = parsed_args['iterations'],
-                                    outdir = parsed_args['outputdir'])
+        unfolder = OmniFoldwBkg_multi(
+            vars_det_train,
+            vars_mc_train,
+            iterations=parsed_args["iterations"],
+            outdir=parsed_args["outputdir"],
+            truth_known=parsed_args["truth_known"],
+        )
     else:
         logger.error("Unknown background mode {}".format(parsed_args['background_mode']))
+
+    rw = None
+    if parsed_args["reweight_data"]:
+        var_lookup = np.vectorize(lambda v: observable_dict[v]["branch_mc"])
+        rw = reweight.rw[parsed_args["reweight_data"]]
+        rw.variables = var_lookup(rw.variables)
 
     # prepare input data
     logger.info("Prepare data")
     t_prep_start = time.time()
 
-    unfolder.prepare_inputs(data_obs, data_sig, data_bkg, data_obsbkg,
-                            parsed_args['plot_correlations'],
-                            standardize=True,
-                            reweight_type=parsed_args['reweight_data'],
-                            vars_dict=observable_dict)
+    unfolder.prepare_inputs(
+        data_obs,
+        data_sig,
+        data_bkg,
+        data_obsbkg,
+        parsed_args["plot_correlations"],
+        standardize=True,
+        reweighter=rw,
+    )
 
     t_prep_done = time.time()
     logger.info("Preparing data took {:.2f} seconds".format(t_prep_done - t_prep_start))
@@ -171,14 +191,14 @@ def unfold(**parsed_args):
 
         # iterative Bayesian unfolding
         if True: # doIBU
-            array_obs = data_obs.get_variable_arr(varConfig['branch_det'])
+            array_obs = data_obs[varConfig['branch_det']]
             if data_obsbkg is not None:
-                array_obsbkg = data_obsbkg.get_variable_arr(varConfig['branch_det'])
+                array_obsbkg = data_obsbkg[varConfig['branch_det']]
                 array_obs = np.concatenate([array_obs, array_obsbkg])
 
-            array_sim = data_sig.get_variable_arr(varConfig['branch_det'])
-            array_gen = data_sig.get_variable_arr(varConfig['branch_mc'])
-            array_simbkg = data_bkg.get_variable_arr(varConfig['branch_det']) if data_bkg else None
+            array_sim = data_sig[varConfig['branch_det']]
+            array_gen = data_sig[varConfig['branch_mc']]
+            array_simbkg = data_bkg[varConfig['branch_det']] if data_bkg else None
             ibu = IBU(varname, bins_det, bins_mc,
                       array_obs, array_sim, array_gen, array_simbkg,
                       # use the same weights from OmniFold
@@ -244,8 +264,8 @@ if __name__ == "__main__":
                         choices=['default', 'negW', 'multiClass'],
                         default='default', help="Background mode")
     parser.add_argument('-r', '--reweight-data', dest='reweight_data',
-                        choices=['linear_th_pt', 'gaussian_bump', 'gaussian_tail'], default=None,
-                        help="Reweight strategy of the input spectrum for stress tests")
+                        choices=reweight.rw.keys(), default=None,
+                        help="Reweight strategy of the input spectrum for stress tests. Requires --truth-known.")
     parser.add_argument('-v', '--verbose',
                         action='count', default=0,
                         help="Verbosity level")
@@ -277,6 +297,11 @@ if __name__ == "__main__":
     #                    help="Use alternative reweighting if true")
 
     args = parser.parse_args()
+
+    # Verify truth is known when reweighting
+    if args.reweight_data is not None and not args.truth_known:
+        print("--reweight-data requires --truth-known", file=sys.stderr)
+        sys.exit(2)
 
     logfile = os.path.join(args.outputdir, 'log.txt')
     configRootLogger(filename=logfile)

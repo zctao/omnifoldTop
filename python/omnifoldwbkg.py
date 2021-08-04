@@ -7,18 +7,27 @@ from sklearn.model_selection import train_test_split
 import plotting
 from datahandler import DataHandler
 from model import get_model, get_callbacks
+import util
 from util import write_chi2, write_ks
 from histogramming import set_hist_contents, set_hist_errors, get_values_and_errors, get_mean_from_hists, get_sigma_from_hists, get_bin_correlations_from_hists
-
 import logging
 logger = logging.getLogger('OmniFoldwBkg')
 logger.setLevel(logging.DEBUG)
 
 class OmniFoldwBkg(object):
-    def __init__(self, variables_det, variables_truth, iterations=4, outdir='.', binned_rw=False):
+    def __init__(
+        self,
+        variables_det,
+        variables_truth,
+        iterations=4,
+        outdir=".",
+        binned_rw=False,
+        truth_known=True,
+    ):
         # list of detector and truth level variable names used in training
-        self.vars_reco = variables_det 
+        self.vars_reco = variables_det
         self.vars_truth = variables_truth
+        self.truth_known = truth_known
         # number of iterations
         self.iterations = iterations
         # reweighting method
@@ -52,28 +61,46 @@ class OmniFoldwBkg(object):
             os.makedirs(outdir)
         self.outdir = outdir.rstrip('/')+'/'
 
-    def prepare_inputs(self, obsHandle, simHandle, bkgHandle=None,
-                        obsBkgHandle=None,
-                        plot_corr=False, standardize=False, reweight_type=None,
-                        vars_dict={}):
+    def prepare_inputs(
+        self,
+        obsHandle,
+        simHandle,
+        bkgHandle=None,
+        obsBkgHandle=None,
+        plot_corr=False,
+        standardize=False,
+        reweighter=None,
+    ):
         # observed data
         self.datahandle_obs = obsHandle
-        logger.info("Total number of observed events: {}".format(self.datahandle_obs.get_nevents()))
+        logger.info(
+            "Total number of observed events: {}".format(len(self.datahandle_obs))
+        )
 
         # simulation
         self.datahandle_sig = simHandle
-        logger.info("Total number of simulated events: {}".format(self.datahandle_sig.get_nevents()))
+        logger.info(
+            "Total number of simulated events: {}".format(len(self.datahandle_sig))
+        )
 
         # background simulation if needed
         self.datahandle_bkg = bkgHandle
         if self.datahandle_bkg is not None:
-            logger.info("Total number of simulated background events: {}".format(self.datahandle_bkg.get_nevents()))
+            logger.info(
+                "Total number of simulated background events: {}".format(
+                    len(self.datahandle_bkg)
+                )
+            )
 
         # background simulation to be mixed with data
         if self.datahandle_bkg is not None:
             self.datahandle_obsbkg = obsBkgHandle
             if self.datahandle_obsbkg is not None:
-                logger.info("Total number of background events mixed with data: {}".format(self.datahandle_obsbkg.get_nevents()))
+                logger.info(
+                    "Total number of background events mixed with data: {}".format(
+                        len(self.datahandle_obsbkg)
+                    )
+                )
 
         # plot input variable correlations
         if plot_corr:
@@ -87,8 +114,7 @@ class OmniFoldwBkg(object):
 
         # event weights for training
         logger.info("Prepare event weights")
-        self._set_event_weights(rw_type=reweight_type, vars_dict=vars_dict,
-                                rescale=True)
+        self._set_event_weights(reweighter)
 
         logger.info("Prepare arrays")
         # arrays for step 1
@@ -171,7 +197,7 @@ class OmniFoldwBkg(object):
 
     def plot_distributions_reco(self, varname, varConfig, bins):
         # observed
-        nobs = self.datahandle_obs.get_nevents()
+        nobs = len(self.datahandle_obs)
         h_obs = self.datahandle_obs.get_histogram(varConfig['branch_det'], self.weights_obs[:nobs], bins)
 
         if self.datahandle_obsbkg is not None:
@@ -208,9 +234,9 @@ class OmniFoldwBkg(object):
         h_gen = self.datahandle_sig.get_histogram(varConfig['branch_mc'], self.weights_sim, bins)
 
         # MC truth if known
-        if self.datahandle_obs.truth_known:
+        if self.truth_known:
             # number of observed signal events
-            nobs = self.datahandle_obs.get_nevents()
+            nobs = len(self.datahandle_obs)
 
             # Factor to rescale signal truth to signal sim
             # Should be 1 in case there is no background
@@ -222,15 +248,15 @@ class OmniFoldwBkg(object):
 
         # compute chi2s
         text_chi2 = []
-        if self.datahandle_obs.truth_known:
+        if self.truth_known:
             text_chi2 = write_chi2(h_truth, [h_uf, h_ibu, h_gen], labels=['OmniFold', 'IBU', 'Prior'])
             logger.info("  "+"    ".join(text_chi2))
 
         # Compute KS test statistic
         text_ks = []
-        if self.datahandle_obs.truth_known:
-            arr_truth = self.datahandle_obs.get_variable_arr(varConfig['branch_mc'])
-            arr_sim = self.datahandle_sig.get_variable_arr(varConfig['branch_mc'])
+        if self.truth_known:
+            arr_truth = self.datahandle_obs[varConfig['branch_mc']]
+            arr_sim = self.datahandle_sig[varConfig['branch_mc']]
             text_ks = write_ks(arr_truth, self.weights_obs[:nobs]*f_sig, [arr_sim, arr_sim], [self.unfolded_weights[-1], self.weights_sim], labels=['OmniFold', 'Prior'])
             logger.info("  "+"    ".join(text_ks))
 
@@ -294,7 +320,7 @@ class OmniFoldwBkg(object):
                 hists_ibu = []
 
             plotting.plot_iteration_diffChi2s(figname_prefix+"_diffChi2s", [hists_ibu, hists_uf], labels=["IBU", "OmniFold"])
-            if self.datahandle_obs.truth_known:
+            if self.truth_known:
                 plotting.plot_iteration_chi2s(figname_prefix+"_chi2s_wrt_Truth", h_truth, [hists_ibu, hists_uf], labels=["IBU", "OmniFold"])
 
                 if self.unfolded_weights_resample is not None:
@@ -434,7 +460,7 @@ class OmniFoldwBkg(object):
         if not nresamples > 1:
             return
 
-        self.unfolded_weights_resample = np.empty(shape=(nresamples, self.iterations, self.datahandle_sig.get_nevents()))
+        self.unfolded_weights_resample = np.empty(shape=(nresamples, self.iterations, len(self.datahandle_sig)))
         # shape: (nresamples, n_iterations, n_events)
 
         model_name = 'Models' if error_type=='bootstrap_stat' else 'Models_rs{}'
@@ -483,20 +509,24 @@ class OmniFoldwBkg(object):
 
     def _set_arrays_step1(self, standardize=False):
         # step 1: observed data vs simulation at detector level
-        X_obs, Y_obs = self.datahandle_obs.get_dataset(self.vars_reco, self.label_obs, standardize=False)
+        X_obs = self.datahandle_obs[self.vars_reco]
+        Y_obs = util.labels_for_dataset(X_obs, self.label_obs)
+
         if self.datahandle_obsbkg is not None:
             assert(self.datahandle_bkg is not None)
-            X_obsbkg, Y_obsbkg = self.datahandle_obsbkg.get_dataset(self.vars_reco, self.label_obs, standardize=False)
+            X_obsbkg = self.datahandle_obsbkg[self.vars_reco]
             X_obs = np.concatenate([X_obs, X_obsbkg])
             Y_obs = np.concatenate([Y_obs, Y_obsbkg])
 
-        X_sim, Y_sim = self.datahandle_sig.get_dataset(self.vars_reco, self.label_sig, standardize=False)
+        X_sim = self.datahandle_sig[self.vars_reco]
+        Y_sim = util.labels_for_dataset(X_sim, self.label_sig)
 
         if self.datahandle_bkg is None:
             self.X_step1 = np.concatenate([X_obs, X_sim])
             self.Y_step1 = np.concatenate([Y_obs, Y_sim])
         else:
-            X_simbkg, Y_simbkg = self.datahandle_bkg.get_dataset(self.vars_reco, self.label_bkg, standardize=False)
+            X_simbkg = self.datahandle_bkg[self.vars_reco]
+            Y_simbkg = util.labels_for_dataset(X_simbkg, self.label_bkg)
             self.X_step1 = np.concatenate([X_obs, X_sim, X_simbkg])
             self.Y_step1 = np.concatenate([Y_obs, Y_sim, Y_simbkg])
 
@@ -526,7 +556,7 @@ class OmniFoldwBkg(object):
 
     def _set_arrays_step2(self, standardize=False):
         # step 2: update simulation weights at truth level
-        self.X_gen = self.datahandle_sig.get_dataset(self.vars_truth, self.label_sig, standardize=False)[0]
+        self.X_gen = self.datahandle_sig[self.vars_truth]
         nsim = len(self.X_gen)
 
         if standardize:
@@ -548,9 +578,9 @@ class OmniFoldwBkg(object):
             logger.info("Plot step 2 training variable {}".format(vname))
             plotting.plot_data_arrays(os.path.join(self.outdir, 'Train_step2_'+vname), [vgen], [wsig], labels=['Gen.'], title='Step-2 training inputs', xlabel=vname)
 
-    def _set_event_weights(self, rw_type=None, vars_dict={}, rescale=True):
-        self.weights_obs = self.datahandle_obs.get_weights(rw_type=rw_type,
-                                                           vars_dict=vars_dict)
+    def _set_event_weights(self, reweighter=None, rescale=True):
+        self.weights_obs = self.datahandle_obs.get_weights(reweighter=reweighter)
+
         if self.datahandle_obsbkg is not None:
             self.weights_obs = np.concatenate([self.weights_obs, self.datahandle_obsbkg.get_weights()])
 
@@ -710,8 +740,15 @@ class OmniFoldwBkg(object):
 ###
 # Add background as negatively weighted data
 class OmniFoldwBkg_negW(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_truth, iterations=4, outdir='.'):
-        super().__init__(variables_det, variables_truth, iterations, outdir)
+    def __init__(
+        self,
+        variables_det,
+        variables_truth,
+        iterations=4,
+        outdir=".",
+        truth_known=True
+    ):
+        super().__init__(variables_det, variables_truth, iterations, outdir, truth_known)
 
         # set background simulation label the same as data
         self.label_bkg = self.label_obs
@@ -727,8 +764,15 @@ class OmniFoldwBkg_negW(OmniFoldwBkg):
 ###
 # multi-class classification
 class OmniFoldwBkg_multi(OmniFoldwBkg):
-    def __init__(self, variables_det, variables_truth, iterations=4, outdir='.'):
-        super().__init__(variables_det, variables_truth, iterations, outdir)
+    def __init__(
+        self,
+        variables_det,
+        variables_truth,
+        iterations=4,
+        outdir=".",
+        truth_known=True,
+    ):
+        super().__init__(variables_det, variables_truth, iterations, outdir, truth_known)
 
         # new class label for background
         self.label_bkg = 2

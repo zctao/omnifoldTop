@@ -8,16 +8,19 @@ from sklearn.model_selection import train_test_split
 from model import get_model, get_callbacks
 
 from datahandler import DataHandler, DataToy
+import util
 from util import configGPUs, configRootLogger, expandFilePath, read_dict_from_json
 from util import get_bins, write_chi2, write_ks, write_triangular_discriminators, ks_2samp_weighted
 import plotting
 from histogramming import calc_hist
 import logging
 
-def get_training_inputs(variables, dataHandle, simHandle, rw_type=None, vars_dict=None):
+def get_training_inputs(variables, dataHandle, simHandle, reweighter=None):
     ###
-    X_d, Y_d = dataHandle.get_dataset(variables, 1)
-    X_s, Y_s = simHandle.get_dataset(variables, 0)
+    X_d = dataHandle[variables]
+    Y_d = util.labels_for_dataset(X_d, 1)
+    X_s = simHandle[variables]
+    Y_s = util.labels_for_dataset(X_s, 0)
 
     X = np.concatenate([X_d, X_s])
 
@@ -30,7 +33,7 @@ def get_training_inputs(variables, dataHandle, simHandle, rw_type=None, vars_dic
 
     ###
     # event weights
-    w_d = dataHandle.get_weights(rw_type=rw_type, vars_dict=vars_dict)
+    w_d = dataHandle.get_weights(reweighter=reweighter)
     w_s = simHandle.get_weights()
 
     # normalize data weights to mean of one
@@ -149,12 +152,12 @@ def evaluateModels(**parsed_args):
     fnames_d = parsed_args['data']
     logger.info("(Pseudo) data files: {}".format(' '.join(fnames_d)))
     dataHandle = DataHandler(fnames_d, wname, variable_names=vars_det+vars_mc)
-    logger.info("Total number of pseudo data events: {}".format(dataHandle.get_nevents()))
+    logger.info("Total number of pseudo data events: {}".format(len(dataHandle)))
 
     fnames_s = parsed_args['signal']
     logger.info("Simulation files: {}".format(' '.join(fnames_s)))
     simHandle = DataHandler(fnames_s, wname, variable_names=vars_det+vars_mc)
-    logger.info("Total number of simulation events: {}".format(simHandle.get_nevents()))
+    logger.info("Total number of simulation events: {}".format(len(simHandle)))
 
     ####
     #dataHandle = DataToy(1000000, 1, 1.5)
@@ -165,7 +168,13 @@ def evaluateModels(**parsed_args):
     #################
     # Event weights
     # pseudo data weights
-    w_d = dataHandle.get_weights(rw_type=parsed_args['reweight_data'], vars_dict=observable_dict)
+    rw = None
+    if parsed_args["reweight_data"]:
+        var_lookup = np.vectorize(lambda v: observable_dict[v]["branch_mc"])
+        rw = reweight.rw[parsed_args["reweight_data"]]
+        rw.variables = var_lookup(rw.variables)
+
+    w_d = dataHandle.get_weights(reweighter=rw)
 
     # prior simulation weights
     w_s = simHandle.get_weights()
@@ -186,7 +195,7 @@ def evaluateModels(**parsed_args):
         vars_mc = [['th_pt_MC', 'th_y_MC', 'th_phi_MC', 'th_e_MC'],
                    ['tl_pt_MC', 'tl_y_MC', 'tl_phi_MC', 'tl_e_MC']]
 
-    X, Y, w = get_training_inputs(vars_mc, dataHandle, simHandle, rw_type=parsed_args['reweight_data'], vars_dict=observable_dict)
+    X, Y, w = get_training_inputs(vars_mc, dataHandle, simHandle, reweighter=rw)
 
     # Split into training, validation, and test sets: 75%, 15%, 10%
     X_train, X_test, Y_train, Y_test, w_train, w_test = train_test_split(X, Y, w, test_size=0.25)
@@ -258,8 +267,8 @@ def evaluateModels(**parsed_args):
         logger.info("  "+"    ".join(text_tria))
 
         # Compute KS test statistic
-        arr_truth = dataHandle.get_variable_arr(vname_mc)
-        arr_sim = simHandle.get_variable_arr(vname_mc)
+        arr_truth = dataHandle[vname_mc]
+        arr_sim = simHandle[vname_mc]
         text_ks = write_ks(arr_truth, w_d, [arr_sim, arr_sim], [w_s_rw, w_s], labels=['Reweighted', 'Prior'])
 
         logger.info("  "+"    ".join(text_ks))
