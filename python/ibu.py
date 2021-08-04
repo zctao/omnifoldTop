@@ -2,9 +2,9 @@ import os
 import numpy as np
 import pandas as pd
 
-import external.OmniFold.modplot as modplot
+from histogramming import calc_hist, calc_hist2d, get_hist, set_hist_errors
+
 import plotting
-from util import add_histograms
 import logging
 logger = logging.getLogger('IBU')
 logger.setLevel(logging.DEBUG)
@@ -36,7 +36,6 @@ class IBU(object):
         self.outdir = outdir
         # unfolded distributions
         self.hists_unfolded = None
-        self.hists_unfolded_err = None
         self.hists_unfolded_corr = None
 
     def run(self):
@@ -47,23 +46,26 @@ class IBU(object):
         self.hists_unfolded = self._unfold(r, self.weights_obs, self.weights_sig, self.weights_bkg)
 
         # bin uncertainty and correlation
-        self.hists_unfolded_err, self.hists_unfolded_corr = self._uncertainty(
+        unfolded_err, self.hists_unfolded_corr = self._uncertainty(
             self.nresamples, response=r, resample_obs=True, resample_sig=False)
+
+        set_hist_errors(self.hists_unfolded, unfolded_err)
 
     def get_unfolded_distribution(self, all_iterations=False):
         if all_iterations:
-            return self.hists_unfolded, self.hists_unfolded_err, self.hists_unfolded_corr
+            return self.hists_unfolded, self.hists_unfolded_corr
         else:
-            return self.hists_unfolded[-1], self.hists_unfolded_err[-1], self.hists_unfolded_corr[-1]
+            return self.hists_unfolded[-1], self.hists_unfolded_corr[-1]
 
     def _response_matrix(self, weights_sim, plot=True):
-        r = np.histogram2d(self.array_sim, self.array_gen, bins=(self.bins_det, self.bins_mc), weights=weights_sim)[0]
-        r /= (r.sum(axis=0) + 10**-50)
+        r = calc_hist2d(self.array_sim, self.array_gen, bins=(self.bins_det, self.bins_mc), weights=weights_sim)
+        # normalize per truth bin
+        r.view()['value'] = r.values() / r.project(1).values()
 
         if plot:
             figname = os.path.join(self.outdir, 'Response_{}'.format(self.varname))
             logger.info("  Plot detector response: {}".format(figname))
-            plotting.plot_response(figname, r, self.bins_det, self.bins_mc, self.varname)
+            plotting.plot_response(figname, r, self.varname)
 
         return r
 
@@ -71,32 +73,34 @@ class IBU(object):
         ######
         # detector level
         # observed distribution
-        hist_obs, hist_obs_err = modplot.calc_hist(self.array_obs, weights=weights_obs, bins=self.bins_det, density=False)[:2]
+        h_obs = calc_hist(self.array_obs, self.bins_det, weights=weights_obs)
 
         # if background is not none, subtract background
         if self.array_bkg is not None:
-            hist_bkg, hist_bkg_err = modplot.calc_hist(self.array_bkg, weights=weights_bkg, bins=self.bins_det, density=False)[:2]
-            hist_obs, hist_obs_err = add_histograms(hist_obs, hist_bkg, hist_obs_err, hist_bkg_err, c1=1., c2=-1.)
+            h_bkg = calc_hist(self.array_bkg, self.bins_det, weights=weights_bkg)
+            h_obs  = h_obs + (-1*h_bkg)
 
         ######
         # truth level
         # prior distribution
-        hist_prior, hist_prior_err = modplot.calc_hist(self.array_gen, weights=weights_sig, bins=self.bins_mc, density=False)[:2]
+        h_prior = calc_hist(self.array_gen, self.bins_mc, weights=weights_sig)
 
         # bin widths
         wbins_det = self.bins_det[1:] - self.bins_det[:-1]
         wbins_mc = self.bins_mc[1:] - self.bins_mc[:-1]
 
         # start iterations
-        hists_ibu = [hist_prior]
+        hists_ibu = [h_prior]
 
         for i in range(self.iterations):
             # update the estimate given the response matrix and the latest unfolded distribution
-            m = response * hists_ibu[-1]
+            m = response.values() * hists_ibu[-1].values()
             m /= (m.sum(axis=1)[:,np.newaxis] + 10**-50)
 
             # update the unfolded given m and the observed distribution
-            hists_ibu.append(np.dot(m.T, hist_obs)*wbins_det/wbins_mc)
+            entry_ibu = np.dot(m.T, h_obs.values())*wbins_det/wbins_mc
+            h_ibu = get_hist(self.bins_mc, entry_ibu)
+            hists_ibu.append(h_ibu)
 
         return hists_ibu[1:] # shape: (n_iteration, nbins_hist)
 
@@ -115,14 +119,15 @@ class IBU(object):
             hists_resample.append(self._unfold(response, reweights_obs, reweights_sig, self.weights_bkg))
 
         # standard deviation of each bin
-        errors = np.std(np.asarray(hists_resample), axis=0, ddof=1) # shape: (n_iteration, nbins_hist)
+        hists_resample = np.asarray(hists_resample)['value']
+        errors = np.std(hists_resample, axis=0, ddof=1) # shape: (n_iteration, nbins_hist)
 
         # bin correlations
         corrs = []
         # np.asarray(hists_resample) shape: (n_resamples, n_iterations, n_bins)
         # for each iteration
         for i in range(self.iterations):
-            df_ihist = pd.DataFrame(np.asarray(hists_resample)[:,i,:])
+            df_ihist = pd.DataFrame(hists_resample[:,i,:])
             corrs.append(df_ihist.corr())
             #assert( np.allclose(np.sqrt(np.asarray([df_ihist.cov()[i][i] for i in range(len(df_ihist.columns))])), errors[i]) ) # sanity check
 

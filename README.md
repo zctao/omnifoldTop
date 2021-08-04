@@ -15,7 +15,7 @@ To get the original OmniFold packakge:
 
 ### Requirements (TODO)
 
-    packaging, matplotlib==3.3.2, pandas==1.1.5, numpy, scipy, scikit_learn==0.23.2, tensorflow
+    packaging, matplotlib==3.3.2, pandas==1.1.5, numpy, scipy, scikit_learn==0.23.2, tensorflow, hist
     
 Needed by the original OmniFold package:
 

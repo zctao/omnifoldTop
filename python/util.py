@@ -7,6 +7,8 @@ from packaging import version
 import tensorflow as tf
 import logging
 
+from histogramming import get_values_and_errors
+
 def parse_input_name(fname):
     fname_list = fname.split('*')
     if len(fname_list) == 1:
@@ -155,77 +157,12 @@ def prepare_data_multifold(ntuple, variables, standardize=False, reshape1D=False
 
     return data
 
-def set_up_bins(xmin, xmax, nbins):
-    bins = np.linspace(xmin, xmax, nbins+1)
-    midbins = (bins[:-1]+bins[1:])/2
-    binwidth = bins[1]-bins[0]
-
-    return bins, midbins, binwidth
-
-def normalize_histogram(bin_edges, hist, hist_unc=None):
-    binwidths = bin_edges[1:] - bin_edges[:-1]
-    norm = np.dot(hist, binwidths)
-    hist /= norm
-    if hist_unc is not None:
-        hist_unc /= norm
-
-def normailize_stacked_histogrms(bin_edges, hists, hists_unc=None):
-    binwidths = bin_edges[1:] - bin_edges[:-1]
-    hstacked = np.asarray(hists).sum(axis=0)
-    norm = np.dot(hstacked, binwidths)
-
-    if hists_unc is None:
-        hists_unc = [None]*len(hists)
-    else:
-        assert(len(hists_unc)==len(hists))
-
-    for h, herr in zip(hists, hists_unc):
-        h /= norm
-        if herr is not None:
-            herr /= norm
-
-def add_histograms(h1, h2=None, h1_err=None, h2_err=None, c1=1., c2=1.):
-    hsum = c1*h1
-    if h2 is not None:
-        assert(len(h1)==len(h2))
-        hsum += c2*h2
-
-    sumw2 = np.zeros_like(h1)
-
-    if h1_err is not None:
-        assert(len(h1_err)==len(h1))
-        sumw2 += (c1*h1_err)**2
-
-    if h2_err is not None:
-        assert(len(h2_err)==len(h2))
-        sumw2 += (c2*h2_err)**2
-
-    hsum_err = np.sqrt(sumw2)
-
-    return hsum, hsum_err
-
-def divide_histograms(h_numer, h_denom, h_numer_err=None, h_denom_err=None):
-    ratio = np.divide(h_numer, h_denom, out=np.zeros_like(h_denom), where=(h_denom!=0))
-
-    # bin errors
-    if h_numer_err is None:
-        h_numer_err = np.zeros_like(h_numer_err)
-    if h_denom_err is None:
-        h_denom_err = np.zeros_like(h_denom_err)
-
-    #rerrsq = (h_numer_err**2 + h_denom_err**2 * ratio**2) / h_denom**2
-    rerrsq = np.divide(h_numer_err**2 + h_denom_err**2 * ratio**2, h_denom**2, out=np.zeros_like(h_denom), where=(h_denom!=0))
-
-    ratio_err = np.sqrt(rerrsq)
-
-    return ratio, ratio_err
-
 def compute_triangular_discr(histogram_1, histogram_2):
-    if len(histogram_1) != len(histogram_2):
+    if histogram_1.size != histogram_2.size:
         raise RuntimeError("Input histograms are not of the same size")
 
     delta = 0.
-    for p, q in zip(histogram_1, histogram_2):
+    for p, q in zip(histogram_1.values(), histogram_2.values()):
         if p==0 and q==0:
             continue
         delta += ((p-q)**2)/(p+q)*0.5
@@ -242,14 +179,16 @@ def write_triangular_discriminators(hist_ref, hists, labels):
 
     return stamps
 
-def compute_chi2(hist_obs, hist_exp, hist_obs_err, hist_exp_err):
-    assert(len(hist_exp)==len(hist_obs))
-    assert(len(hist_exp)==len(hist_exp_err))
-    assert(len(hist_obs)==len(hist_obs_err))
-    ndf = len(hist_exp) # degree of freedom
+#def compute_chi2(hist_obs, hist_exp, hist_obs_err, hist_exp_err):
+def compute_chi2(hist_obs, hist_exp):
+    assert(hist_obs.size == hist_exp.size)
+    ndf = hist_exp.axes[0].size # degree of freedom
     chi2 = 0.
 
-    for o, e, oerr, eerr in zip(hist_obs, hist_exp, hist_obs_err, hist_exp_err):
+    obs, obs_err = get_values_and_errors(hist_obs)
+    exp, exp_err = get_values_and_errors(hist_exp)
+
+    for o, e, oerr, eerr in zip(obs, exp, obs_err, exp_err):
         if o == 0 and e==0:
             ndf -= 1 # BAD histogram binning!
             continue
@@ -257,23 +196,22 @@ def compute_chi2(hist_obs, hist_exp, hist_obs_err, hist_exp_err):
 
     return chi2, ndf
 
-def compute_diff_chi2(histograms_arr, histograms_err_arr):
+def compute_diff_chi2(histograms_arr):
     # compute the chi2 per degree of freedom between each histogram and its neighboring one in a list
     diff_chi2s = []
 
-    for h_current, h_previous, herr_current, herr_previous in zip(histograms_arr[1:], histograms_arr[:-1], histograms_err_arr[1:], histograms_err_arr[:-1]):
-        chi2, ndf = compute_chi2(h_current, h_previous, herr_current, herr_previous)
+    for h_current, h_previous in zip(histograms_arr[1:], histograms_arr[:-1]):
+        chi2, ndf = compute_chi2(h_current, h_previous)
         diff_chi2s.append(chi2/ndf)
 
     return diff_chi2s
 
-def compute_diff_chi2_wrt_first(histograms_arr, histograms_err_arr):
+def compute_diff_chi2_wrt_first(histograms_arr):
     # compute the chi2 per degree of freedom between each histogram and the first one in the list
     diff_chi2s_vs_first = []
     hprior = histograms_arr[0]
-    hprior_err = histograms_err_arr[0]
-    for hist, hist_err in zip(histograms_arr, histograms_err_arr):
-        chi2, ndf = compute_chi2(hist, hprior, hist_err, hprior_err)
+    for h in histograms_arr:
+        chi2, ndf = compute_chi2(h, hprior)
         diff_chi2s_vs_first.append(chi2/ndf)
 
     return diff_chi2s_vs_first
@@ -281,14 +219,15 @@ def compute_diff_chi2_wrt_first(histograms_arr, histograms_err_arr):
 def compute_pvalue(chi2, ndf):
     return 1 - stats.chi2.cdf(chi2, ndf)
 
-def write_chi2(hist_ref, hist_ref_unc, hists, hists_unc, labels):
-    assert(len(hists)==len(labels))
+#def write_chi2(hist_ref, hist_ref_unc, hists, hists_unc, labels):
+def write_chi2(hist_ref, histograms, labels):
+    assert(len(histograms)==len(labels))
     stamps = ["$\\chi^2$/NDF (p-value):"]
 
-    for h, herr, l in zip(hists, hists_unc, labels):
+    for h, l in zip(histograms, labels):
         if h is None:
             continue
-        chi2, ndf = compute_chi2(h, hist_ref, herr, hist_ref_unc)
+        chi2, ndf = compute_chi2(h, hist_ref)
         pval = compute_pvalue(chi2, ndf)
 
         stamps.append("{} = {:.3f}/{} ({:.3f})".format(l, chi2, ndf, pval))
