@@ -60,7 +60,8 @@ class IBU(object):
     def _response_matrix(self, weights_sim, plot=True):
         r = calc_hist2d(self.array_sim, self.array_gen, bins=(self.bins_det, self.bins_mc), weights=weights_sim)
         # normalize per truth bin
-        r.view()['value'] = r.values() / r.project(1).values()
+        #r.view()['value'] = r.values() / r.project(1).values()
+        r.view()['value'] = r.values() / r.values().sum(axis=0)
 
         if plot:
             figname = os.path.join(self.outdir, 'Response_{}'.format(self.varname))
