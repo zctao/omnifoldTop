@@ -121,20 +121,14 @@ class DataHandler(Mapping):
         vars_dict={},
         array_name="arr_0",
     ):
-        self.weight_name = wname # name of event weights
-
         # load data from npz files to numpy array
         tmpDataArr = load_dataset(filepaths, array_name=array_name, weight_columns=wname)
-        assert(tmpDataArr is not None)
+        #assert(tmpDataArr is not None)
 
         if not variable_names:
             # if no variable name list is provided, read everything
             variable_names = list(tmpDataArr.dtype.names)
         else:
-            # add wname to the list
-            if wname and not wname in variable_names:
-                variable_names.append(wname)
-
             variable_names = _filter_variable_names(variable_names)
 
             # check all variable names are available
@@ -146,10 +140,14 @@ class DataHandler(Mapping):
         dtypes = [(vname, vars_dict.get('vtype','float')) for vname in variable_names]
         self.data = np.array(tmpDataArr[variable_names], dtype=dtypes)
 
-        # sum of event weights
-        self.sumw = len(self.data)
-        if wname and wname in self.data.dtype.names:
-            self.sumw = self.data[wname].sum()
+        # event weights
+        if wname:
+            if wname in tmpDataArr.dtype.names:
+                self.weights = tmpDataArr[wname].flatten()
+            else:
+                raise RuntimeError("Unknown weight name {}".format(wname))
+        else:
+            self.weights = np.ones(len(self.data))
 
     def __len__(self):
         """
@@ -244,53 +242,69 @@ class DataHandler(Mapping):
         """
         return iter(self.data.dtype.names)
 
-    def get_weights(
-            self,
-            unweighted=False,
-            bootstrap=False,
-            normalize=False,
-            reweighter=None
+    def sum_weights(self):
+        return self.weights.sum()
+
+    def rescale_weights(
+        self,
+        factors=1.,
+        reweighter=None,
     ):
         """
-        Get event weights for the dataset.
+        Rescale event weights of the dataset
 
         Parameters
         ----------
-        unweighted : bool, default: False
-            Ignore weights saved in the dataset and use unity instead.
-        bootstrap : bool, default: False
-            Multiply each weight by a random value drawn from a Poisson
-            distribution with lambda = 1.
-        normalize : bool, default: False
-            If True, normalize the weights by expressing them as the ratio
-            to the mean of the weights.
+        factors : float or np.ndarray of the same dimension as self.weights
+            Factors to rescale the event weights
         reweighter : reweight.Reweighter, optional
             A function that takes events and returns event weights, and the
             variables it expects.
 
+        Notes
+        -----
+        Order of operations: reweighting, rescaling
+        """
+        # reweight sample
+        if reweighter is not None:
+            self.weights *= reweighter.func(self[reweighter.variables])
+
+        # rescale
+        self.weights *= factors
+
+    def get_weights(
+        self,
+        standardize=False,
+        bootstrap=False,
+        unweighted=False
+    ):
+        """
+         Get event weights for the dataset.
+
+        Parameters
+        ----------
+        standardize : bool, default: False
+            If True, standardize the weights to mean of one
+        bootstrap : bool, default: False
+            Multiply each weight by a random value drawn from a Poisson
+            distribution with lambda = 1.
+        unweighted : bool, default: False
+            Ignore weights saved in the dataset and use unity instead.
+
         Returns
         -------
         np.ndarray of numbers, shape (nevents,)
-
-        Notes
-        -----
-        Order of operations: reweighting, normalization, bootstrapping.
         """
-        if unweighted or not self.weight_name:
-            weights = np.ones(len(self))
-        else:
-            # always return a copy of the original weight array in self.data
-            weights = self[self.weight_name].copy()
-            assert(weights.base is None)
+        if unweighted:
+            return np.ones(len(self))
 
-        # reweight sample if needed
-        if reweighter is not None:
-            weights *= reweighter.func(self[reweighter.variables])
+        weights = self.weights.copy()
 
-        # normalize to len(self.data)
-        if normalize:
+        # standardize sample weights to mean of one
+        if standardize:
             weights /= np.mean(weights)
 
+        # bootstrap
         if bootstrap:
             weights *= np.random.poisson(1, size=len(weights))
 
@@ -313,7 +327,7 @@ class DataHandler(Mapping):
         correlations = df.corr()
         return correlations
 
-    def get_histogram(self, variable, weights, bin_edges, density=False):
+    def get_histogram(self, variable, bin_edges, weights=None, density=False):
         """
         Retrieve the histogram of a weighted variable in the dataset.
 
@@ -321,9 +335,9 @@ class DataHandler(Mapping):
         ----------
         variable : str
             Name of the variable in the dataset to histogram.
-        weights : array-like of shape (nevents,) or (nweights, nevents)
+        weights : array-like of shape (nevents,) or (nweights, nevents) or None
             Array of per-event weights. If 2D, then a sequence of different
-            per-event weightings.
+            per-event weightings. If None, use self.weights
         bin_edges : array-like of shape (nbins + 1,)
             Locations of the edges of the bins of the histogram.
 
@@ -332,6 +346,9 @@ class DataHandler(Mapping):
         A Hist object if `weights` is 1D, a list of Hist objects if `weights` 
             is 2D.
         """
+        if weights is None:
+            weights = self.weights
+
         if isinstance(weights, np.ndarray):
             if weights.ndim == 1: # if weights is a 1D array
                 varr = self[variable]
@@ -339,13 +356,13 @@ class DataHandler(Mapping):
                 assert(len(varr) == len(weights))
                 return calc_hist(varr, weights=weights, bins=bin_edges, density=density)
             elif weights.ndim == 2: # make the 2D array into a list of 1D array
-                return self.get_histogram(variable, list(weights), bin_edges, density)
+                return self.get_histogram(variable, bin_edges, list(weights), density)
             else:
                 raise RuntimeError("Only 1D or 2D array or a list of 1D array of weights can be processed.")
         elif isinstance(weights, list): # if weights is a list of 1D array
             hists = []
             for w in weights:
-                h = self.get_histogram(variable, w, bin_edges, density)
+                h = self.get_histogram(variable, bin_edges, w, density)
                 hists.append(h)
             return hists
         else:
@@ -445,8 +462,6 @@ class DataToy(DataHandler):
         Standard deviation of the truth distribution.
     """
     def __init__(self, nevents, mu=0., sigma=1.):
-        self.weight_name = ''
-
         # generate toy data
         # truth level
         var_truth = np.random.normal(mu, sigma,nevents)
@@ -457,3 +472,5 @@ class DataToy(DataHandler):
 
         self.data = np.array([(x,y) for x,y in zip(var_reco, var_truth)],
                              dtype=[('x_reco','float'), ('x_truth','float')])
+
+        self.weights = np.ones(len(nevents))

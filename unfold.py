@@ -135,7 +135,6 @@ def unfold(**parsed_args):
         data_bkg,
         data_obsbkg,
         parsed_args["plot_correlations"],
-        standardize=True,
         reweighter=rw,
     )
 
@@ -202,7 +201,9 @@ def unfold(**parsed_args):
             ibu = IBU(varname, bins_det, bins_mc,
                       array_obs, array_sim, array_gen, array_simbkg,
                       # use the same weights from OmniFold
-                      unfolder.weights_obs, unfolder.weights_sim, unfolder.weights_bkg,
+                      unfolder.datahandle_obs.get_weights(),
+                      unfolder.datahandle_sig.get_weights(),
+                      unfolder.datahandle_bkg.get_weights() if unfolder.datahandle_bkg is not None else None,
                       iterations=parsed_args['iterations'], # same as OmniFold
                       nresample=25, #parsed_args['nresamples']
                       outdir = unfolder.outdir)
