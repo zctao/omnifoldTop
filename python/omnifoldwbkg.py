@@ -305,6 +305,7 @@ class OmniFoldwBkg(object):
         error_type='sumw2',
         nresamples=0,
         load_previous_iteration=True,
+        load_models_from=None,
         batch_size=256,
         epochs=100
     ):
@@ -363,6 +364,7 @@ class OmniFoldwBkg(object):
             X_step1, Y_step1, X_step2, Y_step2, X_sim, X_gen,
             resample_data=False,
             model_name="Models",
+            load_models_dir=load_models_from,
             load_previous_iter=load_previous_iteration,
             **fitargs
         )
@@ -384,6 +386,7 @@ class OmniFoldwBkg(object):
                     X_step1, Y_step1, X_step2, Y_step2, X_sim, X_gen,
                     resample_data=(error_type=='bootstrap_full'),
                     model_name="Models_rs{}".format(ir),
+                    load_models_dir=load_models_from,
                     load_previous_iter=load_previous_iteration,
                     **fitargs
                 )
@@ -603,6 +606,7 @@ class OmniFoldwBkg(object):
         X_gen,
         resample_data=False,
         model_name='Models',
+        load_models_dir=None,
         load_previous_iter=True,
         val_size=0.2,
         #fname_event_weights='weights.npz',
@@ -610,10 +614,25 @@ class OmniFoldwBkg(object):
     ):
         ################
         # model directory
-        model_dir = os.path.join(self.outdir, model_name) if model_name else None
-        if model_dir and not os.path.isdir(model_dir):
-            logger.info("Create directory {}".format(model_dir))
-            os.makedirs(model_dir)
+        if load_models_dir is None:
+            # train models
+            reweight_only=False
+
+            # directory to store trained models
+            model_dir = os.path.join(self.outdir, model_name) if model_name else None
+            if model_dir and not os.path.isdir(model_dir):
+                logger.info("Create directory {}".format(model_dir))
+                os.makedirs(model_dir)
+        else:
+            # used the trained models for reweighting
+            reweight_only=True
+
+            model_dir = os.path.join(load_models_dir, model_name)
+
+            if not os.path.isdir(model_dir):
+                raise RuntimeError("Cannot load models fromn {}: directory does not exist!".format(model_dir))
+
+            logger.info("Reweight using trained models from {}".format(model_dir))
 
         ################
         # event weights for training
@@ -637,22 +656,23 @@ class OmniFoldwBkg(object):
             # step 1: reweight sim to look like data
             logger.info("Step 1")
             # set up the model for iteration i
-            model_step1, cb_step1 = self._set_up_model_step1(X_step1.shape[1:], i, model_dir, load_previous_iter)
+            model_step1, cb_step1 = self._set_up_model_step1(X_step1.shape[1:], i, model_dir, load_previous_iter, reweight_only)
 
-            # prepare weight array for training
-            if wbkg is None:
-                w_step1 = np.concatenate([wobs, wm_push])
-            else:
-                w_step1 = np.concatenate([wobs, wm_push, wbkg])
-            assert(len(w_step1)==len(X_step1))
+            if not reweight_only:
+                # prepare weight array for training
+                if wbkg is None:
+                    w_step1 = np.concatenate([wobs, wm_push])
+                else:
+                    w_step1 = np.concatenate([wobs, wm_push, wbkg])
+                assert(len(w_step1)==len(X_step1))
 
-            # split data into training and test sets
-            X_step1_train, X_step1_test, Y_step1_train, Y_step1_test, w_step1_train, w_step1_test = train_test_split(X_step1, Y_step1, w_step1, test_size=val_size)
+                # split data into training and test sets
+                X_step1_train, X_step1_test, Y_step1_train, Y_step1_test, w_step1_train, w_step1_test = train_test_split(X_step1, Y_step1, w_step1, test_size=val_size)
 
-            logger.info("Start training")
-            fname_preds1 = model_dir+'/preds_step1_{}'.format(i) if model_dir else None
-            self._train_model(model_step1, X_step1_train, Y_step1_train, w_step1_train, callbacks=cb_step1, val_data=(X_step1_test, Y_step1_test, w_step1_test), figname_preds=fname_preds1, **fitargs)
-            logger.info("Model training done")
+                logger.info("Start training")
+                fname_preds1 = model_dir+'/preds_step1_{}'.format(i) if model_dir else None
+                self._train_model(model_step1, X_step1_train, Y_step1_train, w_step1_train, callbacks=cb_step1, val_data=(X_step1_test, Y_step1_test, w_step1_test), figname_preds=fname_preds1, **fitargs)
+                logger.info("Model training done")
 
             # reweight
             logger.info("Reweighting")
@@ -669,18 +689,19 @@ class OmniFoldwBkg(object):
             # step 2: reweight the simulation prior to the learned weights
             logger.info("Step 2")
             # set up the model for iteration i
-            model_step2, cb_step2 = self._set_up_model_step2(X_step2.shape[1:], i, model_dir, load_previous_iter)
+            model_step2, cb_step2 = self._set_up_model_step2(X_step2.shape[1:], i, model_dir, load_previous_iter, reweight_only)
 
-            # prepare weight array for training
-            w_step2 = np.concatenate([wt_pull, wsim])
+            if not reweight_only:
+                # prepare weight array for training
+                w_step2 = np.concatenate([wt_pull, wsim])
 
-            # split data into training and test sets
-            X_step2_train, X_step2_test, Y_step2_train, Y_step2_test, w_step2_train, w_step2_test = train_test_split(X_step2, Y_step2, w_step2, test_size=val_size)
+                # split data into training and test sets
+                X_step2_train, X_step2_test, Y_step2_train, Y_step2_test, w_step2_train, w_step2_test = train_test_split(X_step2, Y_step2, w_step2, test_size=val_size)
 
-            # train model
-            logger.info("Start training")
-            fname_preds2 = model_dir+'/preds_step2_{}'.format(i) if model_dir else None
-            self._train_model(model_step2, X_step2_train, Y_step2_train, w_step2_train, callbacks=cb_step2, val_data=(X_step2_test, Y_step2_test, w_step2_test), figname_preds=fname_preds2, **fitargs)
+                # train model
+                logger.info("Start training")
+                fname_preds2 = model_dir+'/preds_step2_{}'.format(i) if model_dir else None
+                self._train_model(model_step2, X_step2_train, Y_step2_train, w_step2_train, callbacks=cb_step2, val_data=(X_step2_test, Y_step2_test, w_step2_test), figname_preds=fname_preds2, **fitargs)
 
             # reweight
             logger.info("Reweighting")
@@ -758,35 +779,48 @@ class OmniFoldwBkg(object):
         # load weights from the previous model if available
         if filepath_load:
             logger.info("Load model weights from {}".format(filepath_load))
-            model.load_weights(filepath_load)
+            if filepath_save is None:
+                # reweight only without training
+                model.load_weights(filepath_load).expect_partial()
+            else:
+                model.load_weights(filepath_load)
 
         return model, callbacks
 
     def _set_up_model_step1(self, input_shape, iteration, model_dir,
-                            load_previous_iter=True):
+                            load_previous_iter=True, reweight_only=False):
         # model filepath
         model_fp = os.path.join(model_dir, 'model_step1_{}') if model_dir else None
 
-        # set up model for training
-        if load_previous_iter and iteration > 0:
-            # initialize model based on the previous iteration
-            assert(model_fp)
-            return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
+        if reweight_only:
+            # load trained models for reweighting
+            return self._set_up_model(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
         else:
-            return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
+            # set up model for training
+            if load_previous_iter and iteration > 0:
+                # initialize model based on the previous iteration
+                assert(model_fp)
+                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
+            else:
+                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
 
     def _set_up_model_step2(self, input_shape, iteration, model_dir,
-                            load_previous_iter=True):
+                            load_previous_iter=True, reweight_only=False):
         # model filepath
         model_fp = os.path.join(model_dir, 'model_step2_{}') if model_dir else None
 
         # set up model for training
-        if load_previous_iter and iteration > 0:
-            # initialize model based on the previous iteration
-            assert(model_fp)
-            return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
+        if reweight_only:
+            # load trained models for reweighting
+            return self._set_up_model(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
         else:
-            return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
+            # set up model for training
+            if load_previous_iter and iteration > 0:
+                # initialize model based on the previous iteration
+                assert(model_fp)
+                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
+            else:
+                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
 
     def _train_model(self, model, X, Y, w, callbacks=[], val_data=None, figname_preds='', **fitargs):
         if callbacks:
