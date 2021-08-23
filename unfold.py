@@ -135,7 +135,6 @@ def unfold(**parsed_args):
         data_bkg,
         data_obsbkg,
         parsed_args["plot_correlations"],
-        standardize=True,
         reweighter=rw,
     )
 
@@ -159,6 +158,7 @@ def unfold(**parsed_args):
         # run training
         unfolder.run(parsed_args['error_type'], parsed_args['nresamples'],
                      load_previous_iteration=False,
+                     load_models_from=parsed_args['load_models'],
                      batch_size=parsed_args['batch_size'])
 
     t_unfold_done = time.time()
@@ -202,7 +202,9 @@ def unfold(**parsed_args):
             ibu = IBU(varname, bins_det, bins_mc,
                       array_obs, array_sim, array_gen, array_simbkg,
                       # use the same weights from OmniFold
-                      unfolder.weights_obs, unfolder.weights_sim, unfolder.weights_bkg,
+                      unfolder.datahandle_obs.get_weights(),
+                      unfolder.datahandle_sig.get_weights(),
+                      unfolder.datahandle_bkg.get_weights() if unfolder.datahandle_bkg is not None else None,
                       iterations=parsed_args['iterations'], # same as OmniFold
                       nresample=25, #parsed_args['nresamples']
                       outdir = unfolder.outdir)
@@ -288,6 +290,8 @@ if __name__ == "__main__":
                         default='sumw2', help="Method to evaluate uncertainties")
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=512,
                         help="Batch size for training")
+    parser.add_argument('-l', '--load-models', dest='load_models', type=str,
+                        help="Directory from where to load trained models. If provided, training will be skipped.")
 
     #parser.add_argument('-n', '--normalize',
     #                    action='store_true',
