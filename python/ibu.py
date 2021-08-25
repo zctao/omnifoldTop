@@ -40,7 +40,10 @@ class IBU(object):
 
     def run(self):
         # response matrix
-        r = self._response_matrix(self.weights_sig, plot=True)
+        r = self._response_matrix(self.weights_sig)
+        figname = os.path.join(self.outdir, 'Response_{}'.format(self.varname))
+        logger.info("  Plot detector response: {}".format(figname))
+        plotting.plot_response(figname, r, self.varname)
 
         # unfold
         self.hists_unfolded = self._unfold(r, self.weights_obs, self.weights_sig, self.weights_bkg)
@@ -57,16 +60,11 @@ class IBU(object):
         else:
             return self.hists_unfolded[-1], self.hists_unfolded_corr[-1]
 
-    def _response_matrix(self, weights_sim, plot=True):
+    def _response_matrix(self, weights_sim):
         r = calc_hist2d(self.array_sim, self.array_gen, bins=(self.bins_det, self.bins_mc), weights=weights_sim)
         # normalize per truth bin
         #r.view()['value'] = r.values() / r.project(1).values()
         r.view()['value'] = r.values() / r.values().sum(axis=0)
-
-        if plot:
-            figname = os.path.join(self.outdir, 'Response_{}'.format(self.varname))
-            logger.info("  Plot detector response: {}".format(figname))
-            plotting.plot_response(figname, r, self.varname)
 
         return r
 
@@ -115,7 +113,7 @@ class IBU(object):
 
             # recompute response with resampled simulation weights if needed
             if response is None:
-                response = self._response_matrix(reweights_sig, plot=False)
+                response = self._response_matrix(reweights_sig)
 
             hists_resample.append(self._unfold(response, reweights_obs, reweights_sig, self.weights_bkg))
 
