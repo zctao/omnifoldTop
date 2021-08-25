@@ -99,8 +99,14 @@ class OmniFoldwBkg(object):
         # prepare event weights
         logger.info("Prepare event weights")
         self._set_event_weights(reweighter)
+        logger.info("Plot event weights")
+        plotting.plot_data_arrays(
+            os.path.join(self.outdir, 'Event_weights'),
+            [self.datahandle_sig.get_weights(), self.datahandle_obs.get_weights()],
+            labels=['Sim.', 'Data'], title='Event weights', xlabel='w'
+        )
 
-    def _set_event_weights(self, reweighter=None, rescale=True, plot=True):
+    def _set_event_weights(self, reweighter=None, rescale=True):
         """
         preprocess event weights.
         Reweight the pseudo data sample if reweighter is provided.
@@ -114,8 +120,6 @@ class OmniFoldwBkg(object):
         rescale : bool, default: False
             if True, rescale simulation sample weights to be compatible with
             data
-        plot : bool, default: True
-            if True, plot distributions of event weights
         """
         logger.info("Preprocess event weights")
 
@@ -157,14 +161,6 @@ class OmniFoldwBkg(object):
                 "Total weights of simulated background events: {}".format(
                     self.datahandle_bkg.sum_weights()
                 )
-            )
-
-        if plot:
-            logger.info("Plot event weights")
-            plotting.plot_data_arrays(
-                os.path.join(self.outdir, 'Event_weights'),
-                [self.datahandle_sig.get_weights(), self.datahandle_obs.get_weights()],
-                labels=['Sim.', 'Data'], title='Event weights', xlabel='w'
             )
 
     def _get_event_weights(self, resample=False, plot=True):
