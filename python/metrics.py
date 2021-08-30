@@ -576,4 +576,22 @@ def plot_all_metrics(metrics_dict, varname, outdir):
 
     #####
     # Bin Errors
-    # TODO
+    m_BinErr_OF = metrics_dict[varname]['nominal']['BinErrors']
+    nbins = len(m_BinErr_OF['bin edges']) - 1
+
+    # Bin error vs iterations for each bin
+    relerr_arr = [(
+        m_BinErr_OF['iterations'],
+        [ y[ibin] for y in m_BinErr_OF['percentage'] ] )
+        for ibin in range(nbins)
+    ]
+
+    plotting.plot_graphs(
+        os.path.join(outdir, varname+'_BinErrors'),
+        relerr_arr,
+        labels = ["bin {}".format(i) for i in range(1, nbins+1)],
+        xlabel = 'Iteration',
+        ylabel = 'Relative Bin Errors',
+        markers = ['o'] * nbins,
+        lw = 0.7, ms = 0.7
+    )
