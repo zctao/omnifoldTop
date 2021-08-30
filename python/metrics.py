@@ -411,7 +411,28 @@ def write_all_metrics_unbinned(
     return metrics
 
 def evaluate_all_metrics(variable, varConfig, bin_edges, of, ibu=None):
-    """ TODO
+    """
+    Compute and plot metrics for unfolded distributions
+
+    Parameters
+    ----------
+    variable : str
+        Name of the variable for evaluating
+    varConfig : dict
+        Dictionary that contains configurations for the variable. Here only used
+        to extract the truth-level branch name for the variable
+    bin_edges : array-like of shape (nbins + 1,)
+        Bin edges of the histogram for the variable,
+    of : OmniFoldwBkg object
+        OmniFold unfolder that contains data arrays and unfolded weights
+    ibu : IBU object, optional
+        IBU unfolder that provides unfolded distribution of the variable
+        using the IBU method
+
+    Returns
+    -------
+    A dictionary that contains the calculated metrics for various methods.
+    The dictionary is also saved as a json file to of.outdir+"/Metrics/"
     """
 
     if not of.truth_known:
