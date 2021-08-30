@@ -154,6 +154,16 @@ def prepare_data_multifold(ntuple, variables, standardize=False, reshape1D=False
 
     return data
 
+# JSON encoder for numpy array
+# https://pynative.com/python-serialize-numpy-ndarray-into-json/
+from json import JSONEncoder
+
+class NumpyArrayEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return JSONEncoder.default(self, obj)
+
 def read_dict_from_json(filename_json):
     jfile = open(filename_json, "r")
     try:
@@ -166,7 +176,7 @@ def read_dict_from_json(filename_json):
 
 def write_dict_to_json(aDictionary, filename_json):
     jfile = open(filename_json, "w")
-    json.dump(aDictionary, jfile, indent=4)
+    json.dump(aDictionary, jfile, indent=4, cls=NumpyArrayEncoder)
     jfile.close()
 
 def get_bins(varname, fname_bins):
