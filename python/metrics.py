@@ -5,6 +5,7 @@ import os
 import numpy as np
 from scipy import stats
 
+import plotting
 from util import prepend_arrays, write_dict_to_json
 from histogramming import get_values_and_errors
 
@@ -100,20 +101,6 @@ def compute_Chi2(hist_obs, hist_exp):
 
     return chi2, ndf
 
-####
-# Only called in plotting.plot_iteration_diffChi2s
-# Both are to be deleted
-def compute_diff_Chi2(histograms_arr):
-    # compute the chi2 per degree of freedom between each histogram and its neighboring one in a list
-    diff_chi2s = []
-
-    for h_current, h_previous in zip(histograms_arr[1:], histograms_arr[:-1]):
-        chi2, ndf = compute_Chi2(h_current, h_previous)
-        diff_chi2s.append(chi2/ndf)
-
-    return diff_chi2s
-####
-
 def compute_pvalue_Chi2(chi2, ndf):
     return 1. - stats.chi2.cdf(chi2, ndf)
 
@@ -175,11 +162,12 @@ def compute_Delta(histogram_1, histogram_2):
             continue # BAD histogram binning!
         delta += ((p-q)**2)/(p+q)*0.5
 
-    return delta * 1000
+    return delta
 
 def write_texts_Delta(histogram_ref, histograms, labels):
     assert(len(histograms)==len(labels))
-    texts = ["Triangular discriminator ($\\times 10^{-3}$):"]
+    #texts = ["Triangular discriminator ($\\times 10^{-3}$):"]
+    texts = ["Triangular discriminator:"]
 
     for h, l in zip(histograms, labels):
         if h is None:
@@ -274,7 +262,7 @@ def write_texts_KS(data_ref, weights_ref, data_list, weights_list, labels):
     for data, w, l in zip(data_list, weights_list, labels):
         ks, prob = ks_2samp_weighted(data_ref, data, weights_ref, w)
 
-        texts.append("{} = {:.2e} (:.3f)".format(l, ks, prob))
+        texts.append("{} = {:.2e} ({:.3f})".format(l, ks, prob))
 
     return texts
 
@@ -458,7 +446,7 @@ def evaluate_all_metrics(variable, varConfig, bin_edges, of, ibu=None):
     weights_prior = of.datahandle_sig.get_weights()
     # unfolded weights
     weights_unfolded = weights_prior * of.unfolded_weights
-    
+
     metrics_all[variable]["nominal"].update(
         write_all_metrics_unbinned(data_truth, weights_truth, data_gen,
                                    weights_prior, weights_unfolded)
@@ -481,11 +469,11 @@ def evaluate_all_metrics(variable, varConfig, bin_edges, of, ibu=None):
 
         # If want to compute KS for every resample and every iteration
         # unfolded weights
-        weights_unfolded_rs = weights_prior * of.unfolded_weights_resample
-        metrics_all[variable]["resample"].update(
-            write_all_metrics_unbinned(data_truth, weights_truth, data_gen,
-                                       weights_prior, weights_unfolded_rs)
-            )
+        #weights_unfolded_rs = weights_prior * of.unfolded_weights_resample
+        #metrics_all[variable]["resample"].update(
+        #    write_all_metrics_unbinned(data_truth, weights_truth, data_gen,
+        #                               weights_prior, weights_unfolded_rs)
+        #    )
 
     ##########
     # write to json file
@@ -496,4 +484,96 @@ def evaluate_all_metrics(variable, varConfig, bin_edges, of, ibu=None):
     outname = os.path.join(outdir, variable+'.json')
     write_dict_to_json(metrics_all, outname)
 
+    ##########
+    # plot
+    plot_all_metrics(metrics_all, variable, outdir)
+
     return metrics_all
+
+################
+# Plotting
+def plot_all_metrics(metrics_dict, varname, outdir):
+    """
+    Plot metrics from the dictionary
+    """
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+
+    #####
+    # Chi2 vs iterations
+    # With respect to truth
+    m_Chi2_OF = metrics_dict[varname]['nominal']['Chi2']
+    m_Chi2_IBU = metrics_dict[varname]['IBU']['Chi2']
+
+    figname = os.path.join(outdir, varname+'_Chi2s_wrt_Truth')
+    plotting.plot_graphs(
+        figname,
+        [(m_Chi2_OF['iterations'], m_Chi2_OF['chi2/ndf']),
+         (m_Chi2_IBU['iterations'], m_Chi2_IBU['chi2/ndf'])],
+        labels = ['MultiFold', 'IBU'],
+        xlabel = 'Iteration',
+        ylabel = '$\\chi^2$/NDF w.r.t. truth',
+        markers = ['o', 'o']
+    )
+
+    # With respect to previous iteration
+    m_Chi2_OF_prev = metrics_dict[varname]['nominal']['Chi2_wrt_prev']
+    m_Chi2_IBU_prev = metrics_dict[varname]['IBU']['Chi2_wrt_prev']
+
+    figname = os.path.join(outdir, varname+'_Chi2s_wrt_Prev')
+    plotting.plot_graphs(
+        figname,
+        [(m_Chi2_OF_prev['iterations'], m_Chi2_OF_prev['chi2/ndf']),
+         (m_Chi2_IBU_prev['iterations'], m_Chi2_IBU_prev['chi2/ndf'])],
+        labels = ['MultiFold', 'IBU'],
+        xlabel = 'Iteration',
+        ylabel = '$\\Delta\\chi^2$/NDF',
+        markers = ['*', '*']
+    )
+
+    # All resamples
+    m_Chi2_OF_rs = metrics_dict[varname]['resample']['Chi2']
+    figname = os.path.join(outdir, varname+'_AllResamples_Chi2s_wrt_Truth')
+
+    dataarr = [(m_Chi2_OF_rs['iterations'], y) for y in m_Chi2_OF_rs['chi2/ndf']]
+    plotting.plot_graphs(
+        figname,
+        dataarr,
+        xlabel = 'Iteration',
+        ylabel = '$\\chi^2$/NDF w.r.t. truth',
+        markers = ['o'] * len(dataarr),
+        lw = 0.7, ms = 0.7
+    )
+
+    #####
+    # Triangular discriminator vs iterations
+    # With respsect to truth
+    m_Delta_OF = metrics_dict[varname]['nominal']['Delta']
+    m_Delta_IBU = metrics_dict[varname]['IBU']['Delta']
+
+    plotting.plot_graphs(
+        os.path.join(outdir, varname+'_Delta_wrt_Truth'),
+        [(m_Delta_OF['iterations'], m_Delta_OF['delta']),
+         (m_Delta_IBU['iterations'], m_Delta_IBU['delta'])],
+        labels = ['MultiFold', 'IBU'],
+        xlabel = 'Iteration',
+        ylabel = 'Triangular discriminator w.r.t. truth',
+        markers = ['o', 'o']
+    )
+
+    # All resamples
+    m_Delta_OF_rs = metrics_dict[varname]['resample']['Delta']
+
+    dataarr = [(m_Delta_OF_rs['iterations'], y) for y in m_Delta_OF_rs['delta']]
+    plotting.plot_graphs(
+        os.path.join(outdir, varname+'_AllResamples_Delta_wrt_Truth'),
+        dataarr,
+        xlabel = 'Iteration',
+        ylabel = 'Triangular discriminator w.r.t. truth',
+        markers = ['o'] * len(dataarr),
+        lw = 0.7, ms = 0.7
+    )
+
+    #####
+    # Bin Errors
+    # TODO

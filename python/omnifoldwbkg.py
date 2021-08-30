@@ -576,21 +576,10 @@ class OmniFoldwBkg(object):
             else:
                 hists_ibu = []
 
-            plotting.plot_iteration_diffChi2s(figname_prefix+"_diffChi2s", [hists_ibu, hists_uf], labels=["IBU", "OmniFold"])
-            if self.truth_known:
-                plotting.plot_iteration_chi2s(figname_prefix+"_chi2s_wrt_Truth", h_truth, [hists_ibu, hists_uf], labels=["IBU", "OmniFold"])
-
                 if self.unfolded_weights_resample is not None:
                     hists_uf_all = self.get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=True, normalize=True)
                     # add prior
                     hists_uf_all = [[h_gen]+list(hists_uf_rs) for hists_uf_rs in hists_uf_all]
-
-                    # TODO:
-                    # Should we use the same bin errors from boostrap for all trails?
-                    #uf_err_all = [get_values_and_errors(hists_uf)[1]] * len(hists_uf_all)
-                    #set_hist_errors(hists_uf_all, uf_err_all)
-
-                    plotting.plot_iteration_chi2s(figname_prefix+"_AllResamples_chi2s_wrt_Truth", h_truth, hists_uf_all, lw=0.7, ms=0.7)
 
     def _unfold(
         self,
