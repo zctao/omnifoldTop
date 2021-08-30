@@ -33,7 +33,7 @@ import external.OmniFold.modplot as modplot
 
 from histogramming import calc_hist, get_hist, get_values_and_errors, set_hist_errors
 
-from util import compute_chi2, compute_diff_chi2
+from metrics import compute_Chi2, compute_diff_Chi2 # for now
 from util import gaus, fit_gaussian_to_hist
 
 from sklearn.metrics import roc_curve, auc, roc_auc_score
@@ -843,7 +843,7 @@ def plot_iteration_chi2s(figname, histogram_ref, histograms_arr, labels=None,
 
         Chi2s = []
         for h in hists:
-            chi2, ndf = compute_chi2(h, histogram_ref)
+            chi2, ndf = compute_Chi2(h, histogram_ref)
             Chi2s.append(chi2/ndf)
 
         iters = list(range(len(Chi2s)))
@@ -875,7 +875,7 @@ def plot_iteration_diffChi2s(figname, histograms_arr, labels):
         if hists is None:
             continue
 
-        dChi2s = compute_diff_chi2(hists)
+        dChi2s = compute_diff_Chi2(hists)
         iters = list(range(1, len(dChi2s)+1))
 
         ax.plot(iters, dChi2s, marker='*', label=label)

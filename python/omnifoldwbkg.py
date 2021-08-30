@@ -8,7 +8,7 @@ import plotting
 from datahandler import DataHandler
 from model import get_model, get_callbacks
 import util
-from util import write_chi2, write_ks
+import metrics
 from histogramming import set_hist_contents, set_hist_errors, get_values_and_errors, get_mean_from_hists, get_sigma_from_hists, get_bin_correlations_from_hists
 import logging
 logger = logging.getLogger('OmniFoldwBkg')
@@ -421,7 +421,7 @@ class OmniFoldwBkg(object):
         bin_corr = None # bin correlations
         if bootstrap_uncertainty:
             if self.unfolded_weights_resample is not None:
-                hists_uf_rs = self._get_unfolded_hists_resample(variable, bins, all_iterations)
+                hists_uf_rs = self.get_unfolded_hists_resample(variable, bins, all_iterations)
 
                 # combine the "nominal" hist with the resampled ones
                 hists_uf_rs.append(h_uf)
@@ -493,13 +493,6 @@ class OmniFoldwBkg(object):
 
         # MC truth if known
         if self.truth_known:
-            # number of observed signal events
-            nobs = len(self.datahandle_obs)
-
-            # Factor to rescale signal truth to signal sim
-            # Should be 1 in case there is no background
-            #f_sig = self.weights_sim.sum() / self.weights_obs[:nobs].sum()
-
             h_truth = self.datahandle_obs.get_histogram(varConfig['branch_mc'], bins)
         else:
             h_truth = None
@@ -507,7 +500,7 @@ class OmniFoldwBkg(object):
         # compute chi2s
         text_chi2 = []
         if self.truth_known:
-            text_chi2 = write_chi2(h_truth, [h_uf, h_ibu, h_gen], labels=['OmniFold', 'IBU', 'Prior'])
+            text_chi2 = metrics.write_texts_Chi2(h_truth, [h_uf, h_ibu, h_gen], labels=['OmniFold', 'IBU', 'Prior'])
             logger.info("  "+"    ".join(text_chi2))
 
         # Compute KS test statistic
@@ -515,7 +508,7 @@ class OmniFoldwBkg(object):
         if self.truth_known:
             arr_truth = self.datahandle_obs[varConfig['branch_mc']]
             arr_sim = self.datahandle_sig[varConfig['branch_mc']]
-            text_ks = write_ks(
+            text_ks = metrics.write_texts_KS(
                 arr_truth, self.datahandle_obs.get_weights(),
                 [arr_sim, arr_sim],
                 [self.datahandle_sig.get_weights()*self.unfolded_weights[-1],
@@ -542,14 +535,14 @@ class OmniFoldwBkg(object):
 
         # plot all resampled unfolded distributions
         if plot_resamples and self.unfolded_weights_resample is not None:
-            hists_resample = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=False)
+            hists_resample = self.get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=False)
             figname_resamples = os.path.join(self.outdir, 'Unfold_AllResamples_{}'.format(varname))
             logger.info("  Plot unfolded distributions for all trials: {}".format(figname_resamples))
             plotting.plot_hists_resamples(figname_resamples, hists_resample, h_gen, hist_truth=h_truth, **varConfig)
 
         # plot distributions of bin entries
         if plot_bins and self.unfolded_weights_resample is not None:
-            histo_uf_all = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=iteration_history)
+            histo_uf_all = self.get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=iteration_history)
             # histo_uf_all shape:
             # if not iteration_history: (nresamples, nbins)
             # if iteration_history: (nresamples, niterations, nbins)
@@ -588,7 +581,7 @@ class OmniFoldwBkg(object):
                 plotting.plot_iteration_chi2s(figname_prefix+"_chi2s_wrt_Truth", h_truth, [hists_ibu, hists_uf], labels=["IBU", "OmniFold"])
 
                 if self.unfolded_weights_resample is not None:
-                    hists_uf_all = self._get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=True, normalize=True)
+                    hists_uf_all = self.get_unfolded_hists_resample(varConfig['branch_mc'], bins, all_iterations=True, normalize=True)
                     # add prior
                     hists_uf_all = [[h_gen]+list(hists_uf_rs) for hists_uf_rs in hists_uf_all]
 
@@ -732,7 +725,7 @@ class OmniFoldwBkg(object):
 
         return weights_unfold
 
-    def _get_unfolded_hists_resample(self, variable, bins, all_iterations=False, normalize=False):
+    def get_unfolded_hists_resample(self, variable, bins, all_iterations=False, normalize=False):
         hists_resample = []
         for iresample in range(len(self.unfolded_weights_resample)):
             if all_iterations:

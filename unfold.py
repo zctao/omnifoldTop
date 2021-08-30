@@ -16,6 +16,8 @@ from util import read_dict_from_json, get_bins
 from util import configGPUs, expandFilePath, configRootLogger
 import logging
 
+import metrics
+
 def unfold(**parsed_args):
     tracemalloc.start()
 
@@ -213,6 +215,9 @@ def unfold(**parsed_args):
             ibu = None
 
         unfolder.plot_distributions_unfold(varname, varConfig, bins_mc, ibu=ibu, iteration_history=parsed_args['plot_history'])
+
+        logger.info("  Evaluate metrics")
+        metrics.evaluate_all_metrics(varname, varConfig, bins_mc, unfolder, ibu)
 
     t_result_done = time.time()
     logger.info("Plotting results took {:.2f} seconds ({:.2f} seconds per variable)".format(t_result_done - t_result_start, (t_result_done - t_result_start)/len(parsed_args['observables']) ))
