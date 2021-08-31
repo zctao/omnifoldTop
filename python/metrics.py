@@ -523,77 +523,98 @@ def plot_all_metrics(metrics_dict, varname, outdir):
     #####
     # Chi2 vs iterations
     # With respect to truth
-    m_Chi2_OF = metrics_dict[varname]['nominal']['Chi2']
-    m_Chi2_IBU = metrics_dict[varname]['IBU']['Chi2']
-
     figname = os.path.join(outdir, varname+'_Chi2s_wrt_Truth')
-    plotting.plot_graphs(
-        figname,
-        [(m_Chi2_OF['iterations'], m_Chi2_OF['chi2/ndf']),
-         (m_Chi2_IBU['iterations'], m_Chi2_IBU['chi2/ndf'])],
-        labels = ['MultiFold', 'IBU'],
-        xlabel = 'Iteration',
-        ylabel = '$\\chi^2$/NDF w.r.t. truth',
-        markers = ['o', 'o']
-    )
 
-    # With respect to previous iteration
-    m_Chi2_OF_prev = metrics_dict[varname]['nominal']['Chi2_wrt_prev']
-    m_Chi2_IBU_prev = metrics_dict[varname]['IBU']['Chi2_wrt_prev']
+    m_Chi2_OF = metrics_dict[varname]['nominal']['Chi2']
+    dataarr = [ (m_Chi2_OF['iterations'], m_Chi2_OF['chi2/ndf']) ]
+    labels = ['MultiFold']
 
-    figname = os.path.join(outdir, varname+'_Chi2s_wrt_Prev')
-    plotting.plot_graphs(
-        figname,
-        [(m_Chi2_OF_prev['iterations'], m_Chi2_OF_prev['chi2/ndf']),
-         (m_Chi2_IBU_prev['iterations'], m_Chi2_IBU_prev['chi2/ndf'])],
-        labels = ['MultiFold', 'IBU'],
-        xlabel = 'Iteration',
-        ylabel = '$\\Delta\\chi^2$/NDF',
-        markers = ['*', '*']
-    )
+    if 'IBU' in metrics_dict[varname]:
+        m_Chi2_IBU = metrics_dict[varname]['IBU']['Chi2']
+        dataarr.append( (m_Chi2_IBU['iterations'], m_Chi2_IBU['chi2/ndf']) )
+        labels.append('IBU')
 
-    # All resamples
-    m_Chi2_OF_rs = metrics_dict[varname]['resample']['Chi2']
-    figname = os.path.join(outdir, varname+'_AllResamples_Chi2s_wrt_Truth')
-
-    dataarr = [(m_Chi2_OF_rs['iterations'], y) for y in m_Chi2_OF_rs['chi2/ndf']]
     plotting.plot_graphs(
         figname,
         dataarr,
+        labels = labels,
         xlabel = 'Iteration',
         ylabel = '$\\chi^2$/NDF w.r.t. truth',
-        markers = ['o'] * len(dataarr),
-        lw = 0.7, ms = 0.7
+        markers = ['o']*len(dataarr)
     )
+
+    # With respect to previous iteration
+    figname = os.path.join(outdir, varname+'_Chi2s_wrt_Prev')
+
+    m_Chi2_OF_prev = metrics_dict[varname]['nominal']['Chi2_wrt_prev']
+    dataarr = [ (m_Chi2_OF_prev['iterations'], m_Chi2_OF_prev['chi2/ndf']) ]
+    labels = ['MultiFold']
+
+    if 'IBU' in metrics_dict[varname]:
+        m_Chi2_IBU_prev = metrics_dict[varname]['IBU']['Chi2_wrt_prev']
+        dataarr.append( (m_Chi2_IBU_prev['iterations'], m_Chi2_IBU_prev['chi2/ndf']) )
+        labels.append('IBU')
+
+    plotting.plot_graphs(
+        figname,
+        dataarr,
+        labels = labels,
+        xlabel = 'Iteration',
+        ylabel = '$\\Delta\\chi^2$/NDF',
+        markers = ['*']*len(dataarr)
+    )
+
+    # All resamples
+    if 'resample' in metrics_dict[varname]:
+        m_Chi2_OF_rs = metrics_dict[varname]['resample']['Chi2']
+        figname = os.path.join(outdir, varname+'_AllResamples_Chi2s_wrt_Truth')
+
+        dataarr = [(m_Chi2_OF_rs['iterations'], y) for y in m_Chi2_OF_rs['chi2/ndf']]
+        plotting.plot_graphs(
+            figname,
+            dataarr,
+            xlabel = 'Iteration',
+            ylabel = '$\\chi^2$/NDF w.r.t. truth',
+            markers = ['o'] * len(dataarr),
+            lw = 0.7, ms = 0.7
+        )
 
     #####
     # Triangular discriminator vs iterations
     # With respsect to truth
+    figname = os.path.join(outdir, varname+'_Delta_wrt_Truth')
+
     m_Delta_OF = metrics_dict[varname]['nominal']['Delta']
-    m_Delta_IBU = metrics_dict[varname]['IBU']['Delta']
+    dataarr = [ (m_Delta_OF['iterations'], m_Delta_OF['delta']) ]
+    labels = ['MultiFold']
+
+    if 'IBU' in metrics_dict[varname]:
+        m_Delta_IBU = metrics_dict[varname]['IBU']['Delta']
+        dataarr.append( (m_Delta_IBU['iterations'], m_Delta_IBU['delta']) )
+        labels.append('IBU')
 
     plotting.plot_graphs(
-        os.path.join(outdir, varname+'_Delta_wrt_Truth'),
-        [(m_Delta_OF['iterations'], m_Delta_OF['delta']),
-         (m_Delta_IBU['iterations'], m_Delta_IBU['delta'])],
-        labels = ['MultiFold', 'IBU'],
+        figname,
+        dataarr,
+        labels = labels,
         xlabel = 'Iteration',
         ylabel = 'Triangular discriminator w.r.t. truth',
-        markers = ['o', 'o']
+        markers = ['o']*len(dataarr)
     )
 
     # All resamples
-    m_Delta_OF_rs = metrics_dict[varname]['resample']['Delta']
+    if 'resample' in metrics_dict[varname]:
+        m_Delta_OF_rs = metrics_dict[varname]['resample']['Delta']
 
-    dataarr = [(m_Delta_OF_rs['iterations'], y) for y in m_Delta_OF_rs['delta']]
-    plotting.plot_graphs(
-        os.path.join(outdir, varname+'_AllResamples_Delta_wrt_Truth'),
-        dataarr,
-        xlabel = 'Iteration',
-        ylabel = 'Triangular discriminator w.r.t. truth',
-        markers = ['o'] * len(dataarr),
-        lw = 0.7, ms = 0.7
-    )
+        dataarr = [(m_Delta_OF_rs['iterations'], y) for y in m_Delta_OF_rs['delta']]
+        plotting.plot_graphs(
+            os.path.join(outdir, varname+'_AllResamples_Delta_wrt_Truth'),
+            dataarr,
+            xlabel = 'Iteration',
+            ylabel = 'Triangular discriminator w.r.t. truth',
+            markers = ['o'] * len(dataarr),
+            lw = 0.7, ms = 0.7
+        )
 
     #####
     # Bin Errors
