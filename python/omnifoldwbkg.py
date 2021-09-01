@@ -395,7 +395,7 @@ class OmniFoldwBkg(object):
             wfile = os.path.join(self.outdir, 'weights_resample{}.npz'.format(nresamples))
             np.savez(wfile, weights_resample = self.unfolded_weights_resample)
 
-    def load(self, unfolded_weight_files):
+    def load(self, unfolded_weight_files, legacy_mode=False):
         # load unfolded event weights from the saved file
         logger.info("Skip training")
 
@@ -410,6 +410,13 @@ class OmniFoldwBkg(object):
             self.unfolded_weights_resample = self._read_weights_from_file(wfilelist[1], array_name='weights_resample')
             # TODO: load weights from multiple files
             logger.debug("unfolded_weights_resample.shape: {}".format(self.unfolded_weights_resample.shape))
+
+        if legacy_mode:
+            logger.info("Convert legacy weights to scale factors")
+            wsim = self.datahandle_sig.get_weights()
+            self.unfolded_weights = np.divide(self.unfolded_weights, wsim, out=np.zeros_like(self.unfolded_weights), where=wsim!=0)
+            if self.unfolded_weights_resample is not None:
+                self.unfolded_weights_resample = np.divide(self.unfolded_weights_resample, wsim, out=np.zeros_like(self.unfolded_weights_resample), where=wsim!=0)
 
     def get_unfolded_distribution(self, variable, bins, all_iterations=False,
                                   bootstrap_uncertainty=True, normalize=True):
@@ -659,7 +666,7 @@ class OmniFoldwBkg(object):
 
             # reweight
             logger.info("Reweighting")
-            fname_rhist1 = model_dir+'/rhist_step1_{}'.format(i) if model_dir else None
+            fname_rhist1 = model_dir+'/rhist_step1_{}'.format(i) if model_dir and not reweight_only else None
             wm_i = wm_push * self._reweight_step1(model_step1, X_sim, fname_rhist1)
             logger.debug("Iteration {} step 1: wm.sum() = {}".format(i, wm_i.sum()))
 
@@ -689,7 +696,7 @@ class OmniFoldwBkg(object):
 
             # reweight
             logger.info("Reweighting")
-            fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir else None
+            fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir and not reweight_only else None
             wt_i = self._reweight_step2(model_step2, X_gen, fname_rhist2)
             logger.debug("Iteration {} step 2: wt.sum() = {}".format(i, wt_i.sum()))
 
@@ -706,7 +713,7 @@ class OmniFoldwBkg(object):
         logger.debug("Sum of unfolded weights = {}".format(weights_unfold[-1].sum()))
 
         # Plot training log
-        if model_dir:
+        if model_dir and not reweight_only:
             logger.info("Plot model training history")
             for csvfile in glob.glob(os.path.join(model_dir, '*.csv')):
                 logger.info("  Plot training log {}".format(csvfile))

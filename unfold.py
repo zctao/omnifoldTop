@@ -152,7 +152,8 @@ def unfold(**parsed_args):
 
     if parsed_args['unfolded_weights']:
         # load unfolded event weights from the saved files
-        unfolder.load(parsed_args['unfolded_weights'])
+        unfolder.load(parsed_args['unfolded_weights'],
+                      legacy_mode=parsed_args['legacy_weights'])
     else:
         # set up hardware
         configGPUs(parsed_args['gpu'], verbose=parsed_args['verbose'])
@@ -297,6 +298,8 @@ if __name__ == "__main__":
                         help="Batch size for training")
     parser.add_argument('-l', '--load-models', dest='load_models', type=str,
                         help="Directory from where to load trained models. If provided, training will be skipped.")
+    parser.add_argument('--legacy-weights', action='store_true',
+                        help="If True, load weights in the legacy mode. The unfolded weights read from files are divided by the simulation prior weights. Only useful when --unfolded-weights is not None.")
 
     #parser.add_argument('-n', '--normalize',
     #                    action='store_true',
