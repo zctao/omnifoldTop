@@ -395,7 +395,7 @@ class OmniFoldwBkg(object):
             wfile = os.path.join(self.outdir, 'weights_resample{}.npz'.format(nresamples))
             np.savez(wfile, weights_resample = self.unfolded_weights_resample)
 
-    def load(self, unfolded_weight_files):
+    def load(self, unfolded_weight_files, legacy_mode=False):
         # load unfolded event weights from the saved file
         logger.info("Skip training")
 
@@ -410,6 +410,13 @@ class OmniFoldwBkg(object):
             self.unfolded_weights_resample = self._read_weights_from_file(wfilelist[1], array_name='weights_resample')
             # TODO: load weights from multiple files
             logger.debug("unfolded_weights_resample.shape: {}".format(self.unfolded_weights_resample.shape))
+
+        if legacy_mode:
+            logger.info("Convert legacy weights to scale factors")
+            wsim = self.datahandle_sig.get_weights()
+            self.unfolded_weights = np.divide(self.unfolded_weights, wsim, out=np.zeros_like(self.unfolded_weights), where=wsim!=0)
+            if self.unfolded_weights_resample is not None:
+                self.unfolded_weights_resample = np.divide(self.unfolded_weights_resample, wsim, out=np.zeros_like(self.unfolded_weights_resample), where=wsim!=0)
 
     def get_unfolded_distribution(self, variable, bins, all_iterations=False,
                                   bootstrap_uncertainty=True, normalize=True):
