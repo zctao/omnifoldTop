@@ -1,13 +1,10 @@
 import os
 import numpy as np
 import json
-from scipy import stats
 from scipy.optimize import curve_fit
 from packaging import version
 import tensorflow as tf
 import logging
-
-from histogramming import get_values_and_errors
 
 def parse_input_name(fname):
     fname_list = fname.split('*')
@@ -157,82 +154,15 @@ def prepare_data_multifold(ntuple, variables, standardize=False, reshape1D=False
 
     return data
 
-def compute_triangular_discr(histogram_1, histogram_2):
-    if histogram_1.size != histogram_2.size:
-        raise RuntimeError("Input histograms are not of the same size")
+# JSON encoder for numpy array
+# https://pynative.com/python-serialize-numpy-ndarray-into-json/
+from json import JSONEncoder
 
-    delta = 0.
-    for p, q in zip(histogram_1.values(), histogram_2.values()):
-        if p==0 and q==0:
-            continue
-        delta += ((p-q)**2)/(p+q)*0.5
-
-    return delta * 1000
-
-def write_triangular_discriminators(hist_ref, hists, labels):
-    assert(len(hists)==len(labels))
-    stamps = ["Triangular discriminator ($\\times 10^{-3}$):"]
-
-    for h, l in zip(hists, labels):
-        d = compute_triangular_discr(h, hist_ref)
-        stamps.append("{} = {:.3f}".format(l, d))
-
-    return stamps
-
-#def compute_chi2(hist_obs, hist_exp, hist_obs_err, hist_exp_err):
-def compute_chi2(hist_obs, hist_exp):
-    assert(hist_obs.size == hist_exp.size)
-    ndf = hist_exp.axes[0].size # degree of freedom
-    chi2 = 0.
-
-    obs, obs_err = get_values_and_errors(hist_obs)
-    exp, exp_err = get_values_and_errors(hist_exp)
-
-    for o, e, oerr, eerr in zip(obs, exp, obs_err, exp_err):
-        if o == 0 and e==0:
-            ndf -= 1 # BAD histogram binning!
-            continue
-        chi2 += ((o-e)**2)/(oerr**2+eerr**2)
-
-    return chi2, ndf
-
-def compute_diff_chi2(histograms_arr):
-    # compute the chi2 per degree of freedom between each histogram and its neighboring one in a list
-    diff_chi2s = []
-
-    for h_current, h_previous in zip(histograms_arr[1:], histograms_arr[:-1]):
-        chi2, ndf = compute_chi2(h_current, h_previous)
-        diff_chi2s.append(chi2/ndf)
-
-    return diff_chi2s
-
-def compute_diff_chi2_wrt_first(histograms_arr):
-    # compute the chi2 per degree of freedom between each histogram and the first one in the list
-    diff_chi2s_vs_first = []
-    hprior = histograms_arr[0]
-    for h in histograms_arr:
-        chi2, ndf = compute_chi2(h, hprior)
-        diff_chi2s_vs_first.append(chi2/ndf)
-
-    return diff_chi2s_vs_first
-
-def compute_pvalue(chi2, ndf):
-    return 1 - stats.chi2.cdf(chi2, ndf)
-
-#def write_chi2(hist_ref, hist_ref_unc, hists, hists_unc, labels):
-def write_chi2(hist_ref, histograms, labels):
-    assert(len(histograms)==len(labels))
-    stamps = ["$\\chi^2$/NDF (p-value):"]
-
-    for h, l in zip(histograms, labels):
-        if h is None:
-            continue
-        chi2, ndf = compute_chi2(h, hist_ref)
-        pval = compute_pvalue(chi2, ndf)
-
-        stamps.append("{} = {:.3f}/{} ({:.3f})".format(l, chi2, ndf, pval))
-
-    return stamps
+class NumpyArrayEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return JSONEncoder.default(self, obj)
 
 def read_dict_from_json(filename_json):
     jfile = open(filename_json, "r")
@@ -246,7 +176,7 @@ def read_dict_from_json(filename_json):
 
 def write_dict_to_json(aDictionary, filename_json):
     jfile = open(filename_json, "w")
-    json.dump(aDictionary, jfile, indent=4)
+    json.dump(aDictionary, jfile, indent=4, cls=NumpyArrayEncoder)
     jfile.close()
 
 def get_bins(varname, fname_bins):
@@ -298,52 +228,6 @@ def fit_gaussian_to_hist(histogram, binedges, dofit=True):
 
     return A, mu, sigma
 
-def ks_2samp_weighted(data1, data2, weights1, weights2):
-    # Two sample Kolmogorov–Smirnov test with weighted data
-    # scipy.stats.ks_2samp does not support sample weights yet
-    # cf. https://github.com/scipy/scipy/issues/12315
-    # The following implementation is based on the solution here:
-    # https://stackoverflow.com/questions/40044375
-
-    index1 = np.argsort(data1)
-    index2 = np.argsort(data2)
-
-    d1_sorted = data1[index1]
-    d2_sorted = data2[index2]
-
-    w1_sorted = weights1[index1]
-    w2_sorted = weights2[index2]
-    w1_sorted /= np.mean(w1_sorted)
-    w2_sorted /= np.mean(w2_sorted)
-    n1 = sum(w1_sorted)
-    n2 = sum(w2_sorted)
-
-    d_all = np.concatenate([d1_sorted, d2_sorted])
-
-    cw1 = np.hstack([0, np.cumsum(w1_sorted)/n1])
-    cw2 = np.hstack([0, np.cumsum(w2_sorted)/n2])
-
-    cdf1_w = cw1[np.searchsorted(d1_sorted, d_all, side='right')]
-    cdf2_w = cw2[np.searchsorted(d2_sorted, d_all, side='right')]
-
-    ks = np.max(np.abs(cdf1_w - cdf2_w))
-
-    en = np.sqrt(n1 * n2 / (n1 + n2))
-    prob = stats.kstwobign.sf(ks * en)
-
-    return ks, prob
-
-def write_ks(data_ref, weights_ref, data_list, weights_list, labels):
-    assert(len(data_list)==len(labels))
-    stamps = ["KS test (two-sided p-value):"] #["$D_{KS}$:"]
-
-    for data, w, l in zip(data_list, weights_list, labels):
-        ks, prob = ks_2samp_weighted(data_ref, data, weights_ref, w)
-
-        stamps.append("{} = {:.2e} ({:.3f})".format(l, ks, prob))
-
-    return stamps
-
 def labels_for_dataset(array, label):
     """
     Make a label array for events in a dataset.
@@ -361,3 +245,28 @@ def labels_for_dataset(array, label):
         ndarray full of `label`
     """
     return np.full(len(array), label)
+
+def prepend_arrays(element, input_array):
+    """
+    Add element to the front of the array
+
+    Parameters
+    ----------
+    element : entry to be added to the array
+        Its type should be the same as dtype of input_array
+    input_array : ndarray
+        if input_array.ndim > 1, element is duplicated and add to the front along
+        the last axis
+
+    Returns
+    -------
+    ndarray
+    """
+    input_array = np.asarray(input_array)
+
+    # make an array from element that can be concatenated with input_array
+    shape = list(input_array.shape)
+    shape[-1] = 1
+    element_arr = np.full(shape, element)
+
+    return np.concatenate([element_arr, input_array], axis=-1)

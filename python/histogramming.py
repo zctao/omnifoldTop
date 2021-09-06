@@ -125,11 +125,6 @@ def get_hist(bins, contents, errors=None):
         set_hist_errors(h, errors)
     return h
 
-def get_values_and_errors(h):
-    hval = h.values()
-    herr = np.sqrt(h.variances()) if h.variances is not None else np.zeros_like(hval)
-    return hval, herr
-
 def get_values_and_errors(histogram):
     if isinstance(histogram, list):
         hvals, herrs = [], []

@@ -33,7 +33,6 @@ import external.OmniFold.modplot as modplot
 
 from histogramming import calc_hist, get_hist, get_values_and_errors, set_hist_errors
 
-from util import compute_chi2, compute_diff_chi2
 from util import gaus, fit_gaussian_to_hist
 
 from sklearn.metrics import roc_curve, auc, roc_auc_score
@@ -384,6 +383,7 @@ def plot_graphs(
     for i, (x, y) in enumerate(data_arrays):
         label = None if labels is None else labels[i]
         marker = None if markers is None else markers[i]
+        color = colors[i%len(colors)]
 
         xerr, yerr = None, None
         if error_arrays is not None:
@@ -393,7 +393,7 @@ def plot_graphs(
             else:
                 yerr = error
 
-        ax.errorbar(x, y, xerr=xerr, yerr=yerr, label=label, marker=marker, color=colors[i], **style)
+        ax.errorbar(x, y, xerr=xerr, yerr=yerr, label=label, marker=marker, color=color, **style)
 
     # plot legend if needed
     if labels is not None:
@@ -810,77 +810,6 @@ def plot_iteration_distributions(
     draw_legend(ax0, **config)
 
     # save plot
-    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
-    plt.close(fig)
-
-def plot_iteration_chi2s(figname, histogram_ref, histograms_arr, labels=None,
-                         **style):
-    """
-    Plot the chi^2 between the truth distribution and each unfolding iteration.
-
-    Parameters
-    ----------
-    figname : str
-        Path to save the figure, excluding the file extension.
-    histogram_ref : Hist object
-        Histogram of the truth distribution.
-    histograms_arr : sequence of Hist objects
-        Histograms of the unfolded distribution for each iteration.
-    labels : sequence of str, optional
-        Labels for each item of `histogram_err`.
-    **style : dict, optional
-        Additional keyword arguments passed to matplotlib.axes.Axes.plot.
-    """
-    # chi2 between the truth distribution and each unfolding iteration
-    fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\chi^2$/NDF w.r.t. truth')
-
-    if labels is None:
-        labels = [None]*len(histograms_arr)
-
-    for hists, label in zip(histograms_arr, labels):
-        if hists is None:
-            continue
-
-        Chi2s = []
-        for h in hists:
-            chi2, ndf = compute_chi2(h, histogram_ref)
-            Chi2s.append(chi2/ndf)
-
-        iters = list(range(len(Chi2s)))
-
-        if label is None:
-            ax.plot(iters, Chi2s, marker='o', **style)
-        else:
-            ax.plot(iters, Chi2s, marker='o', label=label, **style)
-            ax.legend()
-
-    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
-    plt.close(fig)
-
-def plot_iteration_diffChi2s(figname, histograms_arr, labels):
-    """
-    Plot the chi^2 between sequential iterations.
-
-    Parameters
-    ----------
-    figname : str
-        Path to save the figure, excluding the file extension.
-    histograms_arr : sequence of Hist objects
-        Histograms for each iteration.
-    labels : sequence of str
-        Labels for each item of `histogram_arr`.
-    """
-    fig, ax = init_fig(title='', xlabel='Iteration', ylabel='$\\Delta\\chi^2$/NDF')
-    for hists, label in zip(histograms_arr, labels):
-        if hists is None:
-            continue
-
-        dChi2s = compute_diff_chi2(hists)
-        iters = list(range(1, len(dChi2s)+1))
-
-        ax.plot(iters, dChi2s, marker='*', label=label)
-        ax.legend()
-
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
 
