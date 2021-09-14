@@ -101,6 +101,7 @@ def unfold(**parsed_args):
             iterations=parsed_args["iterations"],
             outdir=parsed_args["outputdir"],
             truth_known=parsed_args["truth_known"],
+            model_name=parsed_args['model_name']
         )
     elif parsed_args['background_mode'] == 'negW':
         unfolder = OmniFoldwBkg_negW(
@@ -109,6 +110,7 @@ def unfold(**parsed_args):
             iterations=parsed_args["iterations"],
             outdir=parsed_args["outputdir"],
             truth_known=parsed_args["truth_known"],
+            model_name=parsed_args['model_name']
         )
     elif parsed_args['background_mode'] == 'multiClass':
         unfolder = OmniFoldwBkg_multi(
@@ -117,6 +119,7 @@ def unfold(**parsed_args):
             iterations=parsed_args["iterations"],
             outdir=parsed_args["outputdir"],
             truth_known=parsed_args["truth_known"],
+            model_name=parsed_args['model_name']
         )
     else:
         logger.error("Unknown background mode {}".format(parsed_args['background_mode']))
@@ -298,6 +301,8 @@ if __name__ == "__main__":
                         help="Batch size for training")
     parser.add_argument('-l', '--load-models', dest='load_models', type=str,
                         help="Directory from where to load trained models. If provided, training will be skipped.")
+    parser.add_argument('--model-name', type=str, default='dense_100x3',
+                        help="Name of the model for unfolding")
     parser.add_argument('--legacy-weights', action='store_true',
                         help="If True, load weights in the legacy mode. The unfolded weights read from files are divided by the simulation prior weights. Only useful when --unfolded-weights is not None.")
 
