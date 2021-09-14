@@ -507,9 +507,10 @@ def plot_data_arrays(figname, data_arrs, weight_arrs=None, nbins=20, **plotstyle
     **plotstyle : dict, optional
         Additional keyword arguments passed to plotting.plot_histograms1d.
     """
-    xmax = max([np.max(data) for data in data_arrs]) * 1.2
-    xmin = min([np.min(data) for data in data_arrs]) * 0.8
-    bins = np.linspace(xmin, xmax, nbins+1)
+    xmax = max([np.max(data) for data in data_arrs])
+    xmin = min([np.min(data) for data in data_arrs])
+    margin = (xmax - xmin) * 0.1
+    bins = np.linspace(xmin-margin, xmax+margin, nbins+1)
 
     if weight_arrs is None:
         weight_arrs = [None] * len(data_arrs)
