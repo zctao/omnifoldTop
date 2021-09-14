@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 
 import plotting
 from datahandler import DataHandler
-from model import get_model, get_callbacks
+import model
 import util
 import metrics
 from histogramming import set_hist_contents, set_hist_errors, get_values_and_errors, get_mean_from_hists, get_sigma_from_hists, get_bin_correlations_from_hists
@@ -661,7 +661,16 @@ class OmniFoldwBkg(object):
 
                 logger.info("Start training")
                 fname_preds1 = model_dir+'/preds_step1_{}'.format(i) if model_dir else None
-                self._train_model(model_step1, X_step1_train, Y_step1_train, w_step1_train, callbacks=cb_step1, val_data=(X_step1_test, Y_step1_test, w_step1_test), figname_preds=fname_preds1, **fitargs)
+                model.train(
+                    model_step1,
+                    X_step1_train,
+                    Y_step1_train,
+                    w_step1_train,
+                    callbacks=cb_step1,
+                    val_data=(X_step1_test, Y_step1_test, w_step1_test),
+                    figname_preds=fname_preds1,
+                    **fitargs
+                )
                 logger.info("Model training done")
 
             # reweight
@@ -692,7 +701,16 @@ class OmniFoldwBkg(object):
                 # train model
                 logger.info("Start training")
                 fname_preds2 = model_dir+'/preds_step2_{}'.format(i) if model_dir else None
-                self._train_model(model_step2, X_step2_train, Y_step2_train, w_step2_train, callbacks=cb_step2, val_data=(X_step2_test, Y_step2_test, w_step2_test), figname_preds=fname_preds2, **fitargs)
+                model.train(
+                    model_step2,
+                    X_step2_train,
+                    Y_step2_train,
+                    w_step2_train,
+                    callbacks=cb_step2,
+                    val_data=(X_step2_test, Y_step2_test, w_step2_test),
+                    figname_preds=fname_preds2,
+                    **fitargs
+                )
 
             # reweight
             logger.info("Reweighting")
@@ -752,25 +770,6 @@ class OmniFoldwBkg(object):
         wfile.close()
         return weights
 
-    def _set_up_model(self, input_shape, filepath_save=None, filepath_load=None,
-                      nclass=2):
-        # get model
-        model = get_model(input_shape, nclass=nclass)
-
-        # callbacks
-        callbacks = get_callbacks(filepath_save)
-
-        # load weights from the previous model if available
-        if filepath_load:
-            logger.info("Load model weights from {}".format(filepath_load))
-            if filepath_save is None:
-                # reweight only without training
-                model.load_weights(filepath_load).expect_partial()
-            else:
-                model.load_weights(filepath_load)
-
-        return model, callbacks
-
     def _set_up_model_step1(self, input_shape, iteration, model_dir,
                             load_previous_iter=True, reweight_only=False):
         # model filepath
@@ -778,15 +777,15 @@ class OmniFoldwBkg(object):
 
         if reweight_only:
             # load trained models for reweighting
-            return self._set_up_model(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
+            return model.setup(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
         else:
             # set up model for training
             if load_previous_iter and iteration > 0:
                 # initialize model based on the previous iteration
                 assert(model_fp)
-                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
+                return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
             else:
-                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
+                return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
 
     def _set_up_model_step2(self, input_shape, iteration, model_dir,
                             load_previous_iter=True, reweight_only=False):
@@ -796,36 +795,15 @@ class OmniFoldwBkg(object):
         # set up model for training
         if reweight_only:
             # load trained models for reweighting
-            return self._set_up_model(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
+            return model.setup(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
         else:
             # set up model for training
             if load_previous_iter and iteration > 0:
                 # initialize model based on the previous iteration
                 assert(model_fp)
-                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
+                return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
             else:
-                return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
-
-    def _train_model(self, model, X, Y, w, callbacks=[], val_data=None, figname_preds='', **fitargs):
-        if callbacks:
-            fitargs.setdefault('callbacks', []).extend(callbacks)
-
-        # zip event weights with labels
-        Yw = np.column_stack((Y, w))
-        if val_data is not None:
-            X_val, Y_val, w_val = val_data
-            Yw_val = np.column_stack((Y_val, w_val))
-            val_dict = {'validation_data': (X_val, Yw_val)}
-        else:
-            val_dict = {}
-
-        model.fit(X, Yw, **fitargs, **val_dict)
-
-        if figname_preds and val_data is not None:
-            preds_train = model.predict(X, batch_size=int(0.1*len(X)))[:,1]
-            preds_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
-            logger.info("Plot model output distribution: {}".format(figname_preds))
-            plotting.plot_training_vs_validation(figname_preds, preds_train, Y, w, preds_val, Y_val, w_val)
+                return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
 
     def _reweight_step1(self, model, events, plotname=None):
         return reweight(model, events, plotname)
@@ -900,9 +878,9 @@ class OmniFoldwBkg_multi(OmniFoldwBkg):
         if load_previous_iter and iteration > 0:
             # initialize model based on the previous iteration
             assert(model_fp)
-            return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1), nclass=3)
+            return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1), nclass=3)
         else:
-            return self._set_up_model(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None, nclass=3)
+            return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None, nclass=3)
 
     def _reweight_step1(self, model, events, plotname=None):
 

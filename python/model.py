@@ -2,11 +2,18 @@
 Define model architectures.
 """
 
+import logging
+
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 import tensorflow.keras.backend as K
+
+import plotting
+
+logger = logging.getLogger("Model")
+logger.setLevel(logging.DEBUG)
 
 
 def get_callbacks(model_filepath=None):
@@ -131,6 +138,55 @@ def get_model(input_shape, model_name='dense_3hl', nclass=2):
     model.summary()
 
     return model
+
+
+def setup(input_shape, filepath_save=None, filepath_load=None, nclass=2):
+    # get model
+    model = get_model(input_shape, nclass=nclass)
+
+    # callbacks
+    callbacks = get_callbacks(filepath_save)
+
+    # load weights from the previous model if available
+    if filepath_load:
+        logger.info("Load model weights from {}".format(filepath_load))
+        if filepath_save is None:
+            # reweight only without training
+            model.load_weights(filepath_load).expect_partial()
+        else:
+            model.load_weights(filepath_load)
+
+    return model, callbacks
+
+
+def train(model, X, Y, w, callbacks=[], val_data=None, figname_preds="", **fitargs):
+    if callbacks:
+        fitargs.setdefault("callbacks", []).extend(callbacks)
+
+    # zip event weights with labels
+    Yw = np.column_stack((Y, w))
+    if val_data is not None:
+        X_val, Y_val, w_val = val_data
+        Yw_val = np.column_stack((Y_val, w_val))
+        val_dict = {"validation_data": (X_val, Yw_val)}
+    else:
+        val_dict = {}
+
+    model.fit(X, Yw, **fitargs, **val_dict)
+
+    if figname_preds and val_data is not None:
+        preds_train = model.predict(X, batch_size=int(0.1 * len(X)))[:, 1]
+        preds_val = model.predict(X_val, batch_size=int(0.1 * len(X_val)))[:, 1]
+        logger.info("Plot model output distribution: {}".format(figname_preds))
+        plotting.plot_training_vs_validation(
+            figname_preds,
+            preds_train,
+            Y,
+            w,
+            preds_val,
+            Y_val,
+            w_val
+        )
 
 
 def dense_3hl(input_shape, nclass=2):
