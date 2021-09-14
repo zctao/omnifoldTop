@@ -402,12 +402,12 @@ class OmniFoldwBkg(object):
         wfilelist = list(unfolded_weight_files)
         assert(len(wfilelist) > 0)
         logger.info("Load unfolded weights: {}".format(wfilelist[0]))
-        self.unfolded_weights = self._read_weights_from_file(wfilelist[0])
+        self.unfolded_weights = read_weights_from_file(wfilelist[0])
         logger.debug("unfolded_weights.shape: {}".format(self.unfolded_weights.shape))
 
         if len(wfilelist) > 1:
             logger.info("Load unfolded weights from resampling: {}".format(wfilelist[1]))
-            self.unfolded_weights_resample = self._read_weights_from_file(wfilelist[1], array_name='weights_resample')
+            self.unfolded_weights_resample = read_weights_from_file(wfilelist[1], array_name='weights_resample')
             # TODO: load weights from multiple files
             logger.debug("unfolded_weights_resample.shape: {}".format(self.unfolded_weights_resample.shape))
 
@@ -763,13 +763,6 @@ class OmniFoldwBkg(object):
 
         return hists_resample
 
-    def _read_weights_from_file(self, weights_file, array_name='weights'):
-        # load unfolded weights from saved file
-        wfile = np.load(weights_file)
-        weights = wfile[array_name]
-        wfile.close()
-        return weights
-
     def _set_up_model_step1(self, input_shape, iteration, model_dir,
                             load_previous_iter=True, reweight_only=False):
         # model filepath
@@ -820,6 +813,13 @@ def reweight(model, events, plotname=None):
         plotting.plot_LR_distr(plotname, [r])
 
     return r
+
+def read_weights_from_file(weights_file, array_name='weights'):
+    # load unfolded weights from saved file
+    wfile = np.load(weights_file)
+    weights = wfile[array_name]
+    wfile.close()
+    return weights
 
 ###########
 # Approaches to deal with backgrounds
