@@ -827,24 +827,21 @@ class OmniFoldwBkg(object):
             logger.info("Plot model output distribution: {}".format(figname_preds))
             plotting.plot_training_vs_validation(figname_preds, preds_train, Y, w, preds_val, Y_val, w_val)
 
-    def _reweight(self, model, events, plotname=None):
-
-        preds = model.predict(events, batch_size=int(0.1*len(events)))[:,1]
-        r = np.nan_to_num( preds / (1. - preds) )
-
-        if plotname: # plot the ratio distribution
-            logger.info("Plot likelihood ratio distribution "+plotname)
-            plotting.plot_LR_distr(plotname, [r])
-
-        return r
-
-    #def _reweight_binned(self):
-
     def _reweight_step1(self, model, events, plotname=None):
-        return self._reweight(model, events, plotname)
+        return reweight(model, events, plotname)
 
     def _reweight_step2(self, model, events, plotname=None):
-        return self._reweight(model, events, plotname)
+        return reweight(model, events, plotname)
+
+def reweight(model, events, plotname=None):
+    preds = model.predict(events, batch_size=int(0.1 * len(events)))[:, 1]
+    r = np.nan_to_num(preds / (1.0 - preds))
+
+    if plotname:
+        logger.info("Plot likelihood ratio distribution " + plotname)
+        plotting.plot_LR_distr(plotname, [r])
+
+    return r
 
 ###########
 # Approaches to deal with backgrounds

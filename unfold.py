@@ -47,7 +47,7 @@ def unfold(**parsed_args):
     # detector-level variable names for training
     vars_det_train = [ observable_dict[key]['branch_det'] for key in parsed_args['observables_train'] ]
     # truth-level variable names for training
-    vars_mc_train = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_train'] ]
+    vars_mc_train = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_train'] ] 
 
     # weight name
     wname = parsed_args['weight']
