@@ -47,7 +47,7 @@ def unfold(**parsed_args):
     # detector-level variable names for training
     vars_det_train = [ observable_dict[key]['branch_det'] for key in parsed_args['observables_train'] ]
     # truth-level variable names for training
-    vars_mc_train = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_train'] ] 
+    vars_mc_train = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_train'] ]
 
     # weight name
     wname = parsed_args['weight']
@@ -94,24 +94,14 @@ def unfold(**parsed_args):
     #################
     # Unfold
     #################
-    if parsed_args['background_mode'] == 'default':
-        unfolder = OmniFoldwBkg(
-            vars_det_train,
-            vars_mc_train,
-            iterations=parsed_args["iterations"],
-            outdir=parsed_args["outputdir"],
-            truth_known=parsed_args["truth_known"],
-        )
-    elif parsed_args['background_mode'] == 'negW':
-        unfolder = OmniFoldwBkg_negW(
-            vars_det_train,
-            vars_mc_train,
-            iterations=parsed_args["iterations"],
-            outdir=parsed_args["outputdir"],
-            truth_known=parsed_args["truth_known"],
-        )
-    elif parsed_args['background_mode'] == 'multiClass':
-        unfolder = OmniFoldwBkg_multi(
+    bkg_mode_to_class = {
+        "default": OmniFoldwBkg,
+        "negW": OmniFoldwBkg_negW,
+        "multiClass": OmniFoldwBkg_multi,
+    }
+    bkg_mode = parsed_args["background_mode"]
+    if bkg_mode in bkg_mode_to_class:
+        unfolder = bkg_mode_to_class[bkg_mode](
             vars_det_train,
             vars_mc_train,
             iterations=parsed_args["iterations"],
