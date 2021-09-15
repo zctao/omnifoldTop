@@ -343,7 +343,7 @@ class DataHandler(Mapping):
 
         Returns
         -------
-        A Hist object if `weights` is 1D, a list of Hist objects if `weights` 
+        A Hist object if `weights` is 1D, a list of Hist objects if `weights`
             is 2D.
         """
         if weights is None:
@@ -474,3 +474,73 @@ class DataToy(DataHandler):
                              dtype=[('x_reco','float'), ('x_truth','float')])
 
         self.weights = np.ones(len(nevents))
+
+class Empty(DataHandler):
+    """
+    A dataset with no events.
+
+    All methods on this class return an empty array of the appropriate
+    shape.
+
+    See Also
+    --------
+    DataHandler
+
+    Notes
+    -----
+    The semantics of __contains__ and __iter__ for this class are somewhat
+    screwy: in DataHandler, __iter__ returns an iterator over all names in
+    the dataset and __contains__ returns True for names that are in the
+    dataset. In this class, __iter__ returns an empty iterator implying no
+    names are in the dataset, but __contains__ returns True for any name
+    implying all names are in the dataset.
+
+    This is a contradiction but makes implementation easier.
+    """
+
+    def __init__(self):
+        self.data = np.asarray([])
+        self.weights = np.asarray([])
+
+    def __iter__(self):
+        """
+        Iterator over names in the dataset.
+
+        For the purposes of this method, no names are in an empty dataset.
+
+        Returns
+        -------
+        empty iterator
+        """
+        return iter(())
+
+    def __contains__(self, variable):
+        """
+        Check if a variable is in the dataset.
+
+        For the purposes of this method, every name is in an empty dataset.
+
+        Parameters
+        ----------
+        variable : str
+
+        Returns
+        -------
+        True
+        """
+        return True
+
+    def __getitem__(self, features):
+        """
+        Return an array of no events in an appropriate shape.
+
+        Parameters
+        ----------
+        features : array-like of str
+            Names of the features to extract from each event.
+
+        Returns
+        -------
+        np.ndarray of shape (0, *features.shape)
+        """
+        return np.zeros((0, *np.asarray(features).shape))
