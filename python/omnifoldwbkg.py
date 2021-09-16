@@ -22,6 +22,7 @@ class OmniFoldwBkg(object):
         iterations=4,
         outdir=".",
         truth_known=True,
+        model_name='dense_100x3'
     ):
         # list of detector and truth level variable names used in training
         self.vars_reco = variables_det
@@ -45,6 +46,8 @@ class OmniFoldwBkg(object):
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
         self.outdir = outdir.rstrip('/')+'/'
+        # model name
+        self.model_name = model_name
 
     def prepare_inputs(
         self,
@@ -755,7 +758,7 @@ class OmniFoldwBkg(object):
     def _set_up_model(self, input_shape, filepath_save=None, filepath_load=None,
                       nclass=2):
         # get model
-        model = get_model(input_shape, nclass=nclass)
+        model = get_model(input_shape, nclass=nclass, model_name=self.model_name)
 
         # callbacks
         callbacks = get_callbacks(filepath_save)
