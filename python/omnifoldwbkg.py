@@ -5,6 +5,7 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
 import plotting
+import datahandler
 from datahandler import DataHandler
 import model
 import util
@@ -78,23 +79,28 @@ class OmniFoldwBkg(object):
             plotting.plot_correlations(corr_sim_gen, os.path.join(self.outdir, 'correlations_gen_sig'))
 
         # background simulation if needed
-        self.datahandle_bkg = bkgHandle
-        if self.datahandle_bkg is not None:
-            logger.info(
-                "Total number of simulated background events: {}".format(
-                    len(self.datahandle_bkg)
-                )
+        if bkgHandle is not None:
+            self.datahandle_bkg = bkgHandle
+        else:
+            self.datahandle_bkg = datahandler.Empty()
+
+        logger.info(
+            "Total number of simulated background events: {}".format(
+                len(self.datahandle_bkg)
             )
+        )
 
         # background simulation to be mixed with pseudo data
-        if self.datahandle_bkg is not None:
+        if bkgHandle is not None and obsBkgHandle is not None:
             self.datahandle_obsbkg = obsBkgHandle
-            if self.datahandle_obsbkg is not None:
-                logger.info(
-                    "Total number of background events mixed with data: {}".format(
-                        len(self.datahandle_obsbkg)
-                    )
-                )
+        else:
+            self.datahandle_obsbkg = datahandler.Empty()
+
+        logger.info(
+            "Total number of background events mixed with data: {}".format(
+                len(self.datahandle_obsbkg)
+            )
+        )
 
         # prepare event weights
         logger.info("Prepare event weights")
@@ -124,8 +130,7 @@ class OmniFoldwBkg(object):
 
         # total weights of data
         sumw_obs = self.datahandle_obs.sum_weights()
-        if self.datahandle_obsbkg is not None:
-            sumw_obs += self.datahandle_obsbkg.sum_weights()
+        sumw_obs += self.datahandle_obsbkg.sum_weights()
 
         logger.debug("Total weights of data events: {}".format(sumw_obs))
 
@@ -134,17 +139,11 @@ class OmniFoldwBkg(object):
 
             # total weights of simulated events
             sumw_sig = self.datahandle_sig.sum_weights()
-
-            sumw_bkg = 0.
-            if self.datahandle_bkg is not None:
-                sumw_bkg = self.datahandle_bkg.sum_weights()
-
+            sumw_bkg = self.datahandle_bkg.sum_weights()
             sumw_sim = sumw_sig + sumw_bkg
 
             self.datahandle_sig.rescale_weights( sumw_obs/sumw_sim )
-
-            if self.datahandle_bkg is not None:
-                self.datahandle_bkg.rescale_weights( sumw_obs/sumw_sim )
+            self.datahandle_bkg.rescale_weights( sumw_obs/sumw_sim )
 
         logger.debug(
             "Total weights of simulated signal events: {}".format(
@@ -152,12 +151,11 @@ class OmniFoldwBkg(object):
             )
         )
 
-        if self.datahandle_bkg is not None:
-            logger.debug(
-                "Total weights of simulated background events: {}".format(
-                    self.datahandle_bkg.sum_weights()
-                )
+        logger.debug(
+            "Total weights of simulated background events: {}".format(
+                self.datahandle_bkg.sum_weights()
             )
+        )
 
         if plot:
             logger.info("Plot event weights")
@@ -185,13 +183,12 @@ class OmniFoldwBkg(object):
 
         # simulation weights
         wsig = self.datahandle_sig.get_weights()
-        wbkg = self.datahandle_bkg.get_weights() if self.datahandle_bkg is not None else None
+        wbkg = self.datahandle_bkg.get_weights()
 
         # rescale simulation weights by the same factor
         logger.debug("Scale simulation weights by the same factor as data")
         wsig /= wmean_obs
-        if wbkg is not None:
-            wbkg /= wmean_obs
+        wbkg /= wmean_obs
 
         # TODO check the alternative: all weights are standardized
         #wsig /= np.mean(wsig)
@@ -219,26 +216,21 @@ class OmniFoldwBkg(object):
             X_obs = np.concatenate([X_obs, X_obsbkg])
 
         X_sig = self.datahandle_sig[self.vars_reco]
-
-        if self.datahandle_bkg is not None:
-            X_bkg = self.datahandle_bkg[self.vars_reco]
-        else:
-            X_bkg = None
+        X_bkg = self.datahandle_bkg[self.vars_reco]
 
         ####
         # preprocess feature arrays
         if preprocess:
             logger.info("Preprocess feature arrays for step 1")
 
-            X_all = np.concatenate([X_obs, X_sig]) if X_bkg is None else np.concatenate([X_obs, X_sig, X_bkg])
+            X_all = np.concatenate([X_obs, X_sig, X_bkg])
 
             # divide by their orders of magnitude
             Xmean = np.mean(np.abs(X_all), axis=0)
             Xoom = 10**(np.log10(Xmean).astype(int))
             X_obs /= Xoom
             X_sig /= Xoom
-            if X_bkg is not None:
-                X_bkg /= Xoom
+            X_bkg /= Xoom
 
             # TODO: check alternatives
             # e.g. standardize features to mean of zero and variance of one
@@ -323,14 +315,10 @@ class OmniFoldwBkg(object):
         # labels
         Y_obs = np.full(len(X_obs), self.label_obs)
         Y_sim = np.full(len(X_sim), self.label_sig)
-        Y_bkg = None if X_bkg is None else np.full(len(X_bkg), self.label_bkg)
+        Y_bkg = np.full(len(X_bkg), self.label_bkg)
 
-        if X_bkg is None:
-            X_step1 = np.concatenate([X_obs, X_sim])
-            Y_step1 = np.concatenate([Y_obs, Y_sim])
-        else:
-            X_step1 = np.concatenate([X_obs, X_sim, X_bkg])
-            Y_step1 = np.concatenate([Y_obs, Y_sim, Y_bkg])
+        X_step1 = np.concatenate([X_obs, X_sim, X_bkg])
+        Y_step1 = np.concatenate([Y_obs, Y_sim, Y_bkg])
 
         # make Y categorical
         Y_step1 = tf.keras.utils.to_categorical(Y_step1)
@@ -465,19 +453,15 @@ class OmniFoldwBkg(object):
         nobs = len(self.datahandle_obs)
         h_obs = self.datahandle_obs.get_histogram(varConfig['branch_det'], bins)
 
-        if self.datahandle_obsbkg is not None:
-            # add background
-            h_obsbkg = self.datahandle_obsbkg.get_histogram(varConfig['branch_det'], bins)
-            h_obs = h_obs + h_obsbkg
+        # add background
+        h_obsbkg = self.datahandle_obsbkg.get_histogram(varConfig['branch_det'], bins)
+        h_obs = h_obs + h_obsbkg
 
         # signal simulation
         h_sim = self.datahandle_sig.get_histogram(varConfig['branch_det'], bins)
 
         # background simulation
-        if self.datahandle_bkg is None:
-            h_simbkg = None
-        else:
-            h_simbkg = self.datahandle_bkg.get_histogram(varConfig['branch_det'], bins)
+        h_simbkg = self.datahandle_bkg.get_histogram(varConfig['branch_det'], bins)
 
         # plot
         figname = os.path.join(self.outdir, 'Reco_{}'.format(varname))
@@ -630,8 +614,7 @@ class OmniFoldwBkg(object):
         wobs, wsim, wbkg = self._get_event_weights(resample=resample_data)
         logger.debug("wobs.sum() = {}".format(wobs.sum()))
         logger.debug("wsim.sum() = {}".format(wsim.sum()))
-        if wbkg is not None:
-            logger.debug("wbkg.sum() = {}".format(wbkg.sum()))
+        logger.debug("wbkg.sum() = {}".format(wbkg.sum()))
 
         ################
         # start iterations
@@ -650,10 +633,7 @@ class OmniFoldwBkg(object):
 
             if not reweight_only:
                 # prepare weight array for training
-                if wbkg is None:
-                    w_step1 = np.concatenate([wobs, wm_push*wsim])
-                else:
-                    w_step1 = np.concatenate([wobs, wm_push*wsim, wbkg])
+                w_step1 = np.concatenate([wobs, wm_push*wsim, wbkg])
                 assert(len(w_step1)==len(X_step1))
 
                 # split data into training and test sets
