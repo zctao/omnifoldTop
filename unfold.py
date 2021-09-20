@@ -47,7 +47,7 @@ def unfold(**parsed_args):
     # detector-level variable names for training
     vars_det_train = [ observable_dict[key]['branch_det'] for key in parsed_args['observables_train'] ]
     # truth-level variable names for training
-    vars_mc_train = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_train'] ] 
+    vars_mc_train = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_train'] ]
 
     # weight name
     wname = parsed_args['weight']
@@ -105,8 +105,7 @@ def unfold(**parsed_args):
             vars_det_train,
             vars_mc_train,
             iterations=parsed_args["iterations"],
-            outdir=parsed_args["outputdir"],
-            truth_known=parsed_args["truth_known"],
+            outdir=parsed_args["outputdir"]
         )
     else:
         logger.error("Unknown background mode {}".format(parsed_args['background_mode']))
@@ -205,7 +204,7 @@ def unfold(**parsed_args):
         else:
             ibu = None
 
-        unfolder.plot_distributions_unfold(varname, varConfig, bins_mc, ibu=ibu, iteration_history=parsed_args['plot_history'])
+        unfolder.plot_distributions_unfold(varname, varConfig, bins_mc, parsed_args["truth_known"], ibu=ibu, iteration_history=parsed_args['plot_history'])
 
         logger.info("  Evaluate metrics")
         metrics.evaluate_all_metrics(varname, varConfig, bins_mc, unfolder, ibu)

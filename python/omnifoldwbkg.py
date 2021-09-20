@@ -22,12 +22,10 @@ class OmniFoldwBkg(object):
         variables_truth,
         iterations=4,
         outdir=".",
-        truth_known=True,
     ):
         # list of detector and truth level variable names used in training
         self.vars_reco = variables_det
         self.vars_truth = variables_truth
-        self.truth_known = truth_known
         # number of iterations
         self.iterations = iterations
         # category labels
@@ -468,7 +466,7 @@ class OmniFoldwBkg(object):
                                     figname=figname, log_scale=False,
                                     **varConfig)
 
-    def plot_distributions_unfold(self, varname, varConfig, bins, ibu=None, iteration_history=False, plot_resamples=True, plot_bins=False):
+    def plot_distributions_unfold(self, varname, varConfig, bins, truth_known, ibu=None, iteration_history=False, plot_resamples=True, plot_bins=False):
         # unfolded distribution
         h_uf, h_uf_corr = self.get_unfolded_distribution(varConfig['branch_mc'], bins, all_iterations=False)
 
@@ -481,20 +479,20 @@ class OmniFoldwBkg(object):
         h_gen = self.datahandle_sig.get_histogram(varConfig['branch_mc'], bins)
 
         # MC truth if known
-        if self.truth_known:
+        if truth_known:
             h_truth = self.datahandle_obs.get_histogram(varConfig['branch_mc'], bins)
         else:
             h_truth = None
 
         # compute chi2s
         text_chi2 = []
-        if self.truth_known:
+        if truth_known:
             text_chi2 = metrics.write_texts_Chi2(h_truth, [h_uf, h_ibu, h_gen], labels=['OmniFold', 'IBU', 'Prior'])
             logger.info("  "+"    ".join(text_chi2))
 
         # Compute KS test statistic
         text_ks = []
-        if self.truth_known:
+        if truth_known:
             arr_truth = self.datahandle_obs[varConfig['branch_mc']]
             arr_sim = self.datahandle_sig[varConfig['branch_mc']]
             text_ks = metrics.write_texts_KS(
@@ -816,9 +814,8 @@ class OmniFoldwBkg_negW(OmniFoldwBkg):
         variables_truth,
         iterations=4,
         outdir=".",
-        truth_known=True
     ):
-        super().__init__(variables_det, variables_truth, iterations, outdir, truth_known)
+        super().__init__(variables_det, variables_truth, iterations, outdir)
 
         # set background simulation label the same as data
         self.label_bkg = self.label_obs
@@ -840,9 +837,8 @@ class OmniFoldwBkg_multi(OmniFoldwBkg):
         variables_truth,
         iterations=4,
         outdir=".",
-        truth_known=True,
     ):
-        super().__init__(variables_det, variables_truth, iterations, outdir, truth_known)
+        super().__init__(variables_det, variables_truth, iterations, outdir)
 
         # new class label for background
         self.label_bkg = 2
