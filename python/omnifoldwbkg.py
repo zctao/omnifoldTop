@@ -173,9 +173,8 @@ class OmniFoldwBkg(object):
 
         # standardize data weights to mean of one
         wobs = self.datahandle_obs.get_weights(bootstrap=resample)
-        if self.datahandle_obsbkg is not None:
-            wobsbkg = self.datahandle_obsbkg.get_weights(bootstrap=resample)
-            wobs = np.concatenate([wobs, wobsbkg])
+        wobsbkg = self.datahandle_obsbkg.get_weights(bootstrap=resample)
+        wobs = np.concatenate([wobs, wobsbkg])
 
         logger.debug("Standardize data weights to mean of one")
         wmean_obs = np.mean(wobs)
@@ -211,9 +210,8 @@ class OmniFoldwBkg(object):
         setp 1: observed data vs simulation at detector level
         """
         X_obs = self.datahandle_obs[self.vars_reco]
-        if self.datahandle_obsbkg is not None:
-            X_obsbkg = self.datahandle_obsbkg[self.vars_reco]
-            X_obs = np.concatenate([X_obs, X_obsbkg])
+        X_obsbkg = self.datahandle_obsbkg[self.vars_reco]
+        X_obs = np.concatenate([X_obs, X_obsbkg])
 
         X_sig = self.datahandle_sig[self.vars_reco]
         X_bkg = self.datahandle_bkg[self.vars_reco]
