@@ -18,35 +18,36 @@ logger.setLevel(logging.DEBUG)
 
 
 def setup(step, input_shape, iteration, model_dir, load_previous_iter=True, reweight_only=False):
-    # model filepath
-    model_fp = os.path.join(model_dir, f"model_step{step}_{{}}") if model_dir else None
+    model_fp = os.path.join(model_dir, f"model_step{step}_{{}}")
 
     if reweight_only:
-        # load trained models for reweighting
-        return build(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
+        filepath_save = None
+        filepath_load = model_fp.format(iteration)
     else:
-        # set up model for training
+        filepath_save = model_fp.format(iteration)
         if load_previous_iter and iteration > 0:
-            # initialize model based on the previous iteration
-            assert(model_fp)
-            return build(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
+            filepath_load = model_fp.format(iteration - 1)
         else:
-            return build(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
+            filepath_load = None
+
+    return build(input_shape, filepath_save, filepath_load)
 
 def build(input_shape, filepath_save=None, filepath_load=None, nclass=2):
     model = get_model(input_shape, nclass=nclass)
     callbacks = get_callbacks(filepath_save)
 
     # load weights from the previous model if available
-    if filepath_load:
-        logger.info("Load model weights from {}".format(filepath_load))
-        if filepath_save is None:
-            # reweight only without training
-            model.load_weights(filepath_load).expect_partial()
-        else:
-            model.load_weights(filepath_load)
+    if filepath_load is not None:
+        load_weights_from_file(model, filepath_load, reweight_only=filepath_save is None)
 
     return model, callbacks
+
+def load_weights_from_file(model, filepath_load, reweight_only):
+    logger.info("Load model weights from {}".format(filepath_load))
+    status = model.load_weights(filepath_load)
+
+    if reweight_only:
+        status.expect_partial()
 
 def get_model(input_shape, model_name='dense_3hl', nclass=2):
     """
