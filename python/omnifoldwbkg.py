@@ -741,38 +741,11 @@ class OmniFoldwBkg(object):
 
     def _set_up_model_step1(self, input_shape, iteration, model_dir,
                             load_previous_iter=True, reweight_only=False):
-        # model filepath
-        model_fp = os.path.join(model_dir, 'model_step1_{}') if model_dir else None
-
-        if reweight_only:
-            # load trained models for reweighting
-            return model.setup(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
-        else:
-            # set up model for training
-            if load_previous_iter and iteration > 0:
-                # initialize model based on the previous iteration
-                assert(model_fp)
-                return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
-            else:
-                return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
+        return model.setup(1, input_shape, iteration, model_dir, load_previous_iter, reweight_only)
 
     def _set_up_model_step2(self, input_shape, iteration, model_dir,
                             load_previous_iter=True, reweight_only=False):
-        # model filepath
-        model_fp = os.path.join(model_dir, 'model_step2_{}') if model_dir else None
-
-        # set up model for training
-        if reweight_only:
-            # load trained models for reweighting
-            return model.setup(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
-        else:
-            # set up model for training
-            if load_previous_iter and iteration > 0:
-                # initialize model based on the previous iteration
-                assert(model_fp)
-                return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
-            else:
-                return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
+        return model.setup(2, input_shape, iteration, model_dir, load_previous_iter, reweight_only)
 
     def _reweight_step1(self, model, events, plotname=None):
         return reweight(model, events, plotname)

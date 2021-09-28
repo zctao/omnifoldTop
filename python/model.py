@@ -3,6 +3,7 @@ Define model architectures.
 """
 
 import logging
+import os
 
 import numpy as np
 import tensorflow as tf
@@ -140,11 +141,25 @@ def get_model(input_shape, model_name='dense_3hl', nclass=2):
     return model
 
 
-def setup(input_shape, filepath_save=None, filepath_load=None, nclass=2):
-    # get model
-    model = get_model(input_shape, nclass=nclass)
+def setup(step, input_shape, iteration, model_dir, load_previous_iter=True, reweight_only=False):
+    # model filepath
+    model_fp = os.path.join(model_dir, f"model_step{step}_{{}}") if model_dir else None
 
-    # callbacks
+    if reweight_only:
+        # load trained models for reweighting
+        return build(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
+    else:
+        # set up model for training
+        if load_previous_iter and iteration > 0:
+            # initialize model based on the previous iteration
+            assert(model_fp)
+            return build(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
+        else:
+            return build(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
+
+
+def build(input_shape, filepath_save=None, filepath_load=None, nclass=2):
+    model = get_model(input_shape, nclass=nclass)
     callbacks = get_callbacks(filepath_save)
 
     # load weights from the previous model if available
