@@ -17,6 +17,69 @@ logger = logging.getLogger("Model")
 logger.setLevel(logging.DEBUG)
 
 
+def setup(step, input_shape, iteration, model_dir, load_previous_iter=True, reweight_only=False):
+    # model filepath
+    model_fp = os.path.join(model_dir, f"model_step{step}_{{}}") if model_dir else None
+
+    if reweight_only:
+        # load trained models for reweighting
+        return build(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
+    else:
+        # set up model for training
+        if load_previous_iter and iteration > 0:
+            # initialize model based on the previous iteration
+            assert(model_fp)
+            return build(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
+        else:
+            return build(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
+
+def build(input_shape, filepath_save=None, filepath_load=None, nclass=2):
+    model = get_model(input_shape, nclass=nclass)
+    callbacks = get_callbacks(filepath_save)
+
+    # load weights from the previous model if available
+    if filepath_load:
+        logger.info("Load model weights from {}".format(filepath_load))
+        if filepath_save is None:
+            # reweight only without training
+            model.load_weights(filepath_load).expect_partial()
+        else:
+            model.load_weights(filepath_load)
+
+    return model, callbacks
+
+def get_model(input_shape, model_name='dense_3hl', nclass=2):
+    """
+    Build and compile the classifier for OmniFold.
+
+    Parameters
+    ----------
+    input_shape : sequence of positive int
+        Shape of the input layer of the model.
+    model_name : str, default: "dense_3hl"
+        The name of a function in the `model` module that builds an
+        architecture and returns a `tf.keras.models.Model`.
+    nclass : positive int, default: 2
+        Number of classes in the classifier.
+
+    Returns
+    -------
+    tf.keras.models.Model
+        Model compiled with loss function
+        `model.weighted_categorical_crossentropy`, Adam optimizer and
+        accuracy metrics.
+    """
+    model = eval(model_name+"(input_shape, nclass)")
+
+    model.compile(loss=weighted_categorical_crossentropy,
+                  #loss='categorical_crossentropy',
+                  optimizer='Adam',
+                  metrics=['accuracy'])
+
+    model.summary()
+
+    return model
+
 def get_callbacks(model_filepath=None):
     """
     Set up a list of standard callbacks used while training the models.
@@ -51,6 +114,35 @@ def get_callbacks(model_filepath=None):
         return [CheckPoint, CSVLogger, EarlyStopping]
     else:
         return [EarlyStopping]
+
+def train(model, X, Y, w, callbacks=[], val_data=None, figname_preds="", **fitargs):
+    if callbacks:
+        fitargs.setdefault("callbacks", []).extend(callbacks)
+
+    # zip event weights with labels
+    Yw = np.column_stack((Y, w))
+    if val_data is not None:
+        X_val, Y_val, w_val = val_data
+        Yw_val = np.column_stack((Y_val, w_val))
+        val_dict = {"validation_data": (X_val, Yw_val)}
+    else:
+        val_dict = {}
+
+    model.fit(X, Yw, **fitargs, **val_dict)
+
+    if figname_preds and val_data is not None:
+        preds_train = model.predict(X, batch_size=int(0.1 * len(X)))[:, 1]
+        preds_val = model.predict(X_val, batch_size=int(0.1 * len(X_val)))[:, 1]
+        logger.info("Plot model output distribution: {}".format(figname_preds))
+        plotting.plot_training_vs_validation(
+            figname_preds,
+            preds_train,
+            Y,
+            w,
+            preds_val,
+            Y_val,
+            w_val
+        )
 
 def weighted_binary_crossentropy(y_true, y_pred):
     """
@@ -107,102 +199,6 @@ def weighted_categorical_crossentropy(y_true, y_pred):
     # compute cross entropy
     loss = -event_weights * tf.reduce_sum(y_true * K.log(y_pred), axis=-1)
     return K.mean(loss)
-
-def get_model(input_shape, model_name='dense_3hl', nclass=2):
-    """
-    Build and compile the classifier for OmniFold.
-
-    Parameters
-    ----------
-    input_shape : sequence of positive int
-        Shape of the input layer of the model.
-    model_name : str, default: "dense_3hl"
-        The name of a function in the `model` module that builds an
-        architecture and returns a `tf.keras.models.Model`.
-    nclass : positive int, default: 2
-        Number of classes in the classifier.
-
-    Returns
-    -------
-    tf.keras.models.Model
-        Model compiled with loss function
-        `model.weighted_categorical_crossentropy`, Adam optimizer and
-        accuracy metrics.
-    """
-    model = eval(model_name+"(input_shape, nclass)")
-
-    model.compile(loss=weighted_categorical_crossentropy,
-                  #loss='categorical_crossentropy',
-                  optimizer='Adam',
-                  metrics=['accuracy'])
-
-    model.summary()
-
-    return model
-
-
-def setup(step, input_shape, iteration, model_dir, load_previous_iter=True, reweight_only=False):
-    # model filepath
-    model_fp = os.path.join(model_dir, f"model_step{step}_{{}}") if model_dir else None
-
-    if reweight_only:
-        # load trained models for reweighting
-        return build(input_shape, filepath_save=None, filepath_load=model_fp.format(iteration))
-    else:
-        # set up model for training
-        if load_previous_iter and iteration > 0:
-            # initialize model based on the previous iteration
-            assert(model_fp)
-            return build(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1))
-        else:
-            return build(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None)
-
-
-def build(input_shape, filepath_save=None, filepath_load=None, nclass=2):
-    model = get_model(input_shape, nclass=nclass)
-    callbacks = get_callbacks(filepath_save)
-
-    # load weights from the previous model if available
-    if filepath_load:
-        logger.info("Load model weights from {}".format(filepath_load))
-        if filepath_save is None:
-            # reweight only without training
-            model.load_weights(filepath_load).expect_partial()
-        else:
-            model.load_weights(filepath_load)
-
-    return model, callbacks
-
-
-def train(model, X, Y, w, callbacks=[], val_data=None, figname_preds="", **fitargs):
-    if callbacks:
-        fitargs.setdefault("callbacks", []).extend(callbacks)
-
-    # zip event weights with labels
-    Yw = np.column_stack((Y, w))
-    if val_data is not None:
-        X_val, Y_val, w_val = val_data
-        Yw_val = np.column_stack((Y_val, w_val))
-        val_dict = {"validation_data": (X_val, Yw_val)}
-    else:
-        val_dict = {}
-
-    model.fit(X, Yw, **fitargs, **val_dict)
-
-    if figname_preds and val_data is not None:
-        preds_train = model.predict(X, batch_size=int(0.1 * len(X)))[:, 1]
-        preds_val = model.predict(X_val, batch_size=int(0.1 * len(X_val)))[:, 1]
-        logger.info("Plot model output distribution: {}".format(figname_preds))
-        plotting.plot_training_vs_validation(
-            figname_preds,
-            preds_train,
-            Y,
-            w,
-            preds_val,
-            Y_val,
-            w_val
-        )
-
 
 def dense_3hl(input_shape, nclass=2):
     """
