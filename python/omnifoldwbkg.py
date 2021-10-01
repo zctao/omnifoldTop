@@ -304,19 +304,15 @@ class OmniFoldwBkg(object):
 
         # Input arrays for step 1
         logger.info("Get input arrays for step 1")
-        # features
-        X_obs, X_sim, X_bkg = self._get_feature_arrays_step1(
-            preprocess=True, plot=True)
+        features = self._get_feature_arrays_step1(preprocess=True, plot=True)
+        X_sim = features[1]
 
-        # labels
-        Y_obs = np.full(len(X_obs), self.label_obs)
-        Y_sim = np.full(len(X_sim), self.label_sig)
-        Y_bkg = np.full(len(X_bkg), self.label_bkg)
+        labels = self.label_obs, self.label_sig, self.label_bkg
+        Y = map(util.labels_for_dataset, features, labels)
 
-        X_step1 = np.concatenate([X_obs, X_sim, X_bkg])
-        Y_step1 = np.concatenate([Y_obs, Y_sim, Y_bkg])
+        X_step1 = np.concatenate(features)
 
-        # make Y categorical
+        Y_step1 = np.concatenate(list(Y))
         Y_step1 = tf.keras.utils.to_categorical(Y_step1)
 
         logger.info("Size of the feature array for step 1: {:.3f} MB".format(
