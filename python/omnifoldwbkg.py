@@ -214,32 +214,9 @@ class OmniFoldwBkg(object):
         X_sig = self.datahandle_sig[self.vars_reco]
         X_bkg = self.datahandle_bkg[self.vars_reco]
 
-        ####
-        # preprocess feature arrays
         if preprocess:
             logger.info("Preprocess feature arrays for step 1")
-
-            X_all = np.concatenate([X_obs, X_sig, X_bkg])
-
-            # divide by their orders of magnitude
-            Xmean = np.mean(np.abs(X_all), axis=0)
-            Xoom = 10**(np.log10(Xmean).astype(int))
-            X_obs /= Xoom
-            X_sig /= Xoom
-            X_bkg /= Xoom
-
-            # TODO: check alternatives
-            # e.g. standardize features to mean of zero and variance of one
-            #Xmean = np.mean(X_all, axis=0)
-            #Xstd = np.std(X_all, axis=0)
-            #
-            #X_obs -= Xmean
-            #X_obs /= Xstd
-            #X_sig -= Xmean
-            #X_sig /= Xstd
-            #if X_bkg is not None:
-            #    X_bkg -= Xmean
-            #    X_bkg /= Xstd
+            X_obs, X_sig, X_bkg = standardize_oom(X_obs, X_sig, X_bkg)
 
         if plot:
             logger.info("Plot the distribution of variables for step 1 training")
@@ -264,16 +241,7 @@ class OmniFoldwBkg(object):
 
         if preprocess:
             logger.info("Preprocess feature arrays for step 2")
-            # # divide by their orders of magnitude
-            Xmean = np.mean(np.abs(X_gen), axis=0)
-            Xoom = 10**(np.log10(Xmean).astype(int))
-            X_gen /= Xoom
-
-            # TODO: check alternatives
-            #Xmean = np.mean(X_gen, axis=0)
-            #Xstd = np.std(X_gen, axis=0)
-            #X_gen -= Xmean
-            #X_gen /= Xstd
+            X_gen = standardize_oom(X_gen)
 
         if plot:
             logger.info("Plot the distribution of variables for step 2 training")
@@ -765,6 +733,36 @@ def read_weights_from_file(weights_file, array_name='weights'):
     weights = wfile[array_name]
     wfile.close()
     return weights
+
+
+# TODO: check alternative standardizations, e.g. mean 0 and variance
+# 1: (x - mean) / std
+def standardize_oom(*arrays):
+    """
+    Standardize arrays to the same order of magnitude.
+
+    The order of magnitude is taken to be the mean along the first axis
+    when all the arrays are concatenated.
+
+    Parameters
+    ----------
+    *arrays : ndarrays of the same shape except in the first axis
+
+    Returns
+    -------
+    ndarray or sequence of ndarrays
+        The input array, standardized. If `*arrays` is length one returns
+        an ndarray; otherwise returns a sequence of ndarrays.
+    """
+    all = np.concatenate(arrays)
+    mean = np.mean(np.abs(all), axis=0)
+    order_of_magnitude = 10 ** (np.log10(mean).astype(int))
+
+    if len(arrays) > 1:
+        return [a / order_of_magnitude for a in arrays]
+    elif len(arrays) == 1:
+        return arrays[0] / order_of_magnitude
+
 
 ###########
 # Approaches to deal with backgrounds
