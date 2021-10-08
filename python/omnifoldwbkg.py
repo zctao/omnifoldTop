@@ -588,35 +588,19 @@ class OmniFoldwBkg(object):
             ####
             # step 1: reweight sim to look like data
             logger.info("Step 1")
-            # set up the model for iteration i
-            model_step1, cb_step1 = self._set_up_model_step1(X_step1.shape[1:], i, model_dir, load_previous_iter, reweight_only)
-
-            if not reweight_only:
-                # prepare weight array for training
-                w_step1 = np.concatenate([wobs, wm_push*wsim, wbkg])
-                assert(len(w_step1)==len(X_step1))
-
-                # split data into training and test sets
-                X_step1_train, X_step1_test, Y_step1_train, Y_step1_test, w_step1_train, w_step1_test = train_test_split(X_step1, Y_step1, w_step1, test_size=val_size)
-
-                logger.info("Start training")
-                fname_preds1 = model_dir+'/preds_step1_{}'.format(i) if model_dir else None
-                model.train(
-                    model_step1,
-                    X_step1_train,
-                    Y_step1_train,
-                    w_step1_train,
-                    callbacks=cb_step1,
-                    val_data=(X_step1_test, Y_step1_test, w_step1_test),
-                    figname_preds=fname_preds1,
-                    **fitargs
-                )
-                logger.info("Model training done")
-
-            # reweight
-            logger.info("Reweighting")
-            fname_rhist1 = model_dir+'/rhist_step1_{}'.format(i) if model_dir and not reweight_only else None
-            wm_i = wm_push * self._reweight_step1(model_step1, X_sim, fname_rhist1)
+            wm_i = wm_push * self.calculate_likelihood_ratios(
+                1,
+                i,
+                model_dir,
+                load_previous_iter,
+                reweight_only,
+                X_step1,
+                Y_step1,
+                (wobs, wm_push * wsim, wbkg),
+                val_size,
+                X_sim,
+                **fitargs,
+            )
             logger.debug("Iteration {} step 1: wm.sum() = {}".format(i, wm_i.sum()))
 
             # TODO: check the performace
@@ -628,34 +612,19 @@ class OmniFoldwBkg(object):
             ####
             # step 2: reweight the simulation prior to the learned weights
             logger.info("Step 2")
-            # set up the model for iteration i
-            model_step2, cb_step2 = self._set_up_model_step2(X_step2.shape[1:], i, model_dir, load_previous_iter, reweight_only)
-
-            if not reweight_only:
-                # prepare weight array for training
-                w_step2 = np.concatenate([wt_pull*wsim, wsim])
-
-                # split data into training and test sets
-                X_step2_train, X_step2_test, Y_step2_train, Y_step2_test, w_step2_train, w_step2_test = train_test_split(X_step2, Y_step2, w_step2, test_size=val_size)
-
-                # train model
-                logger.info("Start training")
-                fname_preds2 = model_dir+'/preds_step2_{}'.format(i) if model_dir else None
-                model.train(
-                    model_step2,
-                    X_step2_train,
-                    Y_step2_train,
-                    w_step2_train,
-                    callbacks=cb_step2,
-                    val_data=(X_step2_test, Y_step2_test, w_step2_test),
-                    figname_preds=fname_preds2,
-                    **fitargs
-                )
-
-            # reweight
-            logger.info("Reweighting")
-            fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir and not reweight_only else None
-            wt_i = self._reweight_step2(model_step2, X_gen, fname_rhist2)
+            wt_i = self.calculate_likelihood_ratios(
+                2,
+                i,
+                model_dir,
+                load_previous_iter,
+                reweight_only,
+                X_step2,
+                Y_step2,
+                (wt_pull * wsim, wsim),
+                val_size,
+                X_gen,
+                **fitargs,
+            )
             logger.debug("Iteration {} step 2: wt.sum() = {}".format(i, wt_i.sum()))
 
             # TODO: check the performace
@@ -678,6 +647,50 @@ class OmniFoldwBkg(object):
                 plotting.plot_train_log(csvfile)
 
         return weights_unfold
+
+    def calculate_likelihood_ratios(
+        self,
+        step,
+        i,
+        model_dir,
+        load_previous_iter,
+        reweight_only,
+        X,
+        Y,
+        weights,
+        val_size,
+        X_rw,
+        **fitargs
+    ):
+        setup_func = self._set_up_model_step1 if step == 1 else self._set_up_model_step2
+        model_step, callbacks = setup_func(X.shape[1:], i, model_dir, load_previous_iter, reweight_only)
+
+        fname_rhist = None
+        if not reweight_only:
+            w = np.concatenate(weights)
+            X_train, X_test, Y_train, Y_test, w_train, w_test = train_test_split(X, Y, w, test_size=val_size)
+
+            logger.info("Start training")
+            fname_preds = os.path.join(model_dir, f"preds_step{step}_{i}") if model_dir else None
+            model.train(
+                model_step,
+                X_train,
+                Y_train,
+                w_train,
+                callbacks=callbacks,
+                val_data=(X_test, Y_test, w_test),
+                figname_preds=fname_preds,
+                **fitargs
+            )
+            logger.info("Model training done")
+
+            if model_dir:
+                fname_rhist = os.path.join(model_dir, f"rhist_step{step}_{i}")
+
+        logger.info("Reweighting")
+        fname_rhist = os.path.join(model_dir, f"rhist_step{step}_{i}") if model_dir and not reweight_only else None
+        reweight_func = self._reweight_step1 if step == 1 else self._reweight_step2
+        return reweight_func(model_step, X_rw, fname_rhist)
 
     def get_unfolded_hists_resample(self, variable, bins, all_iterations=False, normalize=False):
         hists_resample = []
@@ -819,9 +832,9 @@ class OmniFoldwBkg_multi(OmniFoldwBkg):
         if load_previous_iter and iteration > 0:
             # initialize model based on the previous iteration
             assert(model_fp)
-            return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1), nclass=3)
+            return model.build(input_shape, filepath_save=model_fp.format(iteration), filepath_load=model_fp.format(iteration-1), nclass=3)
         else:
-            return model.setup(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None, nclass=3)
+            return model.build(input_shape, filepath_save=model_fp.format(iteration), filepath_load=None, nclass=3)
 
     def _reweight_step1(self, model, events, plotname=None):
 
