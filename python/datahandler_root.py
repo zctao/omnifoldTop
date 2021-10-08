@@ -27,21 +27,22 @@ def MeVtoGeV(array):
         if isObjectVar or isPartonVar:
             array[fname] /= 1000.
 
-def setDummyValue(array, dummy_value):
+def setDummyValue(array, masks, dummy_value):
     """
-    Set dummy value of events that are flagged as dummy
+    Set dummy value of entries in array that are masked by masks
 
     Parameters
     ----------
     array : numpy structured array
-    dummy_value
+    masks : numpy ndarray
+    dummy_value : float
     """
-    isdummy = array['isDummy'] == 1
+
     for vname in list(array.dtype.names):
         if vname in ['isDummy', 'isMatched']:
             continue
 
-        array[vname][isdummy] = dummy_value
+        array[vname][masks] = dummy_value
 
 def load_dataset_root(
         file_names,
@@ -51,7 +52,8 @@ def load_dataset_root(
         dummy_value = None
     ):
     """
-    Load and return a structured numpy array from a list of root files
+    Load data from a list of ROOT files
+    Return a structured numpy array of data and a numpy ndarray as masks
 
     Parameters
     ----------
@@ -75,16 +77,23 @@ def load_dataset_root(
     if variable_names:
         branches = list(variable_names)
 
+        if weight_name:
+            branches.append(weight_name)
+
         # flags for identifying events
         branches += ['isMatched', 'isDummy']
 
-        if weight_name:
-            branches.append(weight_name)
+        # in case of KLFitter
+        branches.append('klfitter_logLikelihood')
+
+        # for checking invalid value in truth trees
+        branches.append('MC_thad_afterFSR_y')
     else:
         # load everything
         branches = None
 
     data_array = uproot.lazy(intrees, filter_name=branches)
+    # variables in branches but not in intrees are ignored
 
     # convert awkward array to numpy array for now
     # can probably use awkward array directly once it is more stable
@@ -93,19 +102,23 @@ def load_dataset_root(
     # convert units
     MeVtoGeV(data_array)
 
-    if 'isDummy' in data_array.dtype.names:
-        if dummy_value is None:
-            # select only events that are matched and are not dummy
-            good_event = np.logical_and(
-                data_array['isMatched']==1, data_array['isDummy']==0
-            )
+    #####
+    # event selection flag
+    pass_sel = (data_array['isDummy'] == 0) & (data_array['isMatched'] == 1)
 
-            data_array = data_array[good_event]
-        else:
-            # include dummy events and set the value
-            setDummyValue(data_array, dummy_value)
+    # In case of reco variables with KLFitter, cut on KLFitter logLikelihood
+    if 'klfitter_logLikelihood' in data_array.dtype.names:
+        pass_sel &= data_array['klfitter_logLikelihood'] > -52.
 
-    return data_array
+    # A special case where some matched events in truth trees contain invalid
+    # (nan or inf) values
+    if 'MC_thad_afterFSR_y' in data_array.dtype.names:
+        invalid = np.isnan(data_array['MC_thad_afterFSR_y'])
+        pass_sel &= (~invalid)
+        #print("number of events with invalid value", np.sum(invalid))
+
+    # TODO: return a masked array?
+    return data_array, pass_sel
 
 class DataHandlerROOT(DataHandler):
     """
@@ -141,7 +154,7 @@ class DataHandlerROOT(DataHandler):
     ):
         # load data from root files
         variable_names = dh._filter_variable_names(variable_names)
-        self.data_reco = load_dataset_root(
+        self.data_reco, self.pass_reco = load_dataset_root(
             filepaths, treename_reco, variable_names, weights_name, dummy_value
             )
 
@@ -154,7 +167,7 @@ class DataHandlerROOT(DataHandler):
         # truth variables if available
         if treename_truth:
             variable_names_mc = dh._filter_variable_names(variable_names_mc)
-            self.data_truth = load_dataset_root(
+            self.data_truth, self.pass_truth = load_dataset_root(
                 filepaths, treename_truth, variable_names_mc, weights_name_mc,
                 dummy_value
             )
@@ -168,8 +181,6 @@ class DataHandlerROOT(DataHandler):
                     newnames[fname] = prefix+fname
             self.data_truth = rfn.rename_fields(self.data_truth, newnames)
 
-            assert(len(self.data_reco)==len(self.data_truth))
-
             # mc weights
             if weights_name_mc:
                 self.weights_mc = self.data_truth[weights_name_mc]
@@ -178,6 +189,31 @@ class DataHandlerROOT(DataHandler):
         else:
             self.data_truth = None
             self.weights_mc = None
+
+        # deal with events that fail selections
+        if dummy_value is None:
+            # include only events that pass all selections
+            if self.data_truth is not None:
+                pass_all = self.pass_reco & self.pass_truth
+                self.data_reco = self.data_reco[pass_all]
+                self.data_truth = self.data_truth[pass_all]
+                self.weights = self.weights[pass_all]
+                self.weights_mc = self.weights_mc[pass_all]
+            else:
+                self.data_reco = self.data_reco[self.pass_reco]
+                self.weights = self.weights[self.pass_reco]
+        else:
+            # set dummy value
+            dummy_value = float(dummy_value)
+            setDummyValue(self.data_reco, ~self.pass_reco, dummy_value)
+            if self.data_truth is not None:
+                setDummyValue(self.data_truth, ~self.pass_truth, dummy_value)
+
+        # sanity check
+        assert(len(self.data_reco)==len(self.weights))
+        if self.data_truth is not None:
+            assert(len(self.data_reco)==len(self.data_truth))
+            assert(len(self.data_truth)==len(self.weights_mc))
 
     def __len__(self):
         """
