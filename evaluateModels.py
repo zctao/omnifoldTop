@@ -15,7 +15,7 @@ import plotting
 from histogramming import calc_hist
 import logging
 
-def get_training_inputs(variables, dataHandle, simHandle, reweighter=None):
+def get_training_inputs(variables, dataHandle, simHandle):
     ###
     X_d = dataHandle[variables]
     Y_d = util.labels_for_dataset(X_d, 1)
@@ -33,7 +33,7 @@ def get_training_inputs(variables, dataHandle, simHandle, reweighter=None):
 
     ###
     # event weights
-    w_d = dataHandle.get_weights(reweighter=reweighter)
+    w_d = dataHandle.get_weights()
     w_s = simHandle.get_weights()
 
     # normalize data weights to mean of one
@@ -174,7 +174,8 @@ def evaluateModels(**parsed_args):
         rw = reweight.rw[parsed_args["reweight_data"]]
         rw.variables = var_lookup(rw.variables)
 
-    w_d = dataHandle.get_weights(reweighter=rw)
+    dataHandle.rescale_weights(reweighter=rw)
+    w_d = dataHandle.get_weights()
 
     # prior simulation weights
     w_s = simHandle.get_weights()
@@ -195,7 +196,7 @@ def evaluateModels(**parsed_args):
         vars_mc = [['th_pt_MC', 'th_y_MC', 'th_phi_MC', 'th_e_MC'],
                    ['tl_pt_MC', 'tl_y_MC', 'tl_phi_MC', 'tl_e_MC']]
 
-    X, Y, w = get_training_inputs(vars_mc, dataHandle, simHandle, reweighter=rw)
+    X, Y, w = get_training_inputs(vars_mc, dataHandle, simHandle)
 
     # Split into training, validation, and test sets: 75%, 15%, 10%
     X_train, X_test, Y_train, Y_test, w_train, w_test = train_test_split(X, Y, w, test_size=0.25)

@@ -329,37 +329,21 @@ class DataHandler(Mapping):
         # rescale
         self.weights *= factors
 
-    def get_weights(
-        self,
-        standardize=False,
-        bootstrap=False,
-        unweighted=False
-    ):
+    def get_weights(self, bootstrap=False):
         """
          Get event weights for the dataset.
 
         Parameters
         ----------
-        standardize : bool, default: False
-            If True, standardize the weights to mean of one
         bootstrap : bool, default: False
             Multiply each weight by a random value drawn from a Poisson
             distribution with lambda = 1.
-        unweighted : bool, default: False
-            Ignore weights saved in the dataset and use unity instead.
 
         Returns
         -------
         np.ndarray of numbers, shape (nevents,)
         """
-        if unweighted:
-            return np.ones(len(self))
-
         weights = self.weights.copy()
-
-        # standardize sample weights to mean of one
-        if standardize:
-            weights /= np.mean(weights)
 
         # bootstrap
         if bootstrap:
