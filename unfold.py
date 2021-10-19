@@ -76,11 +76,14 @@ def unfold(**parsed_args):
             # hard code tree names here for now
             tree_reco = 'reco'
             tree_mc = None if reco_only else 'parton'
-            dh = DataHandlerROOT(file_names, tree_reco, tree_mc, vars_det_all, vars_mc_all, wname)
+            dh = DataHandlerROOT(
+                file_names, vars_det_all, vars_mc_all, wname,
+                treename_reco = tree_reco, treename_truth = tree_mc
+                )
         else:
             # '.npz'
-            varnames = vars_det_all if reco_only else vars_det_all + vars_mc_all
-            dh = DataHandler(file_names, wname, variable_names = varnames)
+            varnames_truth = [] if reco_only else vars_mc_all
+            dh = DataHandler(file_names, vars_det_all, varnames_truth, wname)
 
         return dh
 

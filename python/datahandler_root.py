@@ -104,7 +104,7 @@ def load_dataset_root(
 
     #####
     # event selection flag
-    pass_sel = (data_array['isDummy'] == 0) & (data_array['isMatched'] == 1)
+    pass_sel = (data_array['isDummy'] == 0)
 
     # In case of reco variables with KLFitter, cut on KLFitter logLikelihood
     if 'klfitter_logLikelihood' in data_array.dtype.names:
@@ -128,15 +128,19 @@ class DataHandlerROOT(DataHandler):
     ----------
     filepaths :  str or sequence of str
         List of root file names to load
+    variable_names : list of str, optional
+        List of reco level variable names to read. If not provided, read all
+    variable_names_mc : list of str, optional
+        List of truth level variable names to read. If not provided, read all
+    weights_name : str, optional 
+        Name of event weights
+    weights_name_mc : str, optional
+        Name of mc weights
     treename_reco : str, default 'reco'
         Name of the reconstruction-level tree
     treename_truth : str, default 'parton'
         Name of the truth-level tree. If empty or None, skip loading the 
         truth-level tree
-    variable_names : list of str, optional
-        List of reco level variable names to read. If not provided, read all
-    variable_names_mc : list of str, optional
-        List of truth level variable names to read. If not provided, read all
     dummy_value : float, default None
         Dummy value for setting events that are flagged as dummy. If None, only
         include events that are not dummy in the array
@@ -144,12 +148,12 @@ class DataHandlerROOT(DataHandler):
     def __init__(
         self,
         filepaths,
-        treename_reco='reco',
-        treename_truth='parton',
         variable_names=[],
         variable_names_mc=[],
         weights_name=None, #"normedWeight",
         weights_name_mc=None, #"weight_mc",
+        treename_reco='reco',
+        treename_truth='parton',
         dummy_value=None
     ):
         # load data from root files
@@ -199,88 +203,26 @@ class DataHandlerROOT(DataHandler):
                 self.data_truth = self.data_truth[pass_all]
                 self.weights = self.weights[pass_all]
                 self.weights_mc = self.weights_mc[pass_all]
+
+                self.pass_reco = self.pass_reco[pass_all]
+                self.pass_truth = self.pass_truth[pass_all]
             else:
                 self.data_reco = self.data_reco[self.pass_reco]
                 self.weights = self.weights[self.pass_reco]
+                self.pass_reco = self.pass_reco[self.pass_reco]
         else:
             # set dummy value
             dummy_value = float(dummy_value)
             setDummyValue(self.data_reco, ~self.pass_reco, dummy_value)
+            setDummyValue(self.weights, ~self.pass_reco, dummy_value)
             if self.data_truth is not None:
                 setDummyValue(self.data_truth, ~self.pass_truth, dummy_value)
+                setDummyValue(self.weights_mc, ~self.pass_truth, dummy_value)
 
         # sanity check
         assert(len(self.data_reco)==len(self.weights))
+        assert(len(self.data_reco)==len(self.pass_reco))
         if self.data_truth is not None:
             assert(len(self.data_reco)==len(self.data_truth))
             assert(len(self.data_truth)==len(self.weights_mc))
-
-    def __len__(self):
-        """
-        Get the number of events in the dataset.
-
-        Returns
-        -------
-        non-negative int
-        """
-        return len(self.data_reco)
-
-    def __contains__(self, variable):
-        """
-        Check if a variable is in the dataset.
-
-        Parameters
-        ----------
-        variable : str
-
-        Returns
-        -------
-        bool
-        """
-        inReco = variable in self.data_reco.dtype.names
-
-        if self.data_truth is None:
-            inTruth = False
-        else:
-            inTruth = variable in self.data_truth.dtype.names
-
-        return inReco or inTruth
-
-    def __iter__(self):
-        """
-        Create an iterator over the variable names in the dataset.
-
-        Returns
-        -------
-        iterator of strings
-        """
-        if self.data_truth is None:
-            return iter(self.data_reco.dtype.names)
-        else:
-            return iter(
-                list(self.data_reco.dtype.names) +
-                list(self.data_truth.dtype.names)
-                )
-
-    def _get_array(self, variable):
-        """
-        Return a 1D numpy array of the variable
-
-        Parameters
-        ----------
-        variable : str
-            Name of the variable
-
-        Returns
-        -------
-        np.ndarray of shape (n_events,)
-        """
-        if variable in self.data_reco.dtype.names:
-            return self.data_reco[str(variable)]
-
-        if self.data_truth is not None:
-            if variable in self.data_truth.dtype.names:
-                return self.data_truth[str(variable)]
-
-        # no 'variable' in the data arrays
-        return None
+            assert(len(self.data_truth)==len(self.pass_truth))

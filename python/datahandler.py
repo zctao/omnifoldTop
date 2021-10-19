@@ -90,11 +90,16 @@ class DataHandler(Mapping):
     file_names : str or file-like object; or sequence of str or file-like objects
         List of npz files to load. If the weight column should be adjusted,
         provide the filename as "{path}*{reweight factor}".
-    wname : str, default: "w"
+    variable_names : list of str
+        List of reco-level variables to read. If not provided, read all 
+        variables in the dataset.
+    variable_names_mc : list of str, optional
+        List of truth-level variables to read. If not provided, skip reading
+        truth-level variables
+    weights_name : str, default: "w"
         Name of the event weight column.
-    variable_names : list of str, optional
-        List of variables to read. If not provided, read all variables in
-        the dataset.
+    weights_name_mc : str, default: None
+        Name of the mc weights
     vars_dict : dict, default: {}
         Use the key "vtype" to set the dtype of the loaded data. If not
         provided, defaults to "float".
@@ -105,49 +110,64 @@ class DataHandler(Mapping):
     ------
     IOError
         If a file does not exist or can't be read.
-    RuntimeError
-        A file doesn't contain one of `variable_names`.
+    ValueError
+        A file doesn't contain one of `variable_names` or `variable_names_mc`.
     RuntimeError
         A file doesn't contain an array named `array_name`.
     ValueError
-        A file using reweighting doesn't contain `wname`.
+        A file using reweighting doesn't contain `weights_name` or `weights_name_mc`.
     """
 
     def __init__(
         self,
         filepaths,
-        wname="w",
-        variable_names=None,
+        variable_names,
+        variable_names_mc=[],
+        weights_name="w",
+        weights_name_mc=None,
         vars_dict={},
         array_name="arr_0",
     ):
         # load data from npz files to numpy array
-        tmpDataArr = load_dataset(filepaths, array_name=array_name, weight_columns=wname)
+        tmpDataArr = load_dataset(filepaths, array_name=array_name, weight_columns=weights_name)
         #assert(tmpDataArr is not None)
 
-        if not variable_names:
-            # if no variable name list is provided, read everything
-            variable_names = list(tmpDataArr.dtype.names)
-        else:
-            variable_names = _filter_variable_names(variable_names)
-
-            # check all variable names are available
-            for vname in variable_names:
-                if not vname in tmpDataArr.dtype.names:
-                    raise RuntimeError("Unknown variable name {}".format(vname))
+        # reco level
+        variable_names = _filter_variable_names(variable_names)
 
         # convert all fields to float
         dtypes = [(vname, vars_dict.get('vtype','float')) for vname in variable_names]
-        self.data = np.array(tmpDataArr[variable_names], dtype=dtypes)
+        self.data_reco = np.array(tmpDataArr[variable_names], dtype=dtypes)
 
-        # event weights
-        if wname:
-            if wname in tmpDataArr.dtype.names:
-                self.weights = tmpDataArr[wname].flatten()
-            else:
-                raise RuntimeError("Unknown weight name {}".format(wname))
+        # event weight
+        if weights_name:
+            self.weights = tmpDataArr[weights_name].flatten()
         else:
-            self.weights = np.ones(len(self.data))
+            self.weights = np.ones(len(self.data_reco))
+
+        # truth level
+        if variable_names_mc:
+            variable_names_mc = _filter_variable_names(variable_names_mc)
+
+            # convert all fields to float
+            dtypes_mc = [(vname, vars_dict.get('vtype','float')) for vname in variable_names_mc]
+            self.data_truth = np.array(tmpDataArr[variable_names_mc], dtype=dtypes_mc)
+
+            # mc weights
+            if weights_name_mc:
+                self.weights_mc = tmpDataArr[weights_name_mc].flatten()
+            else:
+                self.weights_mc = np.ones(len(self.data_truth))
+        else:
+            self.data_truth = None
+            self.weights_mc = None
+
+        # for now
+        self.pass_reco = np.full(len(self.data_reco), True)
+        if self.data_truth is not None:
+            self.pass_truth = np.full(len(self.data_truth), True)
+        else:
+            self.pass_truth = None
 
     def __len__(self):
         """
@@ -157,7 +177,7 @@ class DataHandler(Mapping):
         -------
         non-negative int
         """
-        return len(self.data)
+        return len(self.data_reco)
 
     def __contains__(self, variable):
         """
@@ -171,7 +191,14 @@ class DataHandler(Mapping):
         -------
         bool
         """
-        return variable in self.data.dtype.names
+        inReco = variable in self.data_reco.dtype.names
+
+        if self.data_truth is None:
+            inTruth = False
+        else:
+            inTruth = variable in self.data_truth.dtype.names
+
+        return inReco or inTruth
 
     def _get_array(self, variable):
         """
@@ -186,7 +213,15 @@ class DataHandler(Mapping):
         -------
         np.ndarray of shape (n_events,)
         """
-        return self.data[str(variable)]
+        if variable in self.data_reco.dtype.names:
+            return self.data_reco[str(variable)]
+
+        if self.data_truth is not None:
+            if variable in self.data_truth.dtype.names:
+                return self.data_truth[str(variable)]
+
+        # no 'variable' in the data arrays
+        return None
 
     def __getitem__(self, features):
         """
@@ -256,7 +291,13 @@ class DataHandler(Mapping):
         -------
         iterator of strings
         """
-        return iter(self.data.dtype.names)
+        if self.data_truth is None:
+            return iter(self.data_reco.dtype.names)
+        else:
+            return iter(
+                list(self.data_reco.dtype.names) +
+                list(self.data_truth.dtype.names)
+                )
 
     def sum_weights(self):
         return self.weights.sum()
@@ -486,7 +527,14 @@ class DataToy(DataHandler):
         epsilon = 1. # smearing width
         var_reco = np.array([(x + np.random.normal(0, epsilon)) for x in var_truth])
 
-        self.data = np.array([(x,y) for x,y in zip(var_reco, var_truth)],
-                             dtype=[('x_reco','float'), ('x_truth','float')])
+        self.data_reco = np.array(var_reco, dtype=[('x_reco','float')])
+        self.data_truth = np.array(var_truth, dtype=[('x_truth', 'float')])
 
-        self.weights = np.ones(len(nevents))
+        #self.data = np.array([(x,y) for x,y in zip(var_reco, var_truth)],
+        #                     dtype=[('x_reco','float'), ('x_truth','float')])
+
+        self.weights = np.ones(nevents)
+        self.weights_mc = np.ones(nevents)
+
+        self.pass_reco = np.full(nevents, True)
+        self.pass_truth = np.full(nevents, True)
