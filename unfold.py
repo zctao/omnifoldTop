@@ -297,7 +297,7 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--error-type', dest='error_type',
                         choices=['sumw2','bootstrap_full','bootstrap_model'],
                         default='sumw2', help="Method to evaluate uncertainties")
-    parser.add_argument('--batch-size', dest='batch_size', type=int, default=512,
+    parser.add_argument('--batch-size', dest='batch_size', type=int, default=16384,
                         help="Batch size for training")
     parser.add_argument('-l', '--load-models', dest='load_models', type=str,
                         help="Directory from where to load trained models. If provided, training will be skipped.")
