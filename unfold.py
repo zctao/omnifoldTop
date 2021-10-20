@@ -65,6 +65,7 @@ def unfold(**parsed_args):
 
     # weight name
     wname = parsed_args['weight']
+    wname_mc = 'weight_mc'
 
     #################
     # Load data
@@ -77,7 +78,7 @@ def unfold(**parsed_args):
             tree_reco = 'reco'
             tree_mc = None if reco_only else 'parton'
             dh = DataHandlerROOT(
-                file_names, vars_det_all, vars_mc_all, wname,
+                file_names, vars_det_all, vars_mc_all, wname, wname_mc,
                 treename_reco = tree_reco, treename_truth = tree_mc
                 )
         else:
@@ -241,6 +242,7 @@ def unfold(**parsed_args):
                       # use the same weights from OmniFold
                       unfolder.datahandle_obs.get_weights(),
                       unfolder.datahandle_sig.get_weights(),
+                      unfolder.datahandle_sig.get_weights(reco_level=False),
                       unfolder.datahandle_bkg.get_weights() if unfolder.datahandle_bkg is not None else None,
                       iterations=parsed_args['iterations'], # same as OmniFold
                       nresample=25, #parsed_args['nresamples']

@@ -299,8 +299,23 @@ class DataHandler(Mapping):
                 list(self.data_truth.dtype.names)
                 )
 
-    def sum_weights(self):
-        return self.weights.sum()
+    def sum_weights(self, reco_level=True):
+        """
+        Get sum of event weights
+
+        Parameters
+        ----------
+        reco_level: bool, default: True
+
+        Return
+        ------
+        If reco_level is True, return sum of self.weights, otherwise return sum
+        of self.weights_mc
+        """
+        if reco_level:
+            return self.weights.sum()
+        else:
+            return self.weights_mc.sum()
 
     def rescale_weights(
         self,
@@ -325,11 +340,17 @@ class DataHandler(Mapping):
         # reweight sample
         if reweighter is not None:
             self.weights *= reweighter.func(self[reweighter.variables])
+            self.weights_mc *= reweighter.func(self[reweighter.variables])
 
         # rescale
         self.weights *= factors
+        self.weights_mc *= factors
 
-    def get_weights(self, bootstrap=False):
+    def get_weights(
+        self,
+        bootstrap=False,
+        reco_level=True
+    ):
         """
          Get event weights for the dataset.
 
@@ -338,12 +359,18 @@ class DataHandler(Mapping):
         bootstrap : bool, default: False
             Multiply each weight by a random value drawn from a Poisson
             distribution with lambda = 1.
+        reco_level : bool, default: True
+            If True, return reco-level event weights ie. self.weights
+            Otherwise, return MC truth weights self.weights_mc
 
         Returns
         -------
         np.ndarray of numbers, shape (nevents,)
         """
-        weights = self.weights.copy()
+        if reco_level:
+            weights = self.weights.copy()
+        else:
+            weights = self.weights_mc.copy()
 
         # bootstrap
         if bootstrap:
@@ -378,7 +405,7 @@ class DataHandler(Mapping):
             Name of the variable in the dataset to histogram.
         weights : array-like of shape (nevents,) or (nweights, nevents) or None
             Array of per-event weights. If 2D, then a sequence of different
-            per-event weightings. If None, use self.weights
+            per-event weightings. If None, use self.weights or self.weights_mc
         bin_edges : array-like of shape (nbins + 1,)
             Locations of the edges of the bins of the histogram.
 
@@ -388,7 +415,10 @@ class DataHandler(Mapping):
             is 2D.
         """
         if weights is None:
-            weights = self.weights
+            if variable in self.data_truth.dtype.names: # mc truth level
+                weights = self.weights_mc
+            else: # reco level
+                weights = self.weights
 
         if isinstance(weights, np.ndarray):
             if weights.ndim == 1: # if weights is a 1D array

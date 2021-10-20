@@ -174,7 +174,7 @@ class OmniFoldwBkg(object):
         """
         Get event weights for training
         """
-        logger.info("Get event weights for training")
+        logger.info("Get reco-level event weights for training")
 
         # standardize data weights to mean of one
         wobs = self.datahandle_obs.get_weights(bootstrap=resample)
@@ -202,7 +202,7 @@ class OmniFoldwBkg(object):
         #    wbkg /= np.mean(wbkg)
 
         if plot and not resample:
-            logger.info("Plot the distribution of event weights used in training")
+            logger.info("Plot the distribution of reco-level event weights used in training")
             plotting.plot_data_arrays(
                 os.path.join(self.outdir, 'Event_weights_train'),
                 [wsig, wobs], labels=['Sim.', 'Data'],
@@ -210,6 +210,28 @@ class OmniFoldwBkg(object):
             )
 
         return wobs, wsig, wbkg
+
+    def _get_event_weights_mc(self, plot=True):
+        """
+        Get truth-level event weights of signal sample for training
+        """
+        logger.info("Get truth-level event weights of signal sample")
+
+        wgen = self.datahandle_sig.get_weights(reco_level=False)
+
+        # standardized weights
+        wgen /= np.mean(wgen)
+
+        if plot:
+            logger.info("Plot the distribution of truth-level signal prior weights")
+            plotting.plot_data_arrays(
+                os.path.join(self.outdir, 'Signal_weights_mc_train'),
+                [wgen], labels=['Gen.'],
+                title='Prior truth-level weights in training',
+                xlabel='w (training)'
+            )
+
+        return wgen
 
     def _get_feature_arrays_step1(self, preprocess=True, plot=False):
         """
@@ -279,7 +301,7 @@ class OmniFoldwBkg(object):
 
         if preprocess:
             logger.info("Preprocess feature arrays for step 2")
-            # # divide by their orders of magnitude
+            # divide by their orders of magnitude
             Xmean = np.mean(np.abs(X_gen), axis=0)
             Xoom = 10**(np.log10(Xmean).astype(int))
             X_gen /= Xoom
@@ -292,12 +314,12 @@ class OmniFoldwBkg(object):
 
         if plot:
             logger.info("Plot the distribution of variables for step 2 training")
-            wsig = self._get_event_weights(plot=False)[1]
+            wgen = self._get_event_weights_mc(plot=False)
             for vname, vgen in zip(self.vars_truth, X_gen.T):
                 logger.debug("  Plot variable {}".format(vname))
                 plotting.plot_data_arrays(
                     os.path.join(self.outdir, "Train_step2_"+vname),
-                    [vgen], [wsig], labels=['Gen.'],
+                    [vgen], [wgen], labels=['Gen.'],
                     title="Step-2 training inputs", xlabel=vname
                 )
 
@@ -424,8 +446,8 @@ class OmniFoldwBkg(object):
     def get_unfolded_distribution(self, variable, bins, all_iterations=False,
                                   bootstrap_uncertainty=True, normalize=True):
         rw = self.unfolded_weights[:self.iterations] if all_iterations else self.unfolded_weights[self.iterations-1]
-        wsim = self.datahandle_sig.get_weights()
-        h_uf = self.datahandle_sig.get_histogram(variable, bins, wsim*rw)
+        wgen = self.datahandle_sig.get_weights(reco_level=False)
+        h_uf = self.datahandle_sig.get_histogram(variable, bins, wgen*rw)
         # h_uf is a hist object or a list of hist objects
 
         bin_corr = None # bin correlations
@@ -455,11 +477,11 @@ class OmniFoldwBkg(object):
             # renormalize the unfolded histograms and its error to the nominal signal simulation weights
             if all_iterations:
                 # rescale all iterations to simulation weights
-                rs = wsim.sum() / (wsim*rw).sum(axis=1)
+                rs = wgen.sum() / (wgen*rw).sum(axis=1)
                 for h, r in zip(h_uf, rs):
                     h *= r
             else:
-                h_uf *= (wsim.sum() / (wsim*rw).sum())
+                h_uf *= (wgen.sum() / (wgen*rw).sum())
 
         return h_uf, bin_corr
 
@@ -519,10 +541,10 @@ class OmniFoldwBkg(object):
             arr_truth = self.datahandle_obs[varConfig['branch_mc']]
             arr_sim = self.datahandle_sig[varConfig['branch_mc']]
             text_ks = metrics.write_texts_KS(
-                arr_truth, self.datahandle_obs.get_weights(),
+                arr_truth, self.datahandle_obs.get_weights(reco_level=False),
                 [arr_sim, arr_sim],
-                [self.datahandle_sig.get_weights()*self.unfolded_weights[self.iterations-1],
-                 self.datahandle_sig.get_weights()],
+                [self.datahandle_sig.get_weights(reco_level=False)*self.unfolded_weights[self.iterations-1],
+                 self.datahandle_sig.get_weights(reco_level=False)],
                 labels=['OmniFold', 'Prior']
             )
             logger.info("  "+"    ".join(text_ks))
@@ -630,17 +652,22 @@ class OmniFoldwBkg(object):
         ################
         # event weights for training
         logger.info("Get prior event weights")
+        logger.debug("Reco level")
         wobs, wsim, wbkg = self._get_event_weights(resample=resample_data)
         logger.debug("wobs.sum() = {}".format(wobs.sum()))
         logger.debug("wsim.sum() = {}".format(wsim.sum()))
         if wbkg is not None:
             logger.debug("wbkg.sum() = {}".format(wbkg.sum()))
 
+        logger.debug("Truth level")
+        wgen = self._get_event_weights_mc()
+        logger.debug("wgen.sum() = {}".format(wgen.sum()))
+
         ################
         # start iterations
         wm_push = np.ones_like(wsim)
-        wt_pull = np.ones_like(wsim)
-        weights_unfold = np.empty(shape=(self.iterations, len(wsim)))
+        wt_pull = np.ones_like(wgen)
+        weights_unfold = np.empty(shape=(self.iterations, len(wgen)))
         ## shape: (n_iterations, n_events)
 
         for i in range(self.iterations):
@@ -687,7 +714,7 @@ class OmniFoldwBkg(object):
 
             if not reweight_only:
                 # prepare weight array for training
-                w_step2 = np.concatenate([wt_pull*wsim, wsim])
+                w_step2 = np.concatenate([wt_pull*wgen, wgen])
 
                 # split data into training and test sets
                 X_step2_train, X_step2_test, Y_step2_train, Y_step2_test, w_step2_train, w_step2_test = train_test_split(X_step2, Y_step2, w_step2, test_size=val_size)
@@ -732,17 +759,17 @@ class OmniFoldwBkg(object):
             else:
                 rw = self.unfolded_weights_resample[iresample][self.iterations-1]
 
-            wsim = self.datahandle_sig.get_weights()
-            h = self.datahandle_sig.get_histogram(variable, bins, wsim*rw)
+            wgen = self.datahandle_sig.get_weights(reco_level=False)
+            h = self.datahandle_sig.get_histogram(variable, bins, wgen*rw)
 
             if normalize:
                 # rescale each iteration to the nominal signal simulation weights
                 if all_iterations:
-                    rs = wsim.sum() / (wsim*rw).sum(axis=1)
+                    rs = wgen.sum() / (wgen*rw).sum(axis=1)
                     for hh, r in zip(h, rs):
                         hh *= r
                 else:
-                    h *= (wsim.sum() / (wsim*rw).sum())
+                    h *= (wgen.sum() / (wgen*rw).sum())
 
             hists_resample.append(h)
 

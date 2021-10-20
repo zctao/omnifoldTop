@@ -10,7 +10,7 @@ logger = logging.getLogger('IBU')
 logger.setLevel(logging.DEBUG)
 
 class IBU(object):
-    def __init__(self, varname, bins_det, bins_mc, obs, sim, gen, simbkg=None, wobs=1., wsig=1., wbkg=1., iterations=4, nresample=25, outdir='.'):
+    def __init__(self, varname, bins_det, bins_mc, obs, sim, gen, simbkg=None, wobs=1., wsig=1., wgen=1., wbkg=1., iterations=4, nresample=25, outdir='.'):
         # variable name
         self.varname = varname
         # bin edges
@@ -27,6 +27,7 @@ class IBU(object):
         # event weights
         self.weights_obs = wobs
         self.weights_sig = wsig
+        self.weights_sig_mc = wgen
         self.weights_bkg = wbkg
         # number of iterations
         self.iterations = iterations
@@ -43,7 +44,7 @@ class IBU(object):
         r = self._response_matrix(self.weights_sig, plot=True)
 
         # unfold
-        self.hists_unfolded = self._unfold(r, self.weights_obs, self.weights_sig, self.weights_bkg)
+        self.hists_unfolded = self._unfold(r, self.weights_obs, self.weights_sig_mc, self.weights_bkg)
 
         # bin uncertainty and correlation
         unfolded_err, self.hists_unfolded_corr = self._uncertainty(
@@ -53,9 +54,24 @@ class IBU(object):
 
     def get_unfolded_distribution(self, all_iterations=False):
         if all_iterations:
-            return self.hists_unfolded, self.hists_unfolded_corr
+            hists_uf = self.hists_unfolded
+            hists_corr = self.hists_unfolded_corr
         else:
-            return self.hists_unfolded[-1], self.hists_unfolded_corr[-1]
+            hists_uf = self.hists_unfolded[-1]
+            hists_corr = self.hists_unfolded_corr[-1]
+
+        norm = self.weights_sig_mc.sum()
+        if self.array_bkg is None:
+            rs = norm / self.weights_obs.sum()
+        else:
+            rs = norm / (self.weights_obs.sum() - self.weights_bkg.sum())
+
+        if all_iterations:
+            hists_uf = [huf * rs for huf in hists_uf]
+        else:
+            hists_uf = hists_uf * rs
+
+        return hists_uf, hists_corr
 
     def _response_matrix(self, weights_sim, plot=True):
         r = calc_hist2d(self.array_sim, self.array_gen, bins=(self.bins_det, self.bins_mc), weights=weights_sim)
@@ -105,13 +121,13 @@ class IBU(object):
 
         return hists_ibu[1:] # shape: (n_iteration, nbins_hist)
 
-    def _uncertainty(self, nresamples, response=None, resample_obs=True, resample_sig=True):
+    def _uncertainty(self, nresamples, response=None, resample_obs=True, resample_sig=False):
         hists_resample = []
 
         for iresample in range(nresamples):
             # resample the weights
             reweights_obs = self.weights_obs * np.random.poisson(1, size=len(self.array_obs)) if resample_obs else self.weights_obs
-            reweights_sig = self.weights_sig * np.random.poisson(1, size=len(self.array_gen)) if resample_sig else self.weights_sig
+            reweights_sig = self.weights_sig_mc * np.random.poisson(1, size=len(self.array_gen)) if resample_sig else self.weights_sig_mc
 
             # recompute response with resampled simulation weights if needed
             if response is None:
