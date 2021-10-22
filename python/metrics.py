@@ -461,10 +461,10 @@ def evaluate_all_metrics(variable, varConfig, bin_edges, of, ibu=None):
     # data arrays of vname_mc
     # pseudo data
     data_truth = of.datahandle_obs[vname_mc]
-    weights_truth = of.datahandle_obs.get_weights()
+    weights_truth = of.datahandle_obs.get_weights(reco_level=False)
     # simulated data
     data_gen = of.datahandle_sig[vname_mc]
-    weights_prior = of.datahandle_sig.get_weights()
+    weights_prior = of.datahandle_sig.get_weights(reco_level=False)
     # unfolded weights
     weights_unfolded = weights_prior * of.unfolded_weights
 

@@ -191,44 +191,14 @@ class DataHandler(Mapping):
         -------
         bool
         """
-        inReco = variable in self.data_reco.dtype.names
-
-        if self.data_truth is None:
-            inTruth = False
-        else:
-            inTruth = variable in self.data_truth.dtype.names
-
-        return inReco or inTruth
-
-    def _get_array(self, variable):
-        """
-        Return a 1D numpy array of the variable
-
-        Parameters
-        ----------
-        variable : str
-            Name of the variable
-
-        Returns
-        -------
-        np.ndarray of shape (n_events,)
-        """
-        if variable in self.data_reco.dtype.names:
-            return self.data_reco[str(variable)]
-
-        if self.data_truth is not None:
-            if variable in self.data_truth.dtype.names:
-                return self.data_truth[str(variable)]
-
-        # no 'variable' in the data arrays
-        return None
+        return self._in_data_reco(variable) or self._in_data_truth(variable)
 
     def __getitem__(self, features):
         """
-        Retrieve features from each event in the dataset.
+        Retrieve features from the dataset.
 
-        Returns a view (NOT copy) of self.data if possible. Otherwise,
-        tries to make a new array from self.data.
+        Return arrays containing only valid events. It is equivalent to 
+        self.get_arrays(features, valid_only=True)
 
         Parameters
         ----------
@@ -245,31 +215,88 @@ class DataHandler(Mapping):
         KeyError
             If a variable name in `features` is not in the dataset.
         """
+        return self.get_arrays(features, valid_only=True)
+
+    def _in_data_reco(self, variable):
+        if self.data_reco is None:
+            return False
+        else:
+            return variable in self.data_reco.dtype.names
+
+    def _in_data_truth(self, variable):
+        if self.data_truth is None:
+            return False
+        else:
+            return variable in self.data_truth.dtype.names
+
+    def get_arrays(self, features, valid_only=False):
+        """
+        Retrieve features from each event in the dataset.
+
+        Returns an array of features from self.data_reco or self.data_truth. 
+
+        Parameters
+        ----------
+        features : array-like of str
+            Names of the features to extract from each event. The shape of
+            the returned array will reflect the shape of this array.
+        valid_only : bool, default False
+            If True, include only valid events (pass_reco and/or pass_truth),
+            otherwise include all events.
+
+        Returns
+        -------
+        np.ndarray of shape (n_events, *features.shape)
+
+        Raises
+        ------
+        KeyError
+            If a variable name in `features` is not in the dataset.
+        """
+
         ndim_features = np.asarray(features).ndim
+
+        if valid_only:
+            # array filters for valid events
+            sel = True
+            varlist = [features] if ndim_features == 0 else list(features)
+            for v in varlist:
+                if self._in_data_reco(v): # reco level
+                    sel &= self.pass_reco
+                elif self._in_data_truth(v): 
+                    sel &= self.pass_truth
+                else:
+                    raise KeyError(f"Unknown variable {v}")
+
+            return self.get_arrays(features, valid_only=False)[sel]
+
+        # not valid only
         if ndim_features == 0:
-            if features in self:
-                 # Can't index data by np Unicode arrays, have to
-                 # convert back to str first.
-                #return self.data[str(features)]
-                return self._get_array(features)
+            if self._in_data_reco(features): # reco level
+                # Can't index data by np Unicode arrays, have to
+                # convert back to str first.
+                return self.data_reco[str(features)]
+            elif self._in_data_truth(features): # truth level
+                return self.data_truth[str(features)]
+
             # special cases
             elif '_px' in features:
                 var_pt = features.replace('_px', '_pt')
                 var_phi = features.replace('_px', '_phi')
-                arr_pt = self[var_pt]
-                arr_phi = self[var_phi]
+                arr_pt = self.get_arrays(var_pt)
+                arr_phi = self.get_arrays(var_phi)
                 return arr_pt * np.cos(arr_phi)
             elif '_py' in features:
                 var_pt = features.replace('_py', '_pt')
                 var_phi = features.replace('_py', '_phi')
-                arr_pt = self[var_pt]
-                arr_phi = self[var_phi]
+                arr_pt = self.get_arrays(var_pt)
+                arr_phi = self.get_arrays(var_phi)
                 return arr_pt * np.sin(arr_phi)
             elif '_pz' in features:
                 var_pt = features.replace('_pz', '_pt')
                 var_eta = features.replace('_pz', '_eta')
-                arr_pt = self[var_pt]
-                arr_eta = self[var_eta]
+                arr_pt = self.get_arrays(var_pt)
+                arr_eta = self.get_arrays(var_eta)
                 return arr_pt * np.sinh(arr_eta)
             else:
                 raise KeyError(
@@ -280,7 +307,7 @@ class DataHandler(Mapping):
                 )
         else:
             # ndarray of shape (n_events, <feature shape>)
-            X = np.stack([self[varnames] for varnames in features], axis=1)
+            X = np.stack([self.get_arrays(varnames) for varnames in features], axis=1)
             return X
 
     def __iter__(self):
@@ -313,9 +340,9 @@ class DataHandler(Mapping):
         of self.weights_mc
         """
         if reco_level:
-            return self.weights.sum()
+            return self.weights[self.pass_reco].sum()
         else:
-            return self.weights_mc.sum()
+            return self.weights_mc[self.pass_truth].sum()
 
     def rescale_weights(
         self,
@@ -327,7 +354,7 @@ class DataHandler(Mapping):
 
         Parameters
         ----------
-        factors : float or np.ndarray of the same dimension as self.weights
+        factors : float
             Factors to rescale the event weights
         reweighter : reweight.Reweighter, optional
             A function that takes events and returns event weights, and the
@@ -339,20 +366,25 @@ class DataHandler(Mapping):
         """
         # reweight sample
         if reweighter is not None:
-            self.weights *= reweighter.func(self[reweighter.variables])
-            self.weights_mc *= reweighter.func(self[reweighter.variables])
+            # reweight events that pass both reco and truth level cuts
+            sel = self.pass_reco & self.pass_truth
+            self.weights[sel] *= reweighter.func(self[reweighter.variables])[sel]
+            if self.weights_mc is not None:
+                self.weights_mc[sel] *= reweighter.func(self[reweighter.variables])[sel]
 
         # rescale
-        self.weights *= factors
-        self.weights_mc *= factors
+        self.weights[self.pass_reco] *= factors
+        if self.weights_mc is not None:
+            self.weights_mc[self.pass_truth] *= factors
 
     def get_weights(
         self,
         bootstrap=False,
-        reco_level=True
+        reco_level=True,
+        valid_only=True
     ):
         """
-         Get event weights for the dataset.
+        Get event weights for the dataset.
 
         Parameters
         ----------
@@ -362,6 +394,9 @@ class DataHandler(Mapping):
         reco_level : bool, default: True
             If True, return reco-level event weights ie. self.weights
             Otherwise, return MC truth weights self.weights_mc
+        valid_only : bool, default: True
+            If True, return weights of valid events only ie. pass_reco or 
+            pass_truth, otherwise return all event weights including dummy ones
 
         Returns
         -------
@@ -369,8 +404,13 @@ class DataHandler(Mapping):
         """
         if reco_level:
             weights = self.weights.copy()
+            sel = self.pass_reco
         else:
             weights = self.weights_mc.copy()
+            sel = self.pass_truth
+
+        if valid_only:
+            weights = weights[sel]
 
         # bootstrap
         if bootstrap:
@@ -415,16 +455,17 @@ class DataHandler(Mapping):
             is 2D.
         """
         if weights is None:
-            if variable in self.data_truth.dtype.names: # mc truth level
-                weights = self.weights_mc
+            if self._in_data_truth(variable): # mc truth level
+                weights = self.get_weights(reco_level=False)
             else: # reco level
-                weights = self.weights
+                weights = self.get_weights(reco_level=True)
 
         if isinstance(weights, np.ndarray):
             if weights.ndim == 1: # if weights is a 1D array
+                # make histogram with valid events
                 varr = self[variable]
-                # check the weight array length is the same as the variable array
                 assert(len(varr) == len(weights))
+
                 return calc_hist(varr, weights=weights, bins=bin_edges, density=density)
             elif weights.ndim == 2: # make the 2D array into a list of 1D array
                 return self.get_histogram(variable, bin_edges, list(weights), density)

@@ -79,7 +79,8 @@ def unfold(**parsed_args):
             tree_mc = None if reco_only else 'parton'
             dh = DataHandlerROOT(
                 file_names, vars_det_all, vars_mc_all, wname, wname_mc,
-                treename_reco = tree_reco, treename_truth = tree_mc
+                treename_reco = tree_reco, treename_truth = tree_mc,
+                dummy_value=-99.
                 )
         else:
             # '.npz'

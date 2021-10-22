@@ -38,11 +38,15 @@ def setDummyValue(array, masks, dummy_value):
     dummy_value : float
     """
 
-    for vname in list(array.dtype.names):
-        if vname in ['isDummy', 'isMatched']:
-            continue
+    if array.dtype.names is None:
+        array[masks] = dummy_value
+    else:
+        for vname in list(array.dtype.names):
+            # avoid modifying event flags
+            if vname in ['isDummy', 'isMatched']:
+                continue
 
-        array[vname][masks] = dummy_value
+            array[vname][masks] = dummy_value
 
 def load_dataset_root(
         file_names,

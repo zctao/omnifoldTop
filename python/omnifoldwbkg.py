@@ -233,11 +233,13 @@ class OmniFoldwBkg(object):
 
         return wgen
 
-    def _get_feature_arrays_step1(self, preprocess=True, plot=False):
+    def _get_arrays_step1(self, preprocess=True, plot=False):
         """
         Get arrays for step 1 unfolding
-        setp 1: observed data vs simulation at detector level
+        Step 1: observed data vs simulation at detector level
         """
+        ####
+        # For training: arrays with valid events
         X_obs = self.datahandle_obs[self.vars_reco]
         if self.datahandle_obsbkg is not None:
             X_obsbkg = self.datahandle_obsbkg[self.vars_reco]
@@ -250,39 +252,57 @@ class OmniFoldwBkg(object):
         else:
             X_bkg = None
 
+        # labels
+        Y_obs = np.full(len(X_obs), self.label_obs)
+        Y_sig = np.full(len(X_sig), self.label_sig)
+        Y_bkg = None if X_bkg is None else np.full(len(X_bkg), self.label_bkg)
+
+        if X_bkg is None:
+            X_step1 = np.concatenate([X_obs, X_sig])
+            Y_step1 = np.concatenate([Y_obs, Y_sig])
+        else:
+            X_step1 = np.concatenate([X_obs, X_sig, X_bkg])
+            Y_step1 = np.concatenate([Y_obs, Y_sig, Y_bkg])
+
+        ####
+        # For prediction/reweighting: arrays of all signal events
+        X_rw = self.datahandle_sig.get_arrays(self.vars_reco, valid_only=False)
+        if X_rw.base is not None:
+            X_rw = X_rw.copy()
+
         ####
         # preprocess feature arrays
         if preprocess:
             logger.info("Preprocess feature arrays for step 1")
 
-            X_all = np.concatenate([X_obs, X_sig]) if X_bkg is None else np.concatenate([X_obs, X_sig, X_bkg])
-
             # divide by their orders of magnitude
-            Xmean = np.mean(np.abs(X_all), axis=0)
+            Xmean = np.mean(np.abs(X_step1), axis=0)
             Xoom = 10**(np.log10(Xmean).astype(int))
-            X_obs /= Xoom
-            X_sig /= Xoom
-            if X_bkg is not None:
-                X_bkg /= Xoom
+            X_step1 /= Xoom
 
             # TODO: check alternatives
             # e.g. standardize features to mean of zero and variance of one
             #Xmean = np.mean(X_all, axis=0)
             #Xstd = np.std(X_all, axis=0)
-            #
-            #X_obs -= Xmean
-            #X_obs /= Xstd
-            #X_sig -= Xmean
-            #X_sig /= Xstd
-            #if X_bkg is not None:
-            #    X_bkg -= Xmean
-            #    X_bkg /= Xstd
+            #X_step1 -= Xmean
+            #X_step1 /= Xstd
+
+            # apply the same preprocessing on the valid events in the array for
+            # reweighitng
+            X_rw[self.datahandle_sig.pass_reco] /= Xoom
+
+            #X_rw[self.datahandle_sig.pass_reco] -= Xmean
+            #X_rw[self.datahandle_sig.pass_reco] /= Xstd
 
         if plot:
             logger.info("Plot the distribution of variables for step 1 training")
             # weights
             wobs, wsig = self._get_event_weights(plot=False)[:2]
-            for vname, vobs, vsig in zip(self.vars_reco, X_obs.T, X_sig.T):
+
+            varr_obs = X_step1[Y_step1 == self.label_obs]
+            varr_sig = X_step1[Y_step1 == self.label_sig]
+
+            for vname, vobs, vsig in zip(self.vars_reco, varr_obs.T, varr_sig.T):
                 logger.debug("  Plot variable {}".format(vname))
                 plotting.plot_data_arrays(
                     os.path.join(self.outdir, "Train_step1_"+vname),
@@ -291,26 +311,44 @@ class OmniFoldwBkg(object):
                     title="Step-1 training inputs", xlabel=vname
                 )
 
-        return X_obs, X_sig, X_bkg
+        return X_step1, Y_step1, X_rw
 
-    def _get_feature_arrays_step2(self, preprocess=True, plot=False):
+    def _get_arrays_step2(self, preprocess=True, plot=False):
         """
         Get arrays for step 2 unfolding
         """
+        # For training: arrays with valid events
         X_gen = self.datahandle_sig[self.vars_truth]
+        X_step2 = np.concatenate([X_gen, X_gen])
+
+        # labels
+        Y_step2 = np.concatenate([np.ones(len(X_gen)), np.zeros(len(X_gen))])
+
+        # For reweighting: arrays of all signal events
+        X_gen_rw = self.datahandle_sig.get_arrays(self.vars_truth, valid_only=False)
+        if X_gen_rw.base is not None:
+            X_gen_rw = X_rw.copy()
 
         if preprocess:
             logger.info("Preprocess feature arrays for step 2")
             # divide by their orders of magnitude
             Xmean = np.mean(np.abs(X_gen), axis=0)
             Xoom = 10**(np.log10(Xmean).astype(int))
+
+            X_step2 /= Xoom
             X_gen /= Xoom
+            X_gen_rw[self.datahandle_sig.pass_truth] /= Xoom
 
             # TODO: check alternatives
             #Xmean = np.mean(X_gen, axis=0)
             #Xstd = np.std(X_gen, axis=0)
+
+            #X_step2 -= Xmean
+            #X_step2 /= Xstd
             #X_gen -= Xmean
             #X_gen /= Xstd
+            #X_gen_rw[self.datahandle_sig.pass_truth] -= Xmean
+            #X_gen_rw[self.datahandle_sig.pass_truth] /= Xstd
 
         if plot:
             logger.info("Plot the distribution of variables for step 2 training")
@@ -323,7 +361,7 @@ class OmniFoldwBkg(object):
                     title="Step-2 training inputs", xlabel=vname
                 )
 
-        return X_gen
+        return X_step2, Y_step2, X_gen_rw
 
     def run(
         self,
@@ -339,23 +377,13 @@ class OmniFoldwBkg(object):
         """
         fitargs = {'batch_size': batch_size, 'epochs': epochs, 'verbose': 1}
 
+        ####
         # Input arrays for step 1
         logger.info("Get input arrays for step 1")
-        # features
-        X_obs, X_sim, X_bkg = self._get_feature_arrays_step1(
-            preprocess=True, plot=True)
 
-        # labels
-        Y_obs = np.full(len(X_obs), self.label_obs)
-        Y_sim = np.full(len(X_sim), self.label_sig)
-        Y_bkg = None if X_bkg is None else np.full(len(X_bkg), self.label_bkg)
-
-        if X_bkg is None:
-            X_step1 = np.concatenate([X_obs, X_sim])
-            Y_step1 = np.concatenate([Y_obs, Y_sim])
-        else:
-            X_step1 = np.concatenate([X_obs, X_sim, X_bkg])
-            Y_step1 = np.concatenate([Y_obs, Y_sim, Y_bkg])
+        X_step1, Y_step1, X_sig_all = self._get_arrays_step1(
+            preprocess=True, plot=True
+        )
 
         # make Y categorical
         Y_step1 = tf.keras.utils.to_categorical(Y_step1)
@@ -367,14 +395,15 @@ class OmniFoldwBkg(object):
             Y_step1.nbytes*2**-20)
         )
 
+        ####
         # Input arrays for step 2
         logger.info("Get input arrays for step 2")
-        # features
-        X_gen = self._get_feature_arrays_step2(preprocess=True, plot=True)
-        X_step2 = np.concatenate([X_gen, X_gen])
 
-        # labels
-        Y_step2 = np.concatenate([np.ones(len(X_gen)), np.zeros(len(X_gen))])
+        X_step2, Y_step2, X_gen_all = self._get_arrays_step2(
+            preprocess=True, plot=True
+        )
+
+        # make Y categorical
         Y_step2 = tf.keras.utils.to_categorical(Y_step2)
 
         logger.info("Size of the feature array for step 2: {:.3f} MB".format(
@@ -386,7 +415,7 @@ class OmniFoldwBkg(object):
 
         # unfold
         self.unfolded_weights = self._unfold(
-            X_step1, Y_step1, X_step2, Y_step2, X_sim, X_gen,
+            X_step1, Y_step1, X_step2, Y_step2, X_sig_all, X_gen_all,
             resample_data=False,
             model_name="Models",
             load_models_dir=load_models_from,
@@ -401,14 +430,14 @@ class OmniFoldwBkg(object):
         # resamples
         if error_type in ['bootstrap_full', 'bootstrap_model']:
             self.unfolded_weights_resample = np.empty(
-                shape=( nresamples, self.iterations, len(X_sim) )
+                shape=( nresamples, self.iterations, int(len(X_step2)/2) )
             )
 
             for ir in range(nresamples):
                 logger.info("Resample #{}".format(ir))
                 # unfold
                 self.unfolded_weights_resample[ir,:,:] = self._unfold(
-                    X_step1, Y_step1, X_step2, Y_step2, X_sim, X_gen,
+                    X_step1, Y_step1, X_step2, Y_step2, X_sig_all, X_gen_all,
                     resample_data=(error_type=='bootstrap_full'),
                     model_name="Models_rs{}".format(ir),
                     load_models_dir=load_models_from,
@@ -487,7 +516,7 @@ class OmniFoldwBkg(object):
 
     def plot_distributions_reco(self, varname, varConfig, bins):
         # observed
-        nobs = len(self.datahandle_obs)
+        #nobs = len(self.datahandle_obs)
         h_obs = self.datahandle_obs.get_histogram(varConfig['branch_det'], bins)
 
         if self.datahandle_obsbkg is not None:
@@ -617,16 +646,45 @@ class OmniFoldwBkg(object):
         self,
         X_step1, Y_step1,
         X_step2, Y_step2,
-        X_sim,
-        X_gen,
+        X_sim_rw,
+        X_gen_rw,
         resample_data=False,
         model_name='Models',
         load_models_dir=None,
         load_previous_iter=True,
         val_size=0.2,
-        #fname_event_weights='weights.npz',
         **fitargs
     ):
+        """
+        Function to execute OmniFold training and reweighting
+
+        Parameters
+        ----------
+        X_step1, Y_step1 : np.ndarrays
+            Feature and label arrays for step 1 training. Only contain events that passed reco level selections.
+        X_step2, Y_step2 : np.ndarrays
+            Feature and label arrays for step 2 training. Only contain events that passed truth level requirements.
+        X_sim_rw : np.ndarray
+            Feature array for step 1 reweighting. All signal events are included.
+        X_gen_rw : np.ndarray
+            Feature array for step 2 reweighting. All signal events are included.
+        resample_data : bool, default False
+            If True, resample data weights. Use bootstrapping to evalute uncertainty.
+        model_name : str, default 'Models'
+            Prefix of the name of classifers
+        load_models_dir : str, default None
+            If provided, load the trained models from the directory and skip training
+        load_previous_iter : bool, default True
+            If True, use the model weights from previous iteration as a starting point
+        val_size : float, default 0.2
+            Fraction of events used for validation
+
+        Returns
+        -------
+        np.ndarray of the shape(n_iterations, n_events)
+        Unfolded event weights
+        """
+
         ################
         # model directory
         if load_models_dir is None:
@@ -665,10 +723,14 @@ class OmniFoldwBkg(object):
 
         ################
         # start iterations
-        wm_push = np.ones_like(wsim)
-        wt_pull = np.ones_like(wgen)
+        wm_push = np.ones(len(X_sim_rw))
+        wt_pull = np.ones(len(X_gen_rw))
+
+        pass_reco = self.datahandle_sig.pass_reco
+        pass_truth = self.datahandle_sig.pass_truth
+
         weights_unfold = np.empty(shape=(self.iterations, len(wgen)))
-        ## shape: (n_iterations, n_events)
+        ## shape: (n_iterations, n_events[pass_truth])
 
         for i in range(self.iterations):
             logger.info("Iteration {}".format(i))
@@ -681,9 +743,9 @@ class OmniFoldwBkg(object):
             if not reweight_only:
                 # prepare weight array for training
                 if wbkg is None:
-                    w_step1 = np.concatenate([wobs, wm_push*wsim])
+                    w_step1 = np.concatenate([wobs, wm_push[pass_reco]*wsim])
                 else:
-                    w_step1 = np.concatenate([wobs, wm_push*wsim, wbkg])
+                    w_step1 = np.concatenate([wobs, wm_push[pass_reco]*wsim, wbkg])
                 assert(len(w_step1)==len(X_step1))
 
                 # split data into training and test sets
@@ -697,7 +759,8 @@ class OmniFoldwBkg(object):
             # reweight
             logger.info("Reweighting")
             fname_rhist1 = model_dir+'/rhist_step1_{}'.format(i) if model_dir and not reweight_only else None
-            wm_i = wm_push * self._reweight_step1(model_step1, X_sim, fname_rhist1)
+            wm_i = wm_push * self._reweight_step1(model_step1, X_sim_rw, fname_rhist1)
+            wm_i[~pass_reco] = 1
             logger.debug("Iteration {} step 1: wm.sum() = {}".format(i, wm_i.sum()))
 
             # TODO: check the performace
@@ -714,7 +777,7 @@ class OmniFoldwBkg(object):
 
             if not reweight_only:
                 # prepare weight array for training
-                w_step2 = np.concatenate([wt_pull*wgen, wgen])
+                w_step2 = np.concatenate([wt_pull[pass_truth]*wgen, wgen])
 
                 # split data into training and test sets
                 X_step2_train, X_step2_test, Y_step2_train, Y_step2_test, w_step2_train, w_step2_test = train_test_split(X_step2, Y_step2, w_step2, test_size=val_size)
@@ -727,7 +790,8 @@ class OmniFoldwBkg(object):
             # reweight
             logger.info("Reweighting")
             fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir and not reweight_only else None
-            wt_i = self._reweight_step2(model_step2, X_gen, fname_rhist2)
+            wt_i = self._reweight_step2(model_step2, X_gen_rw, fname_rhist2)
+            wt_i[~pass_truth] = 1
             logger.debug("Iteration {} step 2: wt.sum() = {}".format(i, wt_i.sum()))
 
             # TODO: check the performace
@@ -735,8 +799,9 @@ class OmniFoldwBkg(object):
 
             # push the updated truth level weights to the detector level
             wm_push = wt_i
+
             # save truth level weights of this iteration
-            weights_unfold[i,:] = wt_i
+            weights_unfold[i,:] = wt_i[pass_truth]
         # end of iterations
         #assert(not np.isnan(weights_unfold).any())
 
