@@ -230,21 +230,32 @@ def unfold(**parsed_args):
 
         # iterative Bayesian unfolding
         if True: # doIBU
+            # data
             array_obs = data_obs[varConfig['branch_det']]
+            w_obs = data_obs.get_weights()
             if data_obsbkg is not None:
                 array_obsbkg = data_obsbkg[varConfig['branch_det']]
+                w_obsbkg = data_obsbkg.get_weights()
                 array_obs = np.concatenate([array_obs, array_obsbkg])
+                w_obs = np.concatenate([w_obs, w_obsbkg])
 
-            array_sim = data_sig[varConfig['branch_det']]
-            array_gen = data_sig[varConfig['branch_mc']]
+            # background simulation if needed
             array_simbkg = data_bkg[varConfig['branch_det']] if data_bkg else None
+            w_bkg = data_bkg.get_weights() if data_bkg else None
+
+            # signal simulation
+            # only truth matched events
+            reco_match_truth = data_sig.pass_truth[data_sig.pass_reco]
+            array_sim = data_sig[varConfig['branch_det']][reco_match_truth]
+            w_sim = data_sig.get_weights()[reco_match_truth]
+
+            truth_match_reco = data_sig.pass_reco[data_sig.pass_truth]
+            array_gen = data_sig[varConfig['branch_mc']][truth_match_reco]
+            w_gen = data_sig.get_weights(reco_level=False)[truth_match_reco]
+
             ibu = IBU(varname, bins_det, bins_mc,
                       array_obs, array_sim, array_gen, array_simbkg,
-                      # use the same weights from OmniFold
-                      unfolder.datahandle_obs.get_weights(),
-                      unfolder.datahandle_sig.get_weights(),
-                      unfolder.datahandle_sig.get_weights(reco_level=False),
-                      unfolder.datahandle_bkg.get_weights() if unfolder.datahandle_bkg is not None else None,
+                      w_obs, w_sim, w_gen, w_bkg,
                       iterations=parsed_args['iterations'], # same as OmniFold
                       nresample=25, #parsed_args['nresamples']
                       outdir = unfolder.outdir)
