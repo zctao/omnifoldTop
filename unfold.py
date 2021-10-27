@@ -77,10 +77,16 @@ def unfold(**parsed_args):
             # hard code tree names here for now
             tree_reco = 'reco'
             tree_mc = None if reco_only else 'parton'
+
+            if parsed_args['dummy_value'] is None:
+                logger.info("Load events that are truth matched and pass both reco and truth level selections")
+            else:
+                logger.info("Set variables to a dummy value {} for events that fail reco or truth level selections".format(parsed_args['dummy_value']))
+
             dh = DataHandlerROOT(
                 file_names, vars_det_all, vars_mc_all, wname, wname_mc,
                 treename_reco = tree_reco, treename_truth = tree_mc,
-                dummy_value=-99.
+                dummy_value=parsed_args['dummy_value']
                 )
         else:
             # '.npz'
@@ -352,6 +358,8 @@ if __name__ == "__main__":
                         help="If True, load weights in the legacy mode. The unfolded weights read from files are divided by the simulation prior weights. Only useful when --unfolded-weights is not None.")
     parser.add_argument('--run-ibu', action='store_true',
                         help="If True, run unfolding using IBU for comparison")
+    parser.add_argument('--dummy-value', type=float,
+                        help="Dummy value to fill events that failed selecton. If None (default), only events that pass reco and truth (if apply) level selections are used for unfolding")
 
     #parser.add_argument('-n', '--normalize',
     #                    action='store_true',
