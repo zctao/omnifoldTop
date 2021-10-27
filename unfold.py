@@ -229,7 +229,7 @@ def unfold(**parsed_args):
             bins_mc = np.linspace(varConfig['xlim'][0], varConfig['xlim'][1], varConfig['nbins_mc']+1)
 
         # iterative Bayesian unfolding
-        if True: # doIBU
+        if parsed_args['run_ibu']:
             # data
             array_obs = data_obs[varConfig['branch_det']]
             w_obs = data_obs.get_weights()
@@ -350,6 +350,8 @@ if __name__ == "__main__":
                         help="Name of the model for unfolding")
     parser.add_argument('--legacy-weights', action='store_true',
                         help="If True, load weights in the legacy mode. The unfolded weights read from files are divided by the simulation prior weights. Only useful when --unfolded-weights is not None.")
+    parser.add_argument('--run-ibu', action='store_true',
+                        help="If True, run unfolding using IBU for comparison")
 
     #parser.add_argument('-n', '--normalize',
     #                    action='store_true',

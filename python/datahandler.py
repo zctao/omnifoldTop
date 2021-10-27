@@ -368,9 +368,10 @@ class DataHandler(Mapping):
         if reweighter is not None:
             # reweight events that pass both reco and truth level cuts
             sel = self.pass_reco & self.pass_truth
-            self.weights[sel] *= reweighter.func(self[reweighter.variables])[sel]
+            varr = self.get_arrays(reweighter.variables, valid_only=False)[sel]
+            self.weights[sel] *= reweighter.func(varr)
             if self.weights_mc is not None:
-                self.weights_mc[sel] *= reweighter.func(self[reweighter.variables])[sel]
+                self.weights_mc[sel] *= reweighter.func(varr)
 
         # rescale
         self.weights[self.pass_reco] *= factors
