@@ -52,7 +52,7 @@ def load_dataset_root(
         file_names,
         tree_name,
         variable_names = [],
-        weight_name = None,
+        weight_type = 'nominal',
         dummy_value = None
     ):
     """
@@ -81,8 +81,9 @@ def load_dataset_root(
     if variable_names:
         branches = list(variable_names)
 
-        if weight_name:
-            branches.append(weight_name)
+        # event weights
+        wvarlist = branches_for_weights(weight_type)
+        branches.append(wvarlist)
 
         # flags for identifying events
         branches += ['isMatched', 'isDummy']
@@ -124,6 +125,53 @@ def load_dataset_root(
     # TODO: return a masked array?
     return data_array, pass_sel
 
+def branches_for_weights(weight_type='nominal'):
+    """
+    Return a list of branches/variables needed to retrieve event weights
+    """
+    branches = []
+
+    if weight_type == 'nominal':
+        branches = ['totalWeight_nominal','normedWeight', 'weight_mc']
+    #elif: TODO for systematics from varying weights
+
+    return branches
+
+def retrieve_weights(array_reco, array_truth=None, weight_type='nominal'):
+    """
+    Retrieve event weights from data arrays
+    """
+    if not 'totalWeight_nominal' in array_reco.dtype.names:
+        # not MC sample
+        w_reco = np.ones(len(array_reco))
+        w_truth = None
+    else:
+        # MC sample
+        # normalization: cross section * luminosity / sumWeights
+        # Currently sumWeights is not saved, instead there is a 'normedWeight'
+        # 'normedWeight' = 'totalWeight_nominal' * 'xs_times_lumi' / sumWeights
+        # the normalization factor
+        f_norm = np.zeros(len(array_reco))
+        np.divide(
+            array_reco['normedWeight'], array_reco['totalWeight_nominal'],
+            out=f_norm, where = array_reco['totalWeight_nominal']!=0
+            )
+        # TODO: store sumWeights in the ntuple
+        # TODO: some events have zero weight due to 'weight_pileup' = 0
+
+        w_reco = array_reco['normedWeight']
+
+        if array_truth is not None:
+            assert(len(array_truth) == len(array_reco))
+            w_truth = array_truth['weight_mc'] * f_norm
+            # note: truth weight now becomes 0 too when reco weight is 0
+        else:
+            w_truth = None
+
+        # TODO: weight_type != 'nominal'
+
+    return w_reco, w_truth
+
 class DataHandlerROOT(DataHandler):
     """
     Load data from root files
@@ -154,8 +202,7 @@ class DataHandlerROOT(DataHandler):
         filepaths,
         variable_names=[],
         variable_names_mc=[],
-        weights_name=None, #"normedWeight",
-        weights_name_mc=None, #"weight_mc",
+        weight_type='nominal',
         treename_reco='reco',
         treename_truth='parton',
         dummy_value=None
@@ -163,40 +210,32 @@ class DataHandlerROOT(DataHandler):
         # load data from root files
         variable_names = dh._filter_variable_names(variable_names)
         self.data_reco, self.pass_reco = load_dataset_root(
-            filepaths, treename_reco, variable_names, weights_name, dummy_value
+            filepaths, treename_reco, variable_names, weight_type, dummy_value
             )
-
-        # event weights
-        if weights_name:
-            self.weights = self.data_reco[weights_name]
-        else:
-            self.weights = np.ones(len(self.data_reco))
 
         # truth variables if available
         if treename_truth:
             variable_names_mc = dh._filter_variable_names(variable_names_mc)
             self.data_truth, self.pass_truth = load_dataset_root(
-                filepaths, treename_truth, variable_names_mc, weights_name_mc,
+                filepaths, treename_truth, variable_names_mc, weight_type,
                 dummy_value
             )
+        else:
+            self.data_truth = None
 
-            # rename fields of the truth array if the name is already in the reco
-            # array
+        # event weightss
+        self.weights, self.weights_mc = retrieve_weights(
+            self.data_reco, self.data_truth, weight_type
+            )
+
+        # rename truth array variable name if it already exists in reco array
+        if self.data_truth is not None:
             prefix = 'truth_'
             newnames = {}
             for fname in self.data_truth.dtype.names:
                 if fname in self.data_reco.dtype.names:
                     newnames[fname] = prefix+fname
             self.data_truth = rfn.rename_fields(self.data_truth, newnames)
-
-            # mc weights
-            if weights_name_mc:
-                self.weights_mc = self.data_truth[weights_name_mc]
-            else:
-                self.weights_mc = np.ones(len(self.data_truth))
-        else:
-            self.data_truth = None
-            self.weights_mc = None
 
         # deal with events that fail selections
         if dummy_value is None:

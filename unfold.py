@@ -63,10 +63,6 @@ def unfold(**parsed_args):
     # truth-level variable names for training
     vars_mc_train = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_train'] ] 
 
-    # weight name
-    wname = parsed_args['weight']
-    wname_mc = 'weight_mc'
-
     #################
     # Load data
     #################
@@ -84,12 +80,13 @@ def unfold(**parsed_args):
                 logger.info("Set variables to a dummy value {} for events that fail reco or truth level selections".format(parsed_args['dummy_value']))
 
             dh = DataHandlerROOT(
-                file_names, vars_det_all, vars_mc_all, wname, wname_mc,
+                file_names, vars_det_all, vars_mc_all,
                 treename_reco = tree_reco, treename_truth = tree_mc,
                 dummy_value=parsed_args['dummy_value']
                 )
         else:
             # '.npz'
+            wname = 'totalWeight_nominal'
             varnames_truth = [] if reco_only else vars_mc_all
             dh = DataHandler(file_names, vars_det_all, varnames_truth, wname)
 
@@ -320,8 +317,6 @@ if __name__ == "__main__":
                         help="Plot pairwise correlations of training variables")
     parser.add_argument('-i', '--iterations', type=int, default=4,
                         help="Numbers of iterations for unfolding")
-    parser.add_argument('--weight', default='totalWeight_nominal',
-                        help="name of event weight")
     parser.add_argument('-m', '--background-mode', dest='background_mode',
                         choices=['default', 'negW', 'multiClass'],
                         default='default', help="Background mode")
