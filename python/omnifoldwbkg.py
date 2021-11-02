@@ -777,7 +777,11 @@ class OmniFoldwBkg(object):
 
             if not reweight_only:
                 # prepare weight array for training
-                w_step2 = np.concatenate([wt_pull[pass_truth]*wgen, wgen])
+                #w_step2 = np.concatenate([wt_pull[pass_truth]*wgen, wgen])
+                wgen_label1 = wt_pull[pass_truth]*wgen
+                #wgen_label0 = wgen
+                wgen_label0 = wgen if i==0 else weights_unfold[i-1]*wgen
+                w_step2 = np.concatenate([wgen_label1, wgen_label0])
 
                 # split data into training and test sets
                 X_step2_train, X_step2_test, Y_step2_train, Y_step2_test, w_step2_train, w_step2_test = train_test_split(X_step2, Y_step2, w_step2, test_size=val_size)
@@ -790,18 +794,19 @@ class OmniFoldwBkg(object):
             # reweight
             logger.info("Reweighting")
             fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir and not reweight_only else None
-            wt_i = self._reweight_step2(model_step2, X_gen_rw, fname_rhist2)
-            wt_i[~pass_truth] = 1
-            logger.debug("Iteration {} step 2: wt.sum() = {}".format(i, wt_i.sum()))
+            wprev = 1. if i==0 else weights_unfold[i-1]
+            wm_push[pass_truth] = wprev * self._reweight_step2(model_step2, X_gen_rw, fname_rhist2)[pass_truth]
+            wm_push[~pass_truth] = 1
+            logger.debug("Iteration {} step 2: wt.sum() = {}".format(i, wm_push.sum()))
 
             # TODO: check the performace
             #wt_i /= np.mean(wt_i)
 
             # push the updated truth level weights to the detector level
-            wm_push = wt_i
+            #wm_push = wt_i
 
             # save truth level weights of this iteration
-            weights_unfold[i,:] = wt_i[pass_truth]
+            weights_unfold[i,:] = wm_push[pass_truth]
         # end of iterations
         #assert(not np.isnan(weights_unfold).any())
 
