@@ -259,7 +259,7 @@ def unfold(**parsed_args):
 
     tracemalloc.stop()
 
-if __name__ == "__main__":
+def getArgsParser():
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -342,6 +342,12 @@ if __name__ == "__main__":
     #                    help="Use alternative reweighting if true")
 
     args = parser.parse_args()
+
+    return args
+
+if __name__ == "__main__":
+
+    args = getArgsParser()
 
     # Verify truth is known when reweighting
     if args.reweight_data is not None and not args.truth_known:
