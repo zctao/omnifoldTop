@@ -34,6 +34,19 @@ def expandFilePath(filepath):
     else:
         return None
 
+def getFilesExtension(file_names):
+    ext = None
+    for fname in file_names:
+        fext = os.path.splitext(fname)[-1]
+        if ext is None:
+            ext = fext
+        else:
+            # check if all file extensions are consistent
+            if ext != fext:
+                raise RuntimeError('Files do not have the same extensions')
+
+    return ext
+
 def configRootLogger(filename=None, level=logging.INFO):
     msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
     datefmt = '%Y-%m-%d %H:%M:%S'

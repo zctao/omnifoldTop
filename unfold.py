@@ -14,23 +14,10 @@ from omnifoldwbkg import OmniFoldwBkg_negW, OmniFoldwBkg_multi
 from ibu import IBU
 import reweight
 from util import read_dict_from_json, get_bins
-from util import configGPUs, expandFilePath, configRootLogger
+from util import configGPUs, expandFilePath, getFilesExtension, configRootLogger
 import logging
 
 import metrics
-
-def getFilesExtension(file_names):
-    ext = None
-    for fname in file_names:
-        fext = os.path.splitext(fname)[-1]
-        if ext is None:
-            ext = fext
-        else:
-            # check if all file extensions are consistent
-            if ext != fext:
-                raise RuntimeError('Files do not have the same extensions')
-
-    return ext
 
 def unfold(**parsed_args):
     tracemalloc.start()
