@@ -454,6 +454,7 @@ class OmniFoldwBkg(object):
         logger.info("Skip training")
 
         wfilelist = list(unfolded_weight_files)
+        wfilelist.sort()
         assert(len(wfilelist) > 0)
         logger.info("Load unfolded weights: {}".format(wfilelist[0]))
         self.unfolded_weights = self._read_weights_from_file(wfilelist[0])
@@ -732,6 +733,18 @@ class OmniFoldwBkg(object):
         weights_unfold = np.empty(shape=(self.iterations, len(wgen)))
         ## shape: (n_iterations, n_events[pass_truth])
 
+        ####
+        X_gen = X_gen_rw[pass_reco & pass_truth]
+        X_step1b = np.concatenate([X_gen, X_gen])
+        Y_step1b = np.concatenate([np.ones(len(X_gen)), np.zeros(len(X_gen))])
+        Y_step1b = tf.keras.utils.to_categorical(Y_step1b)
+
+        X_sim = X_sim_rw[pass_reco & pass_truth]
+        X_step2b = np.concatenate([X_sim, X_sim])
+        Y_step2b = np.concatenate([np.ones(len(X_sim)), np.zeros(len(X_sim))])
+        Y_step2b = tf.keras.utils.to_categorical(Y_step2b)
+        ####
+
         for i in range(self.iterations):
             logger.info("Iteration {}".format(i))
             ####
@@ -760,7 +773,28 @@ class OmniFoldwBkg(object):
             logger.info("Reweighting")
             fname_rhist1 = model_dir+'/rhist_step1_{}'.format(i) if model_dir and not reweight_only else None
             wt_pull = wm_push * self._reweight_step1(model_step1, X_sim_rw, fname_rhist1)
-            wt_pull[~pass_reco] = 1
+
+            # Step 1b
+            if np.any(~pass_reco):
+                logger.info("Step 1b")
+                # step 1b: deal with the events that do not pass reco
+                #wt_pull[~pass_reco] = 1
+                # Or assign the average weight: <w|x_true>
+                # Only use events that pass both reco and truth selections
+                w_step1b = np.concatenate([
+                    #wt_pull[pass_reco&pass_truth] * wgen[pass_reco[pass_truth]],
+                    #wgen[ pass_reco[pass_truth] ]
+                    wt_pull[pass_reco & pass_truth], np.ones(len(X_gen))
+                    ])
+                X_step1b_train, X_step1b_test, Y_step1b_train, Y_step1b_test, w_step1b_train, w_step1b_test = train_test_split(X_step1b, Y_step1b, w_step1b, test_size=val_size)
+                model_step1b, cb_step1b = self._set_up_model(X_step1b.shape[1:])
+                logger.info("Start training")
+                self._train_model(model_step1b, X_step1b_train, Y_step1b_train, w_step1b_train, callbacks=cb_step1b, val_data=(X_step1b_test, Y_step1b_test, w_step1b_test), **fitargs)
+                logger.info("Model training done")
+
+                fname_rhist1b = model_dir+f"/rhist_step1b_{i}" if model_dir else None
+                wt_pull[~pass_reco] = self._reweight(model_step1b, X_gen_rw[~pass_reco], fname_rhist1b)
+
             logger.debug("Iteration {} step 1: wt_pull.sum() = {}".format(i, wt_pull.sum()))
             # wt_pull:
             # weights pulled to the truth level from the updated reco weights
@@ -792,8 +826,29 @@ class OmniFoldwBkg(object):
             # reweight
             logger.info("Reweighting")
             fname_rhist2 = model_dir+'/rhist_step2_{}'.format(i) if model_dir and not reweight_only else None
-            wm_push[pass_truth] = rw_step2 * self._reweight_step2(model_step2, X_gen_rw, fname_rhist2)[pass_truth]
-            wm_push[~pass_truth] = 1
+            wm_push[pass_truth] = rw_step2 * self._reweight_step2(model_step2, X_gen_rw[pass_truth], fname_rhist2)
+
+            # Step 2b
+            if np.any(~pass_truth):
+                logger.info("Step 2b")
+                # step 2b: deal with the events that do not pass truth
+                #wm_push[~pass_truth] = 1
+                # Or assign the average weight: <w|x_reco>
+                # Only use events that pass both reco and truth selections
+                w_step2b = np.concatenate([
+                    #wm_push[pass_reco&pass_truth] * wsim[pass_truth[pass_reco]],
+                    #wsim[pass_truth[pass_reco]]
+                    wm_push[pass_reco & pass_truth], np.ones(len(X_sim))
+                    ])
+                X_step2b_train, X_step2b_test, Y_step2b_train, Y_step2b_test, w_step2b_train, w_step2b_test = train_test_split(X_step2b, Y_step2b, w_step2b, test_size=val_size)
+                model_step2b, cb_step2b = self._set_up_model(X_step2b.shape[1:])
+                logger.info("Start training")
+                self._train_model(model_step2b, X_step2b_train, Y_step2b_train, w_step2b_train, callbacks=cb_step2b, val_data=(X_step2b_test, Y_step2b_test, w_step2b_test), **fitargs)
+                logger.info("Model training done")
+
+                fname_rhist2b = model_dir+f"/rhist_step2b_{i}" if model_dir else None
+                wm_push[~pass_truth] = self._reweight(model_step2b, X_sim_rw[~pass_truth], fname_rhist2b)
+
             logger.debug("Iteration {} step 2: wm_push.sum() = {}".format(i, wm_push.sum()))
             # wm_push:
             # weights pushed to the detector level from the updated truth weights
