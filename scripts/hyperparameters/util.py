@@ -102,11 +102,11 @@ def cat_path(**sections):
     return pathlib.Path().joinpath(*sections.values())
 
 
-def load(root, section, pathfunc=cat_path, **indices):
+def load(root, section, pathfunc=cat_path, iterations=5, resamples=10, **indices):
     inner_indices = {"variable": variables}
     if section == "resample":
-        inner_indices["resample"] = range(10)
-    inner_indices["iteration"] = range(5)
+        inner_indices["resample"] = range(iterations)
+    inner_indices["iteration"] = range(resamples)
 
     rows = []
     for index in it.product(*indices.values()):
