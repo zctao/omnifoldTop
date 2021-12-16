@@ -412,7 +412,8 @@ def plot_histograms1d(
         ylabel="",
         colors=None,
         plottypes=None,
-        marker='o'
+        marker='o',
+        yscale=None
 ):
     """
     Plot histograms of several datasets on the same x and y axes.
@@ -451,6 +452,9 @@ def plot_histograms1d(
 
     ax.xaxis.get_major_formatter().set_scientific(True)
     ax.xaxis.get_major_formatter().set_powerlimits((-3,4))
+
+    if yscale=='log':
+        ax.set_yscale('log')
 
     if colors is None:
         colors = set_default_colors(len(histograms))
@@ -903,14 +907,14 @@ def plot_LR_distr(figname, ratios, labels=None):
     labels : sequence of str, optional
         Labels for each set of likelihood ratios in `ratios`.
     """
-    bins_r = np.linspace(0, max(r.max() for r in ratios), 51)
+    bins_r = np.linspace(min(r.min() for r in ratios)*0.9, max(r.max() for r in ratios)*1.1, 50)
 
     histograms = []
     for r in ratios:
-        hr = calc_hist(r, bins_r, density=True )
+        hr = calc_hist(r, bins_r, density=False )
         histograms.append(hr)
 
-    plot_histograms1d(figname, histograms, labels, xlabel='r')
+    plot_histograms1d(figname, histograms, labels, xlabel='r')#, yscale='log')
 
 def plot_training_vs_validation(
         figname,
