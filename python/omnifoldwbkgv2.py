@@ -611,6 +611,8 @@ class OmniFoldTTbar():
         if standardize:
             wsim /= wmean_obs
             #TODO check alternative: divide by its own mean
+            #wmean_sim = np.mean(wsim[self.handle_sig.pass_reco])
+            #wsim /= wmean_sim
 
         # truth level
         wgen = self.handle_sig.get_weights(valid_only=False, reco_level=False)
