@@ -10,7 +10,7 @@ import plotting
 from datahandler import DataHandler
 from datahandler_root import DataHandlerROOT
 from model import get_model, get_callbacks
-from histogramming import get_mean_from_hists, get_sigma_from_hists, get_bin_correlations_from_hists
+from histogramming import get_mean_from_hists, get_sigma_from_hists, get_bin_correlations_from_hists, set_hist_contents, set_hist_errors
 
 logger = logging.getLogger('OmniFoldTTbar')
 logger.setLevel(logging.DEBUG)
@@ -714,7 +714,7 @@ class OmniFoldTTbar():
 
                 # model directory
                 load_model_dir_rs = os.path.join(load_models_from, f"Models_rs{ir}") if load_model_dir else ''
-                save_model_dir_rs = os.path.join(load_models_from, f"Models_rs{ir}") if save_model_dir else ''
+                save_model_dir_rs = os.path.join(self.outdir, f"Models_rs{ir}") if save_model_dir else ''
 
                 # bootstrap data weights
                 w_data, w_sim, w_gen = self._get_event_weights(resample=True)
@@ -722,7 +722,7 @@ class OmniFoldTTbar():
                 # unfold
                 self.unfolded_weights_resample[ir,:,:] = unfold(
                     X_data, X_sim, X_gen,
-                    w_data_rs, w_sim, w_gen,
+                    w_data, w_sim, w_gen,
                     passcut_data, passcut_sim, passcut_gen,
                     niterations = niterations,
                     model_type = model_type,
