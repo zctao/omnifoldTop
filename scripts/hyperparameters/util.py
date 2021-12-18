@@ -136,6 +136,11 @@ def load(root, section, pathfunc=cat_path, iterations=5, resamples=10, **indices
             )
 
     df = pd.DataFrame.from_dict(data=rows)
+    df = df.assign(
+        interesting=[
+            df["chisq/ndf"][i - df["iteration"][i]] > 2 for i in range(len(df))
+        ]
+    )
     df = df.set_index([*indices.keys(), *inner_indices.keys()])
     return df
 
