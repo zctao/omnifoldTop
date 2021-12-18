@@ -201,15 +201,95 @@ def weighted_categorical_crossentropy(y_true, y_pred):
     loss = -event_weights * tf.reduce_sum(y_true * K.log(y_pred), axis=-1)
     return K.mean(loss)
 
-def dense_3hl(input_shape, nclass=2):
+def parse_name_for_dense(model_name):
     """
-    A classifier with 3 dense hidden layers of 100 neurons each. All
-    layers use ReLU activation except the output, which uses softmax.
+    Parse the model name and return a list of number of nodes in each layer in
+    case of dense neural network.
+
+    Parameters
+    ----------
+    model_name : str
+        Name of the model to set up. In case if dense network, the expected name
+        is "dense_m_n_...", where m, n, ... are number of nodes in each layer
+        or "dense_mxl", where m is the number of nodes in every layer and l is
+        the number of layers
+
+    Return
+    ------
+    A list of positive int
+    """
+    if 'dense_' in model_name:
+        # expected dense_model name: dense_a_b_...
+        # where a,a,... are number of nodes in each hidden layer
+        # special case: e.g. dense_100x2: two hidden layers each with 100 nodes
+        nodes_list = model_name.lstrip('dense_').split('_')
+        if len(nodes_list)==1 and 'x' in nodes_list[0]:
+            nl = nodes_list[0].split('x')
+            assert(len(nl)==2)
+            # nl[0]: number of nodes in each layer; nl[1]: number layers
+            return [int(nl[0])] * int(nl[1])
+        else:
+            return [int(n) for n in nodes_list]
+    else:
+        return []
+
+def get_model(input_shape, nclass=2, model_name='dense_100x3'):
+    """
+    Build and compile the classifier for OmniFold.
 
     Parameters
     ----------
     input_shape : sequence of positive int
         Shape of the input layer of the model.
+
+    Parameters
+    ----------
+    input_shape : sequence of positive int
+        Shape of the input layer of the model.
+    model_name : str, default: "dense_3hl"
+        The name of a function in the `model` module that builds an
+        architecture and returns a `tf.keras.models.Model`.
+    model_name : str, default: "dense_3hl"
+        The name of a function in the `model` module that builds an
+        architecture and returns a `tf.keras.models.Model`.
+    nclass : positive int, default: 2
+        Number of classes in the classifier.
+
+    Returns
+    -------
+    tf.keras.models.Model
+        Model compiled with loss function
+        `model.weighted_categorical_crossentropy`, Adam optimizer and
+        accuracy metrics.
+    """
+    # parse model_name
+    nodes_list = parse_name_for_dense(model_name)
+
+    if nodes_list:
+        model = dense_net(input_shape, nodes_list, nclass)
+    else:
+        model = eval(model_name+"(input_shape, nclass)")
+
+    model.compile(loss=weighted_categorical_crossentropy,
+                  #loss='categorical_crossentropy',
+                  optimizer='Adam',
+                  metrics=['accuracy'])
+
+    model.summary()
+
+    return model
+
+def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
+    """
+    A dense neural network classifer. Number of nodes on each layer is specified
+    by nnodes
+
+    Parameters
+    ----------
+    input_shape : sequence of positive int
+        Shape of the input layer of the model.
+    nnodes : sequence of positive int
+        Number of nodes in each hidden layer.
     nclass : positive int, default: 2
         Number of classes in the classifier.
 
@@ -218,45 +298,14 @@ def dense_3hl(input_shape, nclass=2):
     tf.keras.models.Model
     """
     inputs = keras.layers.Input(input_shape)
-    hidden_layer_1 = keras.layers.Dense(100, activation="relu")(inputs)
-    hidden_layer_2 = keras.layers.Dense(100, activation="relu")(hidden_layer_1)
-    hidden_layer_3 = keras.layers.Dense(100, activation="relu")(hidden_layer_2)
-    outputs = keras.layers.Dense(nclass, activation="softmax")(hidden_layer_3)
 
-    nn = keras.models.Model(inputs=inputs, outputs=outputs)
+    prev_layer = inputs
+    for n in nnodes:
+        prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
 
-    return nn
+    outputs = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
 
-
-def dense_6hl(input_shape, nclass=2):
-    """
-    A classifier with 6 dense hidden layers of 100 neurons each. All
-    layers use ReLU activation except the output, which uses softmax.
-
-    Parameters
-    ----------
-    input_shape : sequence of positive int
-        Shape of the input layer of the model.
-    nclass : positive int, default: 2
-        Number of classes in the classifier.
-
-    Returns
-    -------
-    tf.keras.models.Model
-    """
-    inputs = keras.layers.Input(input_shape)
-    hidden_layer_1 = keras.layers.Dense(100, activation="relu")(inputs)
-    hidden_layer_2 = keras.layers.Dense(100, activation="relu")(hidden_layer_1)
-    hidden_layer_3 = keras.layers.Dense(100, activation="relu")(hidden_layer_2)
-    hidden_layer_4 = keras.layers.Dense(100, activation="relu")(hidden_layer_3)
-    hidden_layer_5 = keras.layers.Dense(100, activation="relu")(hidden_layer_4)
-    hidden_layer_6 = keras.layers.Dense(100, activation="relu")(hidden_layer_5)
-    outputs = keras.layers.Dense(nclass, activation="softmax")(hidden_layer_6)
-
-    nn = keras.models.Model(inputs=inputs, outputs=outputs)
-
-    return nn
-
+    return keras.models.Model(inputs=inputs, outputs=outputs)
 
 def pfn(input_shape, nclass=2, nlatent=8):
     """

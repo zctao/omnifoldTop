@@ -368,7 +368,7 @@ class OmniFoldwBkg(object):
 
     def get_unfolded_distribution(self, variable, bins, all_iterations=False,
                                   bootstrap_uncertainty=True, normalize=True):
-        rw = self.unfolded_weights if all_iterations else self.unfolded_weights[-1]
+        rw = self.unfolded_weights[:self.iterations] if all_iterations else self.unfolded_weights[self.iterations-1]
         wsim = self.datahandle_sig.get_weights()
         h_uf = self.datahandle_sig.get_histogram(variable, bins, wsim*rw)
         # h_uf is a hist object or a list of hist objects
@@ -462,7 +462,7 @@ class OmniFoldwBkg(object):
             text_ks = metrics.write_texts_KS(
                 arr_truth, self.datahandle_obs.get_weights(),
                 [arr_sim, arr_sim],
-                [self.datahandle_sig.get_weights()*self.unfolded_weights[-1],
+                [self.datahandle_sig.get_weights()*self.unfolded_weights[self.iterations-1],
                  self.datahandle_sig.get_weights()],
                 labels=['OmniFold', 'Prior']
             )
@@ -696,9 +696,9 @@ class OmniFoldwBkg(object):
         hists_resample = []
         for iresample in range(len(self.unfolded_weights_resample)):
             if all_iterations:
-                rw = self.unfolded_weights_resample[iresample]
+                rw = self.unfolded_weights_resample[iresample][:self.iterations]
             else:
-                rw = self.unfolded_weights_resample[iresample][-1]
+                rw = self.unfolded_weights_resample[iresample][self.iterations-1]
 
             wsim = self.datahandle_sig.get_weights()
             h = self.datahandle_sig.get_histogram(variable, bins, wsim*rw)
