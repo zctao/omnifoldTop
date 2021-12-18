@@ -8,6 +8,7 @@ import time
 import tracemalloc
 
 from datahandler import DataHandler
+from datahandler_root import DataHandlerROOT
 from omnifoldwbkg import OmniFoldwBkg
 from omnifoldwbkg import OmniFoldwBkg_negW, OmniFoldwBkg_multi
 from ibu import IBU
@@ -17,6 +18,19 @@ from util import configGPUs, expandFilePath, configRootLogger
 import logging
 
 import metrics
+
+def getFilesExtension(file_names):
+    ext = None
+    for fname in file_names:
+        fext = os.path.splitext(fname)[-1]
+        if ext is None:
+            ext = fext
+        else:
+            # check if all file extensions are consistent
+            if ext != fext:
+                raise RuntimeError('Files do not have the same extensions')
+
+    return ext
 
 def unfold(**parsed_args):
     tracemalloc.start()
@@ -55,33 +69,47 @@ def unfold(**parsed_args):
     #################
     # Load data
     #################
+    def loadData(file_names, reco_only=False):
+        # use the proper data handler based on the type of input files
+        if getFilesExtension(file_names) == '.root':
+            # ROOT files
+            # hard code tree names here for now
+            tree_reco = 'reco'
+            tree_mc = None if reco_only else 'parton'
+            dh = DataHandlerROOT(file_names, tree_reco, tree_mc, vars_det_all, vars_mc_all, wname)
+        else:
+            # '.npz'
+            varnames = vars_det_all if reco_only else vars_det_all + vars_mc_all
+            dh = DataHandler(file_names, wname, variable_names = varnames)
+
+        return dh
+
     logger.info("Loading datasets")
     t_data_start = time.time()
 
     # collision data
     fnames_obs = parsed_args['data']
     logger.info("Data files: {}".format(' '.join(fnames_obs)))
-    vars_obs = vars_det_all+vars_mc_all if parsed_args['truth_known'] else vars_det_all
-    data_obs = DataHandler(fnames_obs, wname, variable_names=vars_obs)
+    data_obs = loadData(fnames_obs, reco_only = not parsed_args['truth_known'])
 
     # mix background simulation for testing if needed
     fnames_obsbkg = parsed_args['bdata']
     if fnames_obsbkg is not None:
         logger.info("Background simulation files to be mixed with data: {}".format(' '.join(fnames_obsbkg)))
-        data_obsbkg = DataHandler(fnames_obsbkg, wname, variable_names = vars_det_all)
+        data_obsbkg = loadData(fnames_obsbkg, reco_only=True)
     else:
         data_obsbkg = None
 
     # signal simulation
     fnames_sig = parsed_args['signal']
     logger.info("Simulation files: {}".format(' '.join(fnames_sig)))
-    data_sig = DataHandler(fnames_sig, wname, variable_names = vars_det_all+vars_mc_all)
+    data_sig = loadData(fnames_sig, reco_only=False)
 
     # background simulation
     fnames_bkg = parsed_args['background']
     if fnames_bkg is not None:
         logger.info("Background simulation files: {}".format(' '.join(fnames_bkg)))
-        data_bkg =  DataHandler(fnames_bkg, wname, variable_names = vars_det_all)
+        data_bkg = loadData(fnames_bkg, reco_only=True)
     else:
         data_bkg = None
 
@@ -284,7 +312,7 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--error-type', dest='error_type',
                         choices=['sumw2','bootstrap_full','bootstrap_model'],
                         default='sumw2', help="Method to evaluate uncertainties")
-    parser.add_argument('--batch-size', dest='batch_size', type=int, default=512,
+    parser.add_argument('--batch-size', dest='batch_size', type=int, default=16384,
                         help="Batch size for training")
     parser.add_argument('-l', '--load-models', dest='load_models', type=str,
                         help="Directory from where to load trained models. If provided, training will be skipped.")

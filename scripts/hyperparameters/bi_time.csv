@@ -1,0 +1,17 @@
+initializer, batch power, time
+glorot_uniform, 9, 19643.78
+glorot_uniform, 12, 2826.47
+glorot_uniform, 15, 672.70
+glorot_uniform, 18, 939.29
+glorot_normal, 9, 18863.02
+glorot_normal, 12, 2948.87
+glorot_normal, 15, 699.75
+glorot_normal, 18, 953.16
+he_uniform, 9, 18172.13
+he_uniform, 12, 5069.95
+he_uniform, 15, 1314.67
+he_uniform, 18, 2009.52
+he_normal, 9, 18738.29
+he_normal, 12, 5013.25
+he_normal, 15, 1358.43
+he_normal, 18, 1996.49

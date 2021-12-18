@@ -173,6 +173,21 @@ class DataHandler(Mapping):
         """
         return variable in self.data.dtype.names
 
+    def _get_array(self, variable):
+        """
+        Return a 1D numpy array of the variable
+
+        Parameters
+        ----------
+        variable : str
+            Name of the variable
+
+        Returns
+        -------
+        np.ndarray of shape (n_events,)
+        """
+        return self.data[str(variable)]
+
     def __getitem__(self, features):
         """
         Retrieve features from each event in the dataset.
@@ -200,7 +215,8 @@ class DataHandler(Mapping):
             if features in self:
                  # Can't index data by np Unicode arrays, have to
                  # convert back to str first.
-                return self.data[str(features)]
+                #return self.data[str(features)]
+                return self._get_array(features)
             # special cases
             elif '_px' in features:
                 var_pt = features.replace('_px', '_pt')
