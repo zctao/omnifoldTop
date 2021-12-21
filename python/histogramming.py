@@ -41,6 +41,9 @@ def check_hist_flow(h, threshold_underflow=0.01, threshold_overflow=0.01):
     n_overflow = h[hist.overflow]['value']
     n_total = h.sum(flow=True)['value']
 
+    if n_total == 0:
+        return True
+
     if float(n_underflow/n_total) > threshold_underflow:
         logger.debug("Percentage of entries in the underflow bin: {}".format(float(n_underflow/n_total)))
         logger.warn("Number of entries in the underflow bin exceeds the threshold!")

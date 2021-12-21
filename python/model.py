@@ -2,12 +2,84 @@
 Define model architectures.
 """
 
+import logging
+import os
+
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 import tensorflow.keras.backend as K
 
+import plotting
+
+logger = logging.getLogger("Model")
+logger.setLevel(logging.DEBUG)
+
+
+def setup(step, input_shape, iteration, model_dir, load_previous_iter=True, reweight_only=False):
+    model_fp = os.path.join(model_dir, f"model_step{step}_{{}}")
+
+    if reweight_only:
+        filepath_save = None
+        filepath_load = model_fp.format(iteration)
+    else:
+        filepath_save = model_fp.format(iteration)
+        if load_previous_iter and iteration > 0:
+            filepath_load = model_fp.format(iteration - 1)
+        else:
+            filepath_load = None
+
+    return build(input_shape, filepath_save, filepath_load)
+
+def build(input_shape, filepath_save=None, filepath_load=None, nclass=2):
+    model = get_model(input_shape, nclass=nclass)
+    callbacks = get_callbacks(filepath_save)
+
+    # load weights from the previous model if available
+    if filepath_load is not None:
+        load_weights_from_file(model, filepath_load, reweight_only=filepath_save is None)
+
+    return model, callbacks
+
+def load_weights_from_file(model, filepath_load, reweight_only):
+    logger.info("Load model weights from {}".format(filepath_load))
+    status = model.load_weights(filepath_load)
+
+    if reweight_only:
+        status.expect_partial()
+
+def get_model(input_shape, model_name='dense_3hl', nclass=2):
+    """
+    Build and compile the classifier for OmniFold.
+
+    Parameters
+    ----------
+    input_shape : sequence of positive int
+        Shape of the input layer of the model.
+    model_name : str, default: "dense_3hl"
+        The name of a function in the `model` module that builds an
+        architecture and returns a `tf.keras.models.Model`.
+    nclass : positive int, default: 2
+        Number of classes in the classifier.
+
+    Returns
+    -------
+    tf.keras.models.Model
+        Model compiled with loss function
+        `model.weighted_categorical_crossentropy`, Adam optimizer and
+        accuracy metrics.
+    """
+    model = eval(model_name+"(input_shape, nclass)")
+
+    model.compile(loss=weighted_categorical_crossentropy,
+                  #loss='categorical_crossentropy',
+                  optimizer='Adam',
+                  metrics=['accuracy'])
+
+    model.summary()
+
+    return model
 
 def get_callbacks(model_filepath=None):
     """
@@ -43,6 +115,35 @@ def get_callbacks(model_filepath=None):
         return [CheckPoint, CSVLogger, EarlyStopping]
     else:
         return [EarlyStopping]
+
+def train(model, X, Y, w, callbacks=[], val_data=None, figname_preds="", **fitargs):
+    if callbacks:
+        fitargs.setdefault("callbacks", []).extend(callbacks)
+
+    # zip event weights with labels
+    Yw = np.column_stack((Y, w))
+    if val_data is not None:
+        X_val, Y_val, w_val = val_data
+        Yw_val = np.column_stack((Y_val, w_val))
+        val_dict = {"validation_data": (X_val, Yw_val)}
+    else:
+        val_dict = {}
+
+    model.fit(X, Yw, **fitargs, **val_dict)
+
+    if figname_preds and val_data is not None:
+        preds_train = model.predict(X, batch_size=int(0.1 * len(X)))[:, 1]
+        preds_val = model.predict(X_val, batch_size=int(0.1 * len(X_val)))[:, 1]
+        logger.info("Plot model output distribution: {}".format(figname_preds))
+        plotting.plot_training_vs_validation(
+            figname_preds,
+            preds_train,
+            Y,
+            w,
+            preds_val,
+            Y_val,
+            w_val
+        )
 
 def weighted_binary_crossentropy(y_true, y_pred):
     """
@@ -102,14 +203,14 @@ def weighted_categorical_crossentropy(y_true, y_pred):
 
 def parse_name_for_dense(model_name):
     """
-    Parse the model name and return a list of number of nodes in each layer in 
+    Parse the model name and return a list of number of nodes in each layer in
     case of dense neural network.
 
     Parameters
     ----------
     model_name : str
         Name of the model to set up. In case if dense network, the expected name
-        is "dense_m_n_...", where m, n, ... are number of nodes in each layer 
+        is "dense_m_n_...", where m, n, ... are number of nodes in each layer
         or "dense_mxl", where m is the number of nodes in every layer and l is
         the number of layers
 
@@ -140,6 +241,14 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     ----------
     input_shape : sequence of positive int
         Shape of the input layer of the model.
+
+    Parameters
+    ----------
+    input_shape : sequence of positive int
+        Shape of the input layer of the model.
+    model_name : str, default: "dense_3hl"
+        The name of a function in the `model` module that builds an
+        architecture and returns a `tf.keras.models.Model`.
     model_name : str, default: "dense_3hl"
         The name of a function in the `model` module that builds an
         architecture and returns a `tf.keras.models.Model`.

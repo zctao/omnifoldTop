@@ -412,7 +412,10 @@ def write_all_metrics_unbinned(
 
 def evaluate_all_metrics(variable, varConfig, bin_edges, of, ibu=None):
     """
-    Compute and plot metrics for unfolded distributions
+    Compute and plot metrics for unfolded distributions.
+
+    Note that computing metrics only makes sense if the truth distribution
+    is known.
 
     Parameters
     ----------
@@ -434,11 +437,6 @@ def evaluate_all_metrics(variable, varConfig, bin_edges, of, ibu=None):
     A dictionary that contains the calculated metrics for various methods.
     The dictionary is also saved as a json file to of.outdir+"/Metrics/"
     """
-
-    if not of.truth_known:
-        print("Cannot evaluate the performance without a reference")
-        return
-
     # truth-level branch name for variable
     vname_mc = varConfig['branch_mc']
 
