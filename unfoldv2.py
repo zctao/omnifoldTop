@@ -4,11 +4,15 @@ import sys
 import time
 import tracemalloc
 import logging
+import numpy as np
 
 import util
-import plotting
+import plotter
 import reweight
+import metrics
 from omnifoldwbkgv2 import OmniFoldTTbar
+
+import plotting
 
 def unfold(**parsed_args):
     tracemalloc.start()
@@ -121,11 +125,36 @@ def unfold(**parsed_args):
         bins_det = util.get_bins(observable, parsed_args['binning_config'])
         bins_mc = util.get_bins(observable, parsed_args['binning_config'])
 
-        # reco level distribution for reference
-        # TODO
+        ####
+        # Reco level
+        # observed data
+        h_data = unfolder.handle_obs.get_histogram(varname_reco, bins_det)
+        if unfolder.handle_obsbkg is not None:
+            h_data += unfolder.handle_obsbkg.get_histogram(varname_reco, bins_det)
 
+        # signal simulation
+        h_sig = unfolder.handle_sig.get_histogram(varname_reco, bins_det)
+
+        # background simulation if available
+        if unfolder.handle_bkg is not None:
+            h_bkg = unfolder.handle_bkg.get_histogram(varname_reco, bins_det)
+        else:
+            h_bkg = None
+
+        figname_reco = os.path.join(unfolder.outdir, f"Reco_{observable}")
+        logger.info(f"  Plot detector-level distribution: {figname_reco}")
+        plotter.plot_distributions_reco(
+            figname_reco, h_data, h_sig, h_bkg,
+            xlabel = observable_dict[observable]['xlabel'],
+            ylabel = observable_dict[observable]['ylabel'],
+            legend_loc = observable_dict[observable]['legend_loc'],
+            legend_ncol = observable_dict[observable]['legend_ncol']
+        )
+
+        ####
+        # Truth level
         # unfolded distribution
-        h_uf, h_corr = unfolder.get_unfolded_distribution(varname_truth, bins_mc, normalize=True) # TODO check this
+        h_uf, h_uf_corr = unfolder.get_unfolded_distribution(varname_truth, bins_mc, normalize=True) # TODO check this
 
         # prior distribution
         h_gen = unfolder.handle_sig.get_histogram(varname_truth, bins_mc)
@@ -138,15 +167,79 @@ def unfold(**parsed_args):
 
         # IBU: TODO
         h_ibu = None
+        h_ibu_corr = None
+
+        # print metrics on the plot
+        # TODO: add a switch to turn this off
+        texts_chi2 = metrics.write_texts_Chi2(
+            h_truth, [h_uf, h_ibu, h_gen], labels=['MultiFold', 'IBU', 'Prior'])
 
         # plot
-        figname = os.path.join(unfolder.outdir, f"Unfold_{observable}")
-        logger.info(f"  Plot unfolded distribution: {figname}")
-        # For now
-        plotting.plot_results(
-            h_gen, h_uf, h_ibu, h_truth, figname=figname,
-            **observable_dict[observable]
-            )
+        figname_uf = os.path.join(unfolder.outdir, f"Unfold_{observable}")
+        logger.info(f"  Plot unfolded distribution: {figname_uf}")
+        plotter.plot_distributions_unfold(
+            figname_uf, h_uf, h_gen, h_truth, h_ibu,
+            xlabel = observable_dict[observable]['xlabel'],
+            ylabel = observable_dict[observable]['ylabel'],
+            legend_loc = observable_dict[observable]['legend_loc'],
+            legend_ncol = observable_dict[observable]['legend_ncol'],
+            stamp_loc = observable_dict[observable]['stamp_xy'],
+            stamp_texts = texts_chi2
+        )
+
+        ####
+        # More plots
+        ##
+        # plot bin correlations
+        if h_uf_corr is not None:
+            figname_uf_corr = os.path.join(unfolder.outdir, f"BinCorr_{observable}_OmniFold")
+            logger.info(f"  Plot bin correlations: {figname_uf_corr}")
+            plotter.plot_correlations(figname_uf_corr, h_uf_corr, bins_mc)
+
+        if h_ibu_corr is not None:
+            figname_ibu_corr = os.path.join(unfolder.outdir, f"BinCorr_{observable}_IBU")
+            logger.info(f"  Plot bin correlations: {figname_ibu_corr}")
+            plotter.plot_correlations(figname_ibu_corr, h_ibu_corr, bins_mc)
+
+        ## Resamples
+        hists_uf_resample = unfolder.get_unfolded_hists_resamples(
+            varname_truth, bins_mc, normalize=False, all_iterations=True)
+
+        if len(hists_uf_resample) > 0: # TODO: plot verbosity
+            resample_dir = os.path.join(unfolder.outdir, 'Resamples')
+            if not os.path.isdir(resample_dir):
+                logger.info(f"Create directory {resample_dir}")
+                os.makedirs(resample_dir)
+
+            # all unfolded distributions from resampling
+            figname_rs = os.path.join(resample_dir, f"Unfold_AllResamples_{observable}")
+            logger.info(f"  Plot unfolded distributions from all resamples: {figname_rs}")
+            plotter.plot_distributions_resamples(
+                figname_rs, hists_uf_resample[-1], h_gen, h_truth,
+                xlabel = observable_dict[observable]['xlabel'],
+                ylabel = observable_dict[observable]['ylabel'])
+
+            # distributions of bin entries
+            figname_bindistr = os.path.join(resample_dir, f"Unfold_BinDistr_{observable}")
+            logger.info(f"  Plot distributions of bin entries from all resamples: {figname_bindistr}")
+            # For now
+            plotting.plot_hists_bin_distr(figname_bindistr, hists_uf_resample, h_truth)
+
+        ## Iteration history
+        if True: # TODO: plot verbosity
+            iteration_dir = os.path.join(unfolder.outdir, 'Iterations')
+            if not os.path.isdir(iteration_dir):
+                logger.info(f"Create directory {iteration_dir}")
+                os.makedirs(iteration_dir)
+
+            hists_uf_alliters = unfolder.get_unfolded_distribution(varname_truth, bins_mc, normalize=True, all_iterations=True)[0]
+
+            figname_alliters = os.path.join(iteration_dir, f"Unfold_AllIterations_{observable}")
+            logger.info(f"  Plot unfolded distributions at every iteration: {figname_alliters}")
+            plotter.plot_distributions_iteration(
+                figname_alliters, hists_uf_alliters, h_gen, h_truth,
+                xlabel = observable_dict[observable]['xlabel'],
+                ylabel = observable_dict[observable]['ylabel'])
         
 
     tracemalloc.stop()
