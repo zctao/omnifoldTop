@@ -263,7 +263,7 @@ def getArgsParser():
     parser.add_argument('--observables', nargs='+',
                         default=['th_pt', 'th_y', 'th_phi', 'th_e', 'tl_pt', 'tl_y', 'tl_phi', 'tl_e'],
                         help="List of observables to use in training.")
-    parser.add_argument('--observables-extra', nargs='+',
+    parser.add_argument('--observables-extra', nargs='*',
                         default=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_eta', 'th_m', 'th_pout', 'tl_eta', 'tl_m', 'tl_pout'],
                         help="List of extra observables to unfold.")
     parser.add_argument('--observable-config',
@@ -308,7 +308,6 @@ def getArgsParser():
     parser.add_argument('--binning-config', dest='binning_config',
                         default='configs/binning/bins_10equal.json', type=str,
                         help="Binning config file for variables")
-
 
 
     parser.add_argument('-c', '--plot-correlations',
