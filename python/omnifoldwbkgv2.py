@@ -123,7 +123,7 @@ def reweight(model, events, figname=None):
 
     return r
 
-def unfold(
+def omnifold(
     # Data
     X_data, # feature array of observed data
     X_sim, # feature array of signal simulation at reco level
@@ -687,7 +687,7 @@ class OmniFoldTTbar():
                 self.outdir)
 
         # unfold
-        self.unfolded_weights = unfold(
+        self.unfolded_weights = omnifold(
             X_data, X_sim, X_gen,
             w_data, w_sim, w_gen,
             passcut_data, passcut_sim, passcut_gen,
@@ -722,7 +722,7 @@ class OmniFoldTTbar():
                 w_data, w_sim, w_gen = self._get_event_weights(resample=True)
 
                 # unfold
-                self.unfolded_weights_resample[ir,:,:] = unfold(
+                self.unfolded_weights_resample[ir,:,:] = omnifold(
                     X_data, X_sim, X_gen,
                     w_data, w_sim, w_gen,
                     passcut_data, passcut_sim, passcut_gen,
@@ -774,7 +774,7 @@ class OmniFoldTTbar():
         hists_resample = []
 
         if self.unfolded_weights_resample is None:
-            logger.warn("No resample weights! Return an empty list.")
+            logger.debug("No resample weights! Return an empty list.")
             return hists_resample
 
         # shape of self.unfolded_weights_resample:
@@ -817,7 +817,7 @@ class OmniFoldTTbar():
 
         bin_corr = None # bin correlation
         if bootstrap_uncertainty and self.unfolded_weights_resample is not None:
-            h_uf_rs = self.get_unfolded_hists_resamples(varname, bins, all_iterations)
+            h_uf_rs = self.get_unfolded_hists_resamples(varname, bins, normalize=False, all_iterations=all_iterations)
 
             # add the "nominal" histogram to the resampled ones
             h_uf_rs.append(h_uf)
