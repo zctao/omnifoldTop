@@ -167,6 +167,7 @@ def unfold(**parsed_args):
 
         # IBU: TODO
         h_ibu = None
+        hists_ibu_alliters = None
         h_ibu_corr = None
 
         # print metrics on the plot
@@ -240,7 +241,25 @@ def unfold(**parsed_args):
                 figname_alliters, hists_uf_alliters, h_gen, h_truth,
                 xlabel = observable_dict[observable]['xlabel'],
                 ylabel = observable_dict[observable]['ylabel'])
-        
+
+        ## Metrics
+        if parsed_args['truth_known']:
+            mdict = dict()
+            mdict[observable] = metrics.evaluate_all_metrics(
+                unfolder, varname_truth, bins_mc, hists_ibu_alliters
+            )
+
+            metrics_dir = os.path.join(unfolder.outdir, 'Metrics')
+            if not os.path.isdir(metrics_dir):
+                os.makedirs(metrics_dir)
+
+            # write to json file
+            util.write_dict_to_json(mdict, metrics_dir+f"/{observable}.json")
+
+            # make plots
+            metrics.plot_all_metrics(
+                mdict[observable], metrics_dir+f"/{observable}"
+            )
 
     tracemalloc.stop()
 
@@ -308,7 +327,6 @@ def getArgsParser():
     parser.add_argument('--binning-config', dest='binning_config',
                         default='configs/binning/bins_10equal.json', type=str,
                         help="Binning config file for variables")
-
 
     parser.add_argument('-c', '--plot-correlations',
                         action='store_true',

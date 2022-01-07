@@ -809,7 +809,7 @@ class OmniFoldTTbar():
         self,
         varname,
         bins,
-        normalize,
+        normalize=True,
         all_iterations=False,
         bootstrap_uncertainty=True
         ):

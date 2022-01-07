@@ -88,7 +88,116 @@ def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045):
     for i, txt in enumerate(texts):
         if txt is not None:
             ax.text(x, y-i*dy, txt, **textopts)
-        
+
+def set_default_colors(ncolors):
+    """
+    Get up to the first `ncolors` of the default colour cycle.
+
+    Parameters
+    ----------
+    ncolors : non-negative int
+
+    Returns
+    -------
+    sequence of str
+         The first `ncolors` items in the matplotlib colour cycle, as a
+         sequence of 6-digit RGB hex strings (i.e. "#rrggbb"). Returns a
+         number of colours equal to the shorter of (`ncolors`, length of
+         the cycle).
+    """
+    return plt.rcParams['axes.prop_cycle'].by_key()['color'][:ncolors]
+
+def plot_graphs(
+        figname,
+        data_arrays,
+        error_arrays=None,
+        labels=None,
+        title='',
+        xlabel='',
+        ylabel='',
+        xscale=None,
+        yscale=None,
+        colors=None,
+        markers=None,
+        **style
+):
+    """
+    Create scatter plots of several data series on the same x and y axes.
+
+    The generated figure is saved to "{figname}.png".
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    data_arrays : sequence of n (xdata, ydata) pairs where xdata, ydata are array-like
+        Data positions to plot. Each element is one data series.
+    error_arrays : sequence of n floats or 2-tuples, optional
+        Error bars. Sequence of floats is interpreted as y error bars;
+        2-tuples are interpreted as (x error bars, y error bars).
+    labels : sequence of n str, optional
+         Data series labels. If provided, the plot will contain a legend.
+    title : str, default: ""
+        Title of the figure.
+    xlabel, ylabel : str, default: ""
+        Axis labels.
+    xscale, yscale : {"log", "log2"}, optional
+        Set the axis scale to log base 10 or log base 2. If omitted, the
+        axis is linear.
+    colors : sequence of n colors, optional
+        Line/marker colours for each data series. See also matplotlib.colors.
+    markers : sequence of n str or matplotlib.markers.MarkerStyle, optional
+        Marker style for each series. See also matplotlib.markers.
+    **style : dict, optional
+        Additional keyword arguments passed to matplotlib.axes.Axes.errorbar.
+    """
+    fig, ax = plt.subplots()
+
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    if xscale=='log':
+        ax.set_xscale('log')
+    elif xscale=='log2':
+        ax.set_xscale('log', basex=2)
+
+    if yscale=='log':
+        ax.set_yscale('log')
+    elif yscale=='log2':
+        ax.set_yscale('log', basey=2)
+
+    if colors is None:
+        colors = set_default_colors(len(data_arrays))
+    else:
+        assert(len(data_arrays)==len(colors))
+
+    if error_arrays is not None:
+        assert(len(error_arrays)==len(data_arrays))
+
+    for i, (x, y) in enumerate(data_arrays):
+        label = None if labels is None else labels[i]
+        marker = None if markers is None else markers[i]
+        color = colors[i%len(colors)]
+
+        xerr, yerr = None, None
+        if error_arrays is not None:
+            error = error_arrays[i]
+            if isinstance(error, tuple):
+                xerr, yerr = error
+            else:
+                yerr = error
+
+        ax.errorbar(x, y, xerr=xerr, yerr=yerr, label=label, marker=marker, color=color, **style)
+
+    # plot legend if needed
+    if labels is not None:
+        ax.legend()
+
+    fig.savefig(figname+'.png', dpi=300)
+    #fig.savefig(figname+'.pdf')
+    plt.close(fig)
+
 def plot_distributions_reco(
     figname,
     hist_data,
@@ -332,7 +441,7 @@ def plot_distributions_resamples(
         axes[1].set_ylabel("Ratio to \nTruth")
 
     # legend
-    axes[0].legend(frameon=False)
+    axes[0].legend(frameon=False, handlelength=2, numpoints=2)
 
     # save plot
     fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
@@ -369,7 +478,7 @@ def plot_distributions_iteration(
 
     hists_toplot = [hists_all[i] for i in selected_i]
 
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color'][:len(selected_i)]
+    colors = set_default_colors(len(selected_i))
 
     for i, h, c in zip(selected_i, hists_toplot, colors):
         hep.histplot(
