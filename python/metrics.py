@@ -105,6 +105,9 @@ def compute_pvalue_Chi2(chi2, ndf):
     return 1. - stats.chi2.cdf(chi2, ndf)
 
 def write_texts_Chi2(histogram_ref, histograms, labels):
+    if histogram_ref is None:
+        return []
+
     assert(len(histograms)==len(labels))
     texts = ["$\\chi^2$/NDF (p-value):"]
 
