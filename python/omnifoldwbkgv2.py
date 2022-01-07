@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 import logging
 
 import util
-import plotting
+import plotter
 from datahandler import DataHandler
 from datahandler_root import DataHandlerROOT
 from model import get_model, get_callbacks
@@ -73,7 +73,7 @@ def train_model(model, X, Y, w, callbacks=[], figname='', **fitargs):
         logger.info(f"Plot model output distributions: {figname}")
         preds_train = model.predict(X_train, batch_size=int(0.1*len(X_train)))[:,1]
         preds_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
-        plotting.plot_training_vs_validation(figname, preds_train, Y_train, w_train, preds_val, Y_val, w_val)
+        plotter.plot_training_vs_validation(figname, preds_train, Y_train, w_train, preds_val, Y_val, w_val)
 
 def set_up_model(
     model_type, # str, type of the network
@@ -119,7 +119,7 @@ def reweight(model, events, figname=None):
 
     if figname: # plot the distribution
         logger.info(f"Plot likelihood ratio distribution {figname}")
-        plotting.plot_LR_distr(figname, [r])
+        plotter.plot_LR_distr(figname, [r])
 
     return r
 
@@ -337,59 +337,6 @@ def omnifold(
     # end of iteration loop
 
     return weights_unfold
-
-def plot_training_history(model_dir):
-    logger.info("Plot model training history")
-    for csvfile in glob.glob(os.path.join(model_dir, '*.csv')):
-        logger.info(f"  Plot training log {csvfile}")
-        plotting.plot_train_log(csvfile)
-
-def plot_training_inputs_step1(
-        variable_names,
-        Xdata, Xsim,
-        wdata, wsim,
-        outdir):
-    # features
-    logger.info("Plot distributions of input variables for step 1")
-    for vname, vdata, vsim in zip(variable_names, Xdata.T, Xsim.T):
-        logger.debug(f"  Plot variable {vname}")
-        plotting.plot_data_arrays(
-            os.path.join(outdir, f"Train_step1_{vname}"),
-            [ vdata, vsim ],
-            weight_arrs = [wdata, wsim],
-            labels = ['Data', 'Sim.'],
-            xlabel = vname,
-            title = "Step-1 training inputs")
-
-    # weights
-    logger.info("Plot distributions of the prior weights for step 1")
-    plotting.plot_data_arrays(
-        os.path.join(outdir, "Train_step1_weights"),
-        [wdata, wsim],
-        labels = ['Data', 'Sim.'],
-        xlabel = 'w (training)',
-        title = "Step-1 prior weights at reco level")
-
-def plot_training_inputs_step2(variable_names, Xgen, wgen, outdir):
-    # features
-    logger.info("Plot distributions of input variables for step 2")
-    for vname, vgen in zip(variable_names, Xgen.T):
-        logger.debug(f"  Plot variable {vname}")
-        plotting.plot_data_arrays(
-            os.path.join(outdir, f"Train_step2_{vname}"),
-            [vgen], weight_arrs = [wgen],
-            labels = ['Gen.'],
-            xlabel = vname,
-            title = "Step-2 training inputs")
-
-    # weights
-    logger.info("Plot distributions of prior weights for step 2")
-    plotting.plot_data_arrays(
-        os.path.join(outdir, "Train_step2_weights"),
-        [wgen],
-        labels = ['Gen.'],
-        xlabel = 'w (training)',
-        title = "Step-2 prior weights at truth level")
 
 class OmniFoldTTbar():
     def __init__(
@@ -677,17 +624,17 @@ class OmniFoldTTbar():
         # plot variable and event weight distributions for training
         # TODO: add a flag to enable/disable plotting
         if True:
-            plot_training_inputs_step1(
+            plotter.plot_training_inputs_step1(
+                os.path.join(self.outdir, "Train_step1"),
                 self.varnames_reco,
                 X_data[passcut_data], X_sim[passcut_sim],
-                w_data[passcut_data], w_sim[passcut_sim],
-                self.outdir)
+                w_data[passcut_data], w_sim[passcut_sim])
 
-            plot_training_inputs_step2(
+            plotter.plot_training_inputs_step2(
+                os.path.join(self.outdir, "Train_step2"),
                 self.varnames_truth,
                 X_gen[passcut_gen],
-                w_gen[passcut_gen],
-                self.outdir)
+                w_gen[passcut_gen])
 
         # unfold
         self.unfolded_weights = omnifold(
@@ -701,7 +648,10 @@ class OmniFoldTTbar():
             start_from_previous_iter=load_previous_iteration,
             **fitargs)
 
-        plot_training_history(save_model_dir)
+        logger.info("Plot model training history")
+        for csvfile in glob.glob(os.path.join(save_model_dir, '*.csv')):
+            logger.info(f"  Plot training log {csvfile}")
+            plotter.plot_train_log(csvfile)
 
         # save weights
         wfile = os.path.join(self.outdir, 'weights.npz')
@@ -736,7 +686,10 @@ class OmniFoldTTbar():
                     start_from_previous_iter=load_previous_iteration,
                     **fitargs)
 
-                plot_training_history(save_model_dir_rs)
+                logger.info("Plot model training history")
+                for csvfile in glob.glob(os.path.join(save_model_dir_rs, '*.csv')):
+                    logger.info(f"  Plot training log {csvfile}")
+                    plotter.plot_train_log(csvfile)
 
             # save weights
             wfile = os.path.join(self.outdir, f"weights_resample{nresamples}.npz")
@@ -855,7 +808,7 @@ class OmniFoldTTbar():
     def plot_more(self):
         # Event weights
         logger.info("Plot event weights")
-        plotting.plot_data_arrays(
+        plotter.plot_hist(
             os.path.join(self.outdir, 'Event_weights'),
             [self.handle_sig.get_weights(), self.handle_obs.get_weights()],
             label = ['Sim.', 'Data'],

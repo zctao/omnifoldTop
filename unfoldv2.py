@@ -12,8 +12,6 @@ import reweight
 import metrics
 from omnifoldwbkgv2 import OmniFoldTTbar
 
-import plotting
-
 def unfold(**parsed_args):
     tracemalloc.start()
 
@@ -224,7 +222,7 @@ def unfold(**parsed_args):
             figname_bindistr = os.path.join(resample_dir, f"Unfold_BinDistr_{observable}")
             logger.info(f"  Plot distributions of bin entries from all resamples: {figname_bindistr}")
             # For now
-            plotting.plot_hists_bin_distr(figname_bindistr, hists_uf_resample, h_truth)
+            plotter.plot_hists_bin_distr(figname_bindistr, hists_uf_resample, h_truth)
 
         ## Iteration history
         if True: # TODO: plot verbosity

@@ -1,11 +1,14 @@
 import numpy as np
+import pandas as pd
+import math
 import matplotlib.pyplot as plt
 import mplhep as hep
 
-from histogramming import get_values_and_errors, get_mean_from_hists, get_sigma_from_hists, get_hist
+import util
+from histogramming import get_values_and_errors, get_mean_from_hists, get_sigma_from_hists, get_hist, calc_hist
 
-#import logging
-#logger = logging.getLogger('plotter')
+import logging
+logger = logging.getLogger('plotter')
 
 # styles
 #hep.style.use(hep.style.ATLAS)
@@ -195,7 +198,75 @@ def plot_graphs(
         ax.legend()
 
     fig.savefig(figname+'.png', dpi=300)
-    #fig.savefig(figname+'.pdf')
+    plt.close(fig)
+
+def plot_hist(
+    figname,
+    data_arrs,
+    weight_arrs=None,
+    labels=None,
+    nbins=20,
+    xlabel='',
+    ylabel='',
+    title=''
+    ):
+    """
+    Plot a series of datasets as 1d histograms.
+
+    Each dataset uses the same binning, which is evenly distributed across
+    the full range of all combined datasets. The generated figure is saved
+    to "{figname}.png".
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    data_arrs : sequence of n array-like
+        Unbinned data.
+    weight_arrs : sequence of n array-like, optional
+        Each weight array should be the same shape as the corresponding
+        data. Each data point contributes only its associated weight to the
+        bin count instead of 1.
+    labels : sequence of str, optional
+        Labels for data arrays
+    nbins : positive int, default: 20
+        Number of bins in the histogram.
+    xlabel: str, optional
+        X-axis label
+    ylabel: str, optional
+        Y-axis label
+    title: str, optional
+        Histogram title
+    """
+    xmax = max([np.max(data) for data in data_arrs])
+    xmin = min([np.min(data) for data in data_arrs])
+    margin = (xmax - xmin) * 0.1
+    bins = np.linspace(xmin-margin, xmax+margin, nbins+1)
+
+    if weight_arrs is None:
+        weight_arrs = [None] * len(data_arrs)
+    else:
+        assert(len(weight_arrs) == len(data_arrs))
+
+    if labels is None:
+        labels = [None] * len(data_arrs)
+    else:
+        assert(len(labels) == len(data_arrs))
+
+    fig, ax = plt.subplots()
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    if ylabel:
+        ax.set_ylabel(ylabel)
+    if title:
+        ax.set_title(title)
+
+    for data, w, l in zip(data_arrs, weight_arrs, labels):
+        ax.hist(data, bins=bins, histtype='step', label=l)
+
+    ax.legend()
+
+    fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
 
 def plot_distributions_reco(
@@ -376,8 +447,18 @@ def plot_distributions_unfold(
     fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
     plt.close(fig)
 
-def plot_correlations(figname, correlations, bins):
+def plot_correlations(figname, correlations, bins=None):
     fig, ax = plt.subplots()
+
+    if bins is None:
+        bins = np.linspace(0, len(correlations), len(correlations)+1)
+        ax.tick_params(axis='both', labelsize='small')
+        ax.tick_params(axis='x', top=True, labeltop=True, bottom=False, labelbottom=False, labelrotation=30)
+        ticks = np.arange(0.5, len(correlations)+0.5, 1)
+        ax.set_xticks(ticks)
+        ax.set_yticks(ticks)
+        ax.set_xticklabels(correlations.columns)
+        ax.set_yticklabels(correlations.columns)
 
     hep.hist2dplot(
         correlations, xbins=bins, ybins=bins, vmin=-1, vmax=1,
@@ -501,3 +582,278 @@ def plot_distributions_iteration(
     # save plots
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
+
+def plot_hists_bin_distr(figname, histograms_list, histogram_ref):
+    # histograms_list can be either dimension 3 if all iterations are included
+    # or dimension 2 if only the final unfolded ones for all trials
+    histograms_arr = np.asarray(histograms_list)['value']
+
+    nbins = histogram_ref.axes[0].size
+    niterations = histograms_arr.shape[1] if histograms_arr.ndim > 2 else 1
+
+    fig, ax = plt.subplots(nrows=niterations, ncols=nbins,
+                            sharey='row', sharex='col',
+                            figsize=((nbins+1)*1.1, niterations*1.1),
+                            constrained_layout=True)
+
+    # loop over bins
+    for ibin in range(nbins):
+        nentries = histograms_arr[..., ibin]
+        # nentries is of the shape (nresamples, niterations) if include iteration history
+        # otherwise it is of the shape (nresamples,)
+
+        #mu = np.mean(nentries, axis=0)
+        #sigma = np.std(nentries, ddof=1, axis=0)
+        #pulls = (nentries - mu) / sigma
+
+        # compare and standardize to ref
+        ref = histogram_ref.values()[ibin]
+        nentries_ref = nentries - ref
+
+        # plot
+        if niterations == 1: # only the final results
+            h, b = ax[ibin].hist(nentries_ref, density=True)[:2]
+            plot_gaussian(ax[ibin], h, b, dofit=False)
+            ax[ibin].set_xlabel("Bin {}".format(ibin+1))
+            ax[ibin].xaxis.set_label_position('top')
+            ax[ibin].tick_params(labelsize=7)
+            ax[ibin].ticklabel_format(style='sci', scilimits=(-2,2), useMathText=True)
+            ax[ibin].xaxis.get_offset_text().set_fontsize(7)
+        else: # all iterations
+            for it in range(niterations):
+                h, b = ax[it][ibin].hist(nentries_ref[...,it], density=False)[:2]
+                plot_gaussian(ax[it][ibin], h, b, dofit=False)
+                # labels
+                if ibin == 0:
+                    ax[it][ibin].set_ylabel("Iter {}".format(it+1))
+                if it == 0:
+                    ax[it][ibin].set_xlabel("Bin {}".format(ibin+1))
+                    ax[it][ibin].xaxis.set_label_position('top')
+                ax[it][ibin].tick_params(labelsize=7)
+                ax[it][ibin].ticklabel_format(style='sci', scilimits=(-2,2), useMathText=True)
+                ax[it][ibin].xaxis.get_offset_text().set_fontsize(7)
+
+    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
+    plt.close(fig)
+
+def plot_gaussian(ax, histogram, binedges, dofit=False):
+    """
+    Draw a Gaussian fit to a histogram on the axes.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+    histogram : (n,) array-like
+        Bin heights in a histogram.
+    binedges : (n + 1,) array-like
+        Location of bin edges for `histogram`.
+    dofit : bool, default: False
+        If True, fit the Gaussian to the histogram using least-squares. If
+        False, use a Gaussian with the same mean, standard deviation, and
+        maximum as the histogram.
+    """
+    A, mu, sigma = util.fit_gaussian_to_hist(histogram, binedges, dofit)
+
+    x = np.linspace(binedges[0], binedges[-1], 50)
+    y = util.gaus(x, A, mu, sigma)
+    style = '-' if dofit else '--'
+    ax.plot(x, y, style)
+
+    #yref = gaus(x, sum(histogram)/math.sqrt(2*math.pi), 0, 1)
+    #ax.plot(x, yref, '--')
+
+def plot_LR_distr(figname, ratios, labels=None):
+    """
+    Plot the distribution of likelihood ratios.
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    ratios : sequence of array-like
+        Datasets of unbinned likelihood ratios.
+    labels : sequence of str, optional
+        Labels for each set of likelihood ratios in `ratios`.
+    """
+    bins_r = np.linspace(min(r.min() for r in ratios)*0.9, max(r.max() for r in ratios)*1.1, 50)
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel("Likelihood ratio")
+    #ax.set_yscale('log')
+
+    for i,r in enumerate(ratios):
+        hr = calc_hist(r, bins_r, density=False)
+        l = labels[i] if labels is not None else None
+        hep.histplot(hr, ax=ax, label=l)
+
+    if labels is not None:
+        ax.legend()
+
+    fig.savefig(figname+'.png', dpi=300)
+    plt.close(fig)
+
+def plot_training_vs_validation(
+        figname,
+        predictions_train,
+        labels_train,
+        weights_train,
+        predictions_val,
+        labels_val,
+        weights_val,
+        nbins=100
+):
+    """
+    Compare the model's performance on the training vs. validation set
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the figure, excluding the file extension.
+    predictions_train : (n_pred,) array-like of floats in [0, 1]
+        Probability that each event in the training set is in category 1.
+    labels_train : (n_pred,) or (n_pred, m) array-like
+        Labels for events in the test set, either as a 1d array or categorical.
+    weights_train : (n_pred,) array-like
+        Weight per event in the training set. Each event contributes its
+        associated weight to its bin instead of 1.
+    predictions_val : (n_val,) array-like of floats in [0, 1]
+        Probability that each event in the validation set is in category 1.
+    labels_val : (n_val,) or (n_val, m) array-like
+        Labels for events in the validation set, either as a 1d array or categorical.
+    weights_val : (n_val,) array-like
+        Weight per event in the validation set. Each event contributes its
+        associated weight to its bin instead of 1.
+    nbins : positive int, default: 100
+        Number of bins in the generated histogram.
+    """
+    # determine bins of histograms to plot
+    bins_min = math.floor(min(predictions_train.min(), predictions_val.min())*10)/10
+    bins_max = math.ceil(max(predictions_train.max(), predictions_val.max())*10)/10
+    bins_preds = np.linspace(bins_min, bins_max, nbins)
+
+    if labels_train.ndim == 1: # label array is simply a 1D array
+        preds_cat1_t = predictions_train[labels_train==1]
+        preds_cat0_t = predictions_train[labels_train==0]
+        w_cat1_t = weights_train[labels_train==1]
+        w_cat0_t = weights_train[labels_train==0]
+    else: # label array is categorical
+        preds_cat1_t = predictions_train[labels_train.argmax(axis=1)==1]
+        preds_cat0_t = predictions_train[labels_train.argmax(axis=1)==0]
+        w_cat1_t = weights_train[labels_train.argmax(axis=1)==1]
+        w_cat0_t = weights_train[labels_train.argmax(axis=1)==0]
+
+    hist_preds_cat1_t = calc_hist(preds_cat1_t, bins_preds, weights=w_cat1_t, density=True)
+    hist_preds_cat0_t = calc_hist(preds_cat0_t, bins_preds, weights=w_cat0_t, density=True)
+
+    # validation data
+    if labels_val.ndim == 1: # label array is simply a 1D array
+        preds_cat1_v = predictions_val[labels_val==1]
+        preds_cat0_v = predictions_val[labels_val==0]
+        w_cat1_v = weights_val[labels_val==1]
+        w_cat0_v = weights_val[labels_val==0]
+    else: # label array is categorical
+        preds_cat1_v = predictions_val[labels_val.argmax(axis=1)==1]
+        preds_cat0_v = predictions_val[labels_val.argmax(axis=1)==0]
+        w_cat1_v = weights_val[labels_val.argmax(axis=1)==1]
+        w_cat0_v = weights_val[labels_val.argmax(axis=1)==0]
+
+    hist_preds_cat1_v = calc_hist(preds_cat1_v, bins_preds, weights=w_cat1_v, density=True)
+    hist_preds_cat0_v = calc_hist(preds_cat0_v, bins_preds, weights=w_cat0_v, density=True)
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel("Prediction (y = 1)")
+
+    hep.histplot(hist_preds_cat1_t, ax=ax, label='y = 1 (training)', histtype='step')
+    hep.histplot(hist_preds_cat0_t, ax=ax, label='y = 0 (training)', histtype='step')
+    hep.histplot(hist_preds_cat1_v, ax=ax, label='y = 1 (validation)', histtype='errorbar')
+    hep.histplot(hist_preds_cat0_v, ax=ax, label='y = 0 (validation)', histtype='errorbar')
+
+    ax.legend()
+
+    fig.savefig(figname+'.png', dpi=300)
+    plt.close(fig)
+
+def plot_train_log(csv_file, plot_name=None):
+    """
+    Generate a plot of training loss from a training history file.
+
+    Parameters
+    ----------
+    csv_file : str
+        Path to the training history CSV file.
+    plot_name : str, optional
+        Path to save the figure, excluding the file extension. If omitted,
+        the generated figure will have the same name as the input file with
+        the file extension replaced.
+    """
+    df = pd.read_csv(csv_file)
+
+    if plot_name is None:
+        plot_name = csv_file.replace('.csv', '_loss')
+
+    #plot_train_loss(plot_name, df['loss'], df['val_loss'])
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel('Epochs')
+    ax.set_ylabel('loss')
+
+    ax.plot(df['loss'], label='loss')
+    ax.plot(df['val_loss'], label='val loss')
+
+    ax.yaxis.get_major_formatter().set_useOffset(False)
+    ax.yaxis.get_major_formatter().set_useMathText(True)
+    ax.yaxis.get_major_formatter().set_scientific(True)
+    ax.yaxis.get_major_formatter().set_powerlimits((-3,4))
+
+    ax.legend()
+
+    plt.savefig(plot_name+'.png', dpi=300, bbox_inches='tight')
+    plt.close(fig)
+
+def plot_training_inputs_step1(
+        figname_prefix,
+        variable_names,
+        Xdata, Xsim,
+        wdata, wsim
+        ):
+    # features
+    logger.info("Plot distributions of input variables for step 1")
+    for vname, vdata, vsim in zip(variable_names, Xdata.T, Xsim.T):
+        logger.debug(f"  Plot variable {vname}")
+        plot_hist(
+            figname_prefix+f"_{vname}",
+            [ vdata, vsim ],
+            weight_arrs = [wdata, wsim],
+            labels = ['Data', 'Sim.'],
+            xlabel = vname,
+            title = "Step-1 training inputs")
+
+    # weights
+    logger.info("Plot distributions of the prior weights for step 1")
+    plot_hist(
+        figname_prefix+f"_weights",
+        [wdata, wsim],
+        labels = ['Data', 'Sim.'],
+        xlabel = 'w (training)',
+        title = "Step-1 prior weights at reco level")
+
+def plot_training_inputs_step2(figname_prefix, variable_names, Xgen, wgen):
+    # features
+    logger.info("Plot distributions of input variables for step 2")
+    for vname, vgen in zip(variable_names, Xgen.T):
+        logger.debug(f"  Plot variable {vname}")
+        plot_hist(
+            figname_prefix+f"_{vname}",
+            [vgen], weight_arrs = [wgen],
+            labels = ['Gen.'],
+            xlabel = vname,
+            title = "Step-2 training inputs")
+
+    # weights
+    logger.info("Plot distributions of prior weights for step 2")
+    plot_hist(
+        figname_prefix+f"_weights",
+        [wgen],
+        labels = ['Gen.'],
+        xlabel = 'w (training)',
+        title = "Step-2 prior weights at truth level")
