@@ -23,7 +23,7 @@ def unfold(**parsed_args):
     for argkey, argvalue in sorted(parsed_args.items()):
         if argvalue is None:
             continue
-        logger.debug(f"Argument {argkey}: {argvalue}")
+        logger.info(f"Argument {argkey}: {argvalue}")
 
     #################
     # Variables
