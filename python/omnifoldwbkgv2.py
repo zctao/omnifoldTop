@@ -430,6 +430,9 @@ class OmniFoldTTbar():
 
         # output directory
         self.outdir = outputdir
+        if not os.path.isdir(outputdir):
+            logger.info(f"Create output directory: {outputdir}")
+            os.makedirs(outputdir)
 
         # variables used in training
         self.varnames_reco = variables_reco
