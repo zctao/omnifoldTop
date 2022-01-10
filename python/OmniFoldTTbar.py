@@ -1,17 +1,15 @@
 import os
 import glob
 import numpy as np
-import tensorflow as tf
-from sklearn.model_selection import train_test_split
-import logging
 
 import util
 import plotter
+import histogramming as myhu
 from datahandler import DataHandler
 from datahandler_root import DataHandlerROOT
-from model import get_model, get_callbacks
-from histogramming import get_mean_from_hists, get_sigma_from_hists, get_bin_correlations_from_hists, set_hist_contents, set_hist_errors
+from omnifold import omnifold
 
+import logging
 logger = logging.getLogger('OmniFoldTTbar')
 logger.setLevel(logging.DEBUG)
 
@@ -51,292 +49,6 @@ def read_weights_from_file(filepath_weights, array_name):
     weights = wfile[array_name]
     wfile.close()
     return weights
-
-# move this to model.py?
-def train_model(model, X, Y, w, callbacks=[], figname='', **fitargs):
-    """
-    Train model
-    """
-
-    if callbacks:
-        fitargs.setdefault('callbacks', []).extend(callbacks)
-
-    X_train, X_val, Y_train, Y_val, w_train, w_val = train_test_split(X, Y, w)
-
-    # zip event weights with labels
-    Yw_train = np.column_stack((Y_train, w_train))
-    Yw_val = np.column_stack((Y_val, w_val))
-
-    model.fit(X_train, Yw_train, validation_data=(X_val, Yw_val), **fitargs)
-
-    if figname:
-        logger.info(f"Plot model output distributions: {figname}")
-        preds_train = model.predict(X_train, batch_size=int(0.1*len(X_train)))[:,1]
-        preds_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
-        plotter.plot_training_vs_validation(figname, preds_train, Y_train, w_train, preds_val, Y_val, w_val)
-
-def set_up_model(
-    model_type, # str, type of the network
-    input_shape, # tuple, shape of the input layer
-    iteration = 0, # int, iteration index
-    name_prefix = 'model', # str, prefix of the model name
-    save_models_to = '', # str, directory to save the trained model to
-    load_models_from = '', # str, directory to load trained model weights
-    start_from_previous_iter = False, # bool, if True, initialize model from previous iteration
-    ):
-
-    # get network
-    model = get_model(input_shape, nclass=2, model_name=model_type)
-
-    # name of the model checkpoint
-    mname = name_prefix + "_{}".format(iteration)
-
-    # callbacks
-    filepath_save = None
-    if save_models_to:
-        filepath_save = os.path.join(save_models_to, mname)
-
-    callbacks = get_callbacks(filepath_save)
-    
-    # load trained model if needed
-    if load_models_from:
-        filepath_load = os.path.join(load_models_from, mname)
-        model.load_weights(filepath_load).expect_partial()
-        logger.info(f"Load model from {filepath_load}")
-    else:
-        if start_from_previous_iter and save_models_to and iteration > 0:
-            # initialize model weights from the previous iteration
-            mname_prev = name_prefix+"_{}".format(iteration-1)
-            filepath_load = os.path.join(save_models_to, mname_prev)
-            model.load_weights(filepath_load)
-            logger.debug(f"Initialize model from {filepath_load}")
-
-    return model, callbacks
-
-def reweight(model, events, figname=None):
-    preds = model.predict(events, batch_size=int(0.1*len(events)))[:,1]
-    r = np.nan_to_num( preds / (1. - preds) )
-
-    if figname: # plot the distribution
-        logger.info(f"Plot likelihood ratio distribution {figname}")
-        plotter.plot_LR_distr(figname, [r])
-
-    return r
-
-def omnifold(
-    # Data
-    X_data, # feature array of observed data
-    X_sim, # feature array of signal simulation at reco level
-    X_gen, # feature array of signal simulation at truth level
-    w_data, # event weights of observed data
-    w_sim, # reco weights of signal simulation events
-    w_gen, # MC weights of signal simulation events
-    # Event selection flags
-    passcut_data, # flags to indicate if data events pass reco level selections
-    passcut_sim, # flags to indicate if signal events pass reco level selections
-    passcut_gen, # flags to indicate if signal events pass truth level selections
-    # Parameters
-    niterations, # number of iterations
-    model_type='dense_100x3', # name of the model type 
-    save_models_to='', # directory to save models to if provided
-    load_models_from='', # directory to load trained models if provided
-    start_from_previous_iter=False, # If True, initialize model with the previous iteration
-    plot=False, # If True, plot training history and make other status plots
-    **fitargs
-    ):
-    """
-    OmniFold
-    arXiv:1911.09107, arXiv:2105.04448
-
-    """
-    ################
-    # Prepare data arrays for training
-    assert(len(X_data)==len(w_data))
-    assert(len(X_sim)==len(w_sim))
-    assert(len(X_gen)==len(w_gen))
-    assert(len(X_sim)==len(passcut_sim))
-    assert(len(X_gen)==len(passcut_gen))
-
-    # Step 1
-    # Use events that pass reco level selections
-    # features
-    X_step1 = np.concatenate([ X_data[passcut_data], X_sim[passcut_sim] ])
-    # labels: data=1, sim=0
-    Y_step1 = np.concatenate([ np.ones(len(X_data[passcut_data])), np.zeros(len(X_sim[passcut_sim])) ])
-    # make Y categorical
-    Y_step1 = tf.keras.utils.to_categorical(Y_step1)
-
-    logger.debug(f"Size of the feature array for step 1: {X_step1.nbytes*2**-20:.3f} MB")
-    logger.debug(f"Size of the label array for step 1: {Y_step1.nbytes*2**-20:.3f} MB")
-
-    # Step 1b
-    if np.any(~passcut_sim):
-        X_step1b = np.concatenate([ X_gen[passcut_sim & passcut_gen], X_gen[passcut_sim & passcut_gen] ])
-        Y_step1b = np.concatenate([ np.ones(len(X_gen[passcut_sim & passcut_gen])), np.zeros(len(X_gen[passcut_sim & passcut_gen])) ])
-        Y_step1b = tf.keras.utils.to_categorical(Y_step1b)
-
-        logger.debug(f"Size of the feature array for step 1b: {X_step1b.nbytes*2**-20:.3f} MB")
-        logger.debug(f"Size of the label array for step 1b: {Y_step1b.nbytes*2**-20:.3f} MB")
-
-    # Step 2
-    # features
-    X_step2 = np.concatenate([ X_gen[passcut_gen], X_gen[passcut_gen] ])
-    # labels
-    Y_step2 = np.concatenate([ np.ones(len(X_gen[passcut_gen])), np.zeros(len(X_gen[passcut_gen])) ])
-    # make Y categorical
-    Y_step2 = tf.keras.utils.to_categorical(Y_step2)
-
-    logger.debug(f"Size of the feature array for step 2: {X_step2.nbytes*2**-20:.3f} MB")
-    logger.debug(f"Size of the label array for step 2: {Y_step2.nbytes*2**-20:.3f} MB")
-
-    # Step 2b
-    if np.any(~passcut_gen):
-        X_step2b = np.concatenate([ X_sim[passcut_sim & passcut_gen], X_sim[passcut_sim & passcut_gen] ])
-        Y_step2b = np.concatenate([ np.ones(len(X_sim[passcut_sim & passcut_gen])), np.zeros(len(X_sim[passcut_sim & passcut_gen])) ])
-        Y_step2b = tf.keras.utils.to_categorical(Y_step2b)
-
-        logger.debug(f"Size of the feature array for step 2b: {X_step2b.nbytes*2**-20:.3f} MB")
-        logger.debug(f"Size of the label array for step 2b: {Y_step2b.nbytes*2**-20:.3f} MB")
-
-    ################
-    # Prepare models
-    if save_models_to and not os.path.isdir(save_models_to):
-        logger.info("Make directory for saving models")
-        os.makedirs(save_models_to)
-
-    if load_models_from and not os.path.isdir(load_models_from):
-        raise RuntimeError(f"Cannot load models from {load_models_from}: directory does not exist!")
-
-    ################
-    # Start iterations
-    # Weights
-    weights_push = np.ones(len(X_sim))
-    weights_pull = np.ones(len(X_gen))
-
-    weights_unfold = np.empty(shape=(niterations, len(X_gen[passcut_gen])))
-    # shape: (n_iterations, n_events[passcut_gen])
-
-    for i in range(niterations):
-        logger.info(f"Iteration {i}")
-        #####
-        # step 1: reweight to sim to data
-        logger.info("Step 1")
-        # set up the model
-        model_step1, cb_step1 = set_up_model(
-            model_type, X_step1.shape[1:], i, "model_step1",
-            save_models_to, load_models_from, start_from_previous_iter)
-
-        if load_models_from:
-            logger.info("Use trained model for reweighting")
-        else: # train model
-            w_step1 = np.concatenate([
-                w_data[passcut_data], (weights_push*w_sim)[passcut_sim]
-                ])
-
-            logger.info("Start training")
-            fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
-            train_model(model_step1, X_step1, Y_step1, w_step1,
-                        callbacks = cb_step1,
-                        figname = fname_preds,
-                        **fitargs)
-            logger.info("Training done")
-
-        # reweight
-        logger.info("Reweight")
-        fname_rdistr = save_models_to + f"/rdistr_step1_{i}" if save_models_to and plot else ''
-        weights_pull = weights_push * reweight(model_step1, X_sim, fname_rdistr)
-
-        #####
-        # step 1b: deal with events that do not pass reco cuts
-        if np.any(~passcut_sim):
-            logger.info("Step 1b")
-            # weights_pull[~passcut_sim] = 1.
-            # Or alternatively, estimate the average weights: <w|x_true>
-            model_step1b, cb_step1b = set_up_model(
-                model_type, X_step1b.shape[1:], i, "model_step1b",
-                save_models_to, load_models_from, start_from_previous_iter)
-
-            if load_models_from:
-                logger.info("Use trained model for reweighting")
-            else: # train model
-                w_step1b = np.concatenate([
-                    (weights_pull*w_gen)[passcut_sim & passcut_gen],
-                    w_gen[passcut_sim & passcut_gen]
-                    ])
-
-                logger.info("Start training")
-                train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
-                            callbacks = cb_step1b, **fitargs)
-                logger.info("Training done")
-
-            # reweight
-            logger.info("Reweight")
-            fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
-            weights_pull[~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], fname_rdistr)
-
-        #####
-        # step 2
-        logger.info("Step 2")
-        model_step2, cb_step2 = set_up_model(
-            model_type, X_step2.shape[1:], i, "model_step2",
-            save_models_to, load_models_from, start_from_previous_iter)
-
-        if load_models_from:
-            logger.info("Use trained model for reweighting")
-        else: # train model
-#            rw_step2 = 1. # always reweight against the prior
-            rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
-
-            w_step2 = np.concatenate([
-                (weights_pull*w_gen)[passcut_gen], w_gen[passcut_gen]*rw_step2
-                ])
-
-            logger.info("Start training")
-            fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
-            train_model(model_step2, X_step2, Y_step2, w_step2,
-                        callbacks = cb_step2,
-                        figname = fname_preds,
-                        **fitargs)
-            logger.info("Training done")
-
-        # reweight
-        logger.info("Reweight")
-        fname_rdistr = save_models_to + f"/rdistr_step2_{i}" if save_models_to and plot else ''
-        weights_push[passcut_gen] = rw_step2 * reweight(model_step2, X_gen[passcut_gen], fname_rdistr)
-
-        #####
-        # step 2b: deal with events that do not pass truth cuts
-        if np.any(~passcut_gen):
-            logger.info("Step 2b")
-            # weights_push[~passcut_gen] = 1.
-            # Or alternatively, estimate the average weights: <w|x_reco>
-            model_step2b, cb_step2b = set_up_model(
-                model_type, X_step2b.shape[1:], i, "model_step2b",
-                save_models_to, load_models_from, start_from_previous_iter)
-
-            if load_models_from:
-                logger.info("Use trained model for reweighting")
-            else: # train model
-                w_step2b = np.concatenate([
-                    (weights_push*w_sim)[passcut_sim & passcut_gen],
-                    w_sim[passcut_sim & passcut_gen]
-                    ])
-
-                logger.info("Start training")
-                train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
-                            callbacks = cb_step2b, **fitargs)
-                logger.info("Training done")
-
-            # reweight
-            logger.info("Reweight")
-            fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
-            weights_push[~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], fname_rdistr)
-
-        # save truth level weights of this iteration
-        weights_unfold[i,:] = weights_push[passcut_gen]
-    # end of iteration loop
-
-    return weights_unfold
 
 class OmniFoldTTbar():
     def __init__(
@@ -781,17 +493,17 @@ class OmniFoldTTbar():
             h_uf_rs.append(h_uf)
 
             # take the mean of each bin
-            hmean = get_mean_from_hists(h_uf_rs)
+            hmean = myhu.get_mean_from_hists(h_uf_rs)
 
             # take the standard deviation of each bin as bin uncertainties
-            hsigma = get_sigma_from_hists(h_uf_rs)
+            hsigma = myhu.get_sigma_from_hists(h_uf_rs)
 
             # compute bin correlations
-            bin_corr = get_bin_correlations_from_hists(h_uf_rs)
+            bin_corr = myhu.get_bin_correlations_from_hists(h_uf_rs)
 
             # update the nominal histogam
-            set_hist_contents(h_uf, hmean)
-            set_hist_errors(h_uf, hsigma)
+            myhu.set_hist_contents(h_uf, hmean)
+            myhu.set_hist_errors(h_uf, hsigma)
 
         if normalize:
             # normalize the unfolded histograms to the prior distribution

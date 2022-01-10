@@ -10,7 +10,7 @@ import util
 import plotter
 import reweight
 import metrics
-from omnifoldwbkgv2 import OmniFoldTTbar
+from OmniFoldTTbar import OmniFoldTTbar
 
 def unfold(**parsed_args):
     tracemalloc.start()
