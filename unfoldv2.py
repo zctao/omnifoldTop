@@ -329,7 +329,7 @@ def getArgsParser():
     parser.add_argument('-r', '--reweight-data',
                         choices=reweight.rw.keys(), default=None,
                         help="Reweight strategy of the input spectrum for stress tests. Requires --truth-known.")
-    parser.add_argument('-w', '--unfolded-weights',
+    parser.add_argument('--unfolded-weights',
                         nargs='*', type=str,
                         help="Unfolded weights file names. If provided, load event weights directly from the files and skip training.")
     parser.add_argument('-v', '--verbose',
