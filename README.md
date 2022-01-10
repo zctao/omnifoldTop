@@ -1,6 +1,6 @@
 # omnifoldTop
 
-Omnifold for ttbar l+jets final states with potential to deal with non-negligible backgrounds.
+Omnifold for ttbar l+jets final states.
 
 See https://github.com/ericmetodiev/OmniFold.git for the original repo from the OmniFold authors.
 
@@ -8,30 +8,25 @@ See https://github.com/ericmetodiev/OmniFold.git for the original repo from the 
 
     git clone https://github.com/zctao/omnifoldTop.git
     
-The current version depends on some plotting utilities from the original OmniFold package. 
-To get the original OmniFold packakge:
+To run in the tensorflow container:
 
-    git clone https://github.com/ericmetodiev/OmniFold.git omnifoldTop/external/OmniFold
+    singularity pull docker://tensorflow/tensorflow:2.7.0-gpu
+    singularity run --nv [--bind DATADIR] tensorflow_2.7.0-gpu.sif
 
-### Requirements (TODO)
+To set up virtual environment:
 
-    packaging, matplotlib==3.3.2, pandas==1.1.5, numpy, scipy, scikit_learn==0.23.2, tensorflow, hist
-    
-Needed by the original OmniFold package:
+    source scripts/setup_venv.sh venv requirements.txt
 
-    PyPDF2
-    
-It is also possible to run the application in a container. 
-A compatible container can be obtained from `docker://triumfmlutils/baseml_tf`:
+### Dependencies
 
-    singularity pull docker://triumfmlutils/baseml_tf:v0.1.33
-    singularity run --nv [--bind DATADIR] baseml_tf_v0.1.33.sif
+See
+
+    requirements.txt
 
 ## Run
 
 Set up environment and Python path:
 
-    cd omnifoldTop
     source setup.sh
     
 The main application to run is
