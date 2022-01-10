@@ -1,3 +1,6 @@
+from warnings import warn
+warn(f"The module {__name__} is deprecated.", DeprecationWarning, stacklevel=2)
+
 import os
 import glob
 import numpy as np
