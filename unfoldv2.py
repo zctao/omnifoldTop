@@ -98,7 +98,8 @@ def unfold(**parsed_args):
             save_models = True,
             load_previous_iteration = True, # TODO check here
             load_models_from = parsed_args['load_models'],
-            batch_size = parsed_args['batch_size']
+            batch_size = parsed_args['batch_size'],
+            plot_status = parsed_args['plot_verbosity'] >= 2
         )
 
     t_run_done = time.time()
@@ -109,9 +110,32 @@ def unfold(**parsed_args):
     logger.debug(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
 
     #################
-    # Show results
+    # Plot results
     #################
+    if parsed_args['plot_verbosity'] == 0:
+        # skip plotting
+        tracemalloc.stop()
+        return
+
     t_result_start = time.time()
+
+    # Input variable correlations
+    if parsed_args['plot_verbosity'] >= 3: # '-ppp'
+        logger.info(f"Plot input variable correlations")
+        corr_data = unfolder.handle_obs.get_correlations(varnames_train_reco)
+        plotter.plot_correlations(
+            os.path.join(unfolder.outdir, "InputCorr_data"), corr_data
+        )
+
+        corr_sim = unfolder.handle_sig.get_correlations(varnames_train_reco)
+        plotter.plot_correlations(
+            os.path.join(unfolder.outdir, "InputCorr_sim"), corr_sim
+        )
+
+        corr_gen = unfolder.handle_sig.get_correlations(varnames_train_truth)
+        plotter.plot_correlations(
+            os.path.join(unfolder.outdir, "InputCorr_gen"), corr_gen
+        )
 
     for observable in set().union(parsed_args['observables'], parsed_args['observables_extra']):
         logger.info(f"Unfold variable: {observable}")
@@ -124,7 +148,53 @@ def unfold(**parsed_args):
         bins_mc = util.get_bins(observable, parsed_args['binning_config'])
 
         ####
-        # Reco level
+        # -p 
+        # Truth level
+        # unfolded distribution
+        h_uf, h_uf_corr = unfolder.get_unfolded_distribution(varname_truth, bins_mc, normalize=True) # TODO check this
+
+        # prior distribution
+        h_gen = unfolder.handle_sig.get_histogram(varname_truth, bins_mc)
+
+        # truth distribution if known
+        if parsed_args['truth_known']:
+            h_truth = unfolder.handle_obs.get_histogram(varname_truth, bins_mc)
+        else:
+            h_truth = None
+
+        # IBU: TODO
+        h_ibu = None
+        hists_ibu_alliters = None
+        h_ibu_corr = None
+
+        # print metrics on the plot
+        texts_chi2 = []
+        if parsed_args['plot_verbosity'] >= 2: # -pp
+            texts_chi2 = metrics.write_texts_Chi2(
+                h_truth, [h_uf, h_ibu, h_gen],
+                labels=['MultiFold', 'IBU', 'Prior']
+            )
+
+        # plot
+        figname_uf = os.path.join(unfolder.outdir, f"Unfold_{observable}")
+        logger.info(f"  Plot unfolded distribution: {figname_uf}")
+        plotter.plot_distributions_unfold(
+            figname_uf, h_uf, h_gen, h_truth, h_ibu,
+            xlabel = observable_dict[observable]['xlabel'],
+            ylabel = observable_dict[observable]['ylabel'],
+            legend_loc = observable_dict[observable]['legend_loc'],
+            legend_ncol = observable_dict[observable]['legend_ncol'],
+            stamp_loc = observable_dict[observable]['stamp_xy'],
+            stamp_texts = texts_chi2
+        )
+
+        ####
+        # More plots if -pp
+        if parsed_args['plot_verbosity'] < 2:
+            continue
+
+        ###
+        # Reco level distribution
         # observed data
         h_data = unfolder.handle_obs.get_histogram(varname_reco, bins_det)
         if unfolder.handle_obsbkg is not None:
@@ -149,47 +219,8 @@ def unfold(**parsed_args):
             legend_ncol = observable_dict[observable]['legend_ncol']
         )
 
-        ####
-        # Truth level
-        # unfolded distribution
-        h_uf, h_uf_corr = unfolder.get_unfolded_distribution(varname_truth, bins_mc, normalize=True) # TODO check this
-
-        # prior distribution
-        h_gen = unfolder.handle_sig.get_histogram(varname_truth, bins_mc)
-
-        # truth distribution if known
-        if parsed_args['truth_known']:
-            h_truth = unfolder.handle_obs.get_histogram(varname_truth, bins_mc)
-        else:
-            h_truth = None
-
-        # IBU: TODO
-        h_ibu = None
-        hists_ibu_alliters = None
-        h_ibu_corr = None
-
-        # print metrics on the plot
-        # TODO: add a switch to turn this off
-        texts_chi2 = metrics.write_texts_Chi2(
-            h_truth, [h_uf, h_ibu, h_gen], labels=['MultiFold', 'IBU', 'Prior'])
-
-        # plot
-        figname_uf = os.path.join(unfolder.outdir, f"Unfold_{observable}")
-        logger.info(f"  Plot unfolded distribution: {figname_uf}")
-        plotter.plot_distributions_unfold(
-            figname_uf, h_uf, h_gen, h_truth, h_ibu,
-            xlabel = observable_dict[observable]['xlabel'],
-            ylabel = observable_dict[observable]['ylabel'],
-            legend_loc = observable_dict[observable]['legend_loc'],
-            legend_ncol = observable_dict[observable]['legend_ncol'],
-            stamp_loc = observable_dict[observable]['stamp_xy'],
-            stamp_texts = texts_chi2
-        )
-
-        ####
-        # More plots
-        ##
-        # plot bin correlations
+        ###
+        # Unfolded distribution bin correlations
         if h_uf_corr is not None:
             figname_uf_corr = os.path.join(unfolder.outdir, f"BinCorr_{observable}_OmniFold")
             logger.info(f"  Plot bin correlations: {figname_uf_corr}")
@@ -200,11 +231,35 @@ def unfold(**parsed_args):
             logger.info(f"  Plot bin correlations: {figname_ibu_corr}")
             plotter.plot_correlations(figname_ibu_corr, h_ibu_corr, bins_mc)
 
+        ## Metrics
+        if parsed_args['truth_known']:
+            mdict = dict()
+            mdict[observable] = metrics.evaluate_all_metrics(
+                unfolder, varname_truth, bins_mc, hists_ibu_alliters
+            )
+
+            metrics_dir = os.path.join(unfolder.outdir, 'Metrics')
+            if not os.path.isdir(metrics_dir):
+                os.makedirs(metrics_dir)
+
+            # write to json file
+            util.write_dict_to_json(mdict, metrics_dir+f"/{observable}.json")
+
+            # make plots
+            metrics.plot_all_metrics(
+                mdict[observable], metrics_dir+f"/{observable}"
+            )
+
+        ####
+        # Even more plots if -ppp
+        if parsed_args['plot_verbosity'] < 3:
+            continue
+
         ## Resamples
         hists_uf_resample = unfolder.get_unfolded_hists_resamples(
             varname_truth, bins_mc, normalize=False, all_iterations=True)
 
-        if len(hists_uf_resample) > 0: # TODO: plot verbosity
+        if len(hists_uf_resample) > 0:
             resample_dir = os.path.join(unfolder.outdir, 'Resamples')
             if not os.path.isdir(resample_dir):
                 logger.info(f"Create directory {resample_dir}")
@@ -225,39 +280,19 @@ def unfold(**parsed_args):
             plotter.plot_hists_bin_distr(figname_bindistr, hists_uf_resample, h_truth)
 
         ## Iteration history
-        if True: # TODO: plot verbosity
-            iteration_dir = os.path.join(unfolder.outdir, 'Iterations')
-            if not os.path.isdir(iteration_dir):
-                logger.info(f"Create directory {iteration_dir}")
-                os.makedirs(iteration_dir)
+        iteration_dir = os.path.join(unfolder.outdir, 'Iterations')
+        if not os.path.isdir(iteration_dir):
+            logger.info(f"Create directory {iteration_dir}")
+            os.makedirs(iteration_dir)
 
-            hists_uf_alliters = unfolder.get_unfolded_distribution(varname_truth, bins_mc, normalize=True, all_iterations=True)[0]
+        hists_uf_alliters = unfolder.get_unfolded_distribution(varname_truth, bins_mc, normalize=True, all_iterations=True)[0]
 
-            figname_alliters = os.path.join(iteration_dir, f"Unfold_AllIterations_{observable}")
-            logger.info(f"  Plot unfolded distributions at every iteration: {figname_alliters}")
-            plotter.plot_distributions_iteration(
-                figname_alliters, hists_uf_alliters, h_gen, h_truth,
-                xlabel = observable_dict[observable]['xlabel'],
-                ylabel = observable_dict[observable]['ylabel'])
-
-        ## Metrics
-        if parsed_args['truth_known']:
-            mdict = dict()
-            mdict[observable] = metrics.evaluate_all_metrics(
-                unfolder, varname_truth, bins_mc, hists_ibu_alliters
-            )
-
-            metrics_dir = os.path.join(unfolder.outdir, 'Metrics')
-            if not os.path.isdir(metrics_dir):
-                os.makedirs(metrics_dir)
-
-            # write to json file
-            util.write_dict_to_json(mdict, metrics_dir+f"/{observable}.json")
-
-            # make plots
-            metrics.plot_all_metrics(
-                mdict[observable], metrics_dir+f"/{observable}"
-            )
+        figname_alliters = os.path.join(iteration_dir, f"Unfold_AllIterations_{observable}")
+        logger.info(f"  Plot unfolded distributions at every iteration: {figname_alliters}")
+        plotter.plot_distributions_iteration(
+            figname_alliters, hists_uf_alliters, h_gen, h_truth,
+            xlabel = observable_dict[observable]['xlabel'],
+            ylabel = observable_dict[observable]['ylabel'])
 
     tracemalloc.stop()
 
@@ -325,13 +360,9 @@ def getArgsParser():
     parser.add_argument('--binning-config', dest='binning_config',
                         default='configs/binning/bins_10equal.json', type=str,
                         help="Binning config file for variables")
+    parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
+                        help="Plot verbose level. '-ppp' to make all plots.")
 
-    parser.add_argument('-c', '--plot-correlations',
-                        action='store_true',
-                        help="Plot pairwise correlations of training variables")
-    parser.add_argument('--plot-history', dest='plot_history',
-                        action='store_true',
-                        help="If true, plot intermediate steps of unfolding")
     parser.add_argument('--run-ibu', action='store_true',
                         help="If True, run unfolding using IBU for comparison")
 

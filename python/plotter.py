@@ -765,8 +765,8 @@ def plot_training_vs_validation(
 
     hep.histplot(hist_preds_cat1_t, ax=ax, label='y = 1 (training)', histtype='step')
     hep.histplot(hist_preds_cat0_t, ax=ax, label='y = 0 (training)', histtype='step')
-    hep.histplot(hist_preds_cat1_v, ax=ax, label='y = 1 (validation)', histtype='errorbar')
-    hep.histplot(hist_preds_cat0_v, ax=ax, label='y = 0 (validation)', histtype='errorbar')
+    hep.histplot(hist_preds_cat1_v, ax=ax, label='y = 1 (validation)', histtype='errorbar', markersize=3, marker='+')
+    hep.histplot(hist_preds_cat0_v, ax=ax, label='y = 0 (validation)', histtype='errorbar', markersize=3, marker='+')
 
     ax.legend()
 

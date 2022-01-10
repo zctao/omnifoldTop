@@ -141,6 +141,7 @@ def omnifold(
     save_models_to='', # directory to save models to if provided
     load_models_from='', # directory to load trained models if provided
     start_from_previous_iter=False, # If True, initialize model with the previous iteration
+    plot=False, # If True, plot training history and make other status plots
     **fitargs
     ):
     """
@@ -233,16 +234,16 @@ def omnifold(
                 ])
 
             logger.info("Start training")
-            fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to else ''
+            fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
             train_model(model_step1, X_step1, Y_step1, w_step1,
                         callbacks = cb_step1,
-                        #figname = fname_preds,
+                        figname = fname_preds,
                         **fitargs)
             logger.info("Training done")
 
         # reweight
         logger.info("Reweight")
-        fname_rdistr = save_models_to + f"/rdistr_step1_{i}" if save_models_to else ''
+        fname_rdistr = save_models_to + f"/rdistr_step1_{i}" if save_models_to and plot else ''
         weights_pull = weights_push * reweight(model_step1, X_sim, fname_rdistr)
 
         #####
@@ -270,7 +271,7 @@ def omnifold(
 
             # reweight
             logger.info("Reweight")
-            fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to else ''
+            fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
             weights_pull[~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], fname_rdistr)
 
         #####
@@ -286,22 +287,21 @@ def omnifold(
 #            rw_step2 = 1. # always reweight against the prior
             rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
 
-            
             w_step2 = np.concatenate([
                 (weights_pull*w_gen)[passcut_gen], w_gen[passcut_gen]*rw_step2
                 ])
 
             logger.info("Start training")
-            fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to else ''
+            fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
             train_model(model_step2, X_step2, Y_step2, w_step2,
                         callbacks = cb_step2,
-                        #figname = fname_preds,
+                        figname = fname_preds,
                         **fitargs)
             logger.info("Training done")
 
         # reweight
         logger.info("Reweight")
-        fname_rdistr = save_models_to + f"/rdistr_step2_{i}" if save_models_to else ''
+        fname_rdistr = save_models_to + f"/rdistr_step2_{i}" if save_models_to and plot else ''
         weights_push[passcut_gen] = rw_step2 * reweight(model_step2, X_gen[passcut_gen], fname_rdistr)
 
         #####
@@ -329,7 +329,7 @@ def omnifold(
 
             # reweight
             logger.info("Reweight")
-            fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to else ''
+            fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
             weights_push[~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], fname_rdistr)
 
         # save truth level weights of this iteration
@@ -600,6 +600,7 @@ class OmniFoldTTbar():
         load_previous_iteration=True,
         load_models_from='',
         batch_size=256,
+        plot_status=False # if True, make extra plots for monitoring/debugging
     ):
         """
         Run unfolding
@@ -622,8 +623,7 @@ class OmniFoldTTbar():
         passcut_data, passcut_sim, passcut_gen = self._get_event_flags()
 
         # plot variable and event weight distributions for training
-        # TODO: add a flag to enable/disable plotting
-        if True:
+        if plot_status:
             plotter.plot_training_inputs_step1(
                 os.path.join(self.outdir, "Train_step1"),
                 self.varnames_reco,
@@ -646,12 +646,14 @@ class OmniFoldTTbar():
             save_models_to = save_model_dir,
             load_models_from = load_model_dir,
             start_from_previous_iter=load_previous_iteration,
+            plot = plot_status,
             **fitargs)
 
-        logger.info("Plot model training history")
-        for csvfile in glob.glob(os.path.join(save_model_dir, '*.csv')):
-            logger.info(f"  Plot training log {csvfile}")
-            plotter.plot_train_log(csvfile)
+        if plot_status:
+            logger.info("Plot model training history")
+            for csvfile in glob.glob(os.path.join(save_model_dir, '*.csv')):
+                logger.info(f"  Plot training log {csvfile}")
+                plotter.plot_train_log(csvfile)
 
         # save weights
         wfile = os.path.join(self.outdir, 'weights.npz')
@@ -801,9 +803,6 @@ class OmniFoldTTbar():
                 h_uf *= (wprior.sum() / (wprior*rw).sum())
 
         return h_uf, bin_corr
-
-#    def get_unfolded_weights():
-#        pass
 
     def plot_more(self):
         # Event weights
