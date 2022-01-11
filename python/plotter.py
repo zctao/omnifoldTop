@@ -262,7 +262,7 @@ def plot_hist(
         ax.set_title(title)
 
     for data, w, l in zip(data_arrs, weight_arrs, labels):
-        ax.hist(data, bins=bins, histtype='step', label=l)
+        ax.hist(data, bins=bins, weights=w, histtype='step', label=l)
 
     ax.legend()
 
