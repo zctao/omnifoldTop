@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 import plotter
-from model import get_model, get_callbacks, train_model
+from modelUtils import get_model, get_callbacks, train_model
 
 import logging
 logger = logging.getLogger('omnifold')

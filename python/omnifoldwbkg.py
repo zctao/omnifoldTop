@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 
 import plotting
 from datahandler import DataHandler
-from model import get_model, get_callbacks
+from modelUtils import get_model, get_callbacks
 import util
 import metrics
 from histogramming import set_hist_contents, set_hist_errors, get_values_and_errors, get_mean_from_hists, get_sigma_from_hists, get_bin_correlations_from_hists

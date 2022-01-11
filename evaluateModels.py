@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from sklearn.model_selection import train_test_split
 
-from model import get_model, get_callbacks
+from modelUtils import get_model, get_callbacks
 
 from datahandler import DataHandler, DataToy
 import util
