@@ -7,7 +7,12 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 import tensorflow.keras.backend as K
+from sklearn.model_selection import train_test_split
 
+import plotter
+
+import logging
+logger = logging.getLogger('model')
 
 def get_callbacks(model_filepath=None):
     """
@@ -169,6 +174,35 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     model.summary()
 
     return model
+
+def train_model(model, X, Y, w, callbacks=[], figname='', **fitargs):
+    """
+    Train model
+    """
+    if callbacks:
+        fitargs.setdefault('callbacks', []).extend(callbacks)
+
+    # make Y categorical
+    Y = tf.keras.utils.to_categorical(Y)
+
+    # train validation split
+    X_train, X_val, Y_train, Y_val, w_train, w_val = train_test_split(X, Y, w)
+
+    # For the customized loss function: weighted_categorical_crossentropy
+    # zip event weights with labels
+    Yw_train = np.column_stack((Y_train, w_train))
+    Yw_val = np.column_stack((Y_val, w_val))
+
+    model.fit(X_train, Yw_train, validation_data=(X_val, Yw_val), **fitargs)
+
+    # if use the original 'categorical_crossentropy' from keras
+    #model.fit(X_train, Y_train, sample_weight=w_train, validation_data=(X_val, Y_val, w_val), **fitargs)
+
+    if figname:
+        logger.info(f"Plot model output distributions: {figname}")
+        preds_train = model.predict(X_train, batch_size=int(0.1*len(X_train)))[:,1]
+        preds_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
+        plotter.plot_training_vs_validation(figname, preds_train, Y_train, w_train, preds_val, Y_val, w_val)
 
 def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     """

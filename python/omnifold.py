@@ -1,10 +1,8 @@
 import os
 import numpy as np
-import tensorflow as tf
-from sklearn.model_selection import train_test_split
 
 import plotter
-from model import get_model, get_callbacks
+from model import get_model, get_callbacks, train_model
 
 import logging
 logger = logging.getLogger('omnifold')
@@ -47,28 +45,6 @@ def set_up_model(
             logger.debug(f"Initialize model from {filepath_load}")
 
     return model, callbacks
-
-def train_model(model, X, Y, w, callbacks=[], figname='', **fitargs):
-    """
-    Train model
-    """
-
-    if callbacks:
-        fitargs.setdefault('callbacks', []).extend(callbacks)
-
-    X_train, X_val, Y_train, Y_val, w_train, w_val = train_test_split(X, Y, w)
-
-    # zip event weights with labels
-    Yw_train = np.column_stack((Y_train, w_train))
-    Yw_val = np.column_stack((Y_val, w_val))
-
-    model.fit(X_train, Yw_train, validation_data=(X_val, Yw_val), **fitargs)
-
-    if figname:
-        logger.info(f"Plot model output distributions: {figname}")
-        preds_train = model.predict(X_train, batch_size=int(0.1*len(X_train)))[:,1]
-        preds_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
-        plotter.plot_training_vs_validation(figname, preds_train, Y_train, w_train, preds_val, Y_val, w_val)
 
 def reweight(model, events, figname=None):
     preds = model.predict(events, batch_size=int(0.1*len(events)))[:,1]
@@ -120,8 +96,6 @@ def omnifold(
     X_step1 = np.concatenate([ X_data[passcut_data], X_sim[passcut_sim] ])
     # labels: data=1, sim=0
     Y_step1 = np.concatenate([ np.ones(len(X_data[passcut_data])), np.zeros(len(X_sim[passcut_sim])) ])
-    # make Y categorical
-    Y_step1 = tf.keras.utils.to_categorical(Y_step1)
 
     logger.debug(f"Size of the feature array for step 1: {X_step1.nbytes*2**-20:.3f} MB")
     logger.debug(f"Size of the label array for step 1: {Y_step1.nbytes*2**-20:.3f} MB")
@@ -130,7 +104,6 @@ def omnifold(
     if np.any(~passcut_sim):
         X_step1b = np.concatenate([ X_gen[passcut_sim & passcut_gen], X_gen[passcut_sim & passcut_gen] ])
         Y_step1b = np.concatenate([ np.ones(len(X_gen[passcut_sim & passcut_gen])), np.zeros(len(X_gen[passcut_sim & passcut_gen])) ])
-        Y_step1b = tf.keras.utils.to_categorical(Y_step1b)
 
         logger.debug(f"Size of the feature array for step 1b: {X_step1b.nbytes*2**-20:.3f} MB")
         logger.debug(f"Size of the label array for step 1b: {Y_step1b.nbytes*2**-20:.3f} MB")
@@ -140,8 +113,6 @@ def omnifold(
     X_step2 = np.concatenate([ X_gen[passcut_gen], X_gen[passcut_gen] ])
     # labels
     Y_step2 = np.concatenate([ np.ones(len(X_gen[passcut_gen])), np.zeros(len(X_gen[passcut_gen])) ])
-    # make Y categorical
-    Y_step2 = tf.keras.utils.to_categorical(Y_step2)
 
     logger.debug(f"Size of the feature array for step 2: {X_step2.nbytes*2**-20:.3f} MB")
     logger.debug(f"Size of the label array for step 2: {Y_step2.nbytes*2**-20:.3f} MB")
@@ -150,7 +121,6 @@ def omnifold(
     if np.any(~passcut_gen):
         X_step2b = np.concatenate([ X_sim[passcut_sim & passcut_gen], X_sim[passcut_sim & passcut_gen] ])
         Y_step2b = np.concatenate([ np.ones(len(X_sim[passcut_sim & passcut_gen])), np.zeros(len(X_sim[passcut_sim & passcut_gen])) ])
-        Y_step2b = tf.keras.utils.to_categorical(Y_step2b)
 
         logger.debug(f"Size of the feature array for step 2b: {X_step2b.nbytes*2**-20:.3f} MB")
         logger.debug(f"Size of the label array for step 2b: {Y_step2b.nbytes*2**-20:.3f} MB")
@@ -194,7 +164,7 @@ def omnifold(
             fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
             train_model(model_step1, X_step1, Y_step1, w_step1,
                         callbacks = cb_step1,
-                        figname = fname_preds,
+                        #figname = fname_preds,
                         **fitargs)
             logger.info("Training done")
 
@@ -252,7 +222,7 @@ def omnifold(
             fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
             train_model(model_step2, X_step2, Y_step2, w_step2,
                         callbacks = cb_step2,
-                        figname = fname_preds,
+                        #figname = fname_preds,
                         **fitargs)
             logger.info("Training done")
 
