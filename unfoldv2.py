@@ -154,6 +154,7 @@ def unfold(**parsed_args):
         # Truth level
         # unfolded distribution
         h_uf, h_uf_corr = unfolder.get_unfolded_distribution(varname_truth, bins_mc, normalize=True) # TODO check this
+        # normalize to the prior weightst for now, normalize to data?
 
         # prior distribution
         h_gen = unfolder.handle_sig.get_histogram(varname_truth, bins_mc)
@@ -193,7 +194,11 @@ def unfold(**parsed_args):
                 bins_det, bins_mc,
                 array_obs, array_sim, array_gen, array_bkg,
                 wobs, wsim, wgen, wbkg,
+                niterations = parsed_args['iterations'],
                 all_iterations=True)
+            # hists_ibu_alliters have the same norm as wobs (therefore wsim)
+            # TODO: check this. rescale to the prior truth weights for now
+            hists_ibu_alliters = [h * wgen.sum() / wobs.sum() for h in hists_ibu_alliters]
 
             # plot response
             figname_resp = os.path.join(unfolder.outdir, f"Response_{observable}")
