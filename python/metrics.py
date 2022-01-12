@@ -462,6 +462,12 @@ def evaluate_all_metrics(
             hists_uf_rs, hist_prior, hist_truth
         )
 
+    # IBU
+    if hists_ibu:
+        metrics_v["IBU"] = write_all_metrics_binned(
+            hists_ibu, hist_prior, hist_truth
+        )
+
     # Unbinned
     # data arrays
     # pseudo data

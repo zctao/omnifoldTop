@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 
 from histogramming import calc_hist, calc_hist2d, get_hist, set_hist_errors
+import hist
 
 import plotting
 import logging
@@ -10,7 +11,7 @@ logger = logging.getLogger('IBU')
 logger.setLevel(logging.DEBUG)
 
 class IBU(object):
-    def __init__(self, varname, bins_det, bins_mc, obs, sim, gen, simbkg=None, wobs=1., wsig=1., wgen=1., wbkg=1., iterations=4, nresample=25, outdir='.'):
+    def __init__(self, varname, bins_det, bins_mc, obs, sim, gen, simbkg=None, wobs=1., wsig=1., wgen=1., wbkg=1., iterations=4, nresample=25, outdir='.', acceptance_correction=None, efficiency_correction=None):
         # variable name
         self.varname = varname
         # bin edges
@@ -38,6 +39,9 @@ class IBU(object):
         # unfolded distributions
         self.hists_unfolded = None
         self.hists_unfolded_corr = None
+        # acceptance correction
+        self.acc_corr = acceptance_correction
+        self.eff_corr = efficiency_correction
 
     def run(self):
         # response matrix
@@ -73,7 +77,7 @@ class IBU(object):
 
         return hists_uf, hists_corr
 
-    def _response_matrix(self, weights_sim, plot=True):
+    def _response_matrix(self, weights_sim, plot=False):
         r = calc_hist2d(self.array_sim, self.array_gen, bins=(self.bins_det, self.bins_mc), weights=weights_sim)
         # normalize per truth bin
         #r.view()['value'] = r.values() / r.project(1).values()
@@ -97,6 +101,13 @@ class IBU(object):
             h_bkg = calc_hist(self.array_bkg, self.bins_det, weights=weights_bkg)
             h_obs  = h_obs + (-1*h_bkg)
 
+        # apply acceptance correction if available
+        if self.acc_corr is not None:
+            # in case the acc_corr has different binning than self.bins_det
+            # get the correction factors using h_obs bin center
+            f_corr = [ self.acc_corr[hist.loc(c)].value for c in h_obs.axes[0].centers]
+            h_obs = h_obs * f_corr
+
         ######
         # truth level
         # prior distribution
@@ -119,7 +130,12 @@ class IBU(object):
             h_ibu = get_hist(self.bins_mc, entry_ibu)
             hists_ibu.append(h_ibu)
 
-        return hists_ibu[1:] # shape: (n_iteration, nbins_hist)
+        if self.eff_corr is not None:
+            # apply efficiency correction
+            # TODO
+            pass
+
+        return hists_ibu[1:] # shape: (n_iteration,)
 
     def _uncertainty(self, nresamples, response=None, resample_obs=True, resample_sig=False):
         hists_resample = []

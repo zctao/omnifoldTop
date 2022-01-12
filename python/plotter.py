@@ -857,3 +857,41 @@ def plot_training_inputs_step2(figname_prefix, variable_names, Xgen, wgen):
         labels = ['Gen.'],
         xlabel = 'w (training)',
         title = "Step-2 prior weights at truth level")
+
+def plot_response(figname, histogram2d, variable):
+    """
+    Plot the unfolded detector response matrix.
+
+    Parameters
+    ----------
+    figname : str
+        Path to save the generated figure, excluding the file extension.
+    histogram2d :Hist object. 2D histogram.
+        Detector response matrix. Entries are percentages in the range [0, 1].
+    variable : str
+        Name of the plotted variable.
+    """
+    h2d = histogram2d.values()
+    xedges = histogram2d.axes[0].edges
+    yedges = histogram2d.axes[1].edges
+
+    fig, ax = plt.subplots()
+    ax.set_title('Detector Response')
+    ax.set_xlabel(f'Detector-level {variable}')
+    ax.set_ylabel(f'Truth-level {variable}')
+
+    X, Y = np.meshgrid(xedges, yedges)
+    im = ax.pcolormesh(X, Y, h2d.T*100, cmap='Greens')
+    fig.colorbar(im, ax=ax, label="%")
+
+    # label bin content
+    xcenter =(xedges[:-1]+xedges[1:])/2
+    ycenter = (yedges[:-1]+yedges[1:])/2
+    for i, xc in enumerate(xcenter):
+        for j, yc in enumerate(ycenter):
+            bin_content = round(h2d[i, j]*100)
+            if bin_content != 0:
+                ax.text(xc, yc, str(int(bin_content)), ha='center', va='center', fontsize=3)
+
+    fig.savefig(figname+'.png', dpi=300)
+    plt.close(fig)

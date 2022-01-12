@@ -11,6 +11,7 @@ import plotter
 import reweight
 import metrics
 from OmniFoldTTbar import OmniFoldTTbar
+from ibuv2 import run_ibu
 
 def unfold(**parsed_args):
     tracemalloc.start()
@@ -137,6 +138,7 @@ def unfold(**parsed_args):
             os.path.join(unfolder.outdir, "InputCorr_gen"), corr_gen
         )
 
+    # for each observable
     for observable in set().union(parsed_args['observables'], parsed_args['observables_extra']):
         logger.info(f"Unfold variable: {observable}")
         varname_reco = observable_dict[observable]['branch_det']
@@ -162,10 +164,49 @@ def unfold(**parsed_args):
         else:
             h_truth = None
 
-        # IBU: TODO
-        h_ibu = None
-        hists_ibu_alliters = None
-        h_ibu_corr = None
+        ####
+        # IBU
+        if parsed_args['run_ibu']:
+            # data array
+            array_obs = unfolder.handle_obs[varname_reco]
+            wobs = unfolder.handle_obs.get_weights()
+            if unfolder.handle_obsbkg is not None:
+                array_obsbkg = unfolder.handle_obsbkg[varname_reco]
+                wobsbkg = unfolder.handle_obsbkg.get_weights()
+                array_obs = np.concatenate([array_obs, array_obsbkg])
+                wobs = np.concatenate([wobs, wobsbkg])
+
+            # simulation
+            array_sim = unfolder.handle_sig[varname_reco]
+            wsim = unfolder.handle_sig.get_weights()
+
+            array_gen = unfolder.handle_sig[varname_truth]
+            wgen = unfolder.handle_sig.get_weights(reco_level=False)
+
+            if unfolder.handle_bkg is not None:
+                array_bkg = unfolder.handle_bkg[varname_reco]
+                wbkg = unfolder.handle_bkg.get_weights()
+            else:
+                array_bkg, wbkg = None, None
+
+            hists_ibu_alliters, h_ibu_corr, response = run_ibu(
+                bins_det, bins_mc,
+                array_obs, array_sim, array_gen, array_bkg,
+                wobs, wsim, wgen, wbkg,
+                all_iterations=True)
+
+            # plot response
+            figname_resp = os.path.join(unfolder.outdir, f"Response_{observable}")
+            logger.info(f"  Plot detector response: {figname_resp}")
+            plotter.plot_response(figname_resp, response, observable)
+
+            h_ibu = hists_ibu_alliters[-1]
+            h_ibu_corr = h_ibu_corr[-1]
+        else:
+            h_ibu = None
+            hists_ibu_alliters = None
+            h_ibu_corr = None
+        ####
 
         # print metrics on the plot
         texts_chi2 = []
@@ -362,9 +403,8 @@ def getArgsParser():
                         help="Binning config file for variables")
     parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
                         help="Plot verbose level. '-ppp' to make all plots.")
-
     parser.add_argument('--run-ibu', action='store_true',
-                        help="If True, run unfolding using IBU for comparison")
+                        help="If True, run unfolding also with IBU for comparison")
 
     args = parser.parse_args()
 
