@@ -79,7 +79,8 @@ def run_ibu(
     nresamples = 25, # number of resamples for uncertainty estimation
     acceptance_correction = None, # histogram for acceptance correction
     efficiency_correction = None, # histogram for efficiency correction
-    all_iterations = False # if True, return results at every iteration
+    all_iterations = False, # if True, return results at every iteration
+    norm = None
     ):
 
     # Response matrix
@@ -120,6 +121,11 @@ def run_ibu(
 
     # set error
     myhu.set_hist_errors(hists_ibu, bin_errors)
+
+    # normalization
+    if norm is not None:
+        for h in hists_ibu:
+            h *= (norm / h.sum(flow=True)['value'])
 
     # bin correlations
     bin_corr = []

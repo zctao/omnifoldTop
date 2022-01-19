@@ -195,10 +195,10 @@ def unfold(**parsed_args):
                 array_obs, array_sim, array_gen, array_bkg,
                 wobs, wsim, wgen, wbkg,
                 niterations = parsed_args['iterations'],
-                all_iterations=True)
-            # hists_ibu_alliters have the same norm as wobs (therefore wsim)
-            # TODO: check this. rescale to the prior truth weights for now
-            hists_ibu_alliters = [h * wgen.sum() / wobs.sum() for h in hists_ibu_alliters]
+                all_iterations = True,
+                # FIXME: rescale the histogram to the prior for now
+                norm = wgen.sum()
+                )
 
             # plot response
             figname_resp = os.path.join(unfolder.outdir, f"Response_{observable}")
