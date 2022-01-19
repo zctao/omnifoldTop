@@ -438,7 +438,7 @@ class OmniFoldTTbar():
         self,
         varname, # str, name of the variable
         bins,
-        normalize,
+        norm=None,
         all_iterations=False
         ):
 
@@ -460,14 +460,13 @@ class OmniFoldTTbar():
             wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
             h = self.handle_sig.get_histogram(varname, bins, wprior*rw)
 
-            if normalize:
-                # normalize each resample to the prior
+            if norm is not None:
+                # normalize distributions from each resampling
                 if all_iterations:
-                    rs = wprior.sum() / (wprior*rw).sum(axis=1)
-                    for hh, r in zip(h, rs): # for each iteration
-                        hh *= r
+                    for hh in h: # for each iteration
+                        hh *= (norm / hh.sum(flow=True)['value'])
                 else:
-                    h *= (wprior.sum() / (wprior*rw).sum())
+                    h *= (norm / h.sum(flow=True)['value'])
 
             hists_resample.append(h)
 
@@ -477,7 +476,7 @@ class OmniFoldTTbar():
         self,
         varname,
         bins,
-        normalize=True,
+        norm=None,
         all_iterations=False,
         bootstrap_uncertainty=True
         ):
@@ -488,7 +487,7 @@ class OmniFoldTTbar():
 
         bin_corr = None # bin correlation
         if bootstrap_uncertainty and self.unfolded_weights_resample is not None:
-            h_uf_rs = self.get_unfolded_hists_resamples(varname, bins, normalize=False, all_iterations=all_iterations)
+            h_uf_rs = self.get_unfolded_hists_resamples(varname, bins, norm=None, all_iterations=all_iterations)
 
             # add the "nominal" histogram to the resampled ones
             h_uf_rs.append(h_uf)
@@ -506,14 +505,13 @@ class OmniFoldTTbar():
             myhu.set_hist_contents(h_uf, hmean)
             myhu.set_hist_errors(h_uf, hsigma)
 
-        if normalize:
-            # normalize the unfolded histograms to the prior distribution
+        if norm is not None:
+            # rescale the unfolded distribution to the norm
             if all_iterations:
-                rs = wprior.sum() / (wprior*rw).sum(axis=1)
-                for h, r in zip(h_uf, rs):
-                    h *= r
+                for hh in h_uf:
+                    hh *= (norm / hh.sum(flow=True)['value'])
             else:
-                h_uf *= (wprior.sum() / (wprior*rw).sum())
+                h_uf *= (norm / h_uf.sum(flow=True)['value'])
 
         return h_uf, bin_corr
 

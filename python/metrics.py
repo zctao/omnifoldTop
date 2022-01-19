@@ -441,14 +441,17 @@ def evaluate_all_metrics(
     metrics_v = dict()
 
     # Binned
+    # FIXME: normalization
     # prior distribution
     hist_prior = unfolder.handle_sig.get_histogram(varname, bin_edges)
+    norm_prior = hist_prior.sum(flow=True)['value']
 
     # truth distribution
     hist_truth = unfolder.handle_obs.get_histogram(varname, bin_edges)
+    hist_truth *= (norm_prior / hist_truth.sum(flow=True)['value'])
 
     # unfolded distributions at every iteration
-    hists_uf = unfolder.get_unfolded_distribution(varname, bin_edges, all_iterations=True)[0]
+    hists_uf = unfolder.get_unfolded_distribution(varname, bin_edges, all_iterations=True, norm=norm_prior)[0]
 
     metrics_v["nominal"] = write_all_metrics_binned(
         hists_uf, hist_prior, hist_truth
@@ -456,7 +459,7 @@ def evaluate_all_metrics(
 
     # unfolded distributions of every resample at every iterations
     if unfolder.unfolded_weights_resample is not None:
-        hists_uf_rs = unfolder.get_unfolded_hists_resamples(varname, bin_edges, all_iterations=True, normalize=True)
+        hists_uf_rs = unfolder.get_unfolded_hists_resamples(varname, bin_edges, all_iterations=True, norm=norm_prior)
 
         metrics_v["resample"] = write_all_metrics_binned(
             hists_uf_rs, hist_prior, hist_truth

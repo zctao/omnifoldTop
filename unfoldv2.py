@@ -152,16 +152,22 @@ def unfold(**parsed_args):
         ####
         # -p 
         # Truth level
-        # unfolded distribution
-        h_uf, h_uf_corr = unfolder.get_unfolded_distribution(varname_truth, bins_mc, normalize=True) # TODO check this
-        # normalize to the prior weightst for now, normalize to data?
-
         # prior distribution
         h_gen = unfolder.handle_sig.get_histogram(varname_truth, bins_mc)
+        norm_prior = h_gen.sum(flow=True)['value']
+
+        # unfolded distribution
+        h_uf, h_uf_corr = unfolder.get_unfolded_distribution(varname_truth, bins_mc, norm=norm_prior) # TODO check this
+        # normalize to the prior weightst for now, normalize to data?
 
         # truth distribution if known
         if parsed_args['truth_known']:
             h_truth = unfolder.handle_obs.get_histogram(varname_truth, bins_mc)
+            #
+            # temporary fix before fixing normalization
+            # rescale h_truth to h_gen
+            h_truth *= (norm_prior/h_truth.sum(flow=True)['value'])
+            #
         else:
             h_truth = None
 
@@ -197,7 +203,7 @@ def unfold(**parsed_args):
                 niterations = parsed_args['iterations'],
                 all_iterations = True,
                 # FIXME: rescale the histogram to the prior for now
-                norm = wgen.sum()
+                norm = norm_prior
                 )
 
             # plot response
@@ -303,7 +309,7 @@ def unfold(**parsed_args):
 
         ## Resamples
         hists_uf_resample = unfolder.get_unfolded_hists_resamples(
-            varname_truth, bins_mc, normalize=False, all_iterations=True)
+            varname_truth, bins_mc, norm=norm_prior, all_iterations=True)
 
         if len(hists_uf_resample) > 0:
             resample_dir = os.path.join(unfolder.outdir, 'Resamples')
@@ -331,7 +337,7 @@ def unfold(**parsed_args):
             logger.info(f"Create directory {iteration_dir}")
             os.makedirs(iteration_dir)
 
-        hists_uf_alliters = unfolder.get_unfolded_distribution(varname_truth, bins_mc, normalize=True, all_iterations=True)[0]
+        hists_uf_alliters = unfolder.get_unfolded_distribution(varname_truth, bins_mc, norm=norm_prior, all_iterations=True)[0]
 
         figname_alliters = os.path.join(iteration_dir, f"Unfold_AllIterations_{observable}")
         logger.info(f"  Plot unfolded distributions at every iteration: {figname_alliters}")
