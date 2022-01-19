@@ -431,7 +431,8 @@ if __name__ == "__main__":
         sys.exit(2)
 
     # logging
-    logfile = os.path.join(args.outputdir, 'log.txt')
+    logname = 'log.txt' if args.unfolded_weights is None else 'log_rw.txt'
+    logfile = os.path.join(args.outputdir, logname)
     util.configRootLogger(filename=logfile)
     logger = logging.getLogger('Unfold')
     logger.setLevel(logging.DEBUG if args.verbose > 0 else logging.INFO)
