@@ -170,7 +170,7 @@ class OmniFoldTTbar():
             logger.info(f"Load background simulation files to be mixed with data: {' '.join(filepaths_obsbkg)}")
             # only reco level events are needed
             self.handle_obsbkg = getDataHandler(
-                filepaths_obsbkg, vars_reco_all, [], dummy_value)
+                filepaths_obsbkg, vars_reco, [], dummy_value)
             logger.info(f"Total number of background events mixed with data: {len(self.handle_obsbkg)}")
 
         ####
@@ -213,7 +213,8 @@ class OmniFoldTTbar():
 
         # add backgrouund simulation to the data array (with negative weights)
         if self.handle_bkg is not None:
-            arr_bkg = np.concatenate([arr_data, arr_bkg])
+            arr_bkg = self.handle_bkg.get_arrays(self.varnames_reco, valid_only=False)
+            arr_data = np.concatenate([arr_data, arr_bkg])
 
         # signal simulation
         # reco level

@@ -13,7 +13,7 @@ logger = logging.getLogger('plotter')
 # styles
 #hep.style.use(hep.style.ATLAS)
 data_style = {'color': 'black', 'label': 'Data', 'histtype': 'errorbar', 'marker': 'o', 'markersize': 3}
-sim_style = {'color': 'orange', 'label': 'Sim.', 'histtype': 'step'}
+sim_style = {'color': 'orange', 'label': 'Sim.', 'histtype': 'fill'}
 bkg_style = {'color': 'cyan', 'label': 'Bkg.', 'histtype': 'fill'}
 gen_style = {'color': 'blue', 'label': 'Gen.', 'histtype': 'step', 'lw':0.8}
 truth_style = {'edgecolor': 'green', 'facecolor': (0.75, 0.875, 0.75), 'label': 'Truth', 'histtype': 'fill'}
@@ -323,6 +323,8 @@ def plot_distributions_reco(
         hist_sim = [hist_bkg, hist_sig]
         label_sim = ["Bkg.", "Sim."]
         style_sim = { k: [bkg_style[k], sim_style[k]] for k in sim_style}
+        # Hack: histype does not allow a list i.e. different styles for the stacked histograms
+        style_sim['histtype'] = 'fill'
 
     hep.histplot(hist_sim, yerr=False, stack=True, ax=axes[0], **style_sim)
 
