@@ -68,7 +68,8 @@ def unfold(**parsed_args):
         variables_truth_extra = varnames_extra_truth,
         dummy_value = parsed_args['dummy_value'],
         outputdir = parsed_args["outputdir"],
-        data_reweighter = rw
+        data_reweighter = rw,
+        weight_type = parsed_args["weight_type"]
         )
 
     t_init_done = time.time()
@@ -416,6 +417,8 @@ def getArgsParser():
                         help="Plot verbose level. '-ppp' to make all plots.")
     parser.add_argument('--run-ibu', action='store_true',
                         help="If True, run unfolding also with IBU for comparison")
+    parser.add_argument('-w', '--weight-type', type=str, default='nominal',
+                        help="Type of event weights to retrieve from ntuples")
 
     args = parser.parse_args()
 

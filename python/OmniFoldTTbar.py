@@ -19,7 +19,8 @@ def getDataHandler(
     variables_reco, # list of str
     variables_truth = [], # list of str
     dummy_value = None, # float
-    reweighter = None
+    reweighter = None,
+    weight_type = 'nominal'
 ):    
     if util.getFilesExtension(filepaths) == ".root":
         # ROOT files
@@ -30,7 +31,7 @@ def getDataHandler(
         dh = DataHandlerROOT(
             filepaths, variables_reco, variables_truth,
             treename_reco=tree_reco, treename_truth=tree_truth,
-            weight_type='nominal',
+            weight_type=weight_type,
             dummy_value=dummy_value)
     else:
         # for limited backward compatibility to deal with npz file
@@ -81,7 +82,9 @@ class OmniFoldTTbar():
         # output directory
         outputdir = None,
         # data reweighting for stress test
-        data_reweighter=None
+        data_reweighter=None,
+        # type of event weights
+        weight_type='nominal'
     ):
         # unfolded weights
         self.unfolded_weights = None
@@ -119,7 +122,8 @@ class OmniFoldTTbar():
             normalize = normalize_to_data,
             truth_known = truth_known,
             dummy_value = dummy_value,
-            data_reweighter = data_reweighter
+            data_reweighter = data_reweighter,
+            weight_type = weight_type
         )
 
     def _prepare_inputs(
@@ -133,7 +137,8 @@ class OmniFoldTTbar():
         normalize = False, # bool
         truth_known = False, # bool
         dummy_value = -99., # float
-        data_reweighter = None # reweight.Reweighter
+        data_reweighter = None # reweight.Reweighter,
+        weight_type = 'nominal' # str, optional
         ):
         """
         Load input files into data handlers: self.handle_obs, self.handle_sig, 
@@ -148,13 +153,16 @@ class OmniFoldTTbar():
             vars_reco,
             vars_truth if truth_known else [],
             dummy_value,
-            data_reweighter)
+            reweighter = data_reweighter
+            )
         logger.info(f"Total number of observed events: {len(self.handle_obs)}")
 
         # Signal MC simulation
         logger.info(f"Load signal simulation files: {' '.join(filepaths_sig)}")
         self.handle_sig = getDataHandler(
-            filepaths_sig, vars_reco, vars_truth, dummy_value)
+            filepaths_sig, vars_reco, vars_truth, dummy_value,
+            weight_type = weight_type
+            )
         logger.info(f"Total number of signal events: {len(self.handle_sig)}")
 
         # Background MC simulation if needed
@@ -162,7 +170,9 @@ class OmniFoldTTbar():
             logger.info(f"Load background simulation files: {' '.join(filepaths_bkg)}")
             # only reco level events are needed
             self.handle_bkg = getDataHandler(
-                filepaths_bkg, vars_reco, [], dummy_value)
+                filepaths_bkg, vars_reco, [], dummy_value,
+                weight_type = weight_type
+                )
             logger.info(f"Total number of background events: {len(self.handle_bkg)}")
 
         # Simulated background events to be mixed with pseudo data for testing
@@ -170,7 +180,9 @@ class OmniFoldTTbar():
             logger.info(f"Load background simulation files to be mixed with data: {' '.join(filepaths_obsbkg)}")
             # only reco level events are needed
             self.handle_obsbkg = getDataHandler(
-                filepaths_obsbkg, vars_reco, [], dummy_value)
+                filepaths_obsbkg, vars_reco, [], dummy_value,
+                weight_type = weight_type
+                )
             logger.info(f"Total number of background events mixed with data: {len(self.handle_obsbkg)}")
 
         ####
