@@ -115,6 +115,10 @@ def load_dataset_root(
     if 'klfitter_logLikelihood' in data_array.dtype.names:
         pass_sel &= data_array['klfitter_logLikelihood'] > -52.
 
+    if 'totalWeight_nominal' in data_array.dtype.names:
+        # remove reco events with zero event weights
+        pass_sel &= data_array['totalWeight_nominal'] > 0.
+
     # A special case where some matched events in truth trees contain invalid
     # (nan or inf) values
     if 'MC_thad_afterFSR_y' in data_array.dtype.names:
