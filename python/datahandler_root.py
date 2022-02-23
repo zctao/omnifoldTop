@@ -223,7 +223,7 @@ class DataHandlerROOT(DataHandler):
         else:
             self.data_truth = None
 
-        # event weightss
+        # event weights
         self.weights, self.weights_mc = retrieve_weights(
             self.data_reco, self.data_truth, weight_type
             )
@@ -256,11 +256,26 @@ class DataHandlerROOT(DataHandler):
         else:
             # set dummy value
             dummy_value = float(dummy_value)
-            setDummyValue(self.data_reco, ~self.pass_reco, dummy_value)
-            setDummyValue(self.weights, ~self.pass_reco, dummy_value)
+
+            # acceptance effect only for now
             if self.data_truth is not None:
                 setDummyValue(self.data_truth, ~self.pass_truth, dummy_value)
                 setDummyValue(self.weights_mc, ~self.pass_truth, dummy_value)
+                #
+                self.data_truth = self.data_truth[self.pass_reco]
+                self.weights_mc = self.weights_mc[self.pass_reco]
+                self.pass_truth = self.pass_truth[self.pass_reco]
+
+            self.data_reco = self.data_reco[self.pass_reco]
+            self.weights = self.weights[self.pass_reco]
+            self.pass_reco = self.pass_reco[self.pass_reco]
+            #
+            # if account for both acceptance and efficiency corrections
+            #setDummyValue(self.data_reco, ~self.pass_reco, dummy_value)
+            #setDummyValue(self.weights, ~self.pass_reco, dummy_value)
+            #if self.data_truth is not None:
+            #    setDummyValue(self.data_truth, ~self.pass_truth, dummy_value)
+            #    setDummyValue(self.weights_mc, ~self.pass_truth, dummy_value)
 
         # sanity check
         assert(len(self.data_reco)==len(self.weights))
