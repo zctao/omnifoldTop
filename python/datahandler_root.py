@@ -79,11 +79,10 @@ def load_dataset_root(
     intrees = [fname + ':' + tree_name for fname in file_names]
 
     if variable_names:
-        branches = list(variable_names)
+        branches = [variable_names] if isinstance(variable_names, str) else variable_names
 
         # event weights
-        wvarlist = branches_for_weights(weight_type)
-        branches.append(wvarlist)
+        branches += branches_for_weights(weight_type)
 
         # flags for identifying events
         branches += ['isMatched', 'isDummy']
@@ -136,7 +135,7 @@ def branches_for_weights(weight_type='nominal'):
     branches = []
 
     if weight_type == 'nominal':
-        branches = ['totalWeight_nominal','normedWeight', 'weight_mc']
+        branches = ['normalized_weight', 'normalized_weight_mc', 'totalWeight_nominal']
     #elif: TODO for systematics from varying weights
 
     return branches
@@ -145,34 +144,14 @@ def retrieve_weights(array_reco, array_truth=None, weight_type='nominal'):
     """
     Retrieve event weights from data arrays
     """
-    if not 'totalWeight_nominal' in array_reco.dtype.names:
-        # not MC sample
-        w_reco = np.ones(len(array_reco))
-        w_truth = None
+    w_reco = array_reco['normalized_weight']
+    if array_truth is not None:
+        w_truth = array_truth['normalized_weight_mc']
     else:
-        # MC sample
-        # normalization: cross section * luminosity / sumWeights
-        # Currently sumWeights is not saved, instead there is a 'normedWeight'
-        # 'normedWeight' = 'totalWeight_nominal' * 'xs_times_lumi' / sumWeights
-        # the normalization factor
-        f_norm = np.zeros(len(array_reco))
-        np.divide(
-            array_reco['normedWeight'], array_reco['totalWeight_nominal'],
-            out=f_norm, where = array_reco['totalWeight_nominal']!=0
-            )
-        # TODO: store sumWeights in the ntuple
-        # TODO: some events have zero weight due to 'weight_pileup' = 0
-
-        w_reco = array_reco['normedWeight']
-
-        if array_truth is not None:
-            assert(len(array_truth) == len(array_reco))
-            w_truth = array_truth['weight_mc'] * f_norm
-            # note: truth weight now becomes 0 too when reco weight is 0
-        else:
-            w_truth = None
-
-        # TODO: weight_type != 'nominal'
+        w_truth = None
+    ####
+    # TODO: weight_type != 'nominal'
+    ####
 
     return w_reco, w_truth
 
