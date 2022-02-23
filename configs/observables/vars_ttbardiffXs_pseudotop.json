@@ -1,0 +1,320 @@
+{
+  "mtt": {
+    "branch_det": "PseudoTop_Reco_ttbar_m",
+    "branch_mc": "MC_ttbar_afterFSR_m",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [320, 1400],
+    "xlabel": "$m^{t\\bar{t}}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "ptt": {
+    "branch_det": "PseudoTop_Reco_ttbar_pt",
+    "branch_mc": "MC_ttbar_afterFSR_pt",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [0, 400],
+    "xlabel": "$p_{T}^{t\\bar{t}}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "ytt": {
+    "branch_det": "PseudoTop_Reco_ttbar_y",
+    "branch_mc": "MC_ttbar_afterFSR_y",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-3, 3],
+    "xlabel": "$y^{t\\bar{t}}$", "ylabel": "a.u.",
+    "stamp_xy": [0.32, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "ystar": {
+    "branch_det": "PseudoTop_Reco_ttbar_ystar",
+    "branch_mc": "MC_ttbar_afterFSR_ystar",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-2.5, 2.5],
+    "xlabel": "$y^{*}$", "ylabel":"a.u.",
+    "stamp_xy": [0.32, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "chitt": {
+    "branch_det": "PseudoTop_Reco_ttbar_chi",
+    "branch_mc": "MC_ttbar_afterFSR_chi",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [1, 20],
+    "xlabel": "$\\chi^{t\\bar{t}}$", "ylabel": "a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "yboost": {
+    "branch_det": "PseudoTop_Reco_ttbar_yboost",
+    "branch_mc": "MC_ttbar_afterFSR_yboost",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-2.5, 2.5],
+    "xlabel": "$y_{boost}^{t\\bar{t}}$", "ylabel":"a.u.",
+    "stamp_xy": [0.32, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "dphi": {
+    "branch_det": "PseudoTop_Reco_ttbar_dphi",
+    "branch_mc": "MC_ttbar_afterFSR_dphi",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [0, 3.2],
+    "xlabel": "$\\Delta\\phi(t, \\bar{t})$", "ylabel": "a.u.",
+    "stamp_xy": [0.10, 0.25],
+    "legend_loc": "upper left", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "phitt": {
+    "branch_det": "PseudoTop_Reco_ttbar_phi",
+    "branch_mc": "MC_ttbar_afterFSR_phi",
+    "nbins_det": 10, "nbins_mc": 10,
+    "xlim": [-3.2, 3.2],
+    "xlabel": "$\\phi^{t\\bar{t}}$", "ylabel": "a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 2,
+    "draw_prior_ratio": true
+  },
+
+  "Ht": {
+    "branch_det": "PseudoTop_Reco_ttbar_Ht",
+    "branch_mc": "MC_ttbar_afterFSR_Ht",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [0, 900],
+    "xlabel": "$H_{T}^{t\\bar{t}}$ [GeV]", "ylabel": "a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "th_pt": {
+    "branch_det": "PseudoTop_Reco_top_had_pt",
+    "branch_mc": "MC_thad_afterFSR_pt",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [0, 500],
+    "xlabel": "$p_{T}^{t,had}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "th_eta": {
+    "branch_det": "PseudoTop_Reco_top_had_eta",
+    "branch_mc": "MC_thad_afterFSR_eta",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-5, 5],
+    "xlabel": "$\\eta^{t,had}$", "ylabel":"a.u.",
+    "stamp_xy": [0.32, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "th_y": {
+    "branch_det": "PseudoTop_Reco_top_had_y",
+    "branch_mc": "MC_thad_afterFSR_y",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-3, 3],
+    "xlabel": "$y^{t,had}$", "ylabel":"a.u.",
+    "stamp_xy": [0.32, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "th_phi": {
+    "branch_det": "PseudoTop_Reco_top_had_phi",
+    "branch_mc": "MC_thad_afterFSR_phi",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-3.2, 3.2],
+    "xlabel": "$\\phi^{t,had}$", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 2,
+    "draw_prior_ratio": true
+  },
+
+  "th_m": {
+    "branch_det": "PseudoTop_Reco_top_had_m",
+    "branch_mc": "MC_thad_afterFSR_m",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [100, 240],
+    "xlabel": "$m^{t,had}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "th_e": {
+    "branch_det": "PseudoTop_Reco_top_had_E",
+    "branch_mc": "MC_thad_afterFSR_E",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [100, 2000],
+    "xlabel" : "$E^{t,had}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "th_px": {
+    "branch_det": "PseudoTop_Reco_top_had_px",
+    "branch_mc": "MC_thad_afterFSR_px",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-500, 500],
+    "xlabel": "$p_{x}^{t,had}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "th_py": {
+    "branch_det": "PseudoTop_Reco_top_had_py",
+    "branch_mc": "MC_thad_afterFSR_py",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-500, 500],
+    "xlabel": "$p_{y}^{t,had}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "th_pz": {
+    "branch_det": "PseudoTop_Reco_top_had_pz",
+    "branch_mc": "MC_thad_afterFSR_pz",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-1000, 1000],
+    "xlabel": "$p_{z}^{t,had}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "th_pout": {
+    "branch_det": "PseudoTop_Reco_top_had_pout",
+    "branch_mc": "MC_thad_afterFSR_pout",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-200, 200],
+    "xlabel": "$p_{out}^{t,had}$ [GeV]", "ylabel": "a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "tl_pt": {
+    "branch_det": "PseudoTop_Reco_top_lep_pt",
+    "branch_mc": "MC_tlep_afterFSR_pt",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [0, 500],
+    "xlabel": "$p_{T}^{t,lep}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "tl_eta": {
+    "branch_det": "PseudoTop_Reco_top_lep_eta",
+    "branch_mc": "MC_tlep_afterFSR_eta",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-5, 5],
+    "xlabel": "$\\eta^{t,lep}$", "ylabel":"a.u.",
+    "stamp_xy": [0.32, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "tl_y": {
+    "branch_det": "PseudoTop_Reco_top_lep_y",
+    "branch_mc": "MC_tlep_afterFSR_y",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-3, 3],
+    "xlabel": "$y^{t,lep}$", "ylabel":"a.u.",
+    "stamp_xy": [0.32, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "tl_phi": {
+    "branch_det": "PseudoTop_Reco_top_lep_phi",
+    "branch_mc": "MC_tlep_afterFSR_phi",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-3.2, 3.2],
+    "xlabel": "$\\phi^{t,lep}$", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 2,
+    "draw_prior_ratio": true
+  },
+
+  "tl_m": {
+    "branch_det": "PseudoTop_Reco_top_lep_m",
+    "branch_mc": "MC_tlep_afterFSR_m",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [100, 240],
+    "xlabel": "$m^{t,lep}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "tl_e": {
+    "branch_det": "PseudoTop_Reco_top_lep_E",
+    "branch_mc": "MC_tlep_afterFSR_E",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [100, 2000],
+    "xlabel": "$E^{t,lep}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "tl_px": {
+    "branch_det": "PseudoTop_Reco_top_lep_px",
+    "branch_mc": "MC_tlep_afterFSR_px",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-500, 500],
+    "xlabel": "$p_{x}^{t,lep}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "tl_py": {
+    "branch_det": "PseudoTop_Reco_top_lep_py",
+    "branch_mc": "MC_tlep_afterFSR_py",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-500, 500],
+    "xlabel": "$p_{y}^{t,lep}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "tl_pz": {
+    "branch_det": "PseudoTop_Reco_top_lep_pz",
+    "branch_mc": "MC_tlep_afterFSR_pz",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-1000, 1000],
+    "xlabel": "$p_{z}^{t,lep}$ [GeV]", "ylabel":"a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+
+  "tl_pout": {
+    "branch_det": "PseudoTop_Reco_top_lep_pout",
+    "branch_mc": "MC_tlep_afterFSR_pout",
+    "nbins_det": 50, "nbins_mc": 50,
+    "xlim": [-200, 200],
+    "xlabel": "$p_{out}^{t,lep}$ [GeV]", "ylabel": "a.u.",
+    "stamp_xy": [0.60, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  }
+}
