@@ -137,7 +137,7 @@ class OmniFoldTTbar():
         normalize = False, # bool
         truth_known = False, # bool
         dummy_value = -99., # float
-        data_reweighter = None # reweight.Reweighter,
+        data_reweighter = None, # reweight.Reweighter
         weight_type = 'nominal' # str, optional
         ):
         """
