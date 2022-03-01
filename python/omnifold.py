@@ -208,12 +208,12 @@ def omnifold(
             model_type, X_step2.shape[1:], i, "model_step2",
             save_models_to, load_models_from, start_from_previous_iter)
 
+        rw_step2 = 1. # always reweight against the prior
+#        rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
+
         if load_models_from:
             logger.info("Use trained model for reweighting")
         else: # train model
-            rw_step2 = 1. # always reweight against the prior
-#            rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
-
             w_step2 = np.concatenate([
                 (weights_pull*w_gen)[passcut_gen], w_gen[passcut_gen]*rw_step2
                 ])
