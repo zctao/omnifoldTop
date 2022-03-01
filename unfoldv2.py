@@ -327,10 +327,11 @@ def unfold(**parsed_args):
                 ylabel = observable_dict[observable]['ylabel'])
 
             # distributions of bin entries
-            figname_bindistr = os.path.join(resample_dir, f"Unfold_BinDistr_{observable}")
-            logger.info(f"  Plot distributions of bin entries from all resamples: {figname_bindistr}")
-            # For now
-            plotter.plot_hists_bin_distr(figname_bindistr, hists_uf_resample, h_truth)
+            if h_truth is not None:
+                figname_bindistr = os.path.join(resample_dir, f"Unfold_BinDistr_{observable}")
+                logger.info(f"  Plot distributions of bin entries from all resamples: {figname_bindistr}")
+                # For now
+                plotter.plot_hists_bin_distr(figname_bindistr, hists_uf_resample, h_truth)
 
         ## Iteration history
         iteration_dir = os.path.join(unfolder.outdir, 'Iterations')
