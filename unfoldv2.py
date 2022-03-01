@@ -357,13 +357,13 @@ def getArgsParser():
 
     parser.add_argument('-d', '--data', required=True, nargs='+',
                         type=str,
-                        help="Observed data npz file names")
+                        help="Observed data root file names")
     parser.add_argument('-s', '--signal', required=True, nargs='+',
                         type=str,
-                        help="Signal MC npz file names")
+                        help="Signal MC root file names")
     parser.add_argument('-b', '--background', nargs='+',
                         type=str,
-                        help="Background MC npz file names")
+                        help="Background MC root file names")
     parser.add_argument('--bdata', nargs='+', type=str, default=None,
                         help="Background MC files to be mixed with data")
     parser.add_argument('--observables', nargs='+',
