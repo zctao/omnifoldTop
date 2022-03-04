@@ -92,7 +92,7 @@ class OmniFoldTTbar():
 
         # output directory
         self.outdir = outputdir
-        if not os.path.isdir(outputdir):
+        if outputdir and not os.path.isdir(outputdir):
             logger.info(f"Create output directory: {outputdir}")
             os.makedirs(outputdir)
 
