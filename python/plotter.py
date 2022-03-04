@@ -897,3 +897,48 @@ def plot_response(figname, histogram2d, variable):
 
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
+
+def plot_uncertainties(
+    figname,
+    bins, # bin edges
+    uncertainties, # list of (error_up, error_donw) for uncertainties
+    draw_options=None,
+    xlabel='',
+    ylabel=''
+    ):
+
+    fig, ax = plt.subplots()
+
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    if ylabel:
+        ax.set_ylabel(ylabel)
+
+    if not draw_options:
+        draw_options = [{}]*len(uncertainties)
+
+    for err, opt in zip(uncertainties, draw_options):
+
+        # if symmetric
+        if not isinstance(err, tuple):
+            err_t = (err, -1*err)
+        else:
+            err_t = err
+
+        assert(len(err_t)==2)
+
+        if len(err_t[0]) == len(bins) - 1:
+            # append the error array with its last entry
+            err_t = ( np.append(err_t[0], err_t[0][-1]),
+                      np.append(err_t[1], err_t[1][-1]) )
+
+        # draw
+        ax.fill_between(bins, *err_t, step='post', **opt)
+
+    # horizontal line at zero
+    ax.axhline(y=0., color='black', linestyle='--', alpha=0.3)
+
+    ax.legend()
+
+    fig.savefig(figname+'.png', dpi=300)
+    plt.close(fig)
