@@ -451,7 +451,8 @@ class OmniFoldTTbar():
         varname, # str, name of the variable
         bins,
         norm=None,
-        all_iterations=False
+        all_iterations=False,
+        iteration=-1 # default: the last iteration
         ):
 
         hists_resample = []
@@ -462,11 +463,15 @@ class OmniFoldTTbar():
 
         # shape of self.unfolded_weights_resample:
         # (n_resamples, n_iterations, n_events)
+        # check if weights are available for iteration
+        if iteration >= self.unfolded_weights_resample.shape[1]:
+            raise RuntimeError(f"Weights for iteration {iteration} unavailable")
+
         for iresample in range(len(self.unfolded_weights_resample)):
             if all_iterations:
                 rw = self.unfolded_weights_resample[iresample]
-            else: # last iteration
-                rw = self.unfolded_weights_resample[iresample][-1]
+            else:
+                rw = self.unfolded_weights_resample[iresample][iteration]
 
             # truth-level prior weights
             wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
@@ -490,16 +495,21 @@ class OmniFoldTTbar():
         bins,
         norm=None,
         all_iterations=False,
+        iteration=-1, # default: the last iteration
         bootstrap_uncertainty=True
         ):
-        rw = self.unfolded_weights if all_iterations else self.unfolded_weights[-1]
+        # check if weights for iteration is available
+        if iteration >= self.unfolded_weights.shape[0]:
+            raise RuntimeError(f"Weights for iteration {iteration} unavailable")
+
+        rw = self.unfolded_weights if all_iterations else self.unfolded_weights[iteration]
         wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
         h_uf = self.handle_sig.get_histogram(varname, bins, wprior*rw)
         # h_uf is a hist object or a list of hist objects
 
         bin_corr = None # bin correlation
         if bootstrap_uncertainty and self.unfolded_weights_resample is not None:
-            h_uf_rs = self.get_unfolded_hists_resamples(varname, bins, norm=None, all_iterations=all_iterations)
+            h_uf_rs = self.get_unfolded_hists_resamples(varname, bins, norm=None, all_iterations=all_iterations, iteration=iteration)
 
             # add the "nominal" histogram to the resampled ones
             h_uf_rs.append(h_uf)

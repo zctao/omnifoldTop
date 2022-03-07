@@ -13,27 +13,28 @@ def compute_uncertainties(
         bins,
         uf_nominal,
         uf_syst_up,
-        uf_syst_down
+        uf_syst_down,
+        iteration=-1
     ):
 
     # unfolding uncertainty from the nominal distribution
-    h_uf_nominal = uf_nominal.get_unfolded_distribution(variable, bins)[0]
+    h_uf_nominal = uf_nominal.get_unfolded_distribution(variable, bins, iteration=iteration)[0]
     hval_nominal, herr_of = myhu.get_values_and_errors(h_uf_nominal)
     relerr_of = herr_of / hval_nominal
 
     # systematic uncertainty from variations
     # histograms from resamples
-    h_uf_nominal_rs = uf_nominal.get_unfolded_hists_resamples(variable, bins)
-    h_uf_syst_up_rs = uf_syst_up.get_unfolded_hists_resamples(variable, bins)
-    h_uf_syst_down_rs = uf_syst_down.get_unfolded_hists_resamples(variable, bins)
+    h_uf_nominal_rs = uf_nominal.get_unfolded_hists_resamples(variable, bins, iteration=iteration)
+    h_uf_syst_up_rs = uf_syst_up.get_unfolded_hists_resamples(variable, bins, iteration=iteration)
+    h_uf_syst_down_rs = uf_syst_down.get_unfolded_hists_resamples(variable, bins, iteration=iteration)
 
     # in case there is no resampled weights
     if not h_uf_nominal_rs:
         h_uf_nominal_rs = [h_uf_nominal]
     if not h_uf_syst_up_rs:
-        h_uf_syst_up_rs = [uf_syst_up.get_unfolded_distribution(variable, bins)[0]]
+        h_uf_syst_up_rs = [uf_syst_up.get_unfolded_distribution(variable, bins, iteration=iteration)[0]]
     if not h_uf_syst_down_rs:
-        h_uf_syst_down_rs = [uf_syst_down.get_unfolded_distribution(variable, bins)[0]]
+        h_uf_syst_down_rs = [uf_syst_down.get_unfolded_distribution(variable, bins, iteration=iteration)[0]]
 
     # list of errors
     relerr_syst_up_rs = []
@@ -167,7 +168,9 @@ def evaluate_systematics(**parsed_args):
         varname_truth = observable_dict[ob]['branch_mc']
 
         relerr_uf, relerr_up, relerr_down = compute_uncertainties(
-            varname_truth, bin_edges, unfolder_nom, unfolder_up, unfolder_down)
+            varname_truth, bin_edges,
+            unfolder_nom, unfolder_up, unfolder_down,
+            iteration = parsed_args['iteration'])
 
         plot_uncertainties(
             figname = os.path.join(parsed_args['outputdir'], f'relerr_{ob}'),
@@ -201,6 +204,8 @@ if __name__ == "__main__":
                         help="List of observables to use in training.")
     parser.add_argument('--binning-config', dest='binning_config', type=str,
                         help="Binning config file for variables")
+    parser.add_argument('--iteration', type=int, default=-1,
+                        help="Use unfolded weights at the specified iteration")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='If True, set logging level to DEBUG')
 
