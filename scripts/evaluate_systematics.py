@@ -7,6 +7,7 @@ import util
 from OmniFoldTTbar import OmniFoldTTbar
 import histogramming as myhu
 from plotter import plot_uncertainties
+from ibuv2 import run_ibu
 
 def compute_uncertainties(
         variable,
@@ -48,6 +49,42 @@ def compute_uncertainties(
     relerr_syst_down = np.mean(relerr_syst_down_rs, axis=0)
 
     return relerr_of, relerr_syst_up, relerr_syst_down
+
+def compute_IBU_uncertainty(
+        unfolder,
+        varname_reco,
+        varname_truth,
+        bins_reco,
+        bins_truth,
+        niterations
+    ):
+    # data array
+    array_obs = unfolder.handle_obs[varname_reco]
+    wobs = unfolder.handle_obs.get_weights()
+
+    # simulation
+    array_sim = unfolder.handle_sig[varname_reco]
+    wsim = unfolder.handle_sig.get_weights()
+
+    array_gen = unfolder.handle_sig[varname_truth]
+    wgen = unfolder.handle_sig.get_weights(reco_level=False)
+
+    if unfolder.handle_bkg is not None:
+        array_bkg = unfolder.handle_bkg[varname_reco]
+        wbkg = unfolder.handle_bkg.get_weights()
+    else:
+        array_bkg, wbkg = None, None
+
+    hist_ibu = run_ibu(
+        bins_reco, bins_truth,
+        array_obs, array_sim, array_gen, array_bkg,
+        wobs, wsim, wgen, wbkg,
+        niterations = niterations
+        )[0]
+
+    hval, herr = myhu.get_values_and_errors(hist_ibu)
+
+    return herr / hval
 
 def evaluate_systematics(**parsed_args):
     logger = logging.getLogger("EvalSyst")
@@ -163,23 +200,39 @@ def evaluate_systematics(**parsed_args):
 
     for ob in observables:
         logger.info(f"Plot {ob}")
-        bin_edges = util.get_bins(ob, bin_config)
+        bins_truth = util.get_bins(ob, bin_config)
 
         varname_truth = observable_dict[ob]['branch_mc']
 
         relerr_uf, relerr_up, relerr_down = compute_uncertainties(
-            varname_truth, bin_edges,
+            varname_truth, bins_truth,
             unfolder_nom, unfolder_up, unfolder_down,
             iteration = parsed_args['iteration'])
 
+        errors = [relerr_uf, (relerr_up, relerr_down)]
+        draw_options = [
+            {'label':'OmniFold', 'edgecolor':'tab:red', 'facecolor':'none'},
+            {'label':parsed_args['systematics'], 'hatch':'///', 'edgecolor':'tab:blue', 'facecolor':'none'}
+            ]
+
+        if parsed_args['ibu']:
+            varname_reco = observable_dict[ob]['branch_det']
+            bins_reco = util.get_bins(ob, bin_config) #same as bins_truth for now
+
+            # Include IBU uncertainties
+            relerr_ibu = compute_IBU_uncertainty(
+                unfolder_nom, varname_reco, varname_truth,
+                bins_reco, bins_truth, parsed_args['iteration']
+                )
+
+            errors.append(relerr_ibu)
+            draw_options.append({'label':'IBU', 'edgecolor':'grey', 'facecolor':'none'})
+
         plot_uncertainties(
             figname = os.path.join(parsed_args['outputdir'], f'relerr_{ob}'),
-            bins = bin_edges,
-            uncertainties = [relerr_uf, (relerr_up, relerr_down)],
-            draw_options = [
-                {'label':'OmniFold', 'edgecolor':'tab:red', 'facecolor':'none'},
-                {'label':parsed_args['systematics'], 'hatch':'///', 'edgecolor':'tab:blue', 'facecolor':'none'}
-                ],
+            bins = bins_truth,
+            uncertainties = errors,
+            draw_options = draw_options,
             xlabel = observable_dict[ob]['xlabel'],
             ylabel = 'Uncertainty'
             )
@@ -206,6 +259,8 @@ if __name__ == "__main__":
                         help="Binning config file for variables")
     parser.add_argument('--iteration', type=int, default=-1,
                         help="Use unfolded weights at the specified iteration")
+    parser.add_argument('--ibu', action='store_true',
+                        help="If True, include uncertainties of IBU too")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='If True, set logging level to DEBUG')
 
