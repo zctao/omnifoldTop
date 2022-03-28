@@ -200,8 +200,8 @@ def train_model(model, X, Y, w, callbacks=[], figname='', **fitargs):
 
     if figname:
         logger.info(f"Plot model output distributions: {figname}")
-        preds_train = model.predict(X_train, batch_size=int(0.1*len(X_train)))[:,1]
-        preds_val = model.predict(X_val, batch_size=int(0.1*len(X_val)))[:,1]
+        preds_train = model.predict(X_train, batch_size=int(0.01*len(X_train)))[:,1]
+        preds_val = model.predict(X_val, batch_size=int(0.01*len(X_val)))[:,1]
         plotter.plot_training_vs_validation(figname, preds_train, Y_train, w_train, preds_val, Y_val, w_val)
 
 def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):

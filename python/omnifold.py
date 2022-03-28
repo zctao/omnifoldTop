@@ -47,7 +47,7 @@ def set_up_model(
     return model, callbacks
 
 def reweight(model, events, figname=None):
-    preds = model.predict(events, batch_size=int(0.1*len(events)))[:,1]
+    preds = model.predict(events, batch_size=int(0.01*len(events)))[:,1]
     r = np.nan_to_num( preds / (1. - preds) )
 
     if figname: # plot the distribution
