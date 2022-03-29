@@ -1,6 +1,5 @@
 import uproot
 import numpy as np
-import numpy.lib.recfunctions as rfn
 
 import datahandler as dh
 from datahandler import DataHandler
@@ -51,9 +50,7 @@ def setDummyValue(array, masks, dummy_value):
 def load_dataset_root(
         file_names,
         tree_name,
-        variable_names = [],
-        weight_type = 'nominal',
-        dummy_value = None
+        variable_names
     ):
     """
     Load data from a list of ROOT files
@@ -65,30 +62,32 @@ def load_dataset_root(
         List of root files to load
     tree_name : str
         Name of the tree in root files
-    variable_names : list of str, optional
+    variable_names : list of str
         List of variables to read. If not provided, read all available variables
-    weight_name : str, default None
-        Name of the event weights. If not None, add it to the list of variables
-    dummy_value : float, default None
-        Dummy value for setting events that are flagged as dummy. If None, only
-        include events that are not dummy in the array
+
+    Returns
+    -------
+    A numpy ndarray for event features and a numpy ndarray of event selection flags
     """
     if isinstance(file_names, str):
         file_names = [file_names]
 
     intrees = [fname + ':' + tree_name for fname in file_names]
 
+    #####
+    # feature variables
     if variable_names:
         branches = [variable_names] if isinstance(variable_names, str) else variable_names
 
-        # event weights
-        branches += branches_for_weights(weight_type)
-
-        # flags for identifying events
+        # event flags
         branches += ['isMatched', 'isDummy']
 
         # in case of KLFitter
         branches.append('klfitter_logLikelihood')
+
+        # for filtering a small fraction of reco events with zero weights
+        # due to weight_pileup
+        branches += ['totalWeight_nominal']
 
         # for checking invalid value in truth trees
         branches.append('MC_thad_afterFSR_y')
@@ -128,32 +127,70 @@ def load_dataset_root(
     # TODO: return a masked array?
     return data_array, pass_sel
 
-def branches_for_weights(weight_type='nominal'):
+def load_weights_root(
+        file_names,
+        tree_name,
+        weight_name,
+        normalize_to_weight=''
+    ):
     """
-    Return a list of branches/variables needed to retrieve event weights
+    Load event weights from ROOT files
+
+    Parameters
+    ----------
+    file_names : str or file-like object; or sequence of str or file-like objects
+        List of root files to load
+    tree_name : str
+        Name of the tree in root files
+    weight_name : str
+        Name of the event weight
+    normalize_to_weight : str, default ''
+        Name of the nominal weights to normalize to.
+        Only needed when converting weights for systematic uncertainty variations
+
+    Returns
+    -------
+    A numpy ndarray of event weights
     """
-    branches = []
+    if isinstance(file_names, str):
+        file_names = [file_names]
 
-    if weight_type == 'nominal':
-        branches = ['normalized_weight', 'normalized_weight_mc', 'totalWeight_nominal']
-    #elif: TODO for systematics from varying weights
+    intrees = [fname + ':' + tree_name for fname in file_names]
 
-    return branches
+    branches_w = [weight_name]
 
-def retrieve_weights(array_reco, array_truth=None, weight_type='nominal'):
-    """
-    Retrieve event weights from data arrays
-    """
-    w_reco = array_reco['normalized_weight']
-    if array_truth is not None:
-        w_truth = array_truth['normalized_weight_mc']
-    else:
-        w_truth = None
-    ####
-    # TODO: weight_type != 'nominal'
-    ####
+    # hard code the names here for now
+    # components of the nominal weights
+    weight_names_part = ["weight_bTagSF_DL1r_70", "weight_jvt", "weight_leptonSF", "weight_pileup", "weight_mc"]
 
-    return w_reco, w_truth
+    if normalize_to_weight:
+        branches_w.append(normalize_to_weight)
+
+        for wname in weight_names_part:
+            if weight_name.startswith(wname):
+                branches_w.append(wname)
+                break
+
+        # a special case
+        if weight_name == "mc_generator_weights":
+            branches_w.append("weight_mc")
+
+    weights_array = uproot.lazy(intrees, filter_name = branches_w)
+
+    warr = weights_array[weight_name].to_numpy().T
+
+    if normalize_to_weight:
+        warr_norm = weights_array[normalize_to_weight].to_numpy()
+
+        wname_part = branches_w[-1]
+        warr_part = weights_array[wname_part].to_numpy()
+
+        sf = np.ones_like(warr_norm, float)
+        np.divide(warr_norm, warr_part, out=sf, where = warr_part!=0)
+        # e.g. w_pileup_DOWN * (w_normalized / w_pileup)
+        warr = warr * sf
+
+    return warr
 
 class DataHandlerROOT(DataHandler):
     """
@@ -167,10 +204,8 @@ class DataHandlerROOT(DataHandler):
         List of reco level variable names to read. If not provided, read all
     variable_names_mc : list of str, optional
         List of truth level variable names to read. If not provided, read all
-    weights_name : str, optional 
-        Name of event weights
-    weights_name_mc : str, optional
-        Name of mc weights
+    weight_type : str, default 'nominal'
+        Type of event weights to load for systematic uncertainty variations
     treename_reco : str, default 'reco'
         Name of the reconstruction-level tree
     treename_truth : str, default 'parton'
@@ -193,32 +228,29 @@ class DataHandlerROOT(DataHandler):
         # load data from root files
         variable_names = dh._filter_variable_names(variable_names)
         self.data_reco, self.pass_reco = load_dataset_root(
-            filepaths, treename_reco, variable_names, weight_type, dummy_value
+            filepaths, treename_reco, variable_names)
+
+        # event weights
+        # TODO?: weight_type
+        # all nominal for now
+        self.weights = load_weights_root(
+            filepaths, treename_reco, weight_name = 'normalized_weight'
             )
 
         # truth variables if available
         if treename_truth:
             variable_names_mc = dh._filter_variable_names(variable_names_mc)
             self.data_truth, self.pass_truth = load_dataset_root(
-                filepaths, treename_truth, variable_names_mc, weight_type,
-                dummy_value
-            )
+                filepaths, treename_truth, variable_names_mc)
+
+            # event weights
+            self.weights_mc = load_weights_root(
+                filepaths, treename_truth, weight_name = 'normalized_weight_mc'
+                )
         else:
             self.data_truth = None
-
-        # event weights
-        self.weights, self.weights_mc = retrieve_weights(
-            self.data_reco, self.data_truth, weight_type
-            )
-
-        # rename truth array variable name if it already exists in reco array
-        if self.data_truth is not None:
-            prefix = 'truth_'
-            newnames = {}
-            for fname in self.data_truth.dtype.names:
-                if fname in self.data_reco.dtype.names:
-                    newnames[fname] = prefix+fname
-            self.data_truth = rfn.rename_fields(self.data_truth, newnames)
+            self.pass_truth = None
+            self.weights_mc = None
 
         # deal with events that fail selections
         if dummy_value is None:
