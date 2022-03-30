@@ -1,0 +1,14 @@
+{
+  "data" : ["/data/ztao/ttbarDiffXs13TeV/latest/mcWAlt/ttbar_nominal/mc16a/ttbar_0_pseudotop_parton_ejets.root"],
+  "signal" : ["/data/ztao/ttbarDiffXs13TeV/latest/mcWAlt/ttbar_nominal/mc16a/ttbar_1_pseudotop_parton_ejets.root"],
+  "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
+  "iterations" : 2,
+  "truth_known" : true,
+  "normalize" : true,
+  "batch_size" : 20000,
+  "plot_verbosity" : 3,
+  "outputdir" : "output_tmpv2",
+  "error_type" : "bootstrap_full",
+  "nresamples" : 2,
+  "model_name" : {"modeltest1": "dense_100x3", "modeltest2": "dense_10"}
+}
