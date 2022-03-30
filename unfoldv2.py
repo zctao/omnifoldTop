@@ -14,9 +14,22 @@ from OmniFoldTTbar import OmniFoldTTbar
 from ibuv2 import run_ibu
 
 def unfold(**parsed_args):
-    tracemalloc.start()
 
+    #################
+    # Output directory
+    if parsed_args['outputdir'] is not None:
+        if not os.path.isdir(parsed_args['outputdir']):
+            print(f"Create output directory {parsed_args['outputdir']}")
+            os.makedirs(parsed_args['outputdir'])
+
+    # Prepare logger and log file
+    logname = 'log.txt' if parsed_args['unfolded_weights'] is None else 'log_rw.txt'
+    logfile = os.path.join(parsed_args['outputdir'], logname)
+    util.configRootLogger(filename=logfile)
     logger = logging.getLogger('Unfold')
+    logger.setLevel(logging.DEBUG if parsed_args['verbose']>0 else logging.INFO)
+
+    tracemalloc.start()
 
     # Print arguments to logger
     for argkey, argvalue in sorted(parsed_args.items()):
@@ -355,7 +368,7 @@ def unfold(**parsed_args):
 
     tracemalloc.stop()
 
-def getArgsParser():
+def getArgsParser(arguments_list=None):
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -426,47 +439,33 @@ def getArgsParser():
     parser.add_argument('-w', '--weight-type', type=str, default='nominal',
                         help="Type of event weights to retrieve from ntuples")
 
-    args = parser.parse_args()
+    args = parser.parse_args(arguments_list)
 
-    return args
-
-if __name__ == "__main__":
-
-    args = getArgsParser()
-
-    # Verify truth is known when reweighting
+    # verify truth is known when reweighting
     if args.reweight_data is not None and not args.truth_known:
-        print("--reweight-data requires --truth-known", file=sys.stderr)
-        sys.exit(2)
+        raise RuntimeError("--reweight-data requires --truth-known")
 
-    # logging
-    logname = 'log.txt' if args.unfolded_weights is None else 'log_rw.txt'
-    logfile = os.path.join(args.outputdir, logname)
-    util.configRootLogger(filename=logfile)
-    logger = logging.getLogger('Unfold')
-    logger.setLevel(logging.DEBUG if args.verbose > 0 else logging.INFO)
-
-    # output directory
-    if args.outputdir is not None:
-        if not os.path.isdir(args.outputdir):
-            logger.info(f"Create output directory {args.outputdir}")
-            os.makedirs(args.outputdir)
-
-    # check if configuration files exist and expand the file path
-    # TODO move these to the reader methods?
+    # check if configuration file exist and expand the file path
     fullpath_obsconfig = util.expandFilePath(args.observable_config)
     if fullpath_obsconfig is not None:
         args.observable_config = fullpath_obsconfig
     else:
-        logger.error("Cannot find file: {}".format(args.observable_config))
-        sys.exit("Config Failure")
+        raise RuntimeError(f"Cannot find file: {args.observable_config}")
 
     fullpath_binconfig = util.expandFilePath(args.binning_config)
     if fullpath_binconfig is not None:
         args.binning_config = fullpath_binconfig
     else:
-        logger.error("Cannot find file: {}".format(args.binning_config))
-        sys.exit("Config Failure")
+        raise RuntimeError(f"Cannot find file: {args.binning_config}")
+
+    return args
+
+if __name__ == "__main__":
+
+    try:
+        args = getArgsParser()
+    except Exception as e:
+        sys.exit(f"Config Failure: {e}")
 
     # unfold
     unfold(**vars(args))
