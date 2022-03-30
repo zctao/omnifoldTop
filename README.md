@@ -51,6 +51,7 @@ Or `--load-models MODELS_DIR` can be used to load the trained models for reweigh
     ./run_unfold.py RUN_CONFIG
     
 RUN_CONFIG is a JSON config file that are used to set the arguments for `scripts/unfoldv2.py`. If the value of an argument is a dictionary, the keys of the dictionary are used as labels to create sub-directory in OUTPUT_DIRECTORY, and unfoldings are run with all combinations of the arguments.
+See one example run config file in `configs/run/example.json`.
 
 ### Other useful scripts
 
