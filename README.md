@@ -31,23 +31,32 @@ Set up environment and Python path:
     
 The main application to run is
 
-    python3 unfold.py -d DATA_FILES -s SIMULATION_FILES \
+    python scripts/unfoldv2.py -d DATA_FILES -s SIMULATION_FILES \
                       [-o OUTPUT_DIRECTORY] \
                       [-i NUMBER_OF_ITERATIONS] \
-                      [--observables-train LIST_OF_VARRIABLES_USED_IN_TRAININGS] \
-                      [--observables LIST_OF_VARIABLES_TO_UNFOLD] \
+                      [--observables LIST_OF_VARRIABLES_TO_UNFOLD]
                       
                       
 To see all argument options:
 
-    python3 unfold.py -h
+    python scripts/unfoldv2.py -h
 
-Input files are expected to be numpy structured arrays. In case the DATA_FILES are actually pseudo data from MC simulations, a flag `-t` can be added to indicate the "MC truth" is known and can be used to evaluate the performance.
+Input files are expected to be ROOT files produced by [ntuplerTT](https://github.com/zctao/ntuplerTT). In case the DATA_FILES are actually pseudo data from MC simulations, a flag `-t` can be added to indicate the "MC truth" is known and can be used to evaluate the performance.
 
 In case one wishes to reuse the previously trained results, an option `--unfolded-weights PATH_TO_UNFOLDED_WEIGHTS_FILES` can be used to read the event weights from the specified files and apply them directly to other variables.
+Or `--load-models MODELS_DIR` can be used to load the trained models for reweighting directly in iterations.
 
-### Other helper scripts
+[NEW] Unfolding can also be run from
 
+    ./run_unfold.py RUN_CONFIG
+    
+RUN_CONFIG is a JSON config file that are used to set the arguments for `scripts/unfoldv2.py`. If the value of an argument is a dictionary, the keys of the dictionary are used as labels to create sub-directory in OUTPUT_DIRECTORY, and unfoldings are run with all combinations of the arguments.
+
+### Other useful scripts
+
+- `evaluate_systematics.py` [TODO]
+
+[DEPRECATED]
 - `evaluateModels.py`: if input data files are pseudo data, i.e. MC truth is available, `evaluateModels.py` can be used to reweight simulation truth directly to the pseudo data truth and compare the reweighted distribution with the actual MC truth in the pseudo data. The goal is to evaluate the performance of the classifier model without running OmniFold iterations.
 
         python3 evaluateModels.py -d DATA_FILES -s SIMULATION_FILES \
