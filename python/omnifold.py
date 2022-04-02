@@ -201,6 +201,9 @@ def omnifold(
             fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
             weights_pull[~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], fname_rdistr)
 
+        # TODO: check this
+        weights_pull /= np.mean(weights_pull)
+
         #####
         # step 2
         logger.info("Step 2")
@@ -258,6 +261,9 @@ def omnifold(
             logger.info("Reweight")
             fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
             weights_push[~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], fname_rdistr)
+
+        # TODO: check this
+        weights_push /= np.mean(weights_push)
 
         # save truth level weights of this iteration
         weights_unfold[i,:] = weights_push[passcut_gen]
