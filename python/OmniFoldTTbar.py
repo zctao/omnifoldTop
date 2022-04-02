@@ -452,7 +452,8 @@ class OmniFoldTTbar():
         bins,
         norm=None,
         all_iterations=False,
-        iteration=-1 # default: the last iteration
+        iteration=-1, # default: the last iteration
+        absoluteValue=False
         ):
 
         hists_resample = []
@@ -475,7 +476,7 @@ class OmniFoldTTbar():
 
             # truth-level prior weights
             wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
-            h = self.handle_sig.get_histogram(varname, bins, wprior*rw)
+            h = self.handle_sig.get_histogram(varname, bins, wprior*rw, absoluteValue=absoluteValue)
 
             if norm is not None:
                 # normalize distributions from each resampling
@@ -496,7 +497,8 @@ class OmniFoldTTbar():
         norm=None,
         all_iterations=False,
         iteration=-1, # default: the last iteration
-        bootstrap_uncertainty=True
+        bootstrap_uncertainty=True,
+        absoluteValue=False
         ):
         # check if weights for iteration is available
         if iteration >= self.unfolded_weights.shape[0]:
@@ -504,12 +506,12 @@ class OmniFoldTTbar():
 
         rw = self.unfolded_weights if all_iterations else self.unfolded_weights[iteration]
         wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
-        h_uf = self.handle_sig.get_histogram(varname, bins, wprior*rw)
+        h_uf = self.handle_sig.get_histogram(varname, bins, wprior*rw, absoluteValue=absoluteValue)
         # h_uf is a hist object or a list of hist objects
 
         bin_corr = None # bin correlation
         if bootstrap_uncertainty and self.unfolded_weights_resample is not None:
-            h_uf_rs = self.get_unfolded_hists_resamples(varname, bins, norm=None, all_iterations=all_iterations, iteration=iteration)
+            h_uf_rs = self.get_unfolded_hists_resamples(varname, bins, norm=None, all_iterations=all_iterations, iteration=iteration, absoluteValue=absoluteValue)
 
             # add the "nominal" histogram to the resampled ones
             h_uf_rs.append(h_uf)

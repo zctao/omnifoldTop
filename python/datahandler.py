@@ -436,7 +436,7 @@ class DataHandler(Mapping):
         correlations = df.corr()
         return correlations
 
-    def get_histogram(self, variable, bin_edges, weights=None, density=False):
+    def get_histogram(self, variable, bin_edges, weights=None, density=False, absoluteValue=False):
         """
         Retrieve the histogram of a weighted variable in the dataset.
 
@@ -465,6 +465,8 @@ class DataHandler(Mapping):
             if weights.ndim == 1: # if weights is a 1D array
                 # make histogram with valid events
                 varr = self[variable]
+                if absoluteValue:
+                    varr = np.abs(varr)
                 assert(len(varr) == len(weights))
 
                 return calc_hist(varr, weights=weights, bins=bin_edges, density=density)
