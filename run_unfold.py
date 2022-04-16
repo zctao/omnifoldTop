@@ -15,50 +15,57 @@ if not os.path.isfile(fpath_run_config):
     print(f"ERROR: cannot find run config: {fpath_run_config}")
     sys.exit(2)
 
-run_cfg_d = util.read_dict_from_json(fpath_run_config)
-if not run_cfg_d:
+run_cfgs = util.read_dict_from_json(fpath_run_config)
+if not run_cfgs:
     print(f"ERROR: failed to load run config from {fpath_run_config}")
     sys.exit(3)
 
-# get the default argument dictionary from getArgsParser
-# -d and -s are the only two required arguments without defaults
-data_samples = run_cfg_d["data"]
-signal_samples = run_cfg_d["signal"]
-default_args = getArgsParser(['-d']+data_samples+['-s']+signal_samples)
-default_args = vars(default_args)
+# run_cfgs could be a dictionary or a list of dictionaries
+if not isinstance(run_cfgs, list):
+    run_cfgs = [run_cfgs]
 
-# Loop over run_cfg_d and replace the default argument values
-scan_args = list()
-for k, v in run_cfg_d.items():
-    if isinstance(v, dict):
-        # We are going to run unfolding with different values of this argument
-        # handle it later
-        scan_args.append(k)
-    elif k in default_args:
-        default_args[k] = v
-    else:
-        print(f"ERROR: {k} is not a known argument")
-        sys.exit(3)
+# loop over the list of dict objects
+for run_cfg_d in run_cfgs:
 
-# for arguments with labels and multiple values
-labels = []
-for k in scan_args:
-    assert(isinstance(run_cfg_d[k], dict))
-    labels.append( list(run_cfg_d[k].keys()) )
+    # get the default argument dictionary from getArgsParser
+    # -d and -s are the only two required arguments without defaults
+    data_samples = run_cfg_d["data"]
+    signal_samples = run_cfg_d["signal"]
+    default_args = getArgsParser(['-d']+data_samples+['-s']+signal_samples)
+    default_args = vars(default_args)
 
-combinations = list(itertools.product(*labels))
+    # Loop over run_cfg_d and replace the default argument values
+    scan_args = list()
+    for k, v in run_cfg_d.items():
+        if isinstance(v, dict):
+            # We are going to run unfolding with different values of this
+            # argument handle it later
+            scan_args.append(k)
+        elif k in default_args:
+            default_args[k] = v
+        else:
+            print(f"ERROR: {k} is not a known argument")
+            sys.exit(3)
 
-# for each argument combination
-for comb in combinations:
-    run_args = default_args.copy()
+    # for arguments with labels and multiple values
+    labels = []
+    for k in scan_args:
+        assert(isinstance(run_cfg_d[k], dict))
+        labels.append( list(run_cfg_d[k].keys()) )
 
-    assert( len(comb) == len(scan_args) )
-    for k, l in zip(scan_args, comb):        
-        run_args[k] = run_cfg_d[k][l]
+    combinations = list(itertools.product(*labels))
 
-    # update output directory based on the labels
-    run_args['outputdir'] = os.path.join(run_args['outputdir'], *comb)
+    # for each argument combination
+    for comb in combinations:
+        run_args = default_args.copy()
 
-    print("Run unfolding")
-    #print(run_args)
-    unfold(**run_args)
+        assert( len(comb) == len(scan_args) )
+        for k, l in zip(scan_args, comb):
+            run_args[k] = run_cfg_d[k][l]
+
+        # update output directory based on the labels
+        run_args['outputdir'] = os.path.join(run_args['outputdir'], *comb)
+
+        print("Run unfolding")
+        #print(run_args)
+        unfold(**run_args)
