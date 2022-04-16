@@ -85,6 +85,13 @@ def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
         for g in gpus:
             tf.config.experimental.set_memory_growth(g,True)
 
+def reportGPUMemUsage(logger):
+    gpus = tf.config.experimental.list_logical_devices('GPU')
+
+    for device in gpus:
+        info_d = tf.config.experimental.get_memory_info(device.name)
+        logger.info(f"{device.name} mem usage: current = {info_d['current']*1e-6:.2f} MB peak = {info_d['peak']*1e-6:.2f} MB");
+
 # JSON encoder for numpy array
 # https://pynative.com/python-serialize-numpy-ndarray-into-json/
 from json import JSONEncoder
