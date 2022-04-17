@@ -4,6 +4,8 @@ import numpy as np
 import plotter
 from modelUtils import get_model, get_callbacks, train_model
 
+from util import reportGPUMemUsage
+
 import logging
 logger = logging.getLogger('omnifold')
 logger.setLevel(logging.DEBUG)
@@ -143,6 +145,8 @@ def omnifold(
     weights_unfold = np.empty(shape=(niterations, len(X_gen[passcut_gen])))
     # shape: (n_iterations, n_events[passcut_gen])
 
+    reportGPUMemUsage(logger)
+
     for i in range(niterations):
         logger.info(f"Iteration {i}")
         #####
@@ -203,6 +207,8 @@ def omnifold(
 
         # TODO: check this
         weights_pull /= np.mean(weights_pull)
+
+        reportGPUMemUsage(logger)
 
         #####
         # step 2
@@ -267,6 +273,9 @@ def omnifold(
 
         # save truth level weights of this iteration
         weights_unfold[i,:] = weights_push[passcut_gen]
+
+        reportGPUMemUsage(logger)
+
     # end of iteration loop
 
     return weights_unfold

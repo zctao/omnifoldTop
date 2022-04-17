@@ -90,7 +90,7 @@ def reportGPUMemUsage(logger):
 
     for device in gpus:
         info_d = tf.config.experimental.get_memory_info(device.name)
-        logger.info(f"{device.name} mem usage: current = {info_d['current']*1e-6:.2f} MB peak = {info_d['peak']*1e-6:.2f} MB");
+        logger.debug(f"{device.name} mem usage: current = {info_d['current']*1e-6:.2f} MB peak = {info_d['peak']*1e-6:.2f} MB");
 
 # JSON encoder for numpy array
 # https://pynative.com/python-serialize-numpy-ndarray-into-json/
