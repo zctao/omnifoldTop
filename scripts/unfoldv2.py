@@ -93,7 +93,7 @@ def unfold(**parsed_args):
     t_init_done = time.time()
     logger.debug(f"Initializing unfolder and loading input data took {(t_init_done-t_init_start):.2f} seconds.")
     mcurrent, mpeak = tracemalloc.get_traced_memory()
-    logger.debug(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
+    logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
 
     #################
     # Run unfolding
@@ -127,7 +127,7 @@ def unfold(**parsed_args):
     logger.info(f"Unfolding took {t_run_done-t_run_start:.2f} seconds")
 
     mcurrent, mpeak = tracemalloc.get_traced_memory()
-    logger.debug(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
+    logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
 
     #################
     # Plot results
