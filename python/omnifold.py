@@ -6,6 +6,8 @@ from modelUtils import get_model, get_callbacks, train_model
 
 from util import reportGPUMemUsage
 
+import tensorflow as tf
+
 import logging
 logger = logging.getLogger('omnifold')
 logger.setLevel(logging.DEBUG)
@@ -48,8 +50,9 @@ def set_up_model(
 
     return model, callbacks
 
-def reweight(model, events, figname=None):
-    preds = model.predict(events, batch_size=int(0.01*len(events)))[:,1]
+def reweight(model, events, batch_size, figname=None):
+    dataset = tf.data.Dataset.from_tensor_slices(events).batch(batch_size)
+    preds = model.predict(dataset)[:,1]
     r = np.nan_to_num( preds / (1. - preds) )
 
     if figname: # plot the distribution
@@ -77,7 +80,10 @@ def omnifold(
     load_models_from='', # directory to load trained models if provided
     start_from_previous_iter=False, # If True, initialize model with the previous iteration
     plot=False, # If True, plot training history and make other status plots
-    **fitargs
+    # Model training parameters
+    batch_size=256,
+    epochs=100,
+    verbose=1
     ):
     """
     OmniFold
@@ -169,13 +175,14 @@ def omnifold(
             train_model(model_step1, X_step1, Y_step1, w_step1,
                         callbacks = cb_step1,
                         #figname = fname_preds,
-                        **fitargs)
+                        batch_size=batch_size, epochs=epochs, verbose=verbose
+                        )
             logger.info("Training done")
 
         # reweight
         logger.info("Reweight")
         fname_rdistr = save_models_to + f"/rdistr_step1_{i}" if save_models_to and plot else ''
-        weights_pull = weights_push * reweight(model_step1, X_sim, fname_rdistr)
+        weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr)
 
         #####
         # step 1b: deal with events that do not pass reco cuts
@@ -197,13 +204,14 @@ def omnifold(
 
                 logger.info("Start training")
                 train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
-                            callbacks = cb_step1b, **fitargs)
+                            callbacks = cb_step1b, batch_size=batch_size,
+                            epochs=epochs, verbose=verbose)
                 logger.info("Training done")
 
             # reweight
             logger.info("Reweight")
             fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
-            weights_pull[~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], fname_rdistr)
+            weights_pull[~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], batch_size, fname_rdistr)
 
         # TODO: check this
         weights_pull /= np.mean(weights_pull)
@@ -232,13 +240,13 @@ def omnifold(
             train_model(model_step2, X_step2, Y_step2, w_step2,
                         callbacks = cb_step2,
                         #figname = fname_preds,
-                        **fitargs)
+                        batch_size=batch_size, epochs=epochs, verbose=verbose)
             logger.info("Training done")
 
         # reweight
         logger.info("Reweight")
         fname_rdistr = save_models_to + f"/rdistr_step2_{i}" if save_models_to and plot else ''
-        weights_push[passcut_gen] = rw_step2 * reweight(model_step2, X_gen[passcut_gen], fname_rdistr)
+        weights_push[passcut_gen] = rw_step2 * reweight(model_step2, X_gen[passcut_gen], batch_size, fname_rdistr)
 
         #####
         # step 2b: deal with events that do not pass truth cuts
@@ -260,13 +268,14 @@ def omnifold(
 
                 logger.info("Start training")
                 train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
-                            callbacks = cb_step2b, **fitargs)
+                            callbacks = cb_step2b, batch_size=batch_size,
+                            epochs=epochs, verbose=verbose)
                 logger.info("Training done")
 
             # reweight
             logger.info("Reweight")
             fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
-            weights_push[~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], fname_rdistr)
+            weights_push[~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], batch_size, fname_rdistr)
 
         # TODO: check this
         weights_push /= np.mean(weights_push)
@@ -279,4 +288,3 @@ def omnifold(
     # end of iteration loop
 
     return weights_unfold
-
