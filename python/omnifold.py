@@ -52,7 +52,8 @@ def set_up_model(
 
 def reweight(model, events, batch_size, figname=None):
     dataset = tf.data.Dataset.from_tensor_slices(events).batch(batch_size)
-    preds = model.predict(dataset)[:,1]
+    preds = model.predict(dataset)
+    preds = np.squeeze(preds)
     r = np.nan_to_num( preds / (1. - preds) )
 
     if figname: # plot the distribution

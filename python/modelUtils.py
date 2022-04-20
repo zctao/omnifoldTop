@@ -166,8 +166,8 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     else:
         model = eval(model_name+"(input_shape, nclass)")
 
-    model.compile(loss=weighted_categorical_crossentropy,
-                  #loss='categorical_crossentropy',
+    model.compile(loss=weighted_binary_crossentropy,
+                  #loss='binary_crossentropy',
                   optimizer='Adam',
                   metrics=['accuracy'])
 
@@ -176,9 +176,6 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     return model
 
 def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32, epochs=100, verbose=1):
-
-    # make Y categorical
-    Y = tf.keras.utils.to_categorical(Y)
 
     # train validation split
     X_train, X_val, Y_train, Y_val, w_train, w_val = train_test_split(X, Y, w)
@@ -189,6 +186,7 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32, epochs=
     # already shuffled in train_test_split()
     # do it instead using tf.data.Dataset.shuffle(buffer_size)?
 
+    # Zip label and weight arrays to use the customized loss function
     Yw_train = np.column_stack((Y_train, w_train))
     Yw_val = np.column_stack((Y_val, w_val))
     # TF Dataset
@@ -237,7 +235,8 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     for n in nnodes:
         prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
 
-    outputs = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
+    #outputs = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
+    outputs = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
 
     return keras.models.Model(inputs=inputs, outputs=outputs)
 
