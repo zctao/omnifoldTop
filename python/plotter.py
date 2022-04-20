@@ -921,7 +921,7 @@ def plot_uncertainties(
 
         # if symmetric
         if not isinstance(err, tuple):
-            err_t = (err, -1*err)
+            err_t = (np.asarray(err), -1*np.asarray(err))
         else:
             err_t = err
 
