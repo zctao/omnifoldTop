@@ -302,25 +302,6 @@ def unfold(**parsed_args):
             logger.info(f"  Plot bin correlations: {figname_ibu_corr}")
             plotter.plot_correlations(figname_ibu_corr, h_ibu_corr, bins_mc)
 
-        ## Metrics
-        if parsed_args['truth_known']:
-            mdict = dict()
-            mdict[observable] = metrics.evaluate_all_metrics(
-                unfolder, varname_truth, bins_mc, hists_ibu_alliters
-            )
-
-            metrics_dir = os.path.join(unfolder.outdir, 'Metrics')
-            if not os.path.isdir(metrics_dir):
-                os.makedirs(metrics_dir)
-
-            # write to json file
-            util.write_dict_to_json(mdict, metrics_dir+f"/{observable}.json")
-
-            # make plots
-            metrics.plot_all_metrics(
-                mdict[observable], metrics_dir+f"/{observable}"
-            )
-
         ####
         # Even more plots if -ppp
         if parsed_args['plot_verbosity'] < 3:
@@ -365,6 +346,41 @@ def unfold(**parsed_args):
             figname_alliters, hists_uf_alliters, h_gen, h_truth,
             xlabel = observable_dict[observable]['xlabel'],
             ylabel = observable_dict[observable]['ylabel'])
+
+        ## Metrics
+        mdict = {}
+        mdict[observable] = {}
+
+        # binned
+        mdict[observable]["nominal"] = metrics.write_all_metrics_binned(
+            hists_uf_alliters, h_gen, h_truth)
+
+        if len(hists_uf_resample) > 0:
+            # every bootstrap replica
+            mdict[observable]["resample"] = metrics.write_all_metrics_binned(
+                hists_uf_resample, h_gen, h_truth)
+
+        if hists_ibu_alliters:
+            mdict[observable]["IBU"] = metrics.write_all_metrics_binned(
+                hists_ibu_alliters, h_gen, h_truth)
+
+        # unbinned
+        mdict_unbinned = metrics.evaluate_unbinned_metrics(
+            unfolder, varname_truth)
+        for k in mdict_unbinned:
+            mdict[observable][k].update(mdict_unbinned[k])
+
+        metrics_dir = os.path.join(unfolder.outdir, 'Metrics')
+        if not os.path.isdir(metrics_dir):
+            os.makedirs(metrics_dir)
+
+        # write to json file
+        util.write_dict_to_json(mdict, metrics_dir+f"/{observable}.json")
+
+        # plot metrics
+        metrics.plot_all_metrics(
+             mdict[observable], metrics_dir+f"/{observable}"
+            )
 
     tracemalloc.stop()
 

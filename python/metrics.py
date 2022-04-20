@@ -332,7 +332,7 @@ def _prepend_prior(hprior, histlist):
 def write_all_metrics_binned(
         hists_unfolded,
         hist_prior,
-        hist_truth
+        hist_truth = None
     ):
     """
     Evaluate unfolded distributions
@@ -375,9 +375,8 @@ def write_all_metrics_binned(
     metrics["BinErrors"] = {}
     metrics["BinErrors"] = write_metrics_BinErrors(hists_all)
 
-    bin_edges = hist_truth.axes[0].edges
+    bin_edges = hist_prior.axes[0].edges
     metrics["BinErrors"]["bin edges"] = bin_edges
-
 
     return metrics
 
@@ -412,6 +411,36 @@ def write_all_metrics_unbinned(
         }
 
     return metrics
+
+def evaluate_unbinned_metrics(unfolder, varname):
+
+    if not varname in unfolder.handle_obs: # truth not known
+        return {}
+
+    metrics_d = dict()
+
+    # data arrays
+    # pseudo data
+    array_truth = unfolder.handle_obs[varname]
+    weights_truth = unfolder.handle_obs.get_weights(reco_level=False)
+
+    # simulated sample
+    array_gen = unfolder.handle_sig[varname]
+    weights_gen = unfolder.handle_sig.get_weights(reco_level=False) # prior
+    weights_uf = weights_gen * unfolder.unfolded_weights # after unfolding
+
+    metrics_d['nominal'] = write_all_metrics_unbinned(
+        array_truth, weights_truth, array_gen, weights_gen, weights_uf
+    )
+
+    # Take too long. Turn this off for now
+    if False and unfolder.unfolded_weights_resample is not None:
+        weights_uf_rs = weights_gen * unfolder.unfolded_weights_resample
+        metrics_d['resample'] = write_all_metrics_unbinned(
+            array_truth, weights_truth, array_gen, weights_gen, weights_uf_rs
+        )
+
+    return metrics_d
 
 def evaluate_all_metrics(
     unfolder,
@@ -472,32 +501,66 @@ def evaluate_all_metrics(
         )
 
     # Unbinned
-    # data arrays
-    # pseudo data
-    array_truth = unfolder.handle_obs[varname]
-    weights_truth = unfolder.handle_obs.get_weights(reco_level=False)
-    # simulated sample
-    array_gen = unfolder.handle_sig[varname]
-    weights_gen = unfolder.handle_sig.get_weights(reco_level=False) # prior
-    weights_uf = weights_gen * unfolder.unfolded_weights # after unfolding
-
-    metrics_v["nominal"].update(
-        write_all_metrics_unbinned(
-            array_truth, weights_truth, array_gen, weights_gen, weights_uf
-        )
-    )
-
-    # resample
-    if False and unfolder.unfolded_weights_resample is not None:
-    # Turn this off for now
-        weights_uf_rs = weights_gen * unfolder.unfolded_weights_resample
-        metrics_v["resample"].update(
-            write_all_metrics_unbinned(
-                array_truth, weights_truth, array_gen, weights_gen, weights_uf_rs
-            )
-        )
+    mdict_unbinned = evaluate_unbinned_metrics(unfolder, varname)
+    for key in mdict_unbinned:
+        metrics_v[k].update(mdict_unbinned[k])
 
     return metrics_v
+
+def plot_metrics_vs_iterations(
+        metrics_d,
+        metrics_str,
+        value_str,
+        ylabel,
+        marker,
+        figname
+    ):
+
+    dataarr, labels = [], []
+
+    for (k, l) in [('nominal', 'MultiFold'), ('IBU', 'IBU')]:
+        if not k in metrics_d:
+            continue
+        if not metrics_str in metrics_d[k]:
+            continue
+
+        mvalue = metrics_d[k][metrics_str]
+        dataarr.append( (mvalue['iterations'], mvalue[value_str]) )
+        labels.append(l)
+
+    if not dataarr:
+        return
+
+    plotter.plot_graphs(
+        figname, dataarr,
+        labels = labels, xlabel = 'Iteration', ylabel = ylabel,
+        markers = [marker]*len(dataarr)
+    )
+
+def plot_metrics_vs_iterations_allresamples(
+        metrics_d,
+        metrics_str,
+        value_str,
+        ylabel,
+        marker,
+        figname
+    ):
+
+    if not 'resample' in metrics_d:
+        return
+
+    if not metrics_str in metrics_d['resample']:
+        return
+
+    mvalue = metrics_d['resample'][metrics_str]
+
+    dataarr = [(mvalue['iterations'], y) for y in mvalue[value_str]]
+
+    plotter.plot_graphs(
+        figname, dataarr,
+        xlabel = 'Iteration', ylabel = ylabel,
+        markers = [marker]*len(dataarr), lw = 0.7, ms = 0.7
+    )
 
 def plot_all_metrics(metrics_dict, figname_prefix):
     """
@@ -506,91 +569,50 @@ def plot_all_metrics(metrics_dict, figname_prefix):
 
     #####
     # Chi2 vs iterations
-    # With respect to truth
-    m_Chi2_OF = metrics_dict['nominal']['Chi2']
-    dataarr = [ (m_Chi2_OF['iterations'], m_Chi2_OF['chi2/ndf']) ]
-    labels = ['MultiFold']
-
-    if 'IBU' in metrics_dict:
-        m_Chi2_IBU = metrics_dict['IBU']['Chi2']
-        dataarr.append( (m_Chi2_IBU['iterations'], m_Chi2_IBU['chi2/ndf']) )
-        labels.append('IBU')
-
-    plotter.plot_graphs(
-        figname_prefix+'_Chi2s_wrt_Truth',
-        dataarr,
-        labels = labels,
-        xlabel = 'Iteration',
+    plot_metrics_vs_iterations(
+        metrics_dict,
+        metrics_str = 'Chi2', value_str = 'chi2/ndf',
         ylabel = '$\\chi^2$/NDF w.r.t. truth',
-        markers = ['o']*len(dataarr)
-    )
+        marker = 'o',
+        figname = figname_prefix+'_Chi2s_wrt_Truth'
+        )
 
     # With respect to previous iteration
-    m_Chi2_OF_prev = metrics_dict['nominal']['Chi2_wrt_prev']
-    dataarr = [ (m_Chi2_OF_prev['iterations'], m_Chi2_OF_prev['chi2/ndf']) ]
-    labels = ['MultiFold']
-
-    if 'IBU' in metrics_dict:
-        m_Chi2_IBU_prev = metrics_dict['IBU']['Chi2_wrt_prev']
-        dataarr.append( (m_Chi2_IBU_prev['iterations'], m_Chi2_IBU_prev['chi2/ndf']) )
-        labels.append('IBU')
-
-    plotter.plot_graphs(
-        figname_prefix+'_Chi2s_wrt_Prev',
-        dataarr,
-        labels = labels,
-        xlabel = 'Iteration',
+    plot_metrics_vs_iterations(
+        metrics_dict,
+        metrics_str = 'Chi2_wrt_prev', value_str = 'chi2/ndf',
         ylabel = '$\\Delta\\chi^2$/NDF',
-        markers = ['*']*len(dataarr)
-    )
+        marker = '*',
+        figname = figname_prefix+'_Chi2s_wrt_Prev'
+        )
 
     # All resamples
-    if 'resample' in metrics_dict:
-        m_Chi2_OF_rs = metrics_dict['resample']['Chi2']
-
-        dataarr = [(m_Chi2_OF_rs['iterations'], y) for y in m_Chi2_OF_rs['chi2/ndf']]
-        plotter.plot_graphs(
-            figname_prefix+'_AllResamples_Chi2s_wrt_Truth',
-            dataarr,
-            xlabel = 'Iteration',
-            ylabel = '$\\chi^2$/NDF w.r.t. truth',
-            markers = ['o'] * len(dataarr),
-            lw = 0.7, ms = 0.7
+    plot_metrics_vs_iterations_allresamples(
+        metrics_dict,
+        metrics_str='Chi2', value_str='chi2/ndf',
+        ylabel = '$\\chi^2$/NDF w.r.t. truth',
+        marker = 'o',
+        figname = figname_prefix+'_AllResamples_Chi2s_wrt_Truth'
         )
 
     #####
     # Triangular discriminator vs iterations
     # With respsect to truth
-    m_Delta_OF = metrics_dict['nominal']['Delta']
-    dataarr = [ (m_Delta_OF['iterations'], m_Delta_OF['delta']) ]
-    labels = ['MultiFold']
-
-    if 'IBU' in metrics_dict:
-        m_Delta_IBU = metrics_dict['IBU']['Delta']
-        dataarr.append( (m_Delta_IBU['iterations'], m_Delta_IBU['delta']) )
-        labels.append('IBU')
-
-    plotter.plot_graphs(
-        figname_prefix+'_Delta_wrt_Truth',
-        dataarr,
-        labels = labels,
-        xlabel = 'Iteration',
+    plot_metrics_vs_iterations(
+        metrics_dict,
+        metrics_str = 'Delta', value_str = 'delta',
         ylabel = 'Triangular discriminator w.r.t. truth',
-        markers = ['o']*len(dataarr)
-    )
+        marker = 'o',
+        figname = figname_prefix+'_Delta_wrt_Truth'
+        )
 
     # All resamples
-    if 'resample' in metrics_dict:
-        m_Delta_OF_rs = metrics_dict['resample']['Delta']
-
-        dataarr = [(m_Delta_OF_rs['iterations'], y) for y in m_Delta_OF_rs['delta']]
-        plotter.plot_graphs(
-            figname_prefix+'_AllResamples_Delta_wrt_Truth',
-            dataarr,
-            xlabel = 'Iteration',
-            ylabel = 'Triangular discriminator w.r.t. truth',
-            markers = ['o'] * len(dataarr),
-            lw = 0.7, ms = 0.7
+    plot_metrics_vs_iterations_allresamples(
+        metrics_dict,
+        metrics_str='Delta', value_str='delta',
+        ylabel = 'Triangular discriminator w.r.t. truth',
+        marker = 'o',
+        figname = figname_prefix+'_AllResamples_Delta_wrt_Truth'
         )
 
     #####
