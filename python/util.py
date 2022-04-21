@@ -51,19 +51,31 @@ def configRootLogger(filename=None, level=logging.INFO):
     msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
     datefmt = '%Y-%m-%d %H:%M:%S'
     logging.basicConfig(level=level, format=msgfmt, datefmt=datefmt)
+
     if filename:
-        # check if the directory exists
-        dirname = os.path.dirname(filename)
-        nodir = not os.path.isdir(dirname)
-        if nodir:
-            os.makedirs(dirname)
+        addFileHandler(logging.getLogger(), filename)
 
-        fhdr = logging.FileHandler(filename, mode='w')
-        fhdr.setFormatter(logging.Formatter(msgfmt, datefmt))
-        logging.getLogger().addHandler(fhdr)
+def addFileHandler(logger, filename):
+    msgfmt = '%(asctime)s %(levelname)-7s %(name)-15s %(message)s'
+    datefmt = '%Y-%m-%d %H:%M:%S'
 
-        if nodir:
-            logging.info("Create directory {}".format(dirname))
+    # check if the directory exists
+    dirname = os.path.dirname(filename)
+    nodir = not os.path.isdir(dirname)
+    if nodir:
+        os.makedirs(dirname)
+
+    fhdr = logging.FileHandler(filename, mode='w')
+    fhdr.setFormatter(logging.Formatter(msgfmt, datefmt))
+
+    # remove old file handlers if there are any
+    for hdr in logger.handlers:
+        if isinstance(hdr, logging.FileHandler):
+            logger.removeHandler(hdr)
+
+    logger.addHandler(fhdr)
+    if nodir:
+        logger.info(f"Create directory {dirname}")
 
 def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
     assert(version.parse(tf.__version__) >= version.parse('2.0.0'))
