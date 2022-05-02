@@ -522,12 +522,15 @@ class OmniFoldTTbar():
             # take the standard deviation of each bin as bin uncertainties
             hsigma = myhu.get_sigma_from_hists(h_uf_rs)
 
+            # the bin uncertainties are the standard error of the mean
+            hstderr = hsigma / np.sqrt(len(h_uf_rs))
+
             # compute bin correlations
             bin_corr = myhu.get_bin_correlations_from_hists(h_uf_rs)
 
             # update the nominal histogam
             myhu.set_hist_contents(h_uf, hmean)
-            myhu.set_hist_errors(h_uf, hsigma)
+            myhu.set_hist_errors(h_uf, hstderr)
 
         if norm is not None:
             # rescale the unfolded distribution to the norm
