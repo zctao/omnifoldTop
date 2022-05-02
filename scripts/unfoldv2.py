@@ -384,7 +384,7 @@ def unfold(**parsed_args):
 
     tracemalloc.stop()
 
-def getArgsParser(arguments_list=None):
+def getArgsParser(arguments_list=None, print_help=False):
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -454,6 +454,9 @@ def getArgsParser(arguments_list=None):
                         help="If True, run unfolding also with IBU for comparison")
     parser.add_argument('-w', '--weight-type', type=str, default='nominal',
                         help="Type of event weights to retrieve from ntuples")
+
+    if print_help:
+        parser.print_help()
 
     args = parser.parse_args(arguments_list)
 
