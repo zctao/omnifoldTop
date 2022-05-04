@@ -10,6 +10,8 @@ import logging
 logger = logging.getLogger('omnifold')
 logger.setLevel(logging.DEBUG)
 
+B_TO_MB = 2**-20 # constant for converting size in bytes to MBs
+
 def set_up_model(
     model_type, # str, type of the network
     input_shape, # tuple, shape of the input layer
@@ -49,7 +51,7 @@ def set_up_model(
     return model, callbacks
 
 def reweight(model, events, figname=None):
-    preds = model.predict(events, batch_size=int(0.01*len(events)))[:,1]
+    preds = model.predict(events, batch_size=int(0.01 * len(events)))[:,1]
     r = np.nan_to_num( preds / (1. - preds) )
 
     if figname: # plot the distribution
@@ -58,6 +60,13 @@ def reweight(model, events, figname=None):
 
     return r
 
+# write a logger message regarding the size of an object in number of bytes
+def log_size_bytes(
+    name, # str, name of the object
+    size # type of numpy.ndarray.nbytes, size of object in number of bytes
+    ):
+    logger.debug(f"Size of the {name}: {size * B_TO_MB:.3f} MB")
+    
 def omnifold(
     # Data
     X_data, # feature array of observed data
@@ -99,16 +108,16 @@ def omnifold(
     # labels: data=1, sim=0
     Y_step1 = np.concatenate([ np.ones(len(X_data[passcut_data])), np.zeros(len(X_sim[passcut_sim])) ])
 
-    logger.debug(f"Size of the feature array for step 1: {X_step1.nbytes*2**-20:.3f} MB")
-    logger.debug(f"Size of the label array for step 1: {Y_step1.nbytes*2**-20:.3f} MB")
+    log_size_bytes("feature array for step 1", X_step1.nbytes)
+    log_size_bytes("label array for step 1", Y_step1.nbytes)
 
     # Step 1b
     if np.any(~passcut_sim):
         X_step1b = np.concatenate([ X_gen[passcut_sim & passcut_gen], X_gen[passcut_sim & passcut_gen] ])
         Y_step1b = np.concatenate([ np.ones(len(X_gen[passcut_sim & passcut_gen])), np.zeros(len(X_gen[passcut_sim & passcut_gen])) ])
 
-        logger.debug(f"Size of the feature array for step 1b: {X_step1b.nbytes*2**-20:.3f} MB")
-        logger.debug(f"Size of the label array for step 1b: {Y_step1b.nbytes*2**-20:.3f} MB")
+        log_size_bytes("feature array for step 1b", X_step1b.nbytes)
+        log_size_bytes("label array for step 1b", Y_step1b.nbytes)
 
     # Step 2
     # features
@@ -116,16 +125,16 @@ def omnifold(
     # labels
     Y_step2 = np.concatenate([ np.ones(len(X_gen[passcut_gen])), np.zeros(len(X_gen[passcut_gen])) ])
 
-    logger.debug(f"Size of the feature array for step 2: {X_step2.nbytes*2**-20:.3f} MB")
-    logger.debug(f"Size of the label array for step 2: {Y_step2.nbytes*2**-20:.3f} MB")
+    log_size_bytes("feature array for step 2", X_step2.nbytes)
+    log_size_bytes("label array for step 2", Y_step2.nbytes)
 
     # Step 2b
     if np.any(~passcut_gen):
         X_step2b = np.concatenate([ X_sim[passcut_sim & passcut_gen], X_sim[passcut_sim & passcut_gen] ])
         Y_step2b = np.concatenate([ np.ones(len(X_sim[passcut_sim & passcut_gen])), np.zeros(len(X_sim[passcut_sim & passcut_gen])) ])
 
-        logger.debug(f"Size of the feature array for step 2b: {X_step2b.nbytes*2**-20:.3f} MB")
-        logger.debug(f"Size of the label array for step 2b: {Y_step2b.nbytes*2**-20:.3f} MB")
+        log_size_bytes("feature array for step 2b", X_step2b.nbytes)
+        log_size_bytes("label array for step 2b", Y_step2b.nbytes)
 
     ################
     # Prepare models
