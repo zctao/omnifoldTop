@@ -158,56 +158,22 @@ def omnifold(
 
     for i in range(niterations):
         logger.info(f"Iteration {i}")
-        #####
-        # step 1: reweight to sim to data
+        # #####
+        # # step 1: reweight to sim to data
+
         logger.info("Step 1")
-        # set up the model
-        model_step1, cb_step1 = set_up_model(
-            model_type, X_step1.shape[1:], i, "model_step1",
-            save_models_to, load_models_from, start_from_previous_iter)
-
-        if load_models_from:
-            logger.info("Use trained model for reweighting")
-        else: # train model
-            w_step1 = w_step(w_data, weights_push * w_sim, passcut_data, passcut_sim)
-
-            logger.info("Start training")
-            fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
-            train_model(model_step1, X_step1, Y_step1, w_step1,
-                        callbacks = cb_step1,
-                        #figname = fname_preds,
-                        **fitargs)
-            logger.info("Training done")
-
-        # reweight
-        logger.info("Reweight")
-        fname_rdistr = save_models_to + f"/rdistr_step1_{i}" if save_models_to and plot else ''
-        weights_pull = weights_push * reweight(model_step1, X_sim, fname_rdistr)
+        w_step1 = w_step(w_data, weights_push * w_sim, passcut_data, passcut_sim) if not load_models_from else None
+        train_step(X_step1, Y_step1, w_step1, weights_pull, None, X_sim, i, "step1", 
+            model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
 
         #####
         # step 1b: deal with events that do not pass reco cuts
+
         if np.any(~passcut_sim):
             logger.info("Step 1b")
-            # weights_pull[~passcut_sim] = 1.
-            # Or alternatively, estimate the average weights: <w|x_true>
-            model_step1b, cb_step1b = set_up_model(
-                model_type, X_step1b.shape[1:], i, "model_step1b",
-                save_models_to, load_models_from, start_from_previous_iter)
-
-            if load_models_from:
-                logger.info("Use trained model for reweighting")
-            else: # train model
-                w_step1b = w_step(weights_pull * w_gen, w_gen, passcut_sim & passcut_gen, passcut_sim & passcut_gen)
-
-                logger.info("Start training")
-                train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
-                            callbacks = cb_step1b, **fitargs)
-                logger.info("Training done")
-
-            # reweight
-            logger.info("Reweight")
-            fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
-            weights_pull[~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], fname_rdistr)
+            w_step1b = w_step(weights_pull * w_gen, w_gen, passcut_sim & passcut_gen, passcut_sim & passcut_gen) if not load_models_from else None
+            train_step(X_step1b, Y_step1b, w_step1b, weights_pull, ~passcut_sim, X_gen[~passcut_sim], i, "step1b", 
+                model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
 
         # TODO: check this
         weights_pull /= np.mean(weights_pull)
@@ -216,56 +182,23 @@ def omnifold(
 
         #####
         # step 2
+
         logger.info("Step 2")
-        model_step2, cb_step2 = set_up_model(
-            model_type, X_step2.shape[1:], i, "model_step2",
-            save_models_to, load_models_from, start_from_previous_iter)
-
-#         rw_step2 = 1. # always reweight against the prior
+        rw_step2 = 1. # always reweight against the prior
 # #        rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
-
-        if load_models_from:
-            logger.info("Use trained model for reweighting")
-        else: # train model
-            w_step2 = w_step(weights_pull * w_gen, w_gen, passcut_gen, passcut_gen) # add in reweight_second = weights_unfold[i-1] if not reweighting
-
-            logger.info("Start training")
-            fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
-            train_model(model_step2, X_step2, Y_step2, w_step2,
-                        callbacks = cb_step2,
-                        #figname = fname_preds,
-                        **fitargs)
-            logger.info("Training done")
-
-        # reweight
-        logger.info("Reweight")
-        fname_rdistr = save_models_to + f"/rdistr_step2_{i}" if save_models_to and plot else ''
-        weights_push[passcut_gen] = rw_step2 * reweight(model_step2, X_gen[passcut_gen], fname_rdistr)
+        w_step2 = w_step(weights_pull * w_gen, w_gen, passcut_gen, passcut_gen, reweight_second = rw_step2) if not load_models_from else None # rw_step2 currently set to 1.
+        old_weight_push = weights_push
+        train_step(X_step2, Y_step2, w_step2, weights_push, passcut_gen, X_gen[passcut_gen], i, "step2", 
+            model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
 
         #####
         # step 2b: deal with events that do not pass truth cuts
+
         if np.any(~passcut_gen):
             logger.info("Step 2b")
-            # weights_push[~passcut_gen] = 1.
-            # Or alternatively, estimate the average weights: <w|x_reco>
-            model_step2b, cb_step2b = set_up_model(
-                model_type, X_step2b.shape[1:], i, "model_step2b",
-                save_models_to, load_models_from, start_from_previous_iter)
-
-            if load_models_from:
-                logger.info("Use trained model for reweighting")
-            else: # train model
-                w_step2b = w_step(weights_push * w_sim, w_sim, passcut_sim & passcut_gen, passcut_sim & passcut_gen)
-
-                logger.info("Start training")
-                train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
-                            callbacks = cb_step2b, **fitargs)
-                logger.info("Training done")
-
-            # reweight
-            logger.info("Reweight")
-            fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
-            weights_push[~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], fname_rdistr)
+            w_step2b = w_step(weights_push * w_sim, w_sim, passcut_sim & passcut_gen, passcut_sim & passcut_gen) if not load_models_from else None
+            train_step(X_step2b, Y_step2b, w_step2b, weights_push, ~passcut_gen, X_sim[~passcut_gen], i, "step2b", 
+                model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
 
         # TODO: check this
         weights_push /= np.mean(weights_push)
@@ -278,6 +211,46 @@ def omnifold(
     # end of iteration loop
 
     return weights_unfold
+
+# evaluate a step in OmniFold method, training a model if needed and train the model
+# weights_push is modified for reweighting
+# Return: None
+def train_step(
+    # Data
+    X_step, # feature array of observed data, for this step
+    Y_step, # label array, for this step
+    w_step, # w_array, for this step
+    weights_update, # arraylike, weights_pull or weights_push to be updated
+    weights_update_range, # range of weights_update to be updated, the entire weights_update_range is updated if NONE is supplied
+    weights_update_events, # arraylike, events used for reweighting weights_update
+    # Parameters
+    iteration, # the number of iterations up to this call
+    name, # str, name of the model
+    model_type, # name of the model type 
+    save_models_to, # directory to save models to
+    load_models_from, # directory to load trained models
+    start_from_previous_iter, # If True, initialize model with the previous iteration
+    plot, # If True, plot training history and make other status plots
+    **fitargs
+    ):
+    model, cb = set_up_model(model_type, X_step.shape[1:], iteration, "model_{0}".format(name), save_models_to, load_models_from, start_from_previous_iter)
+    logger.debug("mode_{0}".format(name))
+
+    if load_models_from:
+        logger.info("Use trained model for reweighting")
+    else: # train model
+        logger.info("Start training")
+        train_model(model, X_step, Y_step, w_step,callbacks = cb, **fitargs)
+        logger.info("Training done")
+
+    # reweight
+    logger.info("Reweight")
+    fname_rdistr = (save_models_to + f"/rdistr_{0}_{1}".format(name, iteration)) if save_models_to and plot else ''
+    if weights_update is None:
+        weights_update[weights_update_range] = reweight(model, weights_update_events, fname_rdistr)
+    else:
+        weights_update = reweight(model, weights_update_events, fname_rdistr)
+
 
 # generate the weights for a step in OmniFold
 # Return: arraylike weight from combination of w_first[range_first] and w_second[range_second]
