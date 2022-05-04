@@ -169,9 +169,7 @@ def omnifold(
         if load_models_from:
             logger.info("Use trained model for reweighting")
         else: # train model
-            w_step1 = np.concatenate([
-                w_data[passcut_data], (weights_push*w_sim)[passcut_sim]
-                ])
+            w_step1 = w_step(w_data, weights_push * w_sim, passcut_data, passcut_sim)
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
@@ -199,10 +197,7 @@ def omnifold(
             if load_models_from:
                 logger.info("Use trained model for reweighting")
             else: # train model
-                w_step1b = np.concatenate([
-                    (weights_pull*w_gen)[passcut_sim & passcut_gen],
-                    w_gen[passcut_sim & passcut_gen]
-                    ])
+                w_step1b = w_step(weights_pull * w_gen, w_gen, passcut_sim & passcut_gen, passcut_sim & passcut_gen)
 
                 logger.info("Start training")
                 train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
@@ -226,15 +221,13 @@ def omnifold(
             model_type, X_step2.shape[1:], i, "model_step2",
             save_models_to, load_models_from, start_from_previous_iter)
 
-        rw_step2 = 1. # always reweight against the prior
-#        rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
+#         rw_step2 = 1. # always reweight against the prior
+# #        rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
 
         if load_models_from:
             logger.info("Use trained model for reweighting")
         else: # train model
-            w_step2 = np.concatenate([
-                (weights_pull*w_gen)[passcut_gen], w_gen[passcut_gen]*rw_step2
-                ])
+            w_step2 = w_step(weights_pull * w_gen, w_gen, passcut_gen, passcut_gen) # add in reweight_second = weights_unfold[i-1] if not reweighting
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
@@ -262,10 +255,7 @@ def omnifold(
             if load_models_from:
                 logger.info("Use trained model for reweighting")
             else: # train model
-                w_step2b = np.concatenate([
-                    (weights_push*w_sim)[passcut_sim & passcut_gen],
-                    w_sim[passcut_sim & passcut_gen]
-                    ])
+                w_step2b = w_step(weights_push * w_sim, w_sim, passcut_sim & passcut_gen, passcut_sim & passcut_gen)
 
                 logger.info("Start training")
                 train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
@@ -289,3 +279,16 @@ def omnifold(
 
     return weights_unfold
 
+# generate the weights for a step in OmniFold
+# Return: arraylike weight from combination of w_first[range_first] and w_second[range_second]
+def w_step(
+    w_first, # first part of the final combined w
+    w_second, # second part of the final combined w
+    range_first, # array specifying the range of data for first part
+    range_second, # array specifying the range of data for second part
+    reweight_first = 1., # if reweighting against the prior, always do if none
+    reweight_second =  1., # if reweighting against the prior, always do if none
+    ):
+    return np.concatenate([
+        reweight_first * w_first[range_first], reweight_second * w_second[range_second]
+        ])
