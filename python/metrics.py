@@ -5,7 +5,7 @@ import os
 import numpy as np
 from scipy import stats
 
-import plotting
+import plotter
 from util import prepend_arrays, write_dict_to_json
 from histogramming import get_values_and_errors
 
@@ -105,6 +105,9 @@ def compute_pvalue_Chi2(chi2, ndf):
     return 1. - stats.chi2.cdf(chi2, ndf)
 
 def write_texts_Chi2(histogram_ref, histograms, labels):
+    if histogram_ref is None:
+        return []
+
     assert(len(histograms)==len(labels))
     texts = ["$\\chi^2$/NDF (p-value):"]
 
@@ -329,7 +332,7 @@ def _prepend_prior(hprior, histlist):
 def write_all_metrics_binned(
         hists_unfolded,
         hist_prior,
-        hist_truth
+        hist_truth = None
     ):
     """
     Evaluate unfolded distributions
@@ -372,9 +375,8 @@ def write_all_metrics_binned(
     metrics["BinErrors"] = {}
     metrics["BinErrors"] = write_metrics_BinErrors(hists_all)
 
-    bin_edges = hist_truth.axes[0].edges
+    bin_edges = hist_prior.axes[0].edges
     metrics["BinErrors"]["bin edges"] = bin_edges
-
 
     return metrics
 
@@ -410,215 +412,212 @@ def write_all_metrics_unbinned(
 
     return metrics
 
-def evaluate_all_metrics(variable, varConfig, bin_edges, of, ibu=None):
+def evaluate_unbinned_metrics(unfolder, varname):
+
+    if not varname in unfolder.handle_obs: # truth not known
+        return {}
+
+    metrics_d = dict()
+
+    # data arrays
+    # pseudo data
+    array_truth = unfolder.handle_obs[varname]
+    weights_truth = unfolder.handle_obs.get_weights(reco_level=False)
+
+    # simulated sample
+    array_gen = unfolder.handle_sig[varname]
+    weights_gen = unfolder.handle_sig.get_weights(reco_level=False) # prior
+    weights_uf = weights_gen * unfolder.unfolded_weights # after unfolding
+
+    metrics_d['nominal'] = write_all_metrics_unbinned(
+        array_truth, weights_truth, array_gen, weights_gen, weights_uf
+    )
+
+    # Take too long. Turn this off for now
+    if False and unfolder.unfolded_weights_resample is not None:
+        weights_uf_rs = weights_gen * unfolder.unfolded_weights_resample
+        metrics_d['resample'] = write_all_metrics_unbinned(
+            array_truth, weights_truth, array_gen, weights_gen, weights_uf_rs
+        )
+
+    return metrics_d
+
+def evaluate_all_metrics(
+    unfolder,
+    varname,
+    bin_edges,
+    hists_ibu = None
+    ):
     """
     Compute and plot metrics for unfolded distributions
 
     Parameters
     ----------
-    variable : str
+    unfolder : OmniFoldTTbar object
+        OmniFold unfolder object that contains data arrays and unfolded weights
+    varname : str
         Name of the variable for evaluating
-    varConfig : dict
-        Dictionary that contains configurations for the variable. Here only used
-        to extract the truth-level branch name for the variable
     bin_edges : array-like of shape (nbins + 1,)
         Bin edges of the histogram for the variable,
-    of : OmniFoldwBkg object
-        OmniFold unfolder that contains data arrays and unfolded weights
-    ibu : IBU object, optional
-        IBU unfolder that provides unfolded distribution of the variable
-        using the IBU method
+    hists_ibu : list of Hist objects
+        list of unfolded distribution from IBU of every iteration
 
     Returns
     -------
     A dictionary that contains the calculated metrics for various methods.
-    The dictionary is also saved as a json file to of.outdir+"/Metrics/"
     """
 
-    if not of.truth_known:
-        print("Cannot evaluate the performance without a reference")
-        return
+    metrics_v = dict()
 
-    # truth-level branch name for variable
-    vname_mc = varConfig['branch_mc']
-
-    metrics_all = dict()
-    metrics_all[variable] = {}
-
+    # Binned
+    # FIXME: normalization
     # prior distribution
-    hist_prior = of.datahandle_sig.get_histogram(vname_mc, bin_edges)
+    hist_prior = unfolder.handle_sig.get_histogram(varname, bin_edges)
+    norm_prior = hist_prior.sum(flow=True)['value']
 
     # truth distribution
-    hist_truth = of.datahandle_obs.get_histogram(vname_mc, bin_edges)
+    hist_truth = unfolder.handle_obs.get_histogram(varname, bin_edges)
+    hist_truth *= (norm_prior / hist_truth.sum(flow=True)['value'])
 
-    ######
-    # unfolded distribution from OmniFold
-    hists_uf = of.get_unfolded_distribution(vname_mc, bin_edges, all_iterations=True)[0]
+    # unfolded distributions at every iteration
+    hists_uf = unfolder.get_unfolded_distribution(varname, bin_edges, all_iterations=True, norm=norm_prior)[0]
 
-    metrics_all[variable]["nominal"] = write_all_metrics_binned(
-        hists_uf, hist_prior, hist_truth)
+    metrics_v["nominal"] = write_all_metrics_binned(
+        hists_uf, hist_prior, hist_truth
+    )
 
-    # data arrays of vname_mc
-    # pseudo data
-    data_truth = of.datahandle_obs[vname_mc]
-    weights_truth = of.datahandle_obs.get_weights()
-    # simulated data
-    data_gen = of.datahandle_sig[vname_mc]
-    weights_prior = of.datahandle_sig.get_weights()
-    # unfolded weights
-    weights_unfolded = weights_prior * of.unfolded_weights
+    # unfolded distributions of every resample at every iterations
+    if unfolder.unfolded_weights_resample is not None:
+        hists_uf_rs = unfolder.get_unfolded_hists_resamples(varname, bin_edges, all_iterations=True, norm=norm_prior)
 
-    metrics_all[variable]["nominal"].update(
-        write_all_metrics_unbinned(data_truth, weights_truth, data_gen,
-                                   weights_prior, weights_unfolded)
+        metrics_v["resample"] = write_all_metrics_binned(
+            hists_uf_rs, hist_prior, hist_truth
         )
 
-    # IBU for comparison if available
-    if ibu is not None:
-        hists_ibu = ibu.get_unfolded_distribution(all_iterations=True)[0]
-        metrics_all[variable]["IBU"] = write_all_metrics_binned(
-            hists_ibu, hist_prior, hist_truth)
+    # IBU
+    if hists_ibu:
+        metrics_v["IBU"] = write_all_metrics_binned(
+            hists_ibu, hist_prior, hist_truth
+        )
 
-    ######
-    # resamples
-    if of.unfolded_weights_resample is not None:
-        hists_uf_resample = of.get_unfolded_hists_resample(
-            vname_mc, bin_edges, all_iterations=True, normalize=True)
+    # Unbinned
+    mdict_unbinned = evaluate_unbinned_metrics(unfolder, varname)
+    for key in mdict_unbinned:
+        metrics_v[k].update(mdict_unbinned[k])
 
-        metrics_all[variable]["resample"] = write_all_metrics_binned(
-            hists_uf_resample, hist_prior, hist_truth)
+    return metrics_v
 
-        # If want to compute KS for every resample and every iteration
-        # unfolded weights
-        #weights_unfolded_rs = weights_prior * of.unfolded_weights_resample
-        #metrics_all[variable]["resample"].update(
-        #    write_all_metrics_unbinned(data_truth, weights_truth, data_gen,
-        #                               weights_prior, weights_unfolded_rs)
-        #    )
+def plot_metrics_vs_iterations(
+        metrics_d,
+        metrics_str,
+        value_str,
+        ylabel,
+        marker,
+        figname
+    ):
 
-    ##########
-    # write to json file
-    outdir = os.path.join(of.outdir, "Metrics")
-    if not os.path.isdir(outdir):
-        os.makedirs(outdir)
+    dataarr, labels = [], []
 
-    outname = os.path.join(outdir, variable+'.json')
-    write_dict_to_json(metrics_all, outname)
+    for (k, l) in [('nominal', 'MultiFold'), ('IBU', 'IBU')]:
+        if not k in metrics_d:
+            continue
+        if not metrics_str in metrics_d[k]:
+            continue
 
-    ##########
-    # plot
-    plot_all_metrics(metrics_all, variable, outdir)
+        mvalue = metrics_d[k][metrics_str]
+        dataarr.append( (mvalue['iterations'], mvalue[value_str]) )
+        labels.append(l)
 
-    return metrics_all
+    if not dataarr:
+        return
 
-################
-# Plotting
-def plot_all_metrics(metrics_dict, varname, outdir):
+    plotter.plot_graphs(
+        figname, dataarr,
+        labels = labels, xlabel = 'Iteration', ylabel = ylabel,
+        markers = [marker]*len(dataarr)
+    )
+
+def plot_metrics_vs_iterations_allresamples(
+        metrics_d,
+        metrics_str,
+        value_str,
+        ylabel,
+        marker,
+        figname
+    ):
+
+    if not 'resample' in metrics_d:
+        return
+
+    if not metrics_str in metrics_d['resample']:
+        return
+
+    mvalue = metrics_d['resample'][metrics_str]
+
+    dataarr = [(mvalue['iterations'], y) for y in mvalue[value_str]]
+
+    plotter.plot_graphs(
+        figname, dataarr,
+        xlabel = 'Iteration', ylabel = ylabel,
+        markers = [marker]*len(dataarr), lw = 0.7, ms = 0.7
+    )
+
+def plot_all_metrics(metrics_dict, figname_prefix):
     """
-    Plot metrics from the dictionary
+    Make plots from the metric dictionary
     """
-    if not os.path.isdir(outdir):
-        os.makedirs(outdir)
 
     #####
     # Chi2 vs iterations
-    # With respect to truth
-    figname = os.path.join(outdir, varname+'_Chi2s_wrt_Truth')
-
-    m_Chi2_OF = metrics_dict[varname]['nominal']['Chi2']
-    dataarr = [ (m_Chi2_OF['iterations'], m_Chi2_OF['chi2/ndf']) ]
-    labels = ['MultiFold']
-
-    if 'IBU' in metrics_dict[varname]:
-        m_Chi2_IBU = metrics_dict[varname]['IBU']['Chi2']
-        dataarr.append( (m_Chi2_IBU['iterations'], m_Chi2_IBU['chi2/ndf']) )
-        labels.append('IBU')
-
-    plotting.plot_graphs(
-        figname,
-        dataarr,
-        labels = labels,
-        xlabel = 'Iteration',
+    plot_metrics_vs_iterations(
+        metrics_dict,
+        metrics_str = 'Chi2', value_str = 'chi2/ndf',
         ylabel = '$\\chi^2$/NDF w.r.t. truth',
-        markers = ['o']*len(dataarr)
-    )
+        marker = 'o',
+        figname = figname_prefix+'_Chi2s_wrt_Truth'
+        )
 
     # With respect to previous iteration
-    figname = os.path.join(outdir, varname+'_Chi2s_wrt_Prev')
-
-    m_Chi2_OF_prev = metrics_dict[varname]['nominal']['Chi2_wrt_prev']
-    dataarr = [ (m_Chi2_OF_prev['iterations'], m_Chi2_OF_prev['chi2/ndf']) ]
-    labels = ['MultiFold']
-
-    if 'IBU' in metrics_dict[varname]:
-        m_Chi2_IBU_prev = metrics_dict[varname]['IBU']['Chi2_wrt_prev']
-        dataarr.append( (m_Chi2_IBU_prev['iterations'], m_Chi2_IBU_prev['chi2/ndf']) )
-        labels.append('IBU')
-
-    plotting.plot_graphs(
-        figname,
-        dataarr,
-        labels = labels,
-        xlabel = 'Iteration',
+    plot_metrics_vs_iterations(
+        metrics_dict,
+        metrics_str = 'Chi2_wrt_prev', value_str = 'chi2/ndf',
         ylabel = '$\\Delta\\chi^2$/NDF',
-        markers = ['*']*len(dataarr)
-    )
+        marker = '*',
+        figname = figname_prefix+'_Chi2s_wrt_Prev'
+        )
 
     # All resamples
-    if 'resample' in metrics_dict[varname]:
-        m_Chi2_OF_rs = metrics_dict[varname]['resample']['Chi2']
-        figname = os.path.join(outdir, varname+'_AllResamples_Chi2s_wrt_Truth')
-
-        dataarr = [(m_Chi2_OF_rs['iterations'], y) for y in m_Chi2_OF_rs['chi2/ndf']]
-        plotting.plot_graphs(
-            figname,
-            dataarr,
-            xlabel = 'Iteration',
-            ylabel = '$\\chi^2$/NDF w.r.t. truth',
-            markers = ['o'] * len(dataarr),
-            lw = 0.7, ms = 0.7
+    plot_metrics_vs_iterations_allresamples(
+        metrics_dict,
+        metrics_str='Chi2', value_str='chi2/ndf',
+        ylabel = '$\\chi^2$/NDF w.r.t. truth',
+        marker = 'o',
+        figname = figname_prefix+'_AllResamples_Chi2s_wrt_Truth'
         )
 
     #####
     # Triangular discriminator vs iterations
     # With respsect to truth
-    figname = os.path.join(outdir, varname+'_Delta_wrt_Truth')
-
-    m_Delta_OF = metrics_dict[varname]['nominal']['Delta']
-    dataarr = [ (m_Delta_OF['iterations'], m_Delta_OF['delta']) ]
-    labels = ['MultiFold']
-
-    if 'IBU' in metrics_dict[varname]:
-        m_Delta_IBU = metrics_dict[varname]['IBU']['Delta']
-        dataarr.append( (m_Delta_IBU['iterations'], m_Delta_IBU['delta']) )
-        labels.append('IBU')
-
-    plotting.plot_graphs(
-        figname,
-        dataarr,
-        labels = labels,
-        xlabel = 'Iteration',
+    plot_metrics_vs_iterations(
+        metrics_dict,
+        metrics_str = 'Delta', value_str = 'delta',
         ylabel = 'Triangular discriminator w.r.t. truth',
-        markers = ['o']*len(dataarr)
-    )
+        marker = 'o',
+        figname = figname_prefix+'_Delta_wrt_Truth'
+        )
 
     # All resamples
-    if 'resample' in metrics_dict[varname]:
-        m_Delta_OF_rs = metrics_dict[varname]['resample']['Delta']
-
-        dataarr = [(m_Delta_OF_rs['iterations'], y) for y in m_Delta_OF_rs['delta']]
-        plotting.plot_graphs(
-            os.path.join(outdir, varname+'_AllResamples_Delta_wrt_Truth'),
-            dataarr,
-            xlabel = 'Iteration',
-            ylabel = 'Triangular discriminator w.r.t. truth',
-            markers = ['o'] * len(dataarr),
-            lw = 0.7, ms = 0.7
+    plot_metrics_vs_iterations_allresamples(
+        metrics_dict,
+        metrics_str='Delta', value_str='delta',
+        ylabel = 'Triangular discriminator w.r.t. truth',
+        marker = 'o',
+        figname = figname_prefix+'_AllResamples_Delta_wrt_Truth'
         )
 
     #####
     # Bin Errors
-    m_BinErr_OF = metrics_dict[varname]['nominal']['BinErrors']
+    m_BinErr_OF = metrics_dict['nominal']['BinErrors']
     nbins = len(m_BinErr_OF['bin edges']) - 1
 
     # Bin error vs iterations for each bin
@@ -628,8 +627,8 @@ def plot_all_metrics(metrics_dict, varname, outdir):
         for ibin in range(nbins)
     ]
 
-    plotting.plot_graphs(
-        os.path.join(outdir, varname+'_BinErrors'),
+    plotter.plot_graphs(
+        figname_prefix+'_BinErrors',
         relerr_arr,
         labels = ["bin {}".format(i) for i in range(1, nbins+1)],
         xlabel = 'Iteration',

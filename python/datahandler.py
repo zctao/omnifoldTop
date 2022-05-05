@@ -90,11 +90,16 @@ class DataHandler(Mapping):
     file_names : str or file-like object; or sequence of str or file-like objects
         List of npz files to load. If the weight column should be adjusted,
         provide the filename as "{path}*{reweight factor}".
-    wname : str, default: "w"
+    variable_names : list of str
+        List of reco-level variables to read. If not provided, read all 
+        variables in the dataset.
+    variable_names_mc : list of str, optional
+        List of truth-level variables to read. If not provided, skip reading
+        truth-level variables
+    weights_name : str, default: "w"
         Name of the event weight column.
-    variable_names : list of str, optional
-        List of variables to read. If not provided, read all variables in
-        the dataset.
+    weights_name_mc : str, default: None
+        Name of the mc weights
     vars_dict : dict, default: {}
         Use the key "vtype" to set the dtype of the loaded data. If not
         provided, defaults to "float".
@@ -105,49 +110,64 @@ class DataHandler(Mapping):
     ------
     IOError
         If a file does not exist or can't be read.
-    RuntimeError
-        A file doesn't contain one of `variable_names`.
+    ValueError
+        A file doesn't contain one of `variable_names` or `variable_names_mc`.
     RuntimeError
         A file doesn't contain an array named `array_name`.
     ValueError
-        A file using reweighting doesn't contain `wname`.
+        A file using reweighting doesn't contain `weights_name` or `weights_name_mc`.
     """
 
     def __init__(
         self,
         filepaths,
-        wname="w",
-        variable_names=None,
+        variable_names,
+        variable_names_mc=[],
+        weights_name="w",
+        weights_name_mc=None,
         vars_dict={},
         array_name="arr_0",
     ):
         # load data from npz files to numpy array
-        tmpDataArr = load_dataset(filepaths, array_name=array_name, weight_columns=wname)
+        tmpDataArr = load_dataset(filepaths, array_name=array_name, weight_columns=weights_name)
         #assert(tmpDataArr is not None)
 
-        if not variable_names:
-            # if no variable name list is provided, read everything
-            variable_names = list(tmpDataArr.dtype.names)
-        else:
-            variable_names = _filter_variable_names(variable_names)
-
-            # check all variable names are available
-            for vname in variable_names:
-                if not vname in tmpDataArr.dtype.names:
-                    raise RuntimeError("Unknown variable name {}".format(vname))
+        # reco level
+        variable_names = _filter_variable_names(variable_names)
 
         # convert all fields to float
         dtypes = [(vname, vars_dict.get('vtype','float')) for vname in variable_names]
-        self.data = np.array(tmpDataArr[variable_names], dtype=dtypes)
+        self.data_reco = np.array(tmpDataArr[variable_names], dtype=dtypes)
 
-        # event weights
-        if wname:
-            if wname in tmpDataArr.dtype.names:
-                self.weights = tmpDataArr[wname].flatten()
-            else:
-                raise RuntimeError("Unknown weight name {}".format(wname))
+        # event weight
+        if weights_name:
+            self.weights = tmpDataArr[weights_name].flatten()
         else:
-            self.weights = np.ones(len(self.data))
+            self.weights = np.ones(len(self.data_reco))
+
+        # truth level
+        if variable_names_mc:
+            variable_names_mc = _filter_variable_names(variable_names_mc)
+
+            # convert all fields to float
+            dtypes_mc = [(vname, vars_dict.get('vtype','float')) for vname in variable_names_mc]
+            self.data_truth = np.array(tmpDataArr[variable_names_mc], dtype=dtypes_mc)
+
+            # mc weights
+            if weights_name_mc:
+                self.weights_mc = tmpDataArr[weights_name_mc].flatten()
+            else:
+                self.weights_mc = np.ones(len(self.data_truth))
+        else:
+            self.data_truth = None
+            self.weights_mc = None
+
+        # for now
+        self.pass_reco = np.full(len(self.data_reco), True)
+        if self.data_truth is not None:
+            self.pass_truth = np.full(len(self.data_truth), True)
+        else:
+            self.pass_truth = None
 
     def __len__(self):
         """
@@ -157,7 +177,7 @@ class DataHandler(Mapping):
         -------
         non-negative int
         """
-        return len(self.data)
+        return len(self.data_reco)
 
     def __contains__(self, variable):
         """
@@ -171,29 +191,14 @@ class DataHandler(Mapping):
         -------
         bool
         """
-        return variable in self.data.dtype.names
-
-    def _get_array(self, variable):
-        """
-        Return a 1D numpy array of the variable
-
-        Parameters
-        ----------
-        variable : str
-            Name of the variable
-
-        Returns
-        -------
-        np.ndarray of shape (n_events,)
-        """
-        return self.data[str(variable)]
+        return self._in_data_reco(variable) or self._in_data_truth(variable)
 
     def __getitem__(self, features):
         """
-        Retrieve features from each event in the dataset.
+        Retrieve features from the dataset.
 
-        Returns a view (NOT copy) of self.data if possible. Otherwise,
-        tries to make a new array from self.data.
+        Return arrays containing only valid events. It is equivalent to 
+        self.get_arrays(features, valid_only=True)
 
         Parameters
         ----------
@@ -210,31 +215,88 @@ class DataHandler(Mapping):
         KeyError
             If a variable name in `features` is not in the dataset.
         """
+        return self.get_arrays(features, valid_only=True)
+
+    def _in_data_reco(self, variable):
+        if self.data_reco is None:
+            return False
+        else:
+            return variable in self.data_reco.dtype.names
+
+    def _in_data_truth(self, variable):
+        if self.data_truth is None:
+            return False
+        else:
+            return variable in self.data_truth.dtype.names
+
+    def get_arrays(self, features, valid_only=False):
+        """
+        Retrieve features from each event in the dataset.
+
+        Returns an array of features from self.data_reco or self.data_truth. 
+
+        Parameters
+        ----------
+        features : array-like of str
+            Names of the features to extract from each event. The shape of
+            the returned array will reflect the shape of this array.
+        valid_only : bool, default False
+            If True, include only valid events (pass_reco and/or pass_truth),
+            otherwise include all events.
+
+        Returns
+        -------
+        np.ndarray of shape (n_events, *features.shape)
+
+        Raises
+        ------
+        KeyError
+            If a variable name in `features` is not in the dataset.
+        """
+
         ndim_features = np.asarray(features).ndim
+
+        if valid_only:
+            # array filters for valid events
+            sel = True
+            varlist = [features] if ndim_features == 0 else list(features)
+            for v in varlist:
+                if self._in_data_reco(v): # reco level
+                    sel &= self.pass_reco
+                elif self._in_data_truth(v): 
+                    sel &= self.pass_truth
+                else:
+                    raise KeyError(f"Unknown variable {v}")
+
+            return self.get_arrays(features, valid_only=False)[sel]
+
+        # not valid only
         if ndim_features == 0:
-            if features in self:
-                 # Can't index data by np Unicode arrays, have to
-                 # convert back to str first.
-                #return self.data[str(features)]
-                return self._get_array(features)
+            if self._in_data_reco(features): # reco level
+                # Can't index data by np Unicode arrays, have to
+                # convert back to str first.
+                return self.data_reco[str(features)]
+            elif self._in_data_truth(features): # truth level
+                return self.data_truth[str(features)]
+
             # special cases
             elif '_px' in features:
                 var_pt = features.replace('_px', '_pt')
                 var_phi = features.replace('_px', '_phi')
-                arr_pt = self[var_pt]
-                arr_phi = self[var_phi]
+                arr_pt = self.get_arrays(var_pt)
+                arr_phi = self.get_arrays(var_phi)
                 return arr_pt * np.cos(arr_phi)
             elif '_py' in features:
                 var_pt = features.replace('_py', '_pt')
                 var_phi = features.replace('_py', '_phi')
-                arr_pt = self[var_pt]
-                arr_phi = self[var_phi]
+                arr_pt = self.get_arrays(var_pt)
+                arr_phi = self.get_arrays(var_phi)
                 return arr_pt * np.sin(arr_phi)
             elif '_pz' in features:
                 var_pt = features.replace('_pz', '_pt')
                 var_eta = features.replace('_pz', '_eta')
-                arr_pt = self[var_pt]
-                arr_eta = self[var_eta]
+                arr_pt = self.get_arrays(var_pt)
+                arr_eta = self.get_arrays(var_eta)
                 return arr_pt * np.sinh(arr_eta)
             else:
                 raise KeyError(
@@ -245,7 +307,7 @@ class DataHandler(Mapping):
                 )
         else:
             # ndarray of shape (n_events, <feature shape>)
-            X = np.stack([self[varnames] for varnames in features], axis=1)
+            X = np.stack([self.get_arrays(varnames) for varnames in features], axis=1)
             return X
 
     def __iter__(self):
@@ -256,10 +318,31 @@ class DataHandler(Mapping):
         -------
         iterator of strings
         """
-        return iter(self.data.dtype.names)
+        if self.data_truth is None:
+            return iter(self.data_reco.dtype.names)
+        else:
+            return iter(
+                list(self.data_reco.dtype.names) +
+                list(self.data_truth.dtype.names)
+                )
 
-    def sum_weights(self):
-        return self.weights.sum()
+    def sum_weights(self, reco_level=True):
+        """
+        Get sum of event weights
+
+        Parameters
+        ----------
+        reco_level: bool, default: True
+
+        Return
+        ------
+        If reco_level is True, return sum of self.weights, otherwise return sum
+        of self.weights_mc
+        """
+        if reco_level:
+            return self.weights[self.pass_reco].sum()
+        else:
+            return self.weights_mc[self.pass_truth].sum()
 
     def rescale_weights(
         self,
@@ -271,7 +354,7 @@ class DataHandler(Mapping):
 
         Parameters
         ----------
-        factors : float or np.ndarray of the same dimension as self.weights
+        factors : float
             Factors to rescale the event weights
         reweighter : reweight.Reweighter, optional
             A function that takes events and returns event weights, and the
@@ -283,42 +366,52 @@ class DataHandler(Mapping):
         """
         # reweight sample
         if reweighter is not None:
-            self.weights *= reweighter.func(self[reweighter.variables])
+            # reweight events that pass both reco and truth level cuts
+            sel = self.pass_reco & self.pass_truth
+            varr = self.get_arrays(reweighter.variables, valid_only=False)[sel]
+            self.weights[sel] *= reweighter.func(varr)
+            if self.weights_mc is not None:
+                self.weights_mc[sel] *= reweighter.func(varr)
 
         # rescale
-        self.weights *= factors
+        self.weights[self.pass_reco] *= factors
+        if self.weights_mc is not None:
+            self.weights_mc[self.pass_truth] *= factors
 
     def get_weights(
         self,
-        standardize=False,
         bootstrap=False,
-        unweighted=False
+        reco_level=True,
+        valid_only=True
     ):
         """
-         Get event weights for the dataset.
+        Get event weights for the dataset.
 
         Parameters
         ----------
-        standardize : bool, default: False
-            If True, standardize the weights to mean of one
         bootstrap : bool, default: False
             Multiply each weight by a random value drawn from a Poisson
             distribution with lambda = 1.
-        unweighted : bool, default: False
-            Ignore weights saved in the dataset and use unity instead.
+        reco_level : bool, default: True
+            If True, return reco-level event weights ie. self.weights
+            Otherwise, return MC truth weights self.weights_mc
+        valid_only : bool, default: True
+            If True, return weights of valid events only ie. pass_reco or 
+            pass_truth, otherwise return all event weights including dummy ones
 
         Returns
         -------
         np.ndarray of numbers, shape (nevents,)
         """
-        if unweighted:
-            return np.ones(len(self))
+        if reco_level:
+            weights = self.weights.copy()
+            sel = self.pass_reco
+        else:
+            weights = self.weights_mc.copy()
+            sel = self.pass_truth
 
-        weights = self.weights.copy()
-
-        # standardize sample weights to mean of one
-        if standardize:
-            weights /= np.mean(weights)
+        if valid_only:
+            weights = weights[sel]
 
         # bootstrap
         if bootstrap:
@@ -343,7 +436,7 @@ class DataHandler(Mapping):
         correlations = df.corr()
         return correlations
 
-    def get_histogram(self, variable, bin_edges, weights=None, density=False):
+    def get_histogram(self, variable, bin_edges, weights=None, density=False, absoluteValue=False):
         """
         Retrieve the histogram of a weighted variable in the dataset.
 
@@ -353,7 +446,7 @@ class DataHandler(Mapping):
             Name of the variable in the dataset to histogram.
         weights : array-like of shape (nevents,) or (nweights, nevents) or None
             Array of per-event weights. If 2D, then a sequence of different
-            per-event weightings. If None, use self.weights
+            per-event weightings. If None, use self.weights or self.weights_mc
         bin_edges : array-like of shape (nbins + 1,)
             Locations of the edges of the bins of the histogram.
 
@@ -363,13 +456,19 @@ class DataHandler(Mapping):
             is 2D.
         """
         if weights is None:
-            weights = self.weights
+            if self._in_data_truth(variable): # mc truth level
+                weights = self.get_weights(reco_level=False)
+            else: # reco level
+                weights = self.get_weights(reco_level=True)
 
         if isinstance(weights, np.ndarray):
             if weights.ndim == 1: # if weights is a 1D array
+                # make histogram with valid events
                 varr = self[variable]
-                # check the weight array length is the same as the variable array
+                if absoluteValue:
+                    varr = np.abs(varr)
                 assert(len(varr) == len(weights))
+
                 return calc_hist(varr, weights=weights, bins=bin_edges, density=density)
             elif weights.ndim == 2: # make the 2D array into a list of 1D array
                 return self.get_histogram(variable, bin_edges, list(weights), density)
@@ -486,7 +585,14 @@ class DataToy(DataHandler):
         epsilon = 1. # smearing width
         var_reco = np.array([(x + np.random.normal(0, epsilon)) for x in var_truth])
 
-        self.data = np.array([(x,y) for x,y in zip(var_reco, var_truth)],
-                             dtype=[('x_reco','float'), ('x_truth','float')])
+        self.data_reco = np.array(var_reco, dtype=[('x_reco','float')])
+        self.data_truth = np.array(var_truth, dtype=[('x_truth', 'float')])
 
-        self.weights = np.ones(len(nevents))
+        #self.data = np.array([(x,y) for x,y in zip(var_reco, var_truth)],
+        #                     dtype=[('x_reco','float'), ('x_truth','float')])
+
+        self.weights = np.ones(nevents)
+        self.weights_mc = np.ones(nevents)
+
+        self.pass_reco = np.full(nevents, True)
+        self.pass_truth = np.full(nevents, True)

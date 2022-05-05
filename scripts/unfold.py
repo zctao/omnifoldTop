@@ -14,23 +14,10 @@ from omnifoldwbkg import OmniFoldwBkg_negW, OmniFoldwBkg_multi
 from ibu import IBU
 import reweight
 from util import read_dict_from_json, get_bins
-from util import configGPUs, expandFilePath, configRootLogger
+from util import configGPUs, expandFilePath, getFilesExtension, configRootLogger
 import logging
 
 import metrics
-
-def getFilesExtension(file_names):
-    ext = None
-    for fname in file_names:
-        fext = os.path.splitext(fname)[-1]
-        if ext is None:
-            ext = fext
-        else:
-            # check if all file extensions are consistent
-            if ext != fext:
-                raise RuntimeError('Files do not have the same extensions')
-
-    return ext
 
 def unfold(**parsed_args):
     tracemalloc.start()
@@ -63,9 +50,6 @@ def unfold(**parsed_args):
     # truth-level variable names for training
     vars_mc_train = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_train'] ] 
 
-    # weight name
-    wname = parsed_args['weight']
-
     #################
     # Load data
     #################
@@ -76,11 +60,22 @@ def unfold(**parsed_args):
             # hard code tree names here for now
             tree_reco = 'reco'
             tree_mc = None if reco_only else 'parton'
-            dh = DataHandlerROOT(file_names, tree_reco, tree_mc, vars_det_all, vars_mc_all, wname)
+
+            if parsed_args['dummy_value'] is None:
+                logger.info("Load events that are truth matched and pass both reco and truth level selections")
+            else:
+                logger.info("Set variables to a dummy value {} for events that fail reco or truth level selections".format(parsed_args['dummy_value']))
+
+            dh = DataHandlerROOT(
+                file_names, vars_det_all, vars_mc_all,
+                treename_reco = tree_reco, treename_truth = tree_mc,
+                dummy_value=parsed_args['dummy_value']
+                )
         else:
             # '.npz'
-            varnames = vars_det_all if reco_only else vars_det_all + vars_mc_all
-            dh = DataHandler(file_names, wname, variable_names = varnames)
+            wname = 'totalWeight_nominal'
+            varnames_truth = [] if reco_only else vars_mc_all
+            dh = DataHandler(file_names, vars_det_all, varnames_truth, wname)
 
         return dh
 
@@ -224,21 +219,33 @@ def unfold(**parsed_args):
             bins_mc = np.linspace(varConfig['xlim'][0], varConfig['xlim'][1], varConfig['nbins_mc']+1)
 
         # iterative Bayesian unfolding
-        if True: # doIBU
+        if parsed_args['run_ibu']:
+            # data
             array_obs = data_obs[varConfig['branch_det']]
+            w_obs = data_obs.get_weights()
             if data_obsbkg is not None:
                 array_obsbkg = data_obsbkg[varConfig['branch_det']]
+                w_obsbkg = data_obsbkg.get_weights()
                 array_obs = np.concatenate([array_obs, array_obsbkg])
+                w_obs = np.concatenate([w_obs, w_obsbkg])
 
-            array_sim = data_sig[varConfig['branch_det']]
-            array_gen = data_sig[varConfig['branch_mc']]
+            # background simulation if needed
             array_simbkg = data_bkg[varConfig['branch_det']] if data_bkg else None
+            w_bkg = data_bkg.get_weights() if data_bkg else None
+
+            # signal simulation
+            # only truth matched events
+            reco_match_truth = data_sig.pass_truth[data_sig.pass_reco]
+            array_sim = data_sig[varConfig['branch_det']][reco_match_truth]
+            w_sim = data_sig.get_weights()[reco_match_truth]
+
+            truth_match_reco = data_sig.pass_reco[data_sig.pass_truth]
+            array_gen = data_sig[varConfig['branch_mc']][truth_match_reco]
+            w_gen = data_sig.get_weights(reco_level=False)[truth_match_reco]
+
             ibu = IBU(varname, bins_det, bins_mc,
                       array_obs, array_sim, array_gen, array_simbkg,
-                      # use the same weights from OmniFold
-                      unfolder.datahandle_obs.get_weights(),
-                      unfolder.datahandle_sig.get_weights(),
-                      unfolder.datahandle_bkg.get_weights() if unfolder.datahandle_bkg is not None else None,
+                      w_obs, w_sim, w_gen, w_bkg,
                       iterations=parsed_args['iterations'], # same as OmniFold
                       nresample=25, #parsed_args['nresamples']
                       outdir = unfolder.outdir)
@@ -259,7 +266,7 @@ def unfold(**parsed_args):
 
     tracemalloc.stop()
 
-if __name__ == "__main__":
+def getArgsParser():
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -297,8 +304,6 @@ if __name__ == "__main__":
                         help="Plot pairwise correlations of training variables")
     parser.add_argument('-i', '--iterations', type=int, default=4,
                         help="Numbers of iterations for unfolding")
-    parser.add_argument('--weight', default='totalWeight_nominal',
-                        help="name of event weight")
     parser.add_argument('-m', '--background-mode', dest='background_mode',
                         choices=['default', 'negW', 'multiClass'],
                         default='default', help="Background mode")
@@ -333,6 +338,10 @@ if __name__ == "__main__":
                         help="Name of the model for unfolding")
     parser.add_argument('--legacy-weights', action='store_true',
                         help="If True, load weights in the legacy mode. The unfolded weights read from files are divided by the simulation prior weights. Only useful when --unfolded-weights is not None.")
+    parser.add_argument('--run-ibu', action='store_true',
+                        help="If True, run unfolding using IBU for comparison")
+    parser.add_argument('--dummy-value', type=float,
+                        help="Dummy value to fill events that failed selecton. If None (default), only events that pass reco and truth (if apply) level selections are used for unfolding")
 
     #parser.add_argument('-n', '--normalize',
     #                    action='store_true',
@@ -342,6 +351,12 @@ if __name__ == "__main__":
     #                    help="Use alternative reweighting if true")
 
     args = parser.parse_args()
+
+    return args
+
+if __name__ == "__main__":
+
+    args = getArgsParser()
 
     # Verify truth is known when reweighting
     if args.reweight_data is not None and not args.truth_known:
