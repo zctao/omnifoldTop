@@ -13,6 +13,7 @@ import plotter
 
 import logging
 logger = logging.getLogger('model')
+setflag = False
 
 def get_callbacks(model_filepath=None):
     """
@@ -190,20 +191,28 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32, epochs=
     Yw_train = np.column_stack((Y_train, w_train))
     Yw_val = np.column_stack((Y_val, w_val))
     # TF Dataset
-    dset_train = tf.data.Dataset.from_tensor_slices((X_train, Yw_train)).batch(batch_size)
-    dset_val = tf.data.Dataset.from_tensor_slices((X_val, Yw_val)).batch(batch_size)
 
-    # cache
-    dset_train = dset_train.cache()
-    dset_val = dset_val.cache()
+    true_batch_size = batch_size
 
-    # prefetch
-    dset_train = dset_train.prefetch(tf.data.AUTOTUNE)
-    dset_val = dset_val.prefetch(tf.data.AUTOTUNE)
+    global setflag, dset_train_ds, dset_val_ds, dset_train, dset_val
+    if not setflag:
+        dset_train_ds = tf.data.Dataset.from_tensor_slices((X_train, Yw_train))
+        dset_val_ds = tf.data.Dataset.from_tensor_slices((X_val, Yw_val))
+        setflag = True
+        dset_train = dset_train_ds.batch(true_batch_size).cache()
+        dset_val = dset_val_ds.batch(true_batch_size).cache()
+
+    # # cache
+    # dset_train.cache()
+    # dset_val.cache()
 
     fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose}
 
     model.fit(dset_train, validation_data=dset_val, **fitargs)
+
+    # prefetch
+    # dset_train.prefetch(tf.data.AUTOTUNE)
+    # dset_val.prefetch(tf.data.AUTOTUNE)
 
     if figname:
         logger.info(f"Plot model output distributions: {figname}")
