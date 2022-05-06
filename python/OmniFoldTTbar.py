@@ -452,6 +452,7 @@ class OmniFoldTTbar():
         norm=None,
         all_iterations=False,
         iteration=-1, # default: the last iteration
+        nresamples=None, # default: take all that are available
         absoluteValue=False
         ):
 
@@ -467,7 +468,16 @@ class OmniFoldTTbar():
         if iteration >= self.unfolded_weights_resample.shape[1]:
             raise RuntimeError(f"Weights for iteration {iteration} unavailable")
 
-        for iresample in range(len(self.unfolded_weights_resample)):
+        # number of ensambles
+        if nresamples is None:
+            # default: use all available weights
+            nresamples = len(self.unfolded_weights_resample)
+        else:
+            if nresamples > len(self.unfolded_weights_resample):
+                logger.warn(f"Requested number of resamples {nmresamples} is larger than what is available in the unfolded weights.")
+            nresamples = min(nresamples, len(self.unfolded_weights_resample))
+
+        for iresample in range(nresamples):
             if all_iterations:
                 rw = self.unfolded_weights_resample[iresample]
             else:
@@ -497,6 +507,7 @@ class OmniFoldTTbar():
         all_iterations=False,
         iteration=-1, # default: the last iteration
         bootstrap_uncertainty=True,
+        nresamples=None, # default, take all that are avaiable
         absoluteValue=False
         ):
         # check if weights for iteration is available
@@ -510,7 +521,14 @@ class OmniFoldTTbar():
 
         bin_corr = None # bin correlation
         if bootstrap_uncertainty and self.unfolded_weights_resample is not None:
-            h_uf_rs = self.get_unfolded_hists_resamples(varname, bins, norm=None, all_iterations=all_iterations, iteration=iteration, absoluteValue=absoluteValue)
+            h_uf_rs = self.get_unfolded_hists_resamples(
+                varname,
+                bins,
+                norm=None,
+                all_iterations=all_iterations,
+                iteration=iteration,
+                nresamples=nresamples,
+                absoluteValue=absoluteValue)
 
             # add the "nominal" histogram to the resampled ones
             h_uf_rs.append(h_uf)
