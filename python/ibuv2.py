@@ -13,7 +13,11 @@ def _response_matrix(array_sim, array_gen, bins_reco, bins_truth, weights):
 
     # normalize per truth bin
     #r.view()['value'] = r.values() / r.project(1).values()
-    r.view()['value'] = r.values() / r.values().sum(axis=0)
+    #r.view()['value'] = r.values() / r.values().sum(axis=0)
+    r_normed = np.zeros_like(r.values())
+    np.divide(r.values(), r.values().sum(axis=0), out=r_normed, where=r.values().sum(axis=0)!=0)
+
+    r.view()['value'] = r_normed
 
     return r
 
