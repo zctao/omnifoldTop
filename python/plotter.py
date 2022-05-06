@@ -938,7 +938,7 @@ def plot_uncertainties(
     # horizontal line at zero
     ax.axhline(y=0., color='black', linestyle='--', alpha=0.3)
 
-    ax.legend()
+    ax.legend(loc='upper left')
 
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
