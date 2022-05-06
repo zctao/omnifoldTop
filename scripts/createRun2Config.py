@@ -138,15 +138,16 @@ def getSamples_detNP(
 def createRun2Config(
         sample_local_dir,
         channel, # "ejets" or "mjets"
-        outname_config = 'runConfig.json',
+        outname_config = 'runConfig',
         output_top_dir = '.',
         subcampaigns = ["mc16a", "mc16d", "mc16e"],
-        nominal_only = False,
+        systematics = [],
         common_cfg = {}
     ):
 
-    cfg_dict_list = []
-    
+    # in case outname_config comes with an extension
+    outname_config = os.path.splitext(outname_config)[0]
+
     # nominal input files
     print("nominal")
     obs_nominal, sig_nominal, bkg_nominal = getSamples_detNP(
@@ -168,17 +169,30 @@ def createRun2Config(
         "run_ibu": True
         })
 
-    cfg_dict_list.append(nominal_cfg)
-    if nominal_only:
-        util.write_dict_to_json(cfg_dict_list, outname_config)
+    # write nominal run configuration
+    outname_config_nominal = f"{outname_config}_nominal.json"
+    util.write_dict_to_json(nominal_cfg, outname_config_nominal)
+
+    if not systematics: # no systematic uncertainties to evaluate
         return
 
     # for systematic uncertainties
+    cfg_dict_list = []
+
+    # A special case in which all available systematic uncertainties are included
+    include_all_syst = systematics == ["all"]
+
     for k in syst_dict:
         prefix = syst_dict[k]["prefix"]
         for s in syst_dict[k]["uncertainties"]:
+
+            if not include_all_syst and not f"{prefix}_{s}" in systematics:
+                    # skip this one
+                    continue
+
             for v in syst_dict[k]["variations"]:
                 syst = f"{prefix}_{s}_{v}"
+
                 print(syst)
 
                 obs_syst, sig_syst, bkg_syst = getSamples_detNP(
@@ -201,7 +215,9 @@ def createRun2Config(
 
                 cfg_dict_list.append(syst_cfg)
 
-    util.write_dict_to_json(cfg_dict_list, outname_config)
+    # write systematic run config to file
+    outname_config_syst = f"{outname_config}_syst.json"
+    util.write_dict_to_json(cfg_dict_list, outname_config_syst)
 
 if __name__ == "__main__":
 
@@ -209,20 +225,19 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-s", "--sample-dir", type=str,
+    parser.add_argument("-d", "--sample-dir", type=str,
                         default=os.path.join(os.getenv("HOME"),"data/ttbarDiffXs13TeV/latest"),
                         help="Sample directory")
     parser.add_argument("-n", "--config-name", type=str,
-                        default="runConfig.json")
+                        default="runConfig")
     parser.add_argument("-c", "--channel", choices=["ejets", "mjets"],
                         default="ejets")
-    parser.add_argument("-o", "--output-dir", type=str,
-                        default=os.path.join(os.getenv("HOME"),"data/OmniFoldOutputs/Run2wSyst",
-                        help="Output directory to unfolding jobs"),
+    parser.add_argument("-r", "--result-dir", type=str,
+                        default=os.path.join(os.getenv("HOME"),"data/OmniFoldOutputs/Run2wSyst"),
                         help="Output directory of unfolding runs")
     parser.add_argument("-e", "--subcampaigns", nargs='+', choices=["mc16a", "mc16d", "mc16e"], default=["mc16a", "mc16d", "mc16e"])
-    parser.add_argument("--nominal-only", action="store_true",
-                        help="If True, produce run config for only the nominal sample")
+    parser.add_argument("-s", "--systematics", type=str, nargs="*", default=[],
+                        help="List of systematic uncertainties to evaluate. A special case: 'all' includes all systematics")
 
     args = parser.parse_args()
 
@@ -233,14 +248,15 @@ if __name__ == "__main__":
         "batch_size" : 20000,
         "normalize" : True,
         "error_type" : "bootstrap_full",
-        "nresamples" : 10,
+        "nresamples" : 25,
     }
 
     createRun2Config(
         args.sample_dir,
         channel = args.channel,
         outname_config = args.config_name,
-        output_top_dir = args.output_dir,
+        output_top_dir = args.result_dir,
         subcampaigns = args.subcampaigns,
-        nominal_only = args.nominal_only,
-        common_cfg = common_cfg)
+        systematics = args.systematics,
+        common_cfg = common_cfg
+        )
