@@ -38,7 +38,8 @@ def unfold(**parsed_args):
         logger.info(f"Argument {argkey}: {argvalue}")
 
     # store arguments to json file for more convenient access later
-    fname_args = os.path.join(parsed_args['outputdir'], 'arguments.json')
+    argname = 'arguments.json' if parsed_args['unfolded_weights'] is None else 'arguments_rw.json'
+    fname_args = os.path.join(parsed_args['outputdir'], argname)
     logger.info(f"Write arguments to file {fname_args}")
     util.write_dict_to_json(parsed_args, fname_args)
 
