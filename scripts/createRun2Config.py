@@ -210,7 +210,8 @@ def createRun2Config(
                     "signal": sig_syst,
                     "background": bkg_syst,
                     "outputdir": outdir_syst,
-                    "load_models": outdir_nominal
+                    "load_models": outdir_nominal,
+                    "nresamples": 5
                     })
 
                 cfg_dict_list.append(syst_cfg)
