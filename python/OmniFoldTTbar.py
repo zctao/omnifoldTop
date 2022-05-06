@@ -563,3 +563,61 @@ class OmniFoldTTbar():
             label = ['Sim.', 'Data'],
             title = "Event weights",
             xlabel = 'w')
+
+#####
+# helper function to instantiate an unfolder from a previous result directory
+def load_unfolder(
+    # Path to the arguments json config
+    fpath_arguments, # str
+    # List of observables. If empty, use the observables from arguments config
+    observables=[], # list of str
+    # Path to observable config file. If empty, use the config from arguments
+    observable_config='' # str
+    ):
+
+    logger.info(f"Read arguments from {fpath_arguments}")
+    args_d = util.read_dict_from_json(fpath_arguments)
+
+    # observables
+    if not observables:
+        # if not specified, take the list of observabes from arguments config
+        observables = args_d['observables'] + args_d['observables_extra']
+
+    # configuration for observables
+    if not observable_config:
+        # if not specified, use the one from the arguments config
+        observable_config = args_d['observable_config']
+
+    logger.info(f"Get observable config from {observable_config}")
+    obsConfig_d = util.read_dict_from_json(observable_config)
+    if not obsConfig_d:
+        logger.error("Failed to load observable config. Abort...")
+        return None
+
+    # reco level variable names
+    varnames_reco = [obsConfig_d[k]['branch_det'] for k in observables]
+
+    # truth level variable names
+    varnames_truth = [obsConfig_d[k]["branch_mc"] for k in observables]
+
+    logger.info("Construct unfolder")
+    unfolder = OmniFoldTTbar(
+        varnames_reco,
+        varnames_truth,
+        filepaths_obs = args_d['data'],
+        filepaths_sig = args_d['signal'],
+        filepaths_bkg = args_d['background'],
+        normalize_to_data = args_d['normalize'],
+        dummy_value = args_d['dummy_value'],
+        weight_type = args_d['weight_type']
+    )
+
+    # load unfolded event weights
+    fnames_uw = [os.path.join(args_d['outputdir'], 'weights.npz')]
+    if args_d['error_type'] != 'sumw2':
+        fnames_uw.append( os.path.join(args_d['outputdir'], f"weights_resample{args_d['nresamples']}.npz") )
+
+    logger.info(f"Load weights from {fnames_uw}")
+    unfolder.load(fnames_uw)
+
+    return unfolder
