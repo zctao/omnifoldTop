@@ -251,7 +251,7 @@ class OmniFoldTTbar():
 
             # TODO: check alternative
             # standardize feature arrays to mean of zero and variance of one
-        
+
         return arr_data, arr_sim, arr_gen
 
     def _get_event_weights(self, resample=False, standardize=True):
@@ -330,7 +330,6 @@ class OmniFoldTTbar():
         """
         Run unfolding
         """
-        fitargs = {"batch_size": batch_size, "epochs": 100, "verbose": 1}
 
         # model directory
         if load_models_from:
@@ -372,7 +371,7 @@ class OmniFoldTTbar():
             load_models_from = load_model_dir,
             start_from_previous_iter=load_previous_iteration,
             plot = plot_status,
-            **fitargs)
+            batch_size = batch_size)
 
         if plot_status:
             logger.info("Plot model training history")
@@ -411,7 +410,7 @@ class OmniFoldTTbar():
                     save_models_to = save_model_dir_rs,
                     load_models_from = load_model_dir_rs,
                     start_from_previous_iter=load_previous_iteration,
-                    **fitargs)
+                    batch_size = batch_size)
 
                 logger.info("Plot model training history")
                 for csvfile in glob.glob(os.path.join(save_model_dir_rs, '*.csv')):

@@ -93,7 +93,7 @@ def unfold(**parsed_args):
     t_init_done = time.time()
     logger.debug(f"Initializing unfolder and loading input data took {(t_init_done-t_init_start):.2f} seconds.")
     mcurrent, mpeak = tracemalloc.get_traced_memory()
-    logger.debug(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
+    logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
 
     #################
     # Run unfolding
@@ -127,7 +127,7 @@ def unfold(**parsed_args):
     logger.info(f"Unfolding took {t_run_done-t_run_start:.2f} seconds")
 
     mcurrent, mpeak = tracemalloc.get_traced_memory()
-    logger.debug(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
+    logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
 
     #################
     # Plot results
@@ -384,7 +384,7 @@ def unfold(**parsed_args):
 
     tracemalloc.stop()
 
-def getArgsParser(arguments_list=None):
+def getArgsParser(arguments_list=None, print_help=False):
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -454,6 +454,9 @@ def getArgsParser(arguments_list=None):
                         help="If True, run unfolding also with IBU for comparison")
     parser.add_argument('-w', '--weight-type', type=str, default='nominal',
                         help="Type of event weights to retrieve from ntuples")
+
+    if print_help:
+        parser.print_help()
 
     args = parser.parse_args(arguments_list)
 
