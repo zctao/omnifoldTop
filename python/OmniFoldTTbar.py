@@ -572,7 +572,7 @@ def load_unfolder(
     # List of observables. If empty, use the observables from arguments config
     observables=[], # list of str
     # Path to observable config file. If empty, use the config from arguments
-    observable_config='' # str
+    obsConfig=None # dict
     ):
 
     logger.info(f"Read arguments from {fpath_arguments}")
@@ -584,21 +584,21 @@ def load_unfolder(
         observables = args_d['observables'] + args_d['observables_extra']
 
     # configuration for observables
-    if not observable_config:
-        # if not specified, use the one from the arguments config
+    if not obsConfig:
+        # if not provided, use the one from the arguments config
         observable_config = args_d['observable_config']
+        logger.info(f"Get observable config from {observable_config}")
+        obsConfig = util.read_dict_from_json(observable_config)
 
-    logger.info(f"Get observable config from {observable_config}")
-    obsConfig_d = util.read_dict_from_json(observable_config)
-    if not obsConfig_d:
-        logger.error("Failed to load observable config. Abort...")
-        return None
+        if not obsConfig:
+            logger.error("Failed to load observable config. Abort...")
+            return None
 
     # reco level variable names
-    varnames_reco = [obsConfig_d[k]['branch_det'] for k in observables]
+    varnames_reco = [obsConfig[k]['branch_det'] for k in observables]
 
     # truth level variable names
-    varnames_truth = [obsConfig_d[k]["branch_mc"] for k in observables]
+    varnames_truth = [obsConfig[k]["branch_mc"] for k in observables]
 
     logger.info("Construct unfolder")
     unfolder = OmniFoldTTbar(

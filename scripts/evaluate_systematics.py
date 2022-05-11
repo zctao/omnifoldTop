@@ -1,241 +1,295 @@
 #!/usr/bin/env python3
 import os
-import logging
 import numpy as np
+import uproot
 
 import util
-from OmniFoldTTbar import OmniFoldTTbar
 import histogramming as myhu
+from OmniFoldTTbar import load_unfolder
+from createRun2Config import syst_dict
 from plotter import plot_uncertainties
-from ibuv2 import run_ibu
 
-def compute_uncertainties(
-        variable,
-        bins,
-        uf_nominal,
-        uf_syst_up,
-        uf_syst_down,
-        iteration=-1
+def get_unfolded_histograms_from_unfolder(
+    fpath_result,
+    binning_config,
+    observables,
+    obsConfig_d,
+    iteration = -1,
+    nresamples = None, # if None, use all that are available in weights
+    nresamples_nominal = None, # for unfolding uncertainties in nominal case
+    nominal = False
     ):
 
-    # unfolding uncertainty from the nominal distribution
-    h_uf_nominal = uf_nominal.get_unfolded_distribution(variable, bins, iteration=iteration)[0]
-    hval_nominal, herr_of = myhu.get_values_and_errors(h_uf_nominal)
-    relerr_of = herr_of / hval_nominal
+    # path to argument json config
+    fpath_args_config = os.path.join(fpath_result, "arguments.json")
+    if not os.path.isfile(fpath_args_config):
+        print(f"ERROR: cannot open argument config {fpath_args_config}")
+        return
 
-    # systematic uncertainty from variations
-    # histograms from resamples
-    h_uf_nominal_rs = uf_nominal.get_unfolded_hists_resamples(variable, bins, iteration=iteration)
-    h_uf_syst_up_rs = uf_syst_up.get_unfolded_hists_resamples(variable, bins, iteration=iteration)
-    h_uf_syst_down_rs = uf_syst_down.get_unfolded_hists_resamples(variable, bins, iteration=iteration)
-
-    # in case there is no resampled weights
-    if not h_uf_nominal_rs:
-        h_uf_nominal_rs = [h_uf_nominal]
-    if not h_uf_syst_up_rs:
-        h_uf_syst_up_rs = [uf_syst_up.get_unfolded_distribution(variable, bins, iteration=iteration)[0]]
-    if not h_uf_syst_down_rs:
-        h_uf_syst_down_rs = [uf_syst_down.get_unfolded_distribution(variable, bins, iteration=iteration)[0]]
-
-    # list of errors
-    relerr_syst_up_rs = []
-    relerr_syst_down_rs = []
-    for h_nom, h_up, h_down in zip(h_uf_nominal_rs, h_uf_syst_up_rs, h_uf_syst_down_rs):
-        relerr_syst_up_rs.append( h_up.values() / h_nom.values() - 1. )
-        relerr_syst_down_rs.append( h_down.values() / h_nom.values() - 1. )
-
-    # mean
-    relerr_syst_up = np.mean(relerr_syst_up_rs, axis=0)
-    relerr_syst_down = np.mean(relerr_syst_down_rs, axis=0)
-
-    return relerr_of, relerr_syst_up, relerr_syst_down
-
-def compute_IBU_uncertainty(
-        unfolder,
-        varname_reco,
-        varname_truth,
-        bins_reco,
-        bins_truth,
-        niterations
-    ):
-    # data array
-    array_obs = unfolder.handle_obs[varname_reco]
-    wobs = unfolder.handle_obs.get_weights()
-
-    # simulation
-    array_sim = unfolder.handle_sig[varname_reco]
-    wsim = unfolder.handle_sig.get_weights()
-
-    array_gen = unfolder.handle_sig[varname_truth]
-    wgen = unfolder.handle_sig.get_weights(reco_level=False)
-
-    if unfolder.handle_bkg is not None:
-        array_bkg = unfolder.handle_bkg[varname_reco]
-        wbkg = unfolder.handle_bkg.get_weights()
-    else:
-        array_bkg, wbkg = None, None
-
-    hist_ibu = run_ibu(
-        bins_reco, bins_truth,
-        array_obs, array_sim, array_gen, array_bkg,
-        wobs, wsim, wgen, wbkg,
-        niterations = niterations
-        )[0]
-
-    hval, herr = myhu.get_values_and_errors(hist_ibu)
-
-    return herr / hval
-
-def evaluate_systematics(**parsed_args):
-    logger = logging.getLogger("EvalSyst")
-
-    # Print arguments to logger
-    for argkey, argvalue in sorted(parsed_args.items()):
-        if argvalue is None:
-            continue
-        logger.info(f"Argument {argkey}: {argvalue}")
-
-    # Get run arguments from unfolding output directories
-    fname_args_nominal = os.path.join(parsed_args['nominal'], 'arguments.json')
-    logger.debug(f"Reading arguments from {fname_args_nominal}")
-    args_nom_dict = util.read_dict_from_json(fname_args_nominal)
-
-    ####
-    # variables
-    observable_config = args_nom_dict['observable_config']
-    logger.debug(f"Get observable config from {observable_config}")
-    observable_dict = util.read_dict_from_json(observable_config)
-    assert(observable_dict)
-
-    if not parsed_args['observables']:
-        # if the list of observables is not specified, get it from args_nom_dict
-        observables = args_nom_dict['observables'] + args_nom_dict['observables_extra']
-    else:
-        observables = parsed_args['observables']
-
-    varnames_reco = [ observable_dict[key]['branch_det'] for key in observables ]
-    varnames_truth = [ observable_dict[key]['branch_mc'] for key in observables ]
-
-    # Nominal
-    logger.info("Unfolder - nominal")
-    unfolder_nom = OmniFoldTTbar(
-        varnames_reco,
-        varnames_truth,
-        filepaths_obs = args_nom_dict['data'],
-        filepaths_sig = args_nom_dict['signal'],
-        filepaths_bkg = args_nom_dict['background'],
-        normalize_to_data = args_nom_dict['normalize'],
-        dummy_value = args_nom_dict['dummy_value'],
-        weight_type = args_nom_dict['weight_type']
+    unfolder = load_unfolder(
+        fpath_args_config,
+        observables,
+        obsConfig_d
     )
 
-    # load weights
-    fnames_uw_nom = [os.path.join(args_nom_dict['outputdir'], "weights.npz")]
-    if args_nom_dict['error_type'] != 'sumw2':
-        fnames_uw_nom.append(os.path.join(args_nom_dict['outputdir'], f"weights_resample{args_nom_dict['nresamples']}.npz"))
-
-    logger.info(f"Load weights from {fnames_uw_nom}")
-    unfolder_nom.load(fnames_uw_nom)
-
-    # Systematic uncertainty up variation
-    logger.info("Unfolder - up")
-
-    fname_args_up = os.path.join(parsed_args['syst_up'], 'arguments.json')
-    logger.debug(f"Reading arguments from {fname_args_up}")
-    args_up_dict = util.read_dict_from_json(fname_args_up)
-
-    unfolder_up = OmniFoldTTbar(
-        varnames_reco,
-        varnames_truth,
-        filepaths_obs = args_up_dict['data'],
-        filepaths_sig = args_up_dict['signal'],
-        filepaths_bkg = args_up_dict['background'],
-        normalize_to_data = args_up_dict['normalize'],
-        dummy_value = args_up_dict['dummy_value'],
-        weight_type = args_up_dict['weight_type']
-    )
-
-    # load weights
-    fnames_uw_up = [os.path.join(args_up_dict['outputdir'], "weights.npz")]
-    if args_up_dict['error_type'] != 'sumw2':
-        fnames_uw_up.append(os.path.join(args_up_dict['outputdir'], f"weights_resample{args_up_dict['nresamples']}.npz"))
-
-    logger.info(f"Load weights from {fnames_uw_up}")
-    unfolder_up.load(fnames_uw_up)
-
-    # Systematic uncertainty down variation
-    logger.info("Unfolder - down")
-
-    fname_args_down = os.path.join(parsed_args['syst_down'], 'arguments.json')
-    logger.debug(f"Reading arguments from {fname_args_down}")
-    args_down_dict = util.read_dict_from_json(fname_args_down)
-
-    unfolder_down = OmniFoldTTbar(
-        varnames_reco,
-        varnames_truth,
-        filepaths_obs = args_down_dict['data'],
-        filepaths_sig = args_down_dict['signal'],
-        filepaths_bkg = args_down_dict['background'],
-        normalize_to_data = args_down_dict['normalize'],
-        dummy_value = args_down_dict['dummy_value'],
-        weight_type = args_down_dict['weight_type']
-    )
-
-    # load weights
-    fnames_uw_down = [os.path.join(args_down_dict['outputdir'], "weights.npz")]
-    if args_down_dict['error_type'] != 'sumw2':
-        fnames_uw_down.append(os.path.join(args_down_dict['outputdir'], f"weights_resample{args_down_dict['nresamples']}.npz"))
-
-    logger.info(f"Load weights from {fnames_uw_down}")
-    unfolder_down.load(fnames_uw_down)
-
-    ####
-    # plot uncertainties
-    if not os.path.isdir(parsed_args['outputdir']):
-        logger.info(f"Create output directory {parsed_args['outputdir']}")
-        os.makedirs(parsed_args['outputdir'])
-
-    # binning
-    bin_config = parsed_args['binning_config'] if parsed_args['binning_config'] else args_nom_dict['binning_config']
+    histograms_d = {}
 
     for ob in observables:
-        logger.info(f"Plot {ob}")
-        bins_truth = util.get_bins(ob, bin_config)
+        print(f"Make histograms for {ob}")
+        vname_mc = obsConfig_d[ob]['branch_mc']
 
-        varname_truth = observable_dict[ob]['branch_mc']
+        # bin edges
+        bins_mc = util.get_bins(ob, binning_config)
 
-        relerr_uf, relerr_up, relerr_down = compute_uncertainties(
-            varname_truth, bins_truth,
-            unfolder_nom, unfolder_up, unfolder_down,
-            iteration = parsed_args['iteration'])
+        # x-axis label
+        xlabel = obsConfig_d[ob]['xlabel']
 
-        errors = [relerr_uf, (relerr_up, relerr_down)]
-        draw_options = [
-            {'label':'OmniFold', 'edgecolor':'tab:red', 'facecolor':'none'},
-            {'label':parsed_args['systematics'], 'hatch':'///', 'edgecolor':'tab:blue', 'facecolor':'none'}
-            ]
+        histograms_d[ob] = {}
 
-        if parsed_args['ibu']:
-            varname_reco = observable_dict[ob]['branch_det']
-            bins_reco = util.get_bins(ob, bin_config) #same as bins_truth for now
+        histograms_d[ob]["unfolded_rs"] = unfolder.get_unfolded_hists_resamples(
+            vname_mc,
+            bins_mc,
+            iteration = iteration,
+            nresamples = nresamples,
+            absoluteValue = ob in ['th_y', 'tl_y']
+        )
 
-            # Include IBU uncertainties
-            relerr_ibu = compute_IBU_uncertainty(
-                unfolder_nom, varname_reco, varname_truth,
-                bins_reco, bins_truth, parsed_args['iteration']
+        if nominal:
+            hist_nominal = unfolder.get_unfolded_distribution(
+                vname_mc,
+                bins_mc,
+                iteration=iteration,
+                nresamples = nresamples_nominal,
+                absoluteValue = ob in ['th_y', 'tl_y']
+            )[0]
+
+            # set x-axis label
+            hist_nominal.axes[0].label = xlabel
+
+            histograms_d[ob]['unfolded'] = hist_nominal
+
+    return histograms_d
+
+def write_dict_uproot(file_to_write, obj_dict, top_dir=''):
+    for k, v in obj_dict.items():
+        if isinstance(v, dict):
+            write_dict_uproot(
+                file_to_write, v, os.path.join(top_dir, k)
+                )
+        else:
+            if isinstance(v, list):
+                for iv, vv in enumerate(v):
+                    file_to_write[os.path.join(top_dir, f"{k}-list{iv}")] = vv
+            else:
+                file_to_write[os.path.join(top_dir, k)] = v
+
+def write_histograms_dict_to_file(hists_dict, file_name):
+    with uproot.recreate(file_name) as f:
+        write_dict_uproot(f, hists_dict)
+
+def fill_dict_from_path(obj_dict, paths_list, obj):
+    if not paths_list:
+        return
+
+    p0 = paths_list[0]
+
+    if len(paths_list) == 1:
+        # list of objects are denoted by e.g. <obj_name>-list0
+        pp = p0.split('-list')
+        if len(pp) == 1: # does not contain '-list'
+            obj_dict[p0] = obj
+        else: # should be added to list
+            common_name = pp[0]
+            if isinstance(obj_dict.get(common_name), list):
+                obj_dict[common_name].append(obj)
+            else:
+                obj_dict[common_name] = [obj]
+    else:
+        if not p0 in obj_dict:
+            obj_dict[p0] = {}
+
+        fill_dict_from_path(obj_dict[p0], paths_list[1:], obj)
+
+def read_histograms_dict_from_file(file_name):
+    histograms_d = {}
+    with uproot.open(file_name) as f:
+        for k, v in f.classnames().items():
+            if not v.startswith("TH"):
+                continue
+
+            # create nested dictionary based on directories
+            paths = k.split(';')[0].split(os.sep)
+            fill_dict_from_path(histograms_d, paths, f[k].to_hist())
+
+    return histograms_d
+
+def compute_bin_errors_systematics(hists_nominal, hists_up, hists_down):
+    # list of relative bin errors
+    relerr_up_rs = []
+    relerr_down_rs = []
+
+    for h_nom, h_up, h_down in zip(hists_nominal, hists_up, hists_down):
+        relerr_up_rs.append( h_up.values() / h_nom.values() - 1. )
+        relerr_down_rs.append( h_down.values() / h_nom.values() - 1. )
+
+    # mean
+    relerr_up = np.mean(relerr_up_rs, axis=0)
+    relerr_down = np.mean(relerr_down_rs, axis=0)
+
+    return relerr_up, relerr_down
+
+def compute_bin_errors_unfolding(hist_nominal):
+    hval, herr = myhu.get_values_and_errors(hist_nominal)
+    relerr = herr / hval
+    return relerr, -1*relerr
+
+def make_unfolded_histograms(
+    results_top_dir, # top directory to look for unfolding results
+    observables, # list of observables to unfold
+    fpath_obs_config, # path to observable config
+    fpath_bin_config, # path to binning config
+    systematics = ['all'], # list of systematic uncertainties
+    iteration = -1, # which iteration to extract the unfolding result
+    nresamples = None, # number of resamples. If None, use all that are available
+    nresamples_nominal = None, # number of resamples for unfolding uncertainty. If None, use all that are available
+    results_common_name="output_run2",
+    output_dir="." # directory to save histograms
+    ):
+
+    # observable config
+    obsConfig_d = util.read_dict_from_json(fpath_obs_config)
+
+    histograms_all = {}
+
+    print("nominal")
+    fpath_result_nominal = os.path.join(
+        results_top_dir, "nominal", results_common_name)
+
+    histograms_all["nominal"] = get_unfolded_histograms_from_unfolder(
+        fpath_result_nominal,
+        binning_config = fpath_bin_config,
+        observables = observables,
+        obsConfig_d = obsConfig_d,
+        iteration = iteration,
+        nresamples = nresamples,
+        nresamples_nominal = nresamples_nominal,
+        nominal = True
+    )
+
+    # systematic uncertainties
+    include_all_syst = systematics==['all']
+
+    for k in syst_dict:
+        prefix = syst_dict[k]["prefix"]
+        for s in syst_dict[k]["uncertainties"]:
+            syst_name = f"{prefix}_{s}"
+
+            if not include_all_syst and not syst_name in systematics:
+                # skip this one
+                continue
+
+            histograms_all[syst_name] = {}
+
+            for v in syst_dict[k]["variations"]:
+                syst_name_v = f"{prefix}_{s}_{v}"
+                print(syst_name_v)
+
+                fpath_result_syst = os.path.join(
+                    results_top_dir, syst_name_v, results_common_name)
+
+                histograms_all[syst_name][v] = get_unfolded_histograms_from_unfolder(
+                    fpath_result_syst,
+                    binning_config = fpath_bin_config,
+                    observables = observables,
+                    obsConfig_d = obsConfig_d,
+                    iteration = iteration,
+                    nresamples = nresamples,
+                    nominal = False
                 )
 
-            errors.append(relerr_ibu)
-            draw_options.append({'label':'IBU', 'edgecolor':'grey', 'facecolor':'none'})
+    # write histograms to file
+    write_histograms_dict_to_file(
+        histograms_all, os.path.join(output_dir, 'histograms.root')
+        )
 
-        plot_uncertainties(
-            figname = os.path.join(parsed_args['outputdir'], f'relerr_{ob}'),
-            bins = bins_truth,
-            uncertainties = errors,
-            draw_options = draw_options,
-            xlabel = observable_dict[ob]['xlabel'],
-            ylabel = 'Uncertainty'
-            )
+    return histograms_all
+
+def compute_bin_uncertainties(observable, histograms_dict, highlight=''):
+
+    errors = []
+    draw_options = []
+
+    # histograms for nominal
+    h_nominal = histograms_d['nominal'][ob]['unfolded']
+    h_nominal_rs = histograms_d['nominal'][ob]['unfolded_rs']
+
+    ####
+    # systematic uncertainties
+
+    # for total bin errors
+    sqsum_up = 0
+    sqsum_down = 0
+
+    nSyst = 0
+    last_syst = ''
+    for syst_name in histograms_d:
+        if syst_name == 'nominal':
+            continue
+        nSyst += 1
+        last_syst = syst_name
+
+        hists_syst = []
+        for variation in histograms_d[syst_name]:
+            hists_syst.append(
+                histograms_d[syst_name][variation][ob]['unfolded_rs']
+                )
+        assert(len(hists_syst)==2)
+
+        relerr_syst = compute_bin_errors_systematics(h_nominal_rs, *hists_syst)
+        # (relerr_var1, relerr_var2)
+
+        if syst_name == highlight:
+            errors.append(relerr_syst)
+            draw_options.append({
+                'label': syst_name, 'hatch':'///', 'edgecolor':'black',
+                'facecolor':'none'
+                })
+
+        # compute total uncertainty
+        relerr_syst_up = np.maximum(*relerr_syst)
+        relerr_syst_down = np.minimum(*relerr_syst)
+        #print(syst_name, relerr_syst_up, relerr_syst_down)
+
+        sqsum_up += relerr_syst_up * relerr_syst_up
+        sqsum_down += relerr_syst_down * relerr_syst_down
+
+    # relerr_syst_total_up, relerr_syst_total_down
+    relerr_syst_total = (np.sqrt(sqsum_up), -1*np.sqrt(sqsum_down))
+    #print("total", *relerr_syst_total)
+
+    # Add total error to the beginning of the list so it is drawn first
+    errors.insert(0, relerr_syst_total)
+
+    if nSyst==1: # only one systematic uncertainty to plot
+        draw_options.insert(0, {
+            'label': last_syst, 'hatch':'///', 'edgecolor':'tab:blue',
+            'facecolor':'none'
+            })
+    else: # plot total
+        draw_options.insert(0, {
+            'label': "Detector calibration", 'edgecolor':'none',
+            'facecolor':'tab:blue'
+            })
+
+    ####
+    # unfolding uncertainties
+    relerr_uf = compute_bin_errors_unfolding(h_nominal)
+    errors.append(relerr_uf)
+    draw_options.append({
+        'label':'OmniFold', 'edgecolor':'tab:red', 'facecolor':'none'
+        })
+
+    return errors, draw_options
 
 if __name__ == "__main__":
 
@@ -243,39 +297,85 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('systematics', type=str,
-                        help='Name of the systematic uncertainty')
-    parser.add_argument('--nominal', required=True, type=str,
-                        help="Directory to load nominal unfolded weights")
-    parser.add_argument('--syst-up', required=True, type=str,
-                        help="Directory to load unfolded weights for upward variation of the systematic uncertainty")
-    parser.add_argument('--syst-down', required=True, type=str,
-                        help="Directory to load unfolded weights for downward variation of the systematic uncertainty")
-    parser.add_argument('-o', '--outputdir', type=str, default='.',
-                        help="Output directory")
-    parser.add_argument('--observables', nargs='+',
-                        help="List of observables to use in training.")
-    parser.add_argument('--binning-config', dest='binning_config', type=str,
+    parser.add_argument("results_dir", type=str,
+                        help="Top directory to look for unfolding results")
+    parser.add_argument("-o", "--outdir", type=str, default='systPlot',
+                        help="Output plot directory")
+    parser.add_argument('--observables', nargs='+', default=[],
+                        help="List of observables to evaluate.")
+    parser.add_argument('--observable-config', type=str,
+                        default="configs/observables/vars_ttbardiffXs_pseudotop.json",
+                        help="Path to observable config file")
+    parser.add_argument('--binning-config', type=str,
+                        default='configs/binning/bins_ttdiffxs.json',
                         help="Binning config file for variables")
     parser.add_argument('--iteration', type=int, default=-1,
                         help="Use unfolded weights at the specified iteration")
-    parser.add_argument('--ibu', action='store_true',
-                        help="If True, include uncertainties of IBU too")
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='If True, set logging level to DEBUG')
+    parser.add_argument('--load-hists', type=str,
+                        help="If provided, load histograms from the file")
+    parser.add_argument("-n", "--unfold-outname", type=str,
+                        default="output_run2_ejets",
+                        help="Common name for unfolding results directory")
+    parser.add_argument("-s", "--systematics", type=str, nargs="*",
+                        default=['all'],
+                        help="List of systematic uncertainties to evaluate. A special case: 'all' includes all systematics")
+    parser.add_argument("--highlight", type=str, default='',
+                        help="Name of the systematic uncertainty to plot individually")
 
     args = parser.parse_args()
 
-    # logging
-    logfile = os.path.join(args.outputdir, 'log.txt')
-    util.configRootLogger(filename=logfile)
-    logger = logging.getLogger("EvalSyst")
-    logger.setLevel(logging.DEBUG if args.verbose else logging.INFO)
+    if not os.path.isdir(args.outdir):
+        print(f"Create output directory: {args.outdir}")
+        os.makedirs(args.outdir)
 
-    # output directory
-    if not os.path.isdir(args.outputdir):
-        logger.info(f"Create output directory {args.outputdir}")
-        os.makedirs(args.outputdir)
+    ####
+    # Get unfolded histograms
+    if args.load_hists:
+        if not os.path.isfile(args.load_hists):
+            print(f"ERROR: cannot find file {args.load_hists}")
+            sys.exit(1)
+        histograms_d = read_histograms_dict_from_file(args.load_hists)
+    else:
+        # collect histograms from unfolding results
+        histograms_d = make_unfolded_histograms(
+            args.results_dir,
+            observables = args.observables,
+            fpath_obs_config = args.observable_config,
+            fpath_bin_config = args.binning_config,
+            systematics = args.systematics,
+            iteration = args.iteration,
+            nresamples = 5,
+            nresamples_nominal = 25,
+            results_common_name = args.unfold_outname,
+            output_dir = args.outdir
+        )
 
-    # Evaluate systematics
-    evaluate_systematics(**vars(args))
+    ####
+    # Evaluate uncertainties and make plots
+    if len(args.systematics)==1 and args.systematics != ['all']:
+        # only one systematic uncertainty
+        syst_highlight = ''
+    else:
+        syst_highlight = args.highlight
+
+    for ob in histograms_d["nominal"]:
+        print(f"{ob}")
+
+        h_nominal = histograms_d['nominal'][ob]['unfolded']
+        binEdges = h_nominal.axes[0].edges
+        xLabel = h_nominal.axes[0].label
+
+        binErrors, drawOpts = compute_bin_uncertainties(
+            ob, histograms_d,
+            highlight = syst_highlight
+            )
+
+        # plot
+        plot_uncertainties(
+            figname = os.path.join(args.outdir, f"relerr_{ob}"),
+            bins = binEdges,
+            uncertainties = binErrors,
+            draw_options = drawOpts,
+            xlabel = xLabel,
+            ylabel = 'Uncertainty'
+        )
