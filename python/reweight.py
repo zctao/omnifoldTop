@@ -51,3 +51,12 @@ rw = {
     "gaussian_bump": Reweighter(gaussian_bump, "mtt"),
     "gaussian_tail": Reweighter(gaussian_tail, "mtt"),
 }
+
+"""
+TODO
+take all measurables if needed - done
+fix current gaussian and linear reweighter
+interface for multivar reweight
+implement multivar reweighter
+normalization
+"""
