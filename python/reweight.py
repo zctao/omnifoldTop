@@ -8,7 +8,6 @@ rw : dict
     reweighting, add it to `rw`.
 """
 
-from cmath import exp
 from random import seed
 from random import randint as rand
 
