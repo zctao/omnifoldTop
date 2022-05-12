@@ -3,10 +3,11 @@
   "signal" : ["/data/ztao/ttbarDiffXs13TeV/latest/mcWAlt/ttbar_nominal/mc16a/ttbar_1_pseudotop_parton_ejets.root"],
   "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
   "iterations" : 3,
+  "model_name": "dense_100x3",
   "truth_known" : true,
   "normalize" : true,
   "batch_size" : 20000,
-  "reweight_data" : "linear_th_pt",
+  "reweight_data" : "rand_all_polynomial",
   "plot_verbosity" : 3,
   "outputdir" : "output_tmp"
 }

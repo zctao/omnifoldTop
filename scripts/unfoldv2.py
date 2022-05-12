@@ -71,7 +71,7 @@ def unfold(**parsed_args):
         # use all "branch_mc" varnames in consistent with previous version
         rw = reweight.rw[parsed_args["reweight_data"]]
         if rw.variables is None:
-            rw.variables = varnames_train_truth & varnames_extra_truth
+            rw.variables = varnames_train_truth + varnames_extra_truth
         else:
             # keep interface from previous version
             var_lookup = np.vectorize(lambda v: observable_dict[v]["branch_mc"])

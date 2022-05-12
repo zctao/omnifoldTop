@@ -350,7 +350,7 @@ class DataHandler(Mapping):
         reweighter=None,
     ):
         """
-        Rescale event weights of the dataset
+        Rescale event weights of the dataset, normalize at the end to ensure same total weight
 
         Parameters
         ----------
@@ -364,6 +364,10 @@ class DataHandler(Mapping):
         -----
         Order of operations: reweighting, rescaling
         """
+        total_original = np.sum(self.weights)
+        if self.weights_mc is not None:
+            total_original_mc = np.sum(self.weights_mc)
+
         # reweight sample
         if reweighter is not None:
             # reweight events that pass both reco and truth level cuts
@@ -377,6 +381,17 @@ class DataHandler(Mapping):
         self.weights[self.pass_reco] *= factors
         if self.weights_mc is not None:
             self.weights_mc[self.pass_truth] *= factors
+        
+        total_finish = np.sum(self.weights)
+        if self.weights_mc is not None:
+            total_finish_mc = np.sum(self.weights_mc)
+
+        coef = total_original / total_finish
+        self.weights *= coef
+
+        if self.weights_mc is not None:
+            coef_mc = total_original_mc / total_finish_mc
+            self.weights_mc *= coef_mc
 
     def get_weights(
         self,
