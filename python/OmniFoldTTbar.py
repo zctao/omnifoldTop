@@ -411,6 +411,7 @@ class OmniFoldTTbar():
                     X_data, X_sim, X_gen,
                     w_data, w_sim, w_gen,
                     passcut_data, passcut_sim, passcut_gen,
+                    learning_rate,
                     niterations = niterations,
                     model_type = model_type,
                     save_models_to = save_model_dir_rs,

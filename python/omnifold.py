@@ -6,6 +6,9 @@ from modelUtils import get_model, get_callbacks, train_model
 
 from util import reportGPUMemUsage
 
+import tensorflow as tf
+import gc
+
 import logging
 logger = logging.getLogger('omnifold')
 logger.setLevel(logging.DEBUG)
@@ -209,6 +212,7 @@ def omnifold(
         weights_unfold[i,:] = weights_push[passcut_gen]
 
         reportGPUMemUsage(logger)
+        gc.collect()
 
     # end of iteration loop
 
@@ -236,6 +240,7 @@ def train_step(
     learning_rate, # learning rate
     **fitargs
     ):
+    tf.keras.backend.clear_session()
     model, cb = set_up_model(model_type, X_step.shape[1:], learning_rate, iteration, "model_{0}".format(name), save_models_to, load_models_from, start_from_previous_iter)
     logger.debug("mode_{0}".format(name))
 
