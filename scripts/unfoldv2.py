@@ -37,7 +37,7 @@ def unfold(**parsed_args):
             continue
         logger.info(f"Argument {argkey}: {argvalue}")
 
-    # store arguments to json file for more convenient access later
+    # store arguments to x`x` file for more convenient access later
     fname_args = os.path.join(parsed_args['outputdir'], 'arguments.json')
     logger.info(f"Write arguments to file {fname_args}")
     util.write_dict_to_json(parsed_args, fname_args)
@@ -125,7 +125,8 @@ def unfold(**parsed_args):
             load_previous_iteration = True, # TODO check here
             load_models_from = parsed_args['load_models'],
             batch_size = parsed_args['batch_size'],
-            plot_status = parsed_args['plot_verbosity'] >= 2
+            plot_status = parsed_args['plot_verbosity'] >= 2,
+            learning_rate = parsed_args["learning_rate"]
         )
 
     t_run_done = time.time()
@@ -460,6 +461,7 @@ def getArgsParser(arguments_list=None):
                         help="If True, run unfolding also with IBU for comparison")
     parser.add_argument('-w', '--weight-type', type=str, default='nominal',
                         help="Type of event weights to retrieve from ntuples")
+    parser.add_argument("-a", '--learning-rate', type=float, default=None, help="Learning rate of trained model")
 
     args = parser.parse_args(arguments_list)
 

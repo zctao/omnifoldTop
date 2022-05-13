@@ -126,6 +126,8 @@ class OmniFoldTTbar():
             weight_type = weight_type
         )
 
+        # set learning rate
+
     def _prepare_inputs(
         self,
         vars_reco, # list of str
@@ -325,7 +327,9 @@ class OmniFoldTTbar():
         load_previous_iteration=True,
         load_models_from='',
         batch_size=256,
-        plot_status=False # if True, make extra plots for monitoring/debugging
+        plot_status=False, # if True, make extra plots for monitoring/debugging
+        # learning rate, set to tf.keras.optimizers.Adam's default if not supplied
+        learning_rate=0.001
     ):
         """
         Run unfolding
@@ -366,6 +370,7 @@ class OmniFoldTTbar():
             X_data, X_sim, X_gen,
             w_data, w_sim, w_gen,
             passcut_data, passcut_sim, passcut_gen,
+            learning_rate,
             niterations = niterations,
             model_type = model_type,
             save_models_to = save_model_dir,

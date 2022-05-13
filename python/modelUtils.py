@@ -137,7 +137,7 @@ def parse_name_for_dense(model_name):
     else:
         return []
 
-def get_model(input_shape, nclass=2, model_name='dense_100x3'):
+def get_model(input_shape, learning_rate, nclass=2, model_name='dense_100x3'):
     """
     Build and compile the classifier for OmniFold.
 
@@ -166,11 +166,13 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     else:
         model = eval(model_name+"(input_shape, nclass)")
 
+    logger.info("Set up model with learning rate = {0}".format(learning_rate))
     model.compile(loss=weighted_categorical_crossentropy,
                   #loss='categorical_crossentropy',
-                  optimizer='Adam',
+                  optimizer=tf.keras.optimizers.Adam(learning_rate = learning_rate),
                   metrics=['accuracy'])
 
+    logger.debug("Model setup done with learning rate = {0}".format(learning_rate))
     model.summary()
 
     return model

@@ -15,6 +15,7 @@ B_TO_MB = 2**-20 # constant for converting size in bytes to MBs
 def set_up_model(
     model_type, # str, type of the network
     input_shape, # tuple, shape of the input layer
+    learning_rate, # learning rate
     iteration = 0, # int, iteration index
     name_prefix = 'model', # str, prefix of the model name
     save_models_to = '', # str, directory to save the trained model to
@@ -23,7 +24,7 @@ def set_up_model(
     ):
 
     # get network
-    model = get_model(input_shape, nclass=2, model_name=model_type)
+    model = get_model(input_shape, learning_rate, nclass=2, model_name=model_type)
 
     # name of the model checkpoint
     mname = name_prefix + "_{}".format(iteration)
@@ -79,6 +80,7 @@ def omnifold(
     passcut_data, # flags to indicate if data events pass reco level selections
     passcut_sim, # flags to indicate if signal events pass reco level selections
     passcut_gen, # flags to indicate if signal events pass truth level selections
+    learning_rate, # learning rate, set to tf.keras.optimizers.Adam's default if not supplied
     # Parameters
     niterations, # number of iterations
     model_type='dense_100x3', # name of the model type 
@@ -164,7 +166,7 @@ def omnifold(
         logger.info("Step 1")
         w_step1 = w_step(w_data, weights_push * w_sim, passcut_data, passcut_sim) if not load_models_from else None
         train_step(X_step1, Y_step1, w_step1, weights_pull, None, X_sim, i, "step1", 
-            model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
+            model_type, save_models_to, load_models_from, start_from_previous_iter, plot, learning_rate, **fitargs)
 
         #####
         # step 1b: deal with events that do not pass reco cuts
@@ -173,7 +175,7 @@ def omnifold(
             logger.info("Step 1b")
             w_step1b = w_step(weights_pull * w_gen, w_gen, passcut_sim & passcut_gen, passcut_sim & passcut_gen) if not load_models_from else None
             train_step(X_step1b, Y_step1b, w_step1b, weights_pull, ~passcut_sim, X_gen[~passcut_sim], i, "step1b", 
-                model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
+                model_type, save_models_to, load_models_from, start_from_previous_iter, plot, learning_rate, **fitargs)
 
         # TODO: check this
         weights_pull /= np.mean(weights_pull)
@@ -189,7 +191,7 @@ def omnifold(
         w_step2 = w_step(weights_pull * w_gen, w_gen, passcut_gen, passcut_gen, reweight_second = rw_step2) if not load_models_from else None # rw_step2 currently set to 1.
         old_weight_push = weights_push
         train_step(X_step2, Y_step2, w_step2, weights_push, passcut_gen, X_gen[passcut_gen], i, "step2", 
-            model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
+            model_type, save_models_to, load_models_from, start_from_previous_iter, plot, learning_rate, **fitargs)
 
         #####
         # step 2b: deal with events that do not pass truth cuts
@@ -198,7 +200,7 @@ def omnifold(
             logger.info("Step 2b")
             w_step2b = w_step(weights_push * w_sim, w_sim, passcut_sim & passcut_gen, passcut_sim & passcut_gen) if not load_models_from else None
             train_step(X_step2b, Y_step2b, w_step2b, weights_push, ~passcut_gen, X_sim[~passcut_gen], i, "step2b", 
-                model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
+                model_type, save_models_to, load_models_from, start_from_previous_iter, plot, learning_rate, **fitargs)
 
         # TODO: check this
         weights_push /= np.mean(weights_push)
@@ -231,9 +233,10 @@ def train_step(
     load_models_from, # directory to load trained models
     start_from_previous_iter, # If True, initialize model with the previous iteration
     plot, # If True, plot training history and make other status plots
+    learning_rate, # learning rate
     **fitargs
     ):
-    model, cb = set_up_model(model_type, X_step.shape[1:], iteration, "model_{0}".format(name), save_models_to, load_models_from, start_from_previous_iter)
+    model, cb = set_up_model(model_type, X_step.shape[1:], learning_rate, iteration, "model_{0}".format(name), save_models_to, load_models_from, start_from_previous_iter)
     logger.debug("mode_{0}".format(name))
 
     if load_models_from:
