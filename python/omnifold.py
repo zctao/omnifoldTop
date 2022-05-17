@@ -217,8 +217,8 @@ def train_step(
     X_step, # feature array of observed data, for this step
     Y_step, # label array, for this step
     w_step, # w_array, for this step
-    weights_multiplier, # arraylike, weights_pull or weights_push to be multiplied to be reweight factor, weights_update becomes reweight if None is supplied
-    weights_update_range, # range of weights_update to be updated, the entire weights_update_range is updated if NONE is supplied
+    weights_multiplier, # arraylike, multiplied by the model reweight to produce the new weight to be returned
+    weights_update_range, # range of weight to be updated, the entire weights_update_range is updated if NONE is supplied
     weights_update_events, # arraylike, events used for reweighting weights_update
     # Parameters
     iteration, # the number of iterations up to this call
