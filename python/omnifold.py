@@ -163,21 +163,17 @@ def omnifold(
 
         logger.info("Step 1")
         w_step1 = w_step(w_data, weights_push * w_sim, passcut_data, passcut_sim) if not load_models_from else None
-        print(weights_pull[0:20])
         weights_pull = train_step(X_step1, Y_step1, w_step1, weights_push, None, X_sim, i, "step1", 
             model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
-        print(weights_pull[0:20])
 
         #####
         # step 1b: deal with events that do not pass reco cuts
 
         if np.any(~passcut_sim):
             logger.info("Step 1b")
-            print(weights_pull[0:20])
             w_step1b = w_step(weights_pull * w_gen, w_gen, passcut_sim & passcut_gen, passcut_sim & passcut_gen) if not load_models_from else None
             weights_pull[~passcut_sim] = train_step(X_step1b, Y_step1b, w_step1b, None, ~passcut_sim, X_gen[~passcut_sim], i, "step1b", 
                 model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
-            print(weights_pull[0:20])
 
         # TODO: check this
         weights_pull /= np.mean(weights_pull)
@@ -191,22 +187,18 @@ def omnifold(
         rw_step2 = 1. # always reweight against the prior
 # #        rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
         w_step2 = w_step(weights_pull * w_gen, w_gen, passcut_gen, passcut_gen, reweight_second = rw_step2) if not load_models_from else None # rw_step2 currently set to 1.
-        print(weights_push[0:20])
         weights_push[passcut_gen] = train_step(X_step2, Y_step2, w_step2, None, passcut_gen, X_gen[passcut_gen], i, "step2", 
             model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
         weights_push[passcut_gen] *= rw_step2
-        print(weights_push[0:20])
 
         #####
         # step 2b: deal with events that do not pass truth cuts
 
         if np.any(~passcut_gen):
             logger.info("Step 2b")
-            print(weights_pull[0:20])
             w_step2b = w_step(weights_push * w_sim, w_sim, passcut_sim & passcut_gen, passcut_sim & passcut_gen) if not load_models_from else None
             weights_push[~passcut_gen] = train_step(X_step2b, Y_step2b, w_step2b, None, ~passcut_gen, X_sim[~passcut_gen], i, "step2b", 
                 model_type, save_models_to, load_models_from, start_from_previous_iter, plot, **fitargs)
-            print(weights_pull[0:20])
 
         # TODO: check this
         weights_push /= np.mean(weights_push)
