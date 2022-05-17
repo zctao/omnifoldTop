@@ -232,6 +232,7 @@ def train_step(
     ):
     """
     evaluate a step in OmniFold method, training a model if needed and train the model
+    
     Returns
     -------
     updated weight item
