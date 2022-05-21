@@ -344,7 +344,7 @@ class OmniFoldTTbar():
     def run(
         self,
         niterations, # number of iterations
-        error_type='sumw2',
+        resample_data=False,
         nruns=1,
         model_type='dense_100x3',
         save_models=True,
@@ -396,7 +396,7 @@ class OmniFoldTTbar():
                 else:
                     save_model_dir = ''
 
-            if error_type in ['bootstrap_full']:
+            if resample_data:
                 # fluctuate data weights
                 w_data, w_sim, w_gen = self._get_event_weights(resample=True)
 

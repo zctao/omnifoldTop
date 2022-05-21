@@ -111,17 +111,10 @@ def unfold(**parsed_args):
         util.configGPUs(parsed_args['gpu'], verbose=parsed_args['verbose'])
 
         # run unfolding
-        nruns = parsed_args['nruns']
-
-        # for backward compatibility
-        if parsed_args["nresamples"] is not None:
-            logger.info("The argument '--nresamples' is superceded by '--nruns'")
-            nruns = parsed_args['nresamples'] + 1
-
         unfolder.run(
             niterations = parsed_args['iterations'],
-            error_type = parsed_args['error_type'],
-            nruns = nruns,
+            resample_data = parsed_args['resample_data'],
+            nruns = parsed_args['nruns'],
             model_type = parsed_args['model_name'],
             save_models = True,
             load_previous_iteration = True, # TODO check here
@@ -438,15 +431,10 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="Manually select one of the GPUs to run")
     parser.add_argument('-i', '--iterations', type=int, default=4,
                         help="Numbers of iterations for unfolding")
-    parser.add_argument('-e', '--error-type',
-                        choices=['sumw2','bootstrap_full','bootstrap_model'],
-                        default='sumw2', help="Method to evaluate uncertainties")
     parser.add_argument("--nruns", type=int, default=1,
                         help="Number of times to run unfolding")
-    # Deprecated. Use --nruns instead. Keep it for backward compatibility
-    parser.add_argument('--nresamples', type=int, default=None,
-                        help="Use number of times for resampling to estimate the unfolding uncertainty using the bootstrap method.")
-    #
+    parser.add_argument("--resample-data", action='store_true',
+                        help="If True, fluctuate data weights for each run")
     parser.add_argument('-m', '--model-name',
                         type=str, default='dense_100x3',
                         help="Name of the model for unfolding")
@@ -472,6 +460,14 @@ def getArgsParser(arguments_list=None, print_help=False):
     if print_help:
         parser.print_help()
 
+    # Deprecated arguments. Keep them for backward compatibility
+    parser.add_argument('--nresamples', type=int, default=None,
+                        help="Use number of times for resampling to estimate the unfolding uncertainty using the bootstrap method.")
+    parser.add_argument('-e', '--error-type',
+                        choices=['sumw2','bootstrap_full','bootstrap_model'],
+                        default=None, help="Method to evaluate uncertainties")
+    #
+
     args = parser.parse_args(arguments_list)
 
     # verify truth is known when reweighting
@@ -490,6 +486,18 @@ def getArgsParser(arguments_list=None, print_help=False):
         args.binning_config = fullpath_binconfig
     else:
         raise RuntimeError(f"Cannot find file: {args.binning_config}")
+
+    # for backward compatibility
+    if args.nresamples is not None:
+        logger.warn("The argument '--nresamples' is superceded by '--nruns'")
+        args.nruns = args.nresamples + 1
+
+    if args.error_type is not None:
+        logger.warn("The argument '--error-type' is superceded by '--resample-data'")
+        if args.error_type == 'bootstrap_full':
+            args.resample_data = True
+        else:
+            args.resample_data = False
 
     return args
 
