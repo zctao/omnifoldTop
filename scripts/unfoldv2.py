@@ -111,10 +111,17 @@ def unfold(**parsed_args):
         util.configGPUs(parsed_args['gpu'], verbose=parsed_args['verbose'])
 
         # run unfolding
+        nruns = parsed_args['nruns']
+
+        # for backward compatibility
+        if parsed_args["nresamples"] is not None:
+            logger.info("The argument '--nresamples' is superceded by '--nruns'")
+            nruns = parsed_args['nresamples'] + 1
+
         unfolder.run(
             niterations = parsed_args['iterations'],
             error_type = parsed_args['error_type'],
-            nresamples = parsed_args['nresamples'],
+            nruns = nruns,
             model_type = parsed_args['model_name'],
             save_models = True,
             load_previous_iteration = True, # TODO check here
@@ -308,30 +315,32 @@ def unfold(**parsed_args):
         if parsed_args['plot_verbosity'] < 3:
             continue
 
-        ## Resamples
-        hists_uf_resample = unfolder.get_unfolded_hists_resamples(
+        ## All runs
+        hists_uf_all = unfolder.get_unfolded_hists_resamples(
             varname_truth, bins_mc, norm=norm_prior, all_iterations=True)
 
-        if len(hists_uf_resample) > 0:
-            resample_dir = os.path.join(unfolder.outdir, 'Resamples')
-            if not os.path.isdir(resample_dir):
-                logger.info(f"Create directory {resample_dir}")
-                os.makedirs(resample_dir)
+        if len(hists_uf_all) > 1:
+            allruns_dir = os.path.join(unfolder.outdir, 'AllRuns')
+            if not os.path.isdir(allruns_dir):
+                logger.info(f"Create directory {allruns_dir}")
+                os.makedirs(allruns_dir)
 
-            # all unfolded distributions from resampling
-            figname_rs = os.path.join(resample_dir, f"Unfold_AllResamples_{observable}")
-            logger.info(f"  Plot unfolded distributions from all resamples: {figname_rs}")
+            # unfolded distributions from all runs
+            figname_rs = os.path.join(allruns_dir, f"Unfold_AllRuns_{observable}")
+            logger.info(f"  Plot unfolded distributions from all runs: {figname_rs}")
             plotter.plot_distributions_resamples(
-                figname_rs, hists_uf_resample[-1], h_gen, h_truth,
+                figname_rs,
+                [ h[-1] for h in hists_uf_all ], # take the last iter
+                h_gen, h_truth,
                 xlabel = observable_dict[observable]['xlabel'],
                 ylabel = observable_dict[observable]['ylabel'])
 
             # distributions of bin entries
             if h_truth is not None:
-                figname_bindistr = os.path.join(resample_dir, f"Unfold_BinDistr_{observable}")
+                figname_bindistr = os.path.join(allruns_dir, f"Unfold_BinDistr_{observable}")
                 logger.info(f"  Plot distributions of bin entries from all resamples: {figname_bindistr}")
                 # For now
-                plotter.plot_hists_bin_distr(figname_bindistr, hists_uf_resample, h_truth)
+                plotter.plot_hists_bin_distr(figname_bindistr, hists_uf_all, h_truth)
 
         ## Iteration history
         iteration_dir = os.path.join(unfolder.outdir, 'Iterations')
@@ -356,10 +365,10 @@ def unfold(**parsed_args):
         mdict[observable]["nominal"] = metrics.write_all_metrics_binned(
             hists_uf_alliters, h_gen, h_truth)
 
-        if len(hists_uf_resample) > 0:
+        if len(hists_uf_all) > 1:
             # every bootstrap replica
             mdict[observable]["resample"] = metrics.write_all_metrics_binned(
-                hists_uf_resample, h_gen, h_truth)
+                hists_uf_all, h_gen, h_truth)
 
         if hists_ibu_alliters:
             mdict[observable]["IBU"] = metrics.write_all_metrics_binned(
@@ -432,8 +441,12 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument('-e', '--error-type',
                         choices=['sumw2','bootstrap_full','bootstrap_model'],
                         default='sumw2', help="Method to evaluate uncertainties")
-    parser.add_argument('--nresamples', type=int, default=25,
-                        help="number of times for resampling to estimate the unfolding uncertainty using the bootstrap method")
+    parser.add_argument("--nruns", type=int, default=1,
+                        help="Number of times to run unfolding")
+    # Deprecated. Use --nruns instead. Keep it for backward compatibility
+    parser.add_argument('--nresamples', type=int, default=None,
+                        help="Use number of times for resampling to estimate the unfolding uncertainty using the bootstrap method.")
+    #
     parser.add_argument('-m', '--model-name',
                         type=str, default='dense_100x3',
                         help="Name of the model for unfolding")

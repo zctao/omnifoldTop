@@ -158,7 +158,7 @@ def omnifold(
     weights_push = np.ones(len(X_sim))
     weights_pull = np.ones(len(X_gen))
 
-    weights_unfold = np.empty(shape=(niterations, len(X_gen[passcut_gen])))
+    weights_unfold = np.empty(shape=(niterations, np.count_nonzero(passcut_gen)))
     # shape: (n_iterations, n_events[passcut_gen])
 
     reportGPUMemUsage(logger)
