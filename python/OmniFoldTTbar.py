@@ -387,12 +387,12 @@ class OmniFoldTTbar():
 
             # model directory
             if load_models_from:
-                load_model_dir = os.path.join(load_models_from, f"Models_{ir}")
+                load_model_dir = os.path.join(load_models_from, "Models", f"run{ir}")
                 save_model_dir = '' # no need too save the model again
             else:
                 load_model_dir = ''
                 if save_models and self.outdir:
-                    save_model_dir = os.path.join(self.outdir, f"Models_{ir}")
+                    save_model_dir = os.path.join(self.outdir, "Models", f"run{ir}")
                 else:
                     save_model_dir = ''
 

@@ -28,7 +28,7 @@ def set_up_model(
     model = get_model(input_shape, nclass=2, model_name=model_type)
 
     # name of the model checkpoint
-    mname = name_prefix + "_{}".format(iteration)
+    mname = name_prefix + "_iter{}".format(iteration)
 
     # callbacks
     filepath_save = None
@@ -45,7 +45,7 @@ def set_up_model(
     else:
         if start_from_previous_iter and save_models_to and iteration > 0:
             # initialize model weights from the previous iteration
-            mname_prev = name_prefix+"_{}".format(iteration-1)
+            mname_prev = name_prefix+"_iter{}".format(iteration-1)
             filepath_load = os.path.join(save_models_to, mname_prev)
             model.load_weights(filepath_load)
             logger.debug(f"Initialize model from {filepath_load}")
