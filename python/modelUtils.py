@@ -11,6 +11,8 @@ from sklearn.model_selection import train_test_split
 
 import plotter
 
+n_models_in_parallel = 20
+
 import logging
 logger = logging.getLogger('model')
 
@@ -229,16 +231,28 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     -------
     tf.keras.models.Model
     """
-    inputs = keras.layers.Input(input_shape)
 
-    prev_layer = inputs
-    for n in nnodes:
-        prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
+    outputs = []
+    input_layer = keras.layers.Input(input_shape)
+    for i in range(n_models_in_parallel):
 
-    #outputs = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
-    outputs = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
+        prev_layer = input_layer
+        for n in nnodes:
+            prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
+        
+        output_layer = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
+        outputs += [output_layer]
 
-    return keras.models.Model(inputs=inputs, outputs=outputs)
+    # inputs = keras.layers.Input(input_shape)
+    outputs = keras.layers.Average()(outputs)
+    # prev_layer = inputs
+    # for n in nnodes:
+    #     prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
+
+    ## outputs = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
+    # outputs = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
+
+    return keras.models.Model(inputs=input_layer, outputs=outputs)
 
 def pfn(input_shape, nclass=2, nlatent=8):
     """

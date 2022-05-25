@@ -1,6 +1,15 @@
 {
-  "data" : ["/data/ztao/ttbarDiffXs13TeV/latest/mcWAlt/ttbar_nominal/mc16a/ttbar_0_pseudotop_parton_ejets.root"],
-  "signal" : ["/data/ztao/ttbarDiffXs13TeV/latest/mcWAlt/ttbar_nominal/mc16a/ttbar_1_pseudotop_parton_ejets.root"],
+  "data": [
+    "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_hw_3_pseudotop_parton_ejets.root"
+  ],
+  "signal": [
+    "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_1_pseudotop_parton_ejets.root",
+    "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_4_pseudotop_parton_ejets.root",
+    "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_5_pseudotop_parton_ejets.root",
+    "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_6_pseudotop_parton_ejets.root"
+  ],
+  "nresamples": 2,
+  "error_type": "bootstrap_full",
   "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
   "iterations" : 3,
   "truth_known" : true,
