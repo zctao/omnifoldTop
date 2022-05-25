@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import glob
 import util
 from unfoldv2 import unfold
 
@@ -29,11 +30,8 @@ if not run_cfg:
     sys.exit(3)
 
 # use unfolded weights
-fpaths_uw = [os.path.join(fpath_result_dir, 'weights.npz')]
-
-if run_cfg["error_type"] in ["bootstrap_full", "bootstrap_model"]:
-    nrs = run_cfg["nresamples"]
-    fpaths_uw.append(os.path.join(fpath_result_dir, f"weights_resample{nrs}.npz"))
+fpaths_uw = glob.glob(os.path.join(fpath_result_dir, "weights*.npz"))
+fpaths_uw.sort()
 
 run_cfg.update({"unfolded_weights": fpaths_uw})
 

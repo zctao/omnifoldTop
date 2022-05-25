@@ -45,10 +45,37 @@ def getDataHandler(
     return dh
 ##
 
-def read_weights_from_file(filepath_weights, array_name):
-    wfile = np.load(filepath_weights)
-    weights = wfile[array_name]
-    wfile.close()
+def read_weights_from_file(filepaths_weights):
+
+    weights = None
+
+    for wfpath in filepaths_weights:
+        logger.info(f"Load weights from {wfpath}")
+        wfile = np.load(wfpath)
+
+        for wname, warr in wfile.items():
+            logger.info(f"Read weight array: {wname}")
+
+            if warr.ndim == 3: # shape: (nruns, niterations, nevents)
+                if weights is None:
+                    weights = warr
+                else:
+                    weights = np.concatenate((weights, warr))
+
+            # for backward compatibility
+            elif warr.ndim == 2:
+                # read old weights of shape (niterations, nevents)
+                if weights is None:
+                    weights = np.expand_dims(warr, 0)
+                else:
+                    weights = np.concatenate((weights, np.expand_dims(warr, 0)))
+
+            else:
+                logger.error(f"Fail to read weight array {wname}. Abort...")
+                return None
+
+        wfile.close()
+
     return weights
 
 class OmniFoldTTbar():
@@ -88,7 +115,6 @@ class OmniFoldTTbar():
     ):
         # unfolded weights
         self.unfolded_weights = None
-        self.unfolded_weights_resample = None
 
         # output directory
         self.outdir = outputdir
@@ -318,8 +344,8 @@ class OmniFoldTTbar():
     def run(
         self,
         niterations, # number of iterations
-        error_type='sumw2',
-        nresamples=10,
+        resample_data=False,
+        nruns=1,
         model_type='dense_100x3',
         save_models=True,
         load_previous_iteration=True,
@@ -330,16 +356,6 @@ class OmniFoldTTbar():
         """
         Run unfolding
         """
-
-        # model directory
-        if load_models_from:
-            load_model_dir = os.path.join(load_models_from, "Models")
-            save_model_dir = '' # no need to save the model again
-        else:
-            load_model_dir = ''
-            save_model_dir = ''
-            if save_models and self.outdir:
-                save_model_dir = os.path.join(self.outdir, "Models")
 
         # preprocess data and weights
         X_data, X_sim, X_gen = self._get_input_arrays()
@@ -361,65 +377,52 @@ class OmniFoldTTbar():
                 w_gen[passcut_gen])
 
         # unfold
-        self.unfolded_weights = omnifold(
-            X_data, X_sim, X_gen,
-            w_data, w_sim, w_gen,
-            passcut_data, passcut_sim, passcut_gen,
-            niterations = niterations,
-            model_type = model_type,
-            save_models_to = save_model_dir,
-            load_models_from = load_model_dir,
-            start_from_previous_iter=load_previous_iteration,
-            plot = plot_status,
-            batch_size = batch_size)
-
-        if plot_status:
-            logger.info("Plot model training history")
-            for csvfile in glob.glob(os.path.join(save_model_dir, '*.csv')):
-                logger.info(f"  Plot training log {csvfile}")
-                plotter.plot_train_log(csvfile)
-
-        # save weights
-        wfile = os.path.join(self.outdir, 'weights.npz')
-        np.savez(wfile, weights = self.unfolded_weights)
-
-        # resamples
-        if error_type in ['bootstrap_full', 'bootstrap_model']:
-
-            self.unfolded_weights_resample = np.empty(
-                shape=(nresamples,)+self.unfolded_weights.shape
+        assert(nruns>0)
+        self.unfolded_weights = np.empty(
+            shape=(nruns, niterations, np.count_nonzero(passcut_gen))
             )
 
-            for ir in range(nresamples):
-                logger.info(f"Resample #{ir}")
+        for ir in range(nruns):
+            logger.info(f"Run #{ir}")
 
-                # model directory
-                load_model_dir_rs = os.path.join(load_models_from, f"Models_rs{ir}") if load_model_dir else ''
-                save_model_dir_rs = os.path.join(self.outdir, f"Models_rs{ir}") if save_model_dir else ''
+            # model directory
+            if load_models_from:
+                load_model_dir = os.path.join(load_models_from, "Models", f"run{ir}")
+                save_model_dir = '' # no need too save the model again
+            else:
+                load_model_dir = ''
+                if save_models and self.outdir:
+                    save_model_dir = os.path.join(self.outdir, "Models", f"run{ir}")
+                else:
+                    save_model_dir = ''
 
-                # bootstrap data weights
+            if resample_data:
+                # fluctuate data weights
                 w_data, w_sim, w_gen = self._get_event_weights(resample=True)
 
-                # unfold
-                self.unfolded_weights_resample[ir,:,:] = omnifold(
-                    X_data, X_sim, X_gen,
-                    w_data, w_sim, w_gen,
-                    passcut_data, passcut_sim, passcut_gen,
-                    niterations = niterations,
-                    model_type = model_type,
-                    save_models_to = save_model_dir_rs,
-                    load_models_from = load_model_dir_rs,
-                    start_from_previous_iter=load_previous_iteration,
-                    batch_size = batch_size)
+            # omnifold
+            self.unfolded_weights[ir,:,:] = omnifold(
+                X_data, X_sim, X_gen,
+                w_data, w_sim, w_gen,
+                passcut_data, passcut_sim, passcut_gen,
+                niterations = niterations,
+                model_type = model_type,
+                save_models_to = save_model_dir,
+                load_models_from = load_model_dir,
+                start_from_previous_iter=load_previous_iteration,
+                plot = plot_status and ir==0, # only make plots for the first run
+                batch_size = batch_size
+            )
 
+            if plot_status:
                 logger.info("Plot model training history")
-                for csvfile in glob.glob(os.path.join(save_model_dir_rs, '*.csv')):
+                for csvfile in glob.glob(os.path.join(save_model_dir, '*.csv')):
                     logger.info(f"  Plot training log {csvfile}")
                     plotter.plot_train_log(csvfile)
 
-            # save weights
-            wfile = os.path.join(self.outdir, f"weights_resample{nresamples}.npz")
-            np.savez(wfile, weights_resample = self.unfolded_weights_resample)
+        # save weights to disk
+        wfile = os.path.join(self.outdir, f"weights_unfolded.npz")
+        np.savez(wfile, unfolded_weights = self.unfolded_weights)
 
     def load(self, filepaths_unfolded_weights):
         """
@@ -434,16 +437,8 @@ class OmniFoldTTbar():
         wfilelist.sort()
         assert(len(wfilelist)>0)
 
-        logger.info(f"Load weights from {wfilelist[0]}")
-        self.unfolded_weights = read_weights_from_file(wfilelist[0], array_name='weights')
+        self.unfolded_weights = read_weights_from_file(wfilelist)
         logger.debug(f"unfolded_weights.shape: {self.unfolded_weights.shape}")
-
-        if len(wfilelist) > 1:
-            logger.info(f"Load weights from resampling: {wfilelist[1]}")
-            self.unfolded_weights_resample = read_weights_from_file(wfilelist[1], array_name='weights_resample')
-            # FIXME: load weights from multiple files
-
-            logger.debug(f"unfolded_weights_resample.shape: {self.unfolded_weights_resample.shape}")
 
     def get_unfolded_hists_resamples(
         self,
@@ -458,30 +453,29 @@ class OmniFoldTTbar():
 
         hists_resample = []
 
-        if self.unfolded_weights_resample is None:
-            logger.debug("No resample weights! Return an empty list.")
+        if self.unfolded_weights is None:
+            logger.error("No unfolded weights! Return an empty list.")
             return hists_resample
 
-        # shape of self.unfolded_weights_resample:
-        # (n_resamples, n_iterations, n_events)
-        # check if weights are available for iteration
-        if iteration >= self.unfolded_weights_resample.shape[1]:
+        # shape of self.unfolded_weights: (nruns, niterations, nevents)
+        # check if weights are available for the required iteration
+        if iteration >= self.unfolded_weights.shape[1]:
             raise RuntimeError(f"Weights for iteration {iteration} unavailable")
 
         # number of ensambles
         if nresamples is None:
             # default: use all available weights
-            nresamples = len(self.unfolded_weights_resample)
+            nresamples = self.unfolded_weights.shape[0]
         else:
-            if nresamples > len(self.unfolded_weights_resample):
-                logger.warn(f"Requested number of resamples {nmresamples} is larger than what is available in the unfolded weights.")
-            nresamples = min(nresamples, len(self.unfolded_weights_resample))
+            if nresamples > self.unfolded_weights.shape[0]:
+                logger.warn(f"Requested number of runs {nresamples} is larger than what is available in the unfolded weights.")
+            nresamples = min(nresamples, self.unfolded_weights.shape[0])
 
         for iresample in range(nresamples):
             if all_iterations:
-                rw = self.unfolded_weights_resample[iresample]
+                rw = self.unfolded_weights[iresample]
             else:
-                rw = self.unfolded_weights_resample[iresample][iteration]
+                rw = self.unfolded_weights[iresample][iteration]
 
             # truth-level prior weights
             wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
@@ -506,51 +500,51 @@ class OmniFoldTTbar():
         norm=None,
         all_iterations=False,
         iteration=-1, # default: the last iteration
-        bootstrap_uncertainty=True,
         nresamples=None, # default, take all that are avaiable
         absoluteValue=False
         ):
-        # check if weights for iteration is available
-        if iteration >= self.unfolded_weights.shape[0]:
-            raise RuntimeError(f"Weights for iteration {iteration} unavailable")
 
-        rw = self.unfolded_weights if all_iterations else self.unfolded_weights[iteration]
-        wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
-        h_uf = self.handle_sig.get_histogram(varname, bins, wprior*rw, absoluteValue=absoluteValue)
-        # h_uf is a hist object or a list of hist objects
+        hists_uf = self.get_unfolded_hists_resamples(
+            varname,
+            bins,
+            norm=None,
+            all_iterations=all_iterations,
+            iteration=iteration,
+            nresamples=nresamples,
+            absoluteValue=absoluteValue
+            )
+        # hists_uf is a list of hist objects or a list of a list of hist objects
 
-        bin_corr = None # bin correlation
-        if bootstrap_uncertainty and self.unfolded_weights_resample is not None:
-            h_uf_rs = self.get_unfolded_hists_resamples(
-                varname,
-                bins,
-                norm=None,
-                all_iterations=all_iterations,
-                iteration=iteration,
-                nresamples=nresamples,
-                absoluteValue=absoluteValue)
+        if not hists_uf:
+            # no unfolded weights available
+            return None, None
 
-            # add the "nominal" histogram to the resampled ones
-            h_uf_rs.append(h_uf)
+        # take the histogram from the first run
+        h_uf = hists_uf[0]
 
-            # take the mean of each bin
-            hmean = myhu.get_mean_from_hists(h_uf_rs)
+        # bin corrections
+        bin_corr = None
 
-            # take the standard deviation of each bin as bin uncertainties
-            hsigma = myhu.get_sigma_from_hists(h_uf_rs)
-
-            # the bin uncertainties are the standard error of the mean
-            hstderr = hsigma / np.sqrt(len(h_uf_rs))
-
+        if len(hists_uf) > 1:
             # compute bin correlations
-            bin_corr = myhu.get_bin_correlations_from_hists(h_uf_rs)
+            bin_corr = myhu.get_bin_correlations_from_hists(hists_uf)
 
-            # update the nominal histogam
+            # average bin entries of all runs
+            # mean of each bin
+            hmean = myhu.get_mean_from_hists(hists_uf)
+
+            # standard deviation of each bin
+            hsigma = myhu.get_sigma_from_hists(hists_uf)
+
+            # standard error of the mean
+            hstderr = hsigma / np.sqrt( len(hists_uf) )
+
+            # update unfolded histogram
             myhu.set_hist_contents(h_uf, hmean)
             myhu.set_hist_errors(h_uf, hstderr)
 
         if norm is not None:
-            # rescale the unfolded distribution to the norm
+            # rescale the unfolded histograms to the norm
             if all_iterations:
                 for hh in h_uf:
                     hh *= (norm / hh.sum(flow=True)['value'])

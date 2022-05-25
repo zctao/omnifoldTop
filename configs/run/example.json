@@ -8,7 +8,7 @@
   "batch_size" : 20000,
   "plot_verbosity" : 3,
   "outputdir" : "output_tmpv2",
-  "error_type" : "bootstrap_full",
-  "nresamples" : 2,
+  "resample_data" : true,
+  "nruns" : 3,
   "model_name" : {"modeltest1": "dense_100x3", "modeltest2": "dense_10"}
 }
