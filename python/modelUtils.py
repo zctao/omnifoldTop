@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 
 import plotter
 
-n_models_in_parallel = 20
+n_models_in_parallel = 5
 
 import logging
 logger = logging.getLogger('model')
@@ -244,7 +244,12 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
         outputs += [output_layer]
 
     # inputs = keras.layers.Input(input_shape)
-    outputs = keras.layers.Average()(outputs)
+
+    # outputs = keras.layers.Average()(outputs)
+
+    combined = keras.layers.Concatenate()(outputs)
+    # outputs = keras.layers.Dense(1, activation="sigmoid")(combined)
+
     # prev_layer = inputs
     # for n in nnodes:
     #     prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
@@ -252,7 +257,7 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     ## outputs = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
     # outputs = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
 
-    return keras.models.Model(inputs=input_layer, outputs=outputs)
+    return keras.models.Model(inputs=input_layer, outputs=combined)
 
 def pfn(input_shape, nclass=2, nlatent=8):
     """

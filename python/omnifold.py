@@ -57,6 +57,7 @@ def reweight(model, events, batch_size, figname=None):
     preds = model.predict(dataset)
     preds = np.squeeze(preds)
     r = np.nan_to_num( preds / (1. - preds) )
+    r = np.mean(r,axis=1) # average the reweight factor produced by the parallel layers
 
     if figname: # plot the distribution
         logger.info(f"Plot likelihood ratio distribution {figname}")
