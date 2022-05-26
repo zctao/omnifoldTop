@@ -166,8 +166,8 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     else:
         model = eval(model_name+"(input_shape, nclass)")
 
-    model.compile(loss=weighted_binary_crossentropy,
-                  #loss='binary_crossentropy',
+    model.compile(loss='binary_crossentropy',
+                  #loss=weighted_binary_crossentropy,
                   optimizer='Adam',
                   metrics=['accuracy'])
 
@@ -181,17 +181,17 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32, epochs=
     X_train, X_val, Y_train, Y_val, w_train, w_val = train_test_split(X, Y, w)
 
     # TF Dataset
-    #dset_train = tf.data.Dataset.from_tensor_slices((X_train, Y_train, w_train)).batch(batch_size)
-    #dset_val = tf.data.Dataset.from_tensor_slices((X_val, Y_val, w_val)).batch(batch_size)
+    dset_train = tf.data.Dataset.from_tensor_slices((X_train, Y_train, w_train)).batch(batch_size)
+    dset_val = tf.data.Dataset.from_tensor_slices((X_val, Y_val, w_val)).batch(batch_size)
     # already shuffled in train_test_split()
     # do it instead using tf.data.Dataset.shuffle(buffer_size)?
 
     # Zip label and weight arrays to use the customized loss function
-    Yw_train = np.column_stack((Y_train, w_train))
-    Yw_val = np.column_stack((Y_val, w_val))
+    #Yw_train = np.column_stack((Y_train, w_train))
+    #Yw_val = np.column_stack((Y_val, w_val))
     # TF Dataset
-    dset_train = tf.data.Dataset.from_tensor_slices((X_train, Yw_train)).batch(batch_size)
-    dset_val = tf.data.Dataset.from_tensor_slices((X_val, Yw_val)).batch(batch_size)
+    #dset_train = tf.data.Dataset.from_tensor_slices((X_train, Yw_train)).batch(batch_size)
+    #dset_val = tf.data.Dataset.from_tensor_slices((X_val, Yw_val)).batch(batch_size)
 
     # cache
     dset_train = dset_train.cache()
