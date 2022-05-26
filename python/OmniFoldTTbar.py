@@ -571,8 +571,9 @@ def load_unfolder(
     fpath_arguments, # str
     # List of observables. If empty, use the observables from arguments config
     observables=[], # list of str
-    # Path to observable config file. If empty, use the config from arguments
-    obsConfig=None # dict
+    # Observable configuration. If empty, use the config from arguments
+    obsConfig={}, # dict
+    # Binning configuration. If empty, use the config from arguments
     ):
 
     logger.info(f"Read arguments from {fpath_arguments}")
@@ -581,14 +582,14 @@ def load_unfolder(
     # observables
     if not observables:
         # if not specified, take the list of observabes from arguments config
-        observables = args_d['observables'] + args_d['observables_extra']
+        observables[:] = args_d['observables'] + args_d['observables_extra']
 
     # configuration for observables
     if not obsConfig:
         # if not provided, use the one from the arguments config
         observable_config = args_d['observable_config']
         logger.info(f"Get observable config from {observable_config}")
-        obsConfig = util.read_dict_from_json(observable_config)
+        obsConfig.update(util.read_dict_from_json(observable_config))
 
         if not obsConfig:
             logger.error("Failed to load observable config. Abort...")
@@ -621,3 +622,57 @@ def load_unfolder(
     unfolder.load(fnames_uw)
 
     return unfolder
+
+def collect_unfolded_histograms_from_unfolder(
+    unfolder,
+    observables, # list of observalbe names
+    obsConfig_d, # dict for observable configurations
+    binning_config, # path to binning config file
+    iteration = -1, # by default take the last iteration
+    nruns = None, # by default take all that are available
+    absoluteValue = False, # bool, or a list of bool with the same length as observables
+    nominal_only = False # bool; If True, do not make histograms for every run
+    ):
+
+    # Histogram dictionary
+    histograms_d = dict()
+
+    # flags to indicate whether to take the absolute value of an observable when
+    # making histograms
+    if isinstance(absoluteValue, bool):
+        absoluteValue = [absoluteValue] * len(observables)
+
+    # Loop over observables
+    for ob, absV in zip(observables, absoluteValue):
+        logger.info(f"Make histograms for {ob}")
+
+        vname_mc = obsConfig_d[ob]['branch_mc']
+
+        # bin edges
+        bins_mc = util.get_bins(ob, binning_config)
+
+        histograms_d[ob] = {}
+
+        histograms_d[ob]['unfolded'] = unfolder.get_unfolded_distribution(
+            vname_mc,
+            bins_mc,
+            iteration = iteration,
+            nresamples = nruns,
+            absoluteValue = absV
+        )[0]
+
+        # set x-axis label
+        xlabel = obsConfig_d[ob]['xlabel']
+        histograms_d[ob]["unfolded"].axes[0].label = xlabel
+
+        if not nominal_only:
+            # save histograms from every run
+            histograms_d[ob]['unfolded_allruns'] = unfolder.get_unfolded_hists_resamples(
+                vname_mc,
+                bins_mc,
+                iteration = iteration,
+                nresamples = nruns,
+                absoluteValue = absV
+            )
+
+    return histograms_d
