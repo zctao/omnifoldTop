@@ -2,9 +2,11 @@
 Helper functions to handle Hist objects.
 """
 
+import os
 import numpy as np
 import pandas as pd
 
+import uproot
 import hist
 from hist import Hist
 import functools
@@ -225,3 +227,60 @@ def divide(h1, h2):
     hr.view()['variance'] = r_variance
 
     return hr
+
+##
+# utilities to write/read histograms to/from files
+# Write
+def write_dict_uproot(file_to_write, obj_dict, top_dir=''):
+    for k, v in obj_dict.items():
+        if isinstance(v, dict):
+            write_dict_uproot(
+                file_to_write, v, os.path.join(top_dir, k)
+                )
+        else:
+            if isinstance(v, list):
+                for iv, vv in enumerate(v):
+                    file_to_write[os.path.join(top_dir, f"{k}-list-{iv}")] = vv
+            else:
+                file_to_write[os.path.join(top_dir, k)] = v
+
+def write_histograms_dict_to_file(hists_dict, file_name):
+    with uproot.recreate(file_name) as f:
+        write_dict_uproot(f, hists_dict)
+
+# Read
+def fill_dict_from_path(obj_dict, paths_list, obj):
+    if not paths_list:
+        return
+
+    p0 = paths_list[0]
+
+    if len(paths_list) == 1:
+        # list of objects are denoted by e.g. <obj_name>-list-0
+        pp = p0.split('-list-')
+        if len(pp) == 1: # does not contain '-list-'
+            obj_dict[p0] = obj
+        else: # should be added to list
+            common_name = pp[0]
+            if isinstance(obj_dict.get(common_name), list):
+                obj_dict[common_name].append(obj)
+            else:
+                obj_dict[common_name] = [obj]
+    else:
+        if not p0 in obj_dict:
+            obj_dict[p0] = {}
+
+        fill_dict_from_path(obj_dict[p0], paths_list[1:], obj)
+
+def read_histograms_dict_from_file(file_name):
+    histograms_d = {}
+    with uproot.open(file_name) as f:
+        for k, v in f.classnames().items():
+            if not v.startswith("TH"):
+                continue
+
+            # create nested dictionary based on directories
+            paths = k.split(';')[0].split(os.sep)
+            fill_dict_from_path(histograms_d, paths, f[k].to_hist())
+
+    return histograms_d
