@@ -179,7 +179,7 @@ def createRun2Config(
         nresamples = 10
         outdir_resample = os.path.join(output_top_dir, "nominal", f"output_run2_bootstrap_{channel}")
         outdir_resample_dict = {
-            f"resample{n+1}" : outdir_resample for n in range(nresamples)
+            f"resample{n}" : outdir_resample for n in range(nresamples)
             }
 
         resample_cfg = common_cfg.copy()
