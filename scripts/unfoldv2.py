@@ -74,7 +74,7 @@ def unfold(**parsed_args):
         rw.variables = var_lookup(rw.variables)
 
     t_init_start = time.time()
-        
+
     unfolder = OmniFoldTTbar(
         varnames_train_reco,
         varnames_train_truth,

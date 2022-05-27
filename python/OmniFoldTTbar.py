@@ -516,33 +516,8 @@ class OmniFoldTTbar():
             )
         # hists_uf is a list of hist objects or a list of a list of hist objects
 
-        if not hists_uf:
-            # no unfolded weights available
-            return None, None
-
-        # take the histogram from the first run
-        h_uf = hists_uf[0]
-
-        # bin corrections
-        bin_corr = None
-
-        if len(hists_uf) > 1:
-            # compute bin correlations
-            bin_corr = myhu.get_bin_correlations_from_hists(hists_uf)
-
-            # average bin entries of all runs
-            # mean of each bin
-            hmean = myhu.get_mean_from_hists(hists_uf)
-
-            # standard deviation of each bin
-            hsigma = myhu.get_sigma_from_hists(hists_uf)
-
-            # standard error of the mean
-            hstderr = hsigma / np.sqrt( len(hists_uf) )
-
-            # update unfolded histogram
-            myhu.set_hist_contents(h_uf, hmean)
-            myhu.set_hist_errors(h_uf, hstderr)
+        # compute the average of each bin
+        h_uf = myhu.average_histograms(hists_uf)
 
         if norm is not None:
             # rescale the unfolded histograms to the norm
@@ -551,6 +526,11 @@ class OmniFoldTTbar():
                     hh *= (norm / hh.sum(flow=True)['value'])
             else:
                 h_uf *= (norm / h_uf.sum(flow=True)['value'])
+
+        # bin correlations
+        bin_corr = None
+        if len(hists_uf) > 1:
+            bin_corr = myhu.get_bin_correlations_from_hists(hists_uf)
 
         return h_uf, bin_corr
 

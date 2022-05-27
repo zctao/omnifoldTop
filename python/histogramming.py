@@ -5,6 +5,7 @@ Helper functions to handle Hist objects.
 import os
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 import uproot
 import hist
@@ -177,6 +178,51 @@ def get_sigma_from_hists(histogram_list):
         return None
     else:
         return np.std(np.asarray(histogram_list)['value'], axis=0, ddof=1)
+
+def average_histograms(histograms_list):
+    if not histograms_list:
+        return None
+
+    elif len(histograms_list) == 1:
+        # only one histogram in the list
+        return histograms_list[0]
+
+    else:
+        # take the hist from the first in the list
+        h_result = histograms_list[0].copy()
+
+        # mean of each bin
+        hmean = get_mean_from_hists(histograms_list)
+
+        # standard deviation of each bin
+        hsigma = get_sigma_from_hists(histograms_list)
+
+        # standard error of the mean
+        hstderr = hsigma / np.sqrt( len(histograms_list) )
+
+        # set the result histogram
+        set_hist_contents(h_result, hmean)
+        set_hist_errors(h_result, hstderr)
+
+        return h_result
+
+def get_variance_from_hists(histograms_list):
+    histograms_arr = np.asarray(histograms_list)
+
+    # number of entries per bin
+    N = histograms_arr.shape[0]
+
+    # variance
+    hvar = stats.moment(histograms_arr, axis=0, moment=2) * N / (N-1)
+    #assert( np.all( np.isclose(hvar, np.var(histograms_arr, axis=0, ddof=1)) ) )
+
+    # variance of sample variance
+    # https://math.stackexchange.com/questions/2476527/variance-of-sample-variance
+    hvar_mu4 = stats.moment(histograms_arr, axis=0, moment=4)
+    hvar_mu2 = stats.moment(histograms_arr, axis=0, moment=2)
+    hvar_var = hvar_mu4 / N - hvar_mu2*hvar_mu2 * (N-3) / N / (N-1)
+
+    return hvar, hvar_var
 
 def get_bin_correlations_from_hists(histogram_list):
     """
