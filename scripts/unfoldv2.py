@@ -115,6 +115,7 @@ def unfold(**parsed_args):
             niterations = parsed_args['iterations'],
             resample_data = parsed_args['resample_data'],
             nruns = parsed_args['nruns'],
+            resample_everyrun = parsed_args['resample_everyrun'],
             model_type = parsed_args['model_name'],
             save_models = True,
             load_previous_iteration = True, # TODO check here
@@ -434,7 +435,9 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument("--nruns", type=int, default=1,
                         help="Number of times to run unfolding")
     parser.add_argument("--resample-data", action='store_true',
-                        help="If True, fluctuate data weights for each run")
+                        help="If True, fluctuate data weights")
+    parser.add_argument("--resample-everyrun", action='store_true',
+                        help="If True, resample data weights every run. Ignored if 'resample_data' is False.")
     parser.add_argument('-m', '--model-name',
                         type=str, default='dense_100x3',
                         help="Name of the model for unfolding")
@@ -496,6 +499,7 @@ def getArgsParser(arguments_list=None, print_help=False):
         logger.warn("The argument '--error-type' is superceded by '--resample-data'")
         if args.error_type == 'bootstrap_full':
             args.resample_data = True
+            args.resample_everyrun = True
         else:
             args.resample_data = False
 

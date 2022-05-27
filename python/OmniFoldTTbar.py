@@ -346,6 +346,7 @@ class OmniFoldTTbar():
         niterations, # number of iterations
         resample_data=False,
         nruns=1,
+        resample_everyrun=False,
         model_type='dense_100x3',
         save_models=True,
         load_previous_iteration=True,
@@ -359,7 +360,7 @@ class OmniFoldTTbar():
 
         # preprocess data and weights
         X_data, X_sim, X_gen = self._get_input_arrays()
-        w_data, w_sim, w_gen = self._get_event_weights()
+        w_data, w_sim, w_gen = self._get_event_weights(resample=resample_data)
         passcut_data, passcut_sim, passcut_gen = self._get_event_flags()
 
         # plot variable and event weight distributions for training
@@ -396,7 +397,7 @@ class OmniFoldTTbar():
                 else:
                     save_model_dir = ''
 
-            if resample_data:
+            if resample_data and resample_everyrun:
                 # fluctuate data weights
                 w_data, w_sim, w_gen = self._get_event_weights(resample=True)
 
