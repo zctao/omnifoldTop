@@ -141,6 +141,7 @@ def createRun2Config(
         outname_config = 'runConfig',
         output_top_dir = '.',
         subcampaigns = ["mc16a", "mc16d", "mc16e"],
+        do_bootstrap = False,
         systematics = [],
         common_cfg = {}
     ):
@@ -172,6 +173,27 @@ def createRun2Config(
     # write nominal run configuration
     outname_config_nominal = f"{outname_config}_nominal.json"
     util.write_dict_to_json(nominal_cfg, outname_config_nominal)
+
+    # bootstrap for statistical uncertainties
+    if do_bootstrap:
+        nresamples = 10
+        outdir_resample = os.path.join(output_top_dir, "nominal", f"output_run2_bootstrap_{channel}")
+        outdir_resample_dict = {
+            f"resample{n+1}" : outdir_resample for n in range(nresamples)
+            }
+
+        resample_cfg = common_cfg.copy()
+        resample_cfg.update({
+            "data": obs_nominal,
+            "signal": sig_nominal,
+            "background": bkg_nominal,
+            "outputdir": outdir_resample_dict,
+            "resample_data": True
+            })
+
+        # write bootstrap run configuration
+        outname_config_bootstrap = f"{outname_config}_bootstrap.json"
+        util.write_dict_to_json(resample_cfg, outname_config_bootstrap)
 
     if not systematics: # no systematic uncertainties to evaluate
         return
@@ -211,7 +233,7 @@ def createRun2Config(
                     "background": bkg_syst,
                     "outputdir": outdir_syst,
                     "load_models": outdir_nominal,
-                    "nresamples": 5
+                    "nruns": 10 # TODO: 1?
                     })
 
                 cfg_dict_list.append(syst_cfg)
@@ -239,6 +261,8 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--subcampaigns", nargs='+', choices=["mc16a", "mc16d", "mc16e"], default=["mc16a", "mc16d", "mc16e"])
     parser.add_argument("-s", "--systematics", type=str, nargs="*", default=[],
                         help="List of systematic uncertainties to evaluate. A special case: 'all' includes all systematics")
+    parser.add_argument("-b", "--do-bootstrap", action="store_true",
+                        help="If True, also generate run configs to do bootstrap")
 
     args = parser.parse_args()
 
@@ -248,8 +272,8 @@ if __name__ == "__main__":
         "iterations" : 5,
         "batch_size" : 20000,
         "normalize" : True,
-        "error_type" : "bootstrap_full",
-        "nresamples" : 25,
+        "nruns" : 10,
+        "resample_data" : False
     }
 
     createRun2Config(
@@ -258,6 +282,7 @@ if __name__ == "__main__":
         outname_config = args.config_name,
         output_top_dir = args.result_dir,
         subcampaigns = args.subcampaigns,
+        do_bootstrap = args.do_bootstrap,
         systematics = args.systematics,
         common_cfg = common_cfg
         )
