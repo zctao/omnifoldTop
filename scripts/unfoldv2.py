@@ -5,6 +5,7 @@ import time
 import tracemalloc
 import logging
 import numpy as np
+from copy import copy
 
 import util
 import plotter
@@ -69,7 +70,7 @@ def unfold(**parsed_args):
     rw = None
     if parsed_args["reweight_data"]:
         var_lookup = np.vectorize(lambda v: observable_dict[v]["branch_mc"])
-        rw = reweight.rw[parsed_args["reweight_data"]]
+        rw = copy(reweight.rw[parsed_args["reweight_data"]])
         rw.variables = var_lookup(rw.variables)
 
     t_init_start = time.time()
