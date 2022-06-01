@@ -585,12 +585,13 @@ def plot_distributions_iteration(
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
 
-def plot_hists_bin_distr(figname, histograms_list, histogram_ref):
-    # histograms_list can be either dimension 3 if all iterations are included
-    # or dimension 2 if only the final unfolded ones for all trials
-    histograms_arr = np.asarray(histograms_list)['value']
+def plot_hists_bin_distr(figname, histograms_list, histogram_ref=None):
 
-    nbins = histogram_ref.axes[0].size
+    histograms_arr = np.asarray(histograms_list)['value']
+    # histograms_arr can be either dimension 3 if all iterations are included
+    # or dimension 2 if only the final unfolded ones for all trials
+
+    nbins = histograms_arr.shape[-1]
     niterations = histograms_arr.shape[1] if histograms_arr.ndim > 2 else 1
 
     fig, ax = plt.subplots(nrows=niterations, ncols=nbins,
@@ -609,7 +610,7 @@ def plot_hists_bin_distr(figname, histograms_list, histogram_ref):
         #pulls = (nentries - mu) / sigma
 
         # compare and standardize to ref
-        ref = histogram_ref.values()[ibin]
+        ref = histogram_ref.values()[ibin] if histogram_ref else 0
         nentries_ref = nentries - ref
 
         # plot
