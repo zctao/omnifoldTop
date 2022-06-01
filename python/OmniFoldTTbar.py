@@ -1,9 +1,11 @@
 import os
 import glob
 import numpy as np
+from copy import copy
 
 import util
 import plotter
+import reweight
 import histogramming as myhu
 from datahandler import DataHandler
 from datahandler_root import DataHandlerROOT
@@ -422,7 +424,7 @@ class OmniFoldTTbar():
                     plotter.plot_train_log(csvfile)
 
         # save weights to disk
-        wfile = os.path.join(self.outdir, f"weights_unfolded.npz")
+        wfile = os.path.join(self.outdir, "weights_unfolded.npz")
         np.savez(wfile, unfolded_weights = self.unfolded_weights)
 
     def load(self, filepaths_unfolded_weights):
@@ -581,6 +583,13 @@ def load_unfolder(
     # truth level variable names
     varnames_truth = [obsConfig[k]["branch_mc"] for k in observables]
 
+    # reweighter
+    rw = None
+    if args_d['reweight_data']:
+        var_lookup = np.vectorize(lambda v: obsConfig[v]["branch_mc"])
+        rw = copy(reweight.rw[args_d["reweight_data"]])
+        rw.variables = var_lookup(rw.variables)
+
     logger.info("Construct unfolder")
     unfolder = OmniFoldTTbar(
         varnames_reco,
@@ -590,69 +599,15 @@ def load_unfolder(
         filepaths_bkg = args_d['background'],
         normalize_to_data = args_d['normalize'],
         dummy_value = args_d['dummy_value'],
-        weight_type = args_d['weight_type']
+        weight_type = args_d['weight_type'],
+        truth_known = args_d['truth_known'],
+        outputdir = args_d['outputdir'],
+        data_reweighter = rw
     )
 
-    # load unfolded event weights
-    fnames_uw = [os.path.join(args_d['outputdir'], 'weights.npz')]
-    if args_d['error_type'] != 'sumw2':
-        fnames_uw.append( os.path.join(args_d['outputdir'], f"weights_resample{args_d['nresamples']}.npz") )
-
+    # read unfolded event weights
+    fnames_uw = os.path.join(args_d['outputdir'], "weights_unfolded.npz")
     logger.info(f"Load weights from {fnames_uw}")
     unfolder.load(fnames_uw)
 
     return unfolder
-
-def collect_unfolded_histograms_from_unfolder(
-    unfolder,
-    observables, # list of observalbe names
-    obsConfig_d, # dict for observable configurations
-    binning_config, # path to binning config file
-    iteration = -1, # by default take the last iteration
-    nruns = None, # by default take all that are available
-    absoluteValue = False, # bool, or a list of bool with the same length as observables
-    nominal_only = False # bool; If True, do not make histograms for every run
-    ):
-
-    # Histogram dictionary
-    histograms_d = dict()
-
-    # flags to indicate whether to take the absolute value of an observable when
-    # making histograms
-    if isinstance(absoluteValue, bool):
-        absoluteValue = [absoluteValue] * len(observables)
-
-    # Loop over observables
-    for ob, absV in zip(observables, absoluteValue):
-        logger.info(f"Make histograms for {ob}")
-
-        vname_mc = obsConfig_d[ob]['branch_mc']
-
-        # bin edges
-        bins_mc = util.get_bins(ob, binning_config)
-
-        histograms_d[ob] = {}
-
-        histograms_d[ob]['unfolded'] = unfolder.get_unfolded_distribution(
-            vname_mc,
-            bins_mc,
-            iteration = iteration,
-            nresamples = nruns,
-            absoluteValue = absV
-        )[0]
-
-        # set x-axis label
-        xlabel = obsConfig_d[ob]['xlabel']
-        histograms_d[ob]["unfolded"].axes[0].label = xlabel
-
-        if not nominal_only:
-            # save histograms from every run
-            histograms_d[ob]['unfolded_allruns'] = unfolder.get_unfolded_hists_resamples(
-                vname_mc,
-                bins_mc,
-                iteration = iteration,
-                nresamples = nruns,
-                absoluteValue = absV
-            )
-
-    return histograms_d
