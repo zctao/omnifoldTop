@@ -12,6 +12,7 @@ import plotter
 import reweight
 import metrics
 from OmniFoldTTbar import OmniFoldTTbar
+from make_histograms import make_histograms_from_unfolder
 from ibuv2 import run_ibu
 
 def unfold(**parsed_args):
@@ -133,17 +134,11 @@ def unfold(**parsed_args):
     logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
 
     #################
-    # Plot results
+    # Make histograms and plots
     #################
-    if parsed_args['plot_verbosity'] == 0:
-        # skip plotting
-        tracemalloc.stop()
-        return
-
-    t_result_start = time.time()
 
     # Input variable correlations
-    if parsed_args['plot_verbosity'] >= 3: # '-ppp'
+    if parsed_args['plot_verbosity'] >= 2: # '-pp'
         logger.info(f"Plot input variable correlations")
         corr_data = unfolder.handle_obs.get_correlations(varnames_train_reco)
         plotter.plot_correlations(
@@ -160,232 +155,29 @@ def unfold(**parsed_args):
             os.path.join(unfolder.outdir, "InputCorr_gen"), corr_gen
         )
 
-    # for each observable
-    for observable in set().union(parsed_args['observables'], parsed_args['observables_extra']):
-        logger.info(f"Unfold variable: {observable}")
-        varname_reco = observable_dict[observable]['branch_det']
-        varname_truth = observable_dict[observable]['branch_mc']
+    ###
+    t_result_start = time.time()
 
-        # get bins
-        # TODO different binning at reco and truth level?
-        bins_det = util.get_bins(observable, parsed_args['binning_config'])
-        bins_mc = util.get_bins(observable, parsed_args['binning_config'])
+    all_observables = set().union(
+        parsed_args['observables'], parsed_args['observables_extra'])
 
-        ####
-        # -p 
-        # Truth level
-        # prior distribution
-        h_gen = unfolder.handle_sig.get_histogram(varname_truth, bins_mc)
-        norm_prior = h_gen.sum(flow=True)['value']
-
-        # unfolded distribution
-        h_uf, h_uf_corr = unfolder.get_unfolded_distribution(varname_truth, bins_mc, norm=norm_prior) # TODO check this
-        # normalize to the prior weightst for now, normalize to data?
-
-        # truth distribution if known
-        if parsed_args['truth_known']:
-            h_truth = unfolder.handle_obs.get_histogram(varname_truth, bins_mc)
-            #
-            # temporary fix before fixing normalization
-            # rescale h_truth to h_gen
-            h_truth *= (norm_prior/h_truth.sum(flow=True)['value'])
-            #
-        else:
-            h_truth = None
-
-        ####
-        # IBU
-        if parsed_args['run_ibu']:
-            # data array
-            array_obs = unfolder.handle_obs[varname_reco]
-            wobs = unfolder.handle_obs.get_weights()
-            if unfolder.handle_obsbkg is not None:
-                array_obsbkg = unfolder.handle_obsbkg[varname_reco]
-                wobsbkg = unfolder.handle_obsbkg.get_weights()
-                array_obs = np.concatenate([array_obs, array_obsbkg])
-                wobs = np.concatenate([wobs, wobsbkg])
-
-            # simulation
-            array_sim = unfolder.handle_sig[varname_reco]
-            wsim = unfolder.handle_sig.get_weights()
-
-            array_gen = unfolder.handle_sig[varname_truth]
-            wgen = unfolder.handle_sig.get_weights(reco_level=False)
-
-            if unfolder.handle_bkg is not None:
-                array_bkg = unfolder.handle_bkg[varname_reco]
-                wbkg = unfolder.handle_bkg.get_weights()
-            else:
-                array_bkg, wbkg = None, None
-
-            hists_ibu_alliters, h_ibu_corr, response = run_ibu(
-                bins_det, bins_mc,
-                array_obs, array_sim, array_gen, array_bkg,
-                wobs, wsim, wgen, wbkg,
-                niterations = parsed_args['iterations'],
-                all_iterations = True,
-                # FIXME: rescale the histogram to the prior for now
-                norm = norm_prior
-                )
-
-            # plot response
-            figname_resp = os.path.join(unfolder.outdir, f"Response_{observable}")
-            logger.info(f"  Plot detector response: {figname_resp}")
-            plotter.plot_response(figname_resp, response, observable)
-
-            h_ibu = hists_ibu_alliters[-1]
-            h_ibu_corr = h_ibu_corr[-1]
-        else:
-            h_ibu = None
-            hists_ibu_alliters = None
-            h_ibu_corr = None
-        ####
-
-        # print metrics on the plot
-        texts_chi2 = []
-        if parsed_args['plot_verbosity'] >= 2: # -pp
-            texts_chi2 = metrics.write_texts_Chi2(
-                h_truth, [h_uf, h_ibu, h_gen],
-                labels=['MultiFold', 'IBU', 'Prior']
+    if parsed_args['binning_config']:
+        make_histograms_from_unfolder(
+            unfolder,
+            parsed_args['binning_config'],
+            observables = all_observables,
+            obsConfig_d = observable_dict,
+            normalize = True,
+            include_ibu = parsed_args['run_ibu'],
+            compute_metrics = True,
+            plot_verbosity = parsed_args['plot_verbosity']
             )
 
-        # plot
-        figname_uf = os.path.join(unfolder.outdir, f"Unfold_{observable}")
-        logger.info(f"  Plot unfolded distribution: {figname_uf}")
-        plotter.plot_distributions_unfold(
-            figname_uf, h_uf, h_gen, h_truth, h_ibu,
-            xlabel = observable_dict[observable]['xlabel'],
-            ylabel = observable_dict[observable]['ylabel'],
-            legend_loc = observable_dict[observable]['legend_loc'],
-            legend_ncol = observable_dict[observable]['legend_ncol'],
-            stamp_loc = observable_dict[observable]['stamp_xy'],
-            stamp_texts = texts_chi2
-        )
+    t_result_stop = time.time()
 
-        ####
-        # More plots if -pp
-        if parsed_args['plot_verbosity'] < 2:
-            continue
-
-        ###
-        # Reco level distribution
-        # observed data
-        h_data = unfolder.handle_obs.get_histogram(varname_reco, bins_det)
-        if unfolder.handle_obsbkg is not None:
-            h_data += unfolder.handle_obsbkg.get_histogram(varname_reco, bins_det)
-
-        # signal simulation
-        h_sig = unfolder.handle_sig.get_histogram(varname_reco, bins_det)
-
-        # background simulation if available
-        if unfolder.handle_bkg is not None:
-            h_bkg = unfolder.handle_bkg.get_histogram(varname_reco, bins_det)
-        else:
-            h_bkg = None
-
-        figname_reco = os.path.join(unfolder.outdir, f"Reco_{observable}")
-        logger.info(f"  Plot detector-level distribution: {figname_reco}")
-        plotter.plot_distributions_reco(
-            figname_reco, h_data, h_sig, h_bkg,
-            xlabel = observable_dict[observable]['xlabel'],
-            ylabel = observable_dict[observable]['ylabel'],
-            legend_loc = observable_dict[observable]['legend_loc'],
-            legend_ncol = observable_dict[observable]['legend_ncol']
-        )
-
-        ###
-        # Unfolded distribution bin correlations
-        if h_uf_corr is not None:
-            figname_uf_corr = os.path.join(unfolder.outdir, f"BinCorr_{observable}_OmniFold")
-            logger.info(f"  Plot bin correlations: {figname_uf_corr}")
-            plotter.plot_correlations(figname_uf_corr, h_uf_corr, bins_mc)
-
-        if h_ibu_corr is not None:
-            figname_ibu_corr = os.path.join(unfolder.outdir, f"BinCorr_{observable}_IBU")
-            logger.info(f"  Plot bin correlations: {figname_ibu_corr}")
-            plotter.plot_correlations(figname_ibu_corr, h_ibu_corr, bins_mc)
-
-        ####
-        # Even more plots if -ppp
-        if parsed_args['plot_verbosity'] < 3:
-            continue
-
-        ## All runs
-        hists_uf_all = unfolder.get_unfolded_hists_resamples(
-            varname_truth, bins_mc, norm=norm_prior, all_iterations=True)
-
-        if len(hists_uf_all) > 1:
-            allruns_dir = os.path.join(unfolder.outdir, 'AllRuns')
-            if not os.path.isdir(allruns_dir):
-                logger.info(f"Create directory {allruns_dir}")
-                os.makedirs(allruns_dir)
-
-            # unfolded distributions from all runs
-            figname_rs = os.path.join(allruns_dir, f"Unfold_AllRuns_{observable}")
-            logger.info(f"  Plot unfolded distributions from all runs: {figname_rs}")
-            plotter.plot_distributions_resamples(
-                figname_rs,
-                [ h[-1] for h in hists_uf_all ], # take the last iter
-                h_gen, h_truth,
-                xlabel = observable_dict[observable]['xlabel'],
-                ylabel = observable_dict[observable]['ylabel'])
-
-            # distributions of bin entries
-            if h_truth is not None:
-                figname_bindistr = os.path.join(allruns_dir, f"Unfold_BinDistr_{observable}")
-                logger.info(f"  Plot distributions of bin entries from all resamples: {figname_bindistr}")
-                # For now
-                plotter.plot_hists_bin_distr(figname_bindistr, hists_uf_all, h_truth)
-
-        ## Iteration history
-        iteration_dir = os.path.join(unfolder.outdir, 'Iterations')
-        if not os.path.isdir(iteration_dir):
-            logger.info(f"Create directory {iteration_dir}")
-            os.makedirs(iteration_dir)
-
-        hists_uf_alliters = unfolder.get_unfolded_distribution(varname_truth, bins_mc, norm=norm_prior, all_iterations=True)[0]
-
-        figname_alliters = os.path.join(iteration_dir, f"Unfold_AllIterations_{observable}")
-        logger.info(f"  Plot unfolded distributions at every iteration: {figname_alliters}")
-        plotter.plot_distributions_iteration(
-            figname_alliters, hists_uf_alliters, h_gen, h_truth,
-            xlabel = observable_dict[observable]['xlabel'],
-            ylabel = observable_dict[observable]['ylabel'])
-
-        ## Metrics
-        mdict = {}
-        mdict[observable] = {}
-
-        # binned
-        mdict[observable]["nominal"] = metrics.write_all_metrics_binned(
-            hists_uf_alliters, h_gen, h_truth)
-
-        if len(hists_uf_all) > 1:
-            # every bootstrap replica
-            mdict[observable]["resample"] = metrics.write_all_metrics_binned(
-                hists_uf_all, h_gen, h_truth)
-
-        if hists_ibu_alliters:
-            mdict[observable]["IBU"] = metrics.write_all_metrics_binned(
-                hists_ibu_alliters, h_gen, h_truth)
-
-        # unbinned
-        mdict_unbinned = metrics.evaluate_unbinned_metrics(
-            unfolder, varname_truth)
-        for k in mdict_unbinned:
-            mdict[observable][k].update(mdict_unbinned[k])
-
-        metrics_dir = os.path.join(unfolder.outdir, 'Metrics')
-        if not os.path.isdir(metrics_dir):
-            os.makedirs(metrics_dir)
-
-        # write to json file
-        util.write_dict_to_json(mdict, metrics_dir+f"/{observable}.json")
-
-        # plot metrics
-        metrics.plot_all_metrics(
-             mdict[observable], metrics_dir+f"/{observable}"
-            )
+    logger.debug(f"Making histograms took {(t_result_stop-t_result_start):.2f} seconds.")
+    mcurrent, mpeak = tracemalloc.get_traced_memory()
+    logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
 
     tracemalloc.stop()
 
@@ -451,8 +243,8 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="Directory from where to load trained models. If provided, training will be skipped.")
     parser.add_argument('--dummy-value', type=float,
                         help="Dummy value to fill events that failed selecton. If None (default), only events that pass reco and truth (if apply) level selections are used for unfolding")
-    parser.add_argument('--binning-config', dest='binning_config',
-                        default='configs/binning/bins_10equal.json', type=str,
+    parser.add_argument('--binning-config', type=str,
+                        default="configs/binning/bins_10equal.json",
                         help="Binning config file for variables")
     parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
                         help="Plot verbose level. '-ppp' to make all plots.")
