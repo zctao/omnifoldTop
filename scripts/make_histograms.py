@@ -102,6 +102,9 @@ def make_histograms_of_observable(
 
     norm_uf = h_uf.sum(flow=True)['value'] if normalize else None
 
+    # set x-axis label
+    h_uf.axes[0].label = obsConfig_d[observable]['xlabel']
+
     hists_v_d['unfolded'] = h_uf
     hists_v_d['unfolded_corr'] = h_uf_corr
 
