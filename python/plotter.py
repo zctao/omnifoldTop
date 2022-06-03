@@ -470,6 +470,59 @@ def plot_correlations(figname, correlations, bins=None):
     fig.savefig(figname+'.png', dpi=200)
     plt.close(fig)
 
+def plot_multiple_histograms(
+    figname,
+    histograms_list,
+    xlabel = '',
+    ylabel = '',
+    colors = None,
+    nhistmax = 10,
+    draw_legend = False,
+    log_scale = False,
+    **draw_options
+    ):
+
+    fig, ax = plt.subplots()
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    if log_scale:
+        ax.set_yscale('log')
+
+    nhists = len(histograms_list)
+    if nhists > nhistmax:
+        selected_i = np.linspace(1, nhists-2, nhistmax-2).astype(int).tolist()
+        # the first [0] and the last [-1] are always plotted
+        selected_i = [0] + selected_i + [nhists-1]
+    else:
+        selected_i = list(range(nhists))
+
+    hists_toplot = [histograms_list[i] for i in selected_i]
+
+    if colors is None:
+        colors_toplot = set_default_colors(len(hists_toplot))
+    elif len(colors) == nhists:
+        colors_toplot = [colors[i] for i in selected_i]
+    else:
+        colors_toplot = colors
+    assert(len(colors_toplot)==len(hists_toplot))
+
+    for i, h, c in zip(selected_i, hists_toplot, colors_toplot):
+        hep.histplot(
+            h, ax=ax, histtype='errorbar', yerr=True, xerr=True, color=c,
+            #label = 
+            **draw_options
+            )
+
+    # legend
+    if draw_legend:
+        ax.legend(frameon=False)
+
+    # save plot
+    fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
+    plt.close(fig)
+
 def plot_distributions_resamples(
     figname,
     hists_uf_resample,
