@@ -207,7 +207,7 @@ def average_histograms(histograms_list):
         return h_result
 
 def get_variance_from_hists(histograms_list):
-    histograms_arr = np.asarray(histograms_list)
+    histograms_arr = np.asarray(histograms_list)['value']
 
     # number of entries per bin
     N = histograms_arr.shape[0]
