@@ -422,6 +422,7 @@ def make_histograms_from_unfolder(
     nruns = None, # by default take all that are available
     normalize = True, # If True, rescale all truth-level histograms to the same normalization
     outputdir = None, # str, output directory
+    outfilename = "histograms.root", # str, output file name
     include_ibu = False, # If True, include also IBU for comparison
     compute_metrics = False, # If True, compute metrics
     plot_verbosity = 0 # int, control how many plots to make
@@ -486,7 +487,7 @@ def make_histograms_from_unfolder(
 
     # save histograms to file
     if outputdir:
-        outname_hist = os.path.join(outputdir, 'histograms.root')
+        outname_hist = os.path.join(outputdir, outfilename)
         logger.info(f" Write histograms to file: {outname_hist}")
         # hard code here for now
         keys_to_save = ['unfolded', 'unfolded_allruns', 'prior', 'truth', 'ibu']
@@ -511,6 +512,7 @@ def make_histograms(
     nruns = None,
     normalize = True,
     outputdir = None,
+    outfilename = 'histograms.root',
     include_ibu = False,
     compute_metrics = False,
     plot_verbosity = 0,
@@ -564,6 +566,7 @@ def make_histograms(
         nruns = nruns,
         normalize = True,
         outputdir = outputdir,
+        outfilename = outfilename,
         include_ibu = include_ibu,
         compute_metrics = compute_metrics,
         plot_verbosity = plot_verbosity
@@ -600,6 +603,8 @@ if __name__ == "__main__":
                         help="Number of runs for making unfolded distributions. If not specified, use all that are available")
     parser.add_argument("-o", "--outputdir", type=str,
                         help="Output directory. If not provided, use result_dir.")
+    parser.add_argument("-f", "--outfilename", type=str, default="histograms.root",
+                        help="Output file name")
     parser.add_argument('--include-ibu', action='store_true',
                         help="If True, run unfolding also with IBU as well")
     parser.add_argument('--compute-metrics', action='store_true',
