@@ -607,7 +607,6 @@ def load_unfolder(
 
     # read unfolded event weights
     fnames_uw = os.path.join(args_d['outputdir'], "weights_unfolded.npz")
-    logger.info(f"Load weights from {fnames_uw}")
     unfolder.load(fnames_uw)
 
     return unfolder
