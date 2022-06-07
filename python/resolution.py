@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import curve_fit
 
-from plotting import plot_graphs
+from plotter import plot_graphs
 
 from util import getLogger
 logger = getLogger('Resolution', level=20)
