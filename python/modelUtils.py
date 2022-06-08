@@ -1,6 +1,7 @@
 """
 Define model architectures.
 """
+# FIXME: Fix support for other types of networks, currently only default dense network works
 
 import numpy as np
 import tensorflow as tf
@@ -224,14 +225,19 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     -------
     tf.keras.models.Model
     """
-    inputs = keras.layers.Input(input_shape)
+    inputs, outputs = [], []
 
-    prev_layer = inputs
-    for n in nnodes:
-        prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
+    for i in range(n_models_in_parallel):
+        input_layer = keras.layers.Input(input_shape)
+        prev_layer = input_layer
+        for n in nnodes:
+            prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
 
-    #outputs = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
-    outputs = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
+        #output_layer = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
+        output_layer = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
+
+        inputs += [input_layer]
+        outputs += [output_layer]
 
     return keras.models.Model(inputs=inputs, outputs=outputs)
 
