@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 import plotter
-from modelUtils import get_model, get_callbacks, train_model
+from modelUtils import get_model, get_callbacks, train_model, n_models_in_parallel
 
 from util import reportGPUMemUsage
 
@@ -53,14 +53,14 @@ def set_up_model(
     return model, callbacks
 
 def reweight(model, events, batch_size, figname=None):
-    dataset = tf.data.Dataset.from_tensor_slices(events).batch(batch_size)
-    preds = model.predict(dataset)
-    preds = np.squeeze(preds)
-    r = np.nan_to_num( preds / (1. - preds) )
+    events_list = [events for i in range(n_models_in_parallel)]
+    preds_list = [np.squeeze(pred) for pred in model.predict(events_list, batch_size=batch_size)] if n_models_in_parallel > 1 else model.predict(events_list, batch_size=batch_size)[:,1]
+    r = np.array([np.nan_to_num( preds / (1. - preds) ) for preds in preds_list]) if n_models_in_parallel > 1 else np.nan_to_num( preds_list / (1. - preds_list) )
 
     if figname: # plot the distribution
-        logger.info(f"Plot likelihood ratio distribution {figname}")
-        plotter.plot_LR_distr(figname, [r])
+        for i in range(n_models_in_parallel)
+            logger.info(f"Plot likelihood ratio distribution {figname}{i}")
+            plotter.plot_LR_distr(figname+str(i), [r[i]])
 
     return r
 
@@ -107,6 +107,11 @@ def omnifold(
     assert(len(X_gen)==len(w_gen))
     assert(len(X_sim)==len(passcut_sim))
     assert(len(X_gen)==len(passcut_gen))
+
+    # Expand the weights arrays
+    w_data = np.array([w_data for i in range(n_models_in_parallel)])
+    w_sim = np.array([w_sim for i in range(n_models_in_parallel)])
+    w_gen = np.array([w_gen for i in range(n_models_in_parallel)])
 
     # Step 1
     # Use events that pass reco level selections
@@ -155,11 +160,11 @@ def omnifold(
     ################
     # Start iterations
     # Weights
-    weights_push = np.ones(len(X_sim))
-    weights_pull = np.ones(len(X_gen))
+    weights_push = [np.ones(len(X_sim)) for i in range(n_models_in_parallel)]
+    weights_pull = [np.ones(len(X_gen)) for i in range(n_models_in_parallel)]
 
-    weights_unfold = np.empty(shape=(niterations, np.count_nonzero(passcut_gen)))
-    # shape: (n_iterations, n_events[passcut_gen])
+    weights_unfold = np.empty(shape=(n_models_in_parallel, niterations, len(X_gen[passcut_gen])))
+    # shape: (n_models_in_parallel, n_iterations, n_events[passcut_gen])
 
     reportGPUMemUsage(logger)
 
@@ -176,9 +181,9 @@ def omnifold(
         if load_models_from:
             logger.info("Use trained model for reweighting")
         else: # train model
-            w_step1 = np.concatenate([
+            w_step1 = [np.concatenate([
                 w_data[passcut_data], (weights_push*w_sim)[passcut_sim]
-                ])
+                ]) for i in range(n_models_in_parallel)]
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
@@ -192,7 +197,7 @@ def omnifold(
         # reweight
         logger.info("Reweight")
         fname_rdistr = save_models_to + f"/rdistr_step1_{i}" if save_models_to and plot else ''
-        weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr)
+        weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr) if n_models_in_parallel>1 else weights_push * np.array([reweight(model_step1, X_sim, batch_size, fname_rdistr)])
 
         #####
         # step 1b: deal with events that do not pass reco cuts
@@ -207,10 +212,10 @@ def omnifold(
             if load_models_from:
                 logger.info("Use trained model for reweighting")
             else: # train model
-                w_step1b = np.concatenate([
+                w_step1b = [np.concatenate([
                     (weights_pull*w_gen)[passcut_sim & passcut_gen],
                     w_gen[passcut_sim & passcut_gen]
-                    ])
+                    ]) for i in range(n_models_in_parallel)]
 
                 logger.info("Start training")
                 train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
@@ -221,7 +226,10 @@ def omnifold(
             # reweight
             logger.info("Reweight")
             fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
-            weights_pull[~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], batch_size, fname_rdistr)
+            step_reweight = reweight(model_step1b, X_gen[~passcut_sim], batch_size, fname_rdistr)
+            step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
+            for j in range(n_models_in_parallel):
+                weights_pull[j][~passcut_sim] = step_reweight[j]
 
         # TODO: check this
         weights_pull /= np.mean(weights_pull)
@@ -241,9 +249,9 @@ def omnifold(
         if load_models_from:
             logger.info("Use trained model for reweighting")
         else: # train model
-            w_step2 = np.concatenate([
+            w_step2 = [np.concatenate([
                 (weights_pull*w_gen)[passcut_gen], w_gen[passcut_gen]*rw_step2
-                ])
+                ]) for i in range(n_models_in_parallel)]
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
@@ -256,7 +264,10 @@ def omnifold(
         # reweight
         logger.info("Reweight")
         fname_rdistr = save_models_to + f"/rdistr_step2_{i}" if save_models_to and plot else ''
-        weights_push[passcut_gen] = rw_step2 * reweight(model_step2, X_gen[passcut_gen], batch_size, fname_rdistr)
+        step_reweight = rw_step2 * reweight(model_step2, X_gen[passcut_gen], batch_size, fname_rdistr)
+        step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
+        for j in range(n_models_in_parallel):
+            weights_push[j][passcut_gen] = step_reweight[j]
 
         #####
         # step 2b: deal with events that do not pass truth cuts
@@ -271,10 +282,10 @@ def omnifold(
             if load_models_from:
                 logger.info("Use trained model for reweighting")
             else: # train model
-                w_step2b = np.concatenate([
+                w_step2b = [np.concatenate([
                     (weights_push*w_sim)[passcut_sim & passcut_gen],
                     w_sim[passcut_sim & passcut_gen]
-                    ])
+                    ]) for i in range(n_models_in_parallel)]
 
                 logger.info("Start training")
                 train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
@@ -285,13 +296,17 @@ def omnifold(
             # reweight
             logger.info("Reweight")
             fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
-            weights_push[~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], batch_size, fname_rdistr)
+            step_reweight = reweight(model_step2b, X_sim[~passcut_gen], batch_size, fname_rdistr)
+            step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
+            for j in range(n_models_in_parallel):
+                weights_push[j][~passcut_gen] = step_reweight[j]
 
         # TODO: check this
         weights_push /= np.mean(weights_push)
 
+        for j in range(n_models_in_parallel):
         # save truth level weights of this iteration
-        weights_unfold[i,:] = weights_push[passcut_gen]
+            weights_unfold[j][i,:] = weights_push[j][passcut_gen]
 
         reportGPUMemUsage(logger)
 
