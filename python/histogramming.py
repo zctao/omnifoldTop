@@ -2,9 +2,12 @@
 Helper functions to handle Hist objects.
 """
 
+import os
 import numpy as np
 import pandas as pd
+from scipy import stats
 
+import uproot
 import hist
 from hist import Hist
 import functools
@@ -176,6 +179,51 @@ def get_sigma_from_hists(histogram_list):
     else:
         return np.std(np.asarray(histogram_list)['value'], axis=0, ddof=1)
 
+def average_histograms(histograms_list):
+    if not histograms_list:
+        return None
+
+    elif len(histograms_list) == 1:
+        # only one histogram in the list
+        return histograms_list[0]
+
+    else:
+        # take the hist from the first in the list
+        h_result = histograms_list[0].copy()
+
+        # mean of each bin
+        hmean = get_mean_from_hists(histograms_list)
+
+        # standard deviation of each bin
+        hsigma = get_sigma_from_hists(histograms_list)
+
+        # standard error of the mean
+        hstderr = hsigma / np.sqrt( len(histograms_list) )
+
+        # set the result histogram
+        set_hist_contents(h_result, hmean)
+        set_hist_errors(h_result, hstderr)
+
+        return h_result
+
+def get_variance_from_hists(histograms_list):
+    histograms_arr = np.asarray(histograms_list)['value']
+
+    # number of entries per bin
+    N = histograms_arr.shape[0]
+
+    # variance
+    hvar = stats.moment(histograms_arr, axis=0, moment=2) * N / (N-1)
+    #assert( np.all( np.isclose(hvar, np.var(histograms_arr, axis=0, ddof=1)) ) )
+
+    # variance of sample variance
+    # https://math.stackexchange.com/questions/2476527/variance-of-sample-variance
+    hvar_mu4 = stats.moment(histograms_arr, axis=0, moment=4)
+    hvar_mu2 = stats.moment(histograms_arr, axis=0, moment=2)
+    hvar_var = hvar_mu4 / N - hvar_mu2*hvar_mu2 * (N-3) / N / (N-1)
+
+    return hvar, hvar_var
+
 def get_bin_correlations_from_hists(histogram_list):
     """
     Get bin correlations from a list of histograms
@@ -225,3 +273,60 @@ def divide(h1, h2):
     hr.view()['variance'] = r_variance
 
     return hr
+
+##
+# utilities to write/read histograms to/from files
+# Write
+def write_dict_uproot(file_to_write, obj_dict, top_dir=''):
+    for k, v in obj_dict.items():
+        if isinstance(v, dict):
+            write_dict_uproot(
+                file_to_write, v, os.path.join(top_dir, k)
+                )
+        else:
+            if isinstance(v, list):
+                for iv, vv in enumerate(v):
+                    file_to_write[os.path.join(top_dir, f"{k}-list-{iv}")] = vv
+            else:
+                file_to_write[os.path.join(top_dir, k)] = v
+
+def write_histograms_dict_to_file(hists_dict, file_name):
+    with uproot.recreate(file_name) as f:
+        write_dict_uproot(f, hists_dict)
+
+# Read
+def fill_dict_from_path(obj_dict, paths_list, obj):
+    if not paths_list:
+        return
+
+    p0 = paths_list[0]
+
+    if len(paths_list) == 1:
+        # list of objects are denoted by e.g. <obj_name>-list-0
+        pp = p0.split('-list-')
+        if len(pp) == 1: # does not contain '-list-'
+            obj_dict[p0] = obj
+        else: # should be added to list
+            common_name = pp[0]
+            if isinstance(obj_dict.get(common_name), list):
+                obj_dict[common_name].append(obj)
+            else:
+                obj_dict[common_name] = [obj]
+    else:
+        if not p0 in obj_dict:
+            obj_dict[p0] = {}
+
+        fill_dict_from_path(obj_dict[p0], paths_list[1:], obj)
+
+def read_histograms_dict_from_file(file_name):
+    histograms_d = {}
+    with uproot.open(file_name) as f:
+        for k, v in f.classnames().items():
+            if not v.startswith("TH"):
+                continue
+
+            # create nested dictionary based on directories
+            paths = k.split(';')[0].split(os.sep)
+            fill_dict_from_path(histograms_d, paths, f[k].to_hist())
+
+    return histograms_d

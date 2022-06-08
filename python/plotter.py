@@ -470,6 +470,59 @@ def plot_correlations(figname, correlations, bins=None):
     fig.savefig(figname+'.png', dpi=200)
     plt.close(fig)
 
+def plot_multiple_histograms(
+    figname,
+    histograms_list,
+    xlabel = '',
+    ylabel = '',
+    colors = None,
+    nhistmax = 10,
+    draw_legend = False,
+    log_scale = False,
+    **draw_options
+    ):
+
+    fig, ax = plt.subplots()
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    if log_scale:
+        ax.set_yscale('log')
+
+    nhists = len(histograms_list)
+    if nhists > nhistmax:
+        selected_i = np.linspace(1, nhists-2, nhistmax-2).astype(int).tolist()
+        # the first [0] and the last [-1] are always plotted
+        selected_i = [0] + selected_i + [nhists-1]
+    else:
+        selected_i = list(range(nhists))
+
+    hists_toplot = [histograms_list[i] for i in selected_i]
+
+    if colors is None:
+        colors_toplot = set_default_colors(len(hists_toplot))
+    elif len(colors) == nhists:
+        colors_toplot = [colors[i] for i in selected_i]
+    else:
+        colors_toplot = colors
+    assert(len(colors_toplot)==len(hists_toplot))
+
+    for i, h, c in zip(selected_i, hists_toplot, colors_toplot):
+        hep.histplot(
+            h, ax=ax, histtype='errorbar', yerr=True, xerr=True, color=c,
+            #label = 
+            **draw_options
+            )
+
+    # legend
+    if draw_legend:
+        ax.legend(frameon=False)
+
+    # save plot
+    fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
+    plt.close(fig)
+
 def plot_distributions_resamples(
     figname,
     hists_uf_resample,
@@ -585,12 +638,13 @@ def plot_distributions_iteration(
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
 
-def plot_hists_bin_distr(figname, histograms_list, histogram_ref):
-    # histograms_list can be either dimension 3 if all iterations are included
-    # or dimension 2 if only the final unfolded ones for all trials
-    histograms_arr = np.asarray(histograms_list)['value']
+def plot_hists_bin_distr(figname, histograms_list, histogram_ref=None):
 
-    nbins = histogram_ref.axes[0].size
+    histograms_arr = np.asarray(histograms_list)['value']
+    # histograms_arr can be either dimension 3 if all iterations are included
+    # or dimension 2 if only the final unfolded ones for all trials
+
+    nbins = histograms_arr.shape[-1]
     niterations = histograms_arr.shape[1] if histograms_arr.ndim > 2 else 1
 
     fig, ax = plt.subplots(nrows=niterations, ncols=nbins,
@@ -609,7 +663,7 @@ def plot_hists_bin_distr(figname, histograms_list, histogram_ref):
         #pulls = (nentries - mu) / sigma
 
         # compare and standardize to ref
-        ref = histogram_ref.values()[ibin]
+        ref = histogram_ref.values()[ibin] if histogram_ref else 0
         nentries_ref = nentries - ref
 
         # plot
@@ -938,7 +992,7 @@ def plot_uncertainties(
     # horizontal line at zero
     ax.axhline(y=0., color='black', linestyle='--', alpha=0.3)
 
-    ax.legend()
+    ax.legend(loc='upper left')
 
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
