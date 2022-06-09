@@ -178,7 +178,7 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
 
     return model
 
-def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32, epochs=100, verbose=1):
+def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1):
 
     # initalize empty lists
     X_train_list, X_val_list, Yw_train_list, Yw_val_list = [], [], [], []
@@ -193,7 +193,7 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32, epochs=
         X_train_list += [X_train]
         X_val_list += [X_val]
 
-    fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose}
+    fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
 
     if n_models_in_parallel == 1:
         model.fit(X_train_list[0], Yw_train_list[0], validation_data=(X_val_list[0], Yw_val_list[0]), **fitargs)

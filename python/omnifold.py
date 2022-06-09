@@ -58,7 +58,7 @@ def reweight(model, events, batch_size, figname=None):
     r = np.array([np.nan_to_num( preds / (1. - preds) ) for preds in preds_list]) if n_models_in_parallel > 1 else np.nan_to_num( preds_list / (1. - preds_list) )
 
     if figname: # plot the distribution
-        for i in range(n_models_in_parallel)
+        for i in range(n_models_in_parallel):
             logger.info(f"Plot likelihood ratio distribution {figname}{i}")
             plotter.plot_LR_distr(figname+str(i), [r[i]])
 
@@ -109,9 +109,10 @@ def omnifold(
     assert(len(X_gen)==len(passcut_gen))
 
     # Expand the weights arrays
-    w_data = np.array([w_data for i in range(n_models_in_parallel)])
     w_sim = np.array([w_sim for i in range(n_models_in_parallel)])
     w_gen = np.array([w_gen for i in range(n_models_in_parallel)])
+
+    # no need to resize w_data, it is only used once and it is constant
 
     # Step 1
     # Use events that pass reco level selections
@@ -182,7 +183,7 @@ def omnifold(
             logger.info("Use trained model for reweighting")
         else: # train model
             w_step1 = [np.concatenate([
-                w_data[passcut_data], (weights_push*w_sim)[passcut_sim]
+                w_data[passcut_data], (weights_push[i]*w_sim[i])[passcut_sim]
                 ]) for i in range(n_models_in_parallel)]
 
             logger.info("Start training")
@@ -213,8 +214,8 @@ def omnifold(
                 logger.info("Use trained model for reweighting")
             else: # train model
                 w_step1b = [np.concatenate([
-                    (weights_pull*w_gen)[passcut_sim & passcut_gen],
-                    w_gen[passcut_sim & passcut_gen]
+                    (weights_pull[i]*w_gen[i])[passcut_sim & passcut_gen],
+                    w_gen[i][passcut_sim & passcut_gen]
                     ]) for i in range(n_models_in_parallel)]
 
                 logger.info("Start training")
@@ -250,7 +251,7 @@ def omnifold(
             logger.info("Use trained model for reweighting")
         else: # train model
             w_step2 = [np.concatenate([
-                (weights_pull*w_gen)[passcut_gen], w_gen[passcut_gen]*rw_step2
+                (weights_pull[i]*w_gen[i])[passcut_gen], w_gen[i][passcut_gen]*rw_step2
                 ]) for i in range(n_models_in_parallel)]
 
             logger.info("Start training")
@@ -283,8 +284,8 @@ def omnifold(
                 logger.info("Use trained model for reweighting")
             else: # train model
                 w_step2b = [np.concatenate([
-                    (weights_push*w_sim)[passcut_sim & passcut_gen],
-                    w_sim[passcut_sim & passcut_gen]
+                    (weights_push[i]*w_sim[i])[passcut_sim & passcut_gen],
+                    w_sim[i][passcut_sim & passcut_gen]
                     ]) for i in range(n_models_in_parallel)]
 
                 logger.info("Start training")

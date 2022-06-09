@@ -383,7 +383,7 @@ class OmniFoldTTbar():
         # unfold
         assert(nruns>0)
         self.unfolded_weights = np.empty(
-            shape=(nruns, niterations, np.count_nonzero(passcut_gen))
+            shape=(nruns * n_models_in_parallel, niterations, np.count_nonzero(passcut_gen))
             )
 
         for ir in range(nruns):
