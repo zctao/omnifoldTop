@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 
 import plotter
 
-n_models_in_parallel = 5
+n_models_in_parallel = 1
 
 import logging
 logger = logging.getLogger('model')
