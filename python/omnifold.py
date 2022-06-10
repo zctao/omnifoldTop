@@ -17,12 +17,13 @@ B_TO_MB = 2**-20 # constant for converting size in bytes to MBs
 def set_up_model(
     model_type, # str, type of the network
     input_shape, # tuple, shape of the input layer
-    scheduler_name = None, # str, name of the requesting learning rate scheduler
     iteration = 0, # int, iteration index
     name_prefix = 'model', # str, prefix of the model name
     save_models_to = '', # str, directory to save the trained model to
     load_models_from = '', # str, directory to load trained model weights
     start_from_previous_iter = False, # bool, if True, initialize model from previous iteration
+    scheduler_name = None, # str, name of the requesting learning rate scheduler
+    reduce_on_plateau = 0 # int, number of epoch to wait before reducing learning rate
     ):
 
     # get network
@@ -36,7 +37,7 @@ def set_up_model(
     if save_models_to:
         filepath_save = os.path.join(save_models_to, mname)
 
-    callbacks = get_callbacks(scheduler_name, filepath_save)
+    callbacks = get_callbacks(scheduler_name, reduce_on_plateau, filepath_save)
     
     # load trained model if needed
     if load_models_from:
@@ -87,6 +88,7 @@ def omnifold(
     # Parameters
     niterations, # number of iterations
     scheduler_name = None, # str, name of the requesting learning rate scheduler
+    reduce_on_plateau = 0, # int, number of epoch to wait before reducing learning rate
     model_type='dense_100x3', # name of the model type 
     save_models_to='', # directory to save models to if provided
     load_models_from='', # directory to load trained models if provided
@@ -178,8 +180,8 @@ def omnifold(
         logger.info("Step 1")
         # set up the model
         model_step1, cb_step1 = set_up_model(
-            model_type, X_step1.shape[1:], scheduler_name, i, "model_step1",
-            save_models_to, load_models_from, start_from_previous_iter)
+            model_type, X_step1.shape[1:], i, "model_step1",
+            save_models_to, load_models_from, start_from_previous_iter, scheduler_name = scheduler_name, reduce_on_plateau = reduce_on_plateau)
 
         if load_models_from:
             logger.info("Use trained model for reweighting")
@@ -209,8 +211,8 @@ def omnifold(
             # weights_pull[~passcut_sim] = 1.
             # Or alternatively, estimate the average weights: <w|x_true>
             model_step1b, cb_step1b = set_up_model(
-                model_type, X_step1b.shape[1:], scheduler_name, i, "model_step1b",
-                save_models_to, load_models_from, start_from_previous_iter)
+                model_type, X_step1b.shape[1:], i, "model_step1b",
+                save_models_to, load_models_from, start_from_previous_iter, scheduler_name = scheduler_name, reduce_on_plateau = reduce_on_plateau)
 
             if load_models_from:
                 logger.info("Use trained model for reweighting")
@@ -243,8 +245,8 @@ def omnifold(
         # step 2
         logger.info("Step 2")
         model_step2, cb_step2 = set_up_model(
-            model_type, X_step2.shape[1:], scheduler_name, i, "model_step2",
-            save_models_to, load_models_from, start_from_previous_iter)
+            model_type, X_step2.shape[1:], i, "model_step2",
+            save_models_to, load_models_from, start_from_previous_iter, scheduler_name = scheduler_name, reduce_on_plateau = reduce_on_plateau)
 
         rw_step2 = 1. # always reweight against the prior
 #        rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
@@ -279,8 +281,8 @@ def omnifold(
             # weights_push[~passcut_gen] = 1.
             # Or alternatively, estimate the average weights: <w|x_reco>
             model_step2b, cb_step2b = set_up_model(
-                model_type, X_step2b.shape[1:], scheduler_name, i, "model_step2b",
-                save_models_to, load_models_from, start_from_previous_iter)
+                model_type, X_step2b.shape[1:], i, "model_step2b",
+                save_models_to, load_models_from, start_from_previous_iter, scheduler_name = scheduler_name, reduce_on_plateau = reduce_on_plateau)
 
             if load_models_from:
                 logger.info("Use trained model for reweighting")

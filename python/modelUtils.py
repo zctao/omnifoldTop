@@ -18,12 +18,14 @@ n_models_in_parallel = 1
 import logging
 logger = logging.getLogger('model')
 
-def get_callbacks(scheduler_name = None, model_filepath=None):
+def get_callbacks(scheduler_name = None, reduce_on_plateau = 0, model_filepath=None):
     """
     Set up a list of standard callbacks used while training the models.
 
     Parameters
     ----------
+    reduce_on_plateau : int, optional
+        If not 0, the model will reduce learning rate by a certain multiplicative factor after set epoch without improvement
     scheduler_name : str, optional
         If provided, find the corresponding scheduler callback from lrscheduler
     model_filepath : str, optional
@@ -36,6 +38,8 @@ def get_callbacks(scheduler_name = None, model_filepath=None):
     EarlyStopping = keras.callbacks.EarlyStopping(
         monitor="val_loss", patience=10, verbose=1, restore_best_weights=True
     )
+
+    Reduce = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor = 0.2, patience = reduce_on_plateau) if reduce_on_plateau != 0 else None
 
     learning_rate_scheduler = keras.callbacks.LearningRateScheduler(lrscheduler.get_scheduler(scheduler_name))
 
@@ -52,10 +56,9 @@ def get_callbacks(scheduler_name = None, model_filepath=None):
 
         logger_fp = model_filepath + "_history.csv"
         CSVLogger = keras.callbacks.CSVLogger(filename=logger_fp, append=False)
-
-        return [CheckPoint, CSVLogger, EarlyStopping, learning_rate_scheduler]
+        return [cb for cb in [CheckPoint, CSVLogger, EarlyStopping, learning_rate_scheduler, Reduce] if cb is not None]
     else:
-        return [EarlyStopping, learning_rate_scheduler]
+        return [cb for cb in [EarlyStopping, learning_rate_scheduler, Reduce] if cb is not None]
 
 def weighted_binary_crossentropy(y_true, y_pred):
     """
