@@ -9,6 +9,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 import tensorflow.keras.backend as K
 from sklearn.model_selection import train_test_split
+import lrscheduler
 
 import plotter
 
@@ -17,12 +18,14 @@ n_models_in_parallel = 1
 import logging
 logger = logging.getLogger('model')
 
-def get_callbacks(model_filepath=None):
+def get_callbacks(scheduler_name = None, model_filepath=None):
     """
     Set up a list of standard callbacks used while training the models.
 
     Parameters
     ----------
+    scheduler_name : str, optional
+        If provided, find the corresponding scheduler callback from lrscheduler
     model_filepath : str, optional
         If provided, location to save metrics from training the model
 
@@ -33,6 +36,8 @@ def get_callbacks(model_filepath=None):
     EarlyStopping = keras.callbacks.EarlyStopping(
         monitor="val_loss", patience=10, verbose=1, restore_best_weights=True
     )
+
+    learning_rate_scheduler = keras.callbacks.LearningRateScheduler(lrscheduler.get_scheduler(scheduler_name))
 
     if model_filepath:
         # checkpoint_fp = model_filepath + '_Epoch-{epoch}'
@@ -48,9 +53,9 @@ def get_callbacks(model_filepath=None):
         logger_fp = model_filepath + "_history.csv"
         CSVLogger = keras.callbacks.CSVLogger(filename=logger_fp, append=False)
 
-        return [CheckPoint, CSVLogger, EarlyStopping]
+        return [CheckPoint, CSVLogger, EarlyStopping, learning_rate_scheduler]
     else:
-        return [EarlyStopping]
+        return [EarlyStopping, learning_rate_scheduler]
 
 def weighted_binary_crossentropy(y_true, y_pred):
     """

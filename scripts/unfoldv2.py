@@ -114,6 +114,7 @@ def unfold(**parsed_args):
 
         # run unfolding
         unfolder.run(
+            scheduler_name = parsed_args['scheduler_name'],
             niterations = parsed_args['iterations'],
             resample_data = parsed_args['resample_data'],
             nruns = parsed_args['nruns'],
@@ -252,6 +253,9 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="If True, run unfolding also with IBU for comparison")
     parser.add_argument('-w', '--weight-type', type=str, default='nominal',
                         help="Type of event weights to retrieve from ntuples")
+    parser.add_argument('--scheduler-name', help="Name of the learning rate scheduler to be used")
+    parser.add_argument('--reduce-on-plateau', type=int, default=0,
+                        help="number of epoch to wait before reducing learning rate")
 
     if print_help:
         parser.print_help()

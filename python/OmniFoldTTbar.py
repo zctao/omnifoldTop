@@ -2,6 +2,7 @@ import os
 import glob
 import numpy as np
 from copy import copy
+from python.lrscheduler import constant
 
 import util
 import plotter
@@ -347,6 +348,7 @@ class OmniFoldTTbar():
     def run(
         self,
         niterations, # number of iterations
+        scheduler_name = "constant",
         resample_data=False,
         nruns=1,
         resample_everyrun=False,
@@ -409,6 +411,7 @@ class OmniFoldTTbar():
                 X_data, X_sim, X_gen,
                 w_data, w_sim, w_gen,
                 passcut_data, passcut_sim, passcut_gen,
+                scheduler_name = scheduler_name,
                 niterations = niterations,
                 model_type = model_type,
                 save_models_to = save_model_dir,
