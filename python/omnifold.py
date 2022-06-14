@@ -57,9 +57,7 @@ def reweight(model, events, batch_size, figname=None):
     events_list = [events for i in range(n_models_in_parallel)]
     preds = model.predict(events_list, batch_size=batch_size)
     preds = np.squeeze(preds)
-    print(np.shape(preds))
     if n_models_in_parallel == 1 : preds = np.reshape(preds, (n_models_in_parallel,)+np.shape(preds)) # happens after squeezing, so that we keep the first dimension
-    print(np.shape(preds))
     # preds_list = [np.squeeze(pred) for pred in model.predict(events_list, batch_size=batch_size)] if n_models_in_parallel > 1 else np.squeeze(model.predict(events_list, batch_size=batch_size))
     r = np.nan_to_num( preds / (1. - preds) )
     # r = np.array([np.nan_to_num( preds / (1. - preds) ) for preds in preds_list]) if n_models_in_parallel > 1 else np.nan_to_num( preds_list / (1. - preds_list) )
