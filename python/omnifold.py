@@ -54,8 +54,12 @@ def set_up_model(
 
 def reweight(model, events, batch_size, figname=None):
     events_list = [events for i in range(n_models_in_parallel)]
-    preds_list = [np.squeeze(pred) for pred in model.predict(events_list, batch_size=batch_size)] if n_models_in_parallel > 1 else np.squeeze(model.predict(events_list, batch_size=batch_size))
-    r = np.array([np.nan_to_num( preds / (1. - preds) ) for preds in preds_list]) if n_models_in_parallel > 1 else np.nan_to_num( preds_list / (1. - preds_list) )
+    pred = model.predict(events_list, batch_size=batch_size)
+    if n_models_in_parallel == 1 : preds = np.resahpe(pred, (n_models_in_parallel,)+np.shape(pred))
+    preds = np.squeeze(preds)
+    # preds_list = [np.squeeze(pred) for pred in model.predict(events_list, batch_size=batch_size)] if n_models_in_parallel > 1 else np.squeeze(model.predict(events_list, batch_size=batch_size))
+    r = np.nan_to_num( preds / (1. - preds) )
+    # r = np.array([np.nan_to_num( preds / (1. - preds) ) for preds in preds_list]) if n_models_in_parallel > 1 else np.nan_to_num( preds_list / (1. - preds_list) )
 
     if figname: # plot the distribution
         for i in range(n_models_in_parallel):
