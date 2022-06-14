@@ -241,10 +241,7 @@ def omnifold(
             # reweight
             logger.info("Reweight")
             fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
-            step_reweight = reweight(model_step1b, X_gen[~passcut_sim], batch_size, fname_rdistr)
-            # step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
-            for j in range(n_models_in_parallel):
-                weights_pull[j][~passcut_sim] = step_reweight[j]
+            weights_pull[:, ~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], batch_size, fname_rdistr)
 
         # TODO: check this
         weights_pull /= np.mean(weights_pull, axis=1)[:,None]
@@ -279,10 +276,7 @@ def omnifold(
         # reweight
         logger.info("Reweight")
         fname_rdistr = save_models_to + f"/rdistr_step2_{i}" if save_models_to and plot else ''
-        step_reweight = rw_step2 * reweight(model_step2, X_gen[passcut_gen], batch_size, fname_rdistr)
-        # step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
-        for j in range(n_models_in_parallel):
-            weights_push[j][passcut_gen] = step_reweight[j]
+        weights_push[:, passcut_gen] = rw_step2 * reweight(model_step2, X_gen[passcut_gen], batch_size, fname_rdistr)
         gc.collect()
 
         #####
@@ -312,17 +306,13 @@ def omnifold(
             # reweight
             logger.info("Reweight")
             fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
-            step_reweight = reweight(model_step2b, X_sim[~passcut_gen], batch_size, fname_rdistr)
-            # step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
-            for j in range(n_models_in_parallel):
-                weights_push[j][~passcut_gen] = step_reweight[j]
+            weights_push[:, ~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], batch_size, fname_rdistr)
 
         # TODO: check this
         weights_push /= np.mean(weights_push, axis=1)[:,None]
 
-        for j in range(n_models_in_parallel):
-        # save truth level weights of this iteration
-            weights_unfold[j][i,:] = weights_push[j][passcut_gen]
+        # # save truth level weights of this iteration
+        weights_unfold[:,i,:] = weights_push[:, passcut_gen]
         gc.collect()
         reportGPUMemUsage(logger)
 
