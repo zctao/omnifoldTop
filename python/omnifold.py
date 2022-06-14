@@ -202,7 +202,8 @@ def omnifold(
         # reweight
         logger.info("Reweight")
         fname_rdistr = save_models_to + f"/rdistr_step1_{i}" if save_models_to and plot else ''
-        weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr) if n_models_in_parallel>1 else weights_push * np.array([reweight(model_step1, X_sim, batch_size, fname_rdistr)])
+        # weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr) if n_models_in_parallel>1 else weights_push * np.array([reweight(model_step1, X_sim, batch_size, fname_rdistr)])
+        weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr)
 
         #####
         # step 1b: deal with events that do not pass reco cuts
@@ -232,7 +233,7 @@ def omnifold(
             logger.info("Reweight")
             fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
             step_reweight = reweight(model_step1b, X_gen[~passcut_sim], batch_size, fname_rdistr)
-            step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
+            # step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
             for j in range(n_models_in_parallel):
                 weights_pull[j][~passcut_sim] = step_reweight[j]
 
@@ -270,7 +271,7 @@ def omnifold(
         logger.info("Reweight")
         fname_rdistr = save_models_to + f"/rdistr_step2_{i}" if save_models_to and plot else ''
         step_reweight = rw_step2 * reweight(model_step2, X_gen[passcut_gen], batch_size, fname_rdistr)
-        step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
+        # step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
         for j in range(n_models_in_parallel):
             weights_push[j][passcut_gen] = step_reweight[j]
 
@@ -302,7 +303,7 @@ def omnifold(
             logger.info("Reweight")
             fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
             step_reweight = reweight(model_step2b, X_sim[~passcut_gen], batch_size, fname_rdistr)
-            step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
+            # step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
             for j in range(n_models_in_parallel):
                 weights_push[j][~passcut_gen] = step_reweight[j]
 
