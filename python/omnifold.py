@@ -7,6 +7,7 @@ from modelUtils import get_model, get_callbacks, train_model, n_models_in_parall
 from util import reportGPUMemUsage
 
 import tensorflow as tf
+import gc
 
 import logging
 logger = logging.getLogger('omnifold')
@@ -76,7 +77,7 @@ def log_size_bytes(
     size # type of numpy.ndarray.nbytes, size of object in number of bytes
     ):
     logger.debug(f"Size of the {name}: {size * B_TO_MB:.3f} MB")
-    
+
 def omnifold(
     # Data
     X_data, # feature array of observed data
@@ -214,7 +215,7 @@ def omnifold(
         fname_rdistr = save_models_to + f"/rdistr_step1_{i}" if save_models_to and plot else ''
         # weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr) if n_models_in_parallel>1 else weights_push * np.array([reweight(model_step1, X_sim, batch_size, fname_rdistr)])
         weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr)
-
+        gc.collect()
         #####
         # step 1b: deal with events that do not pass reco cuts
         if np.any(~passcut_sim):
@@ -249,7 +250,7 @@ def omnifold(
 
         # TODO: check this
         weights_pull /= np.mean(weights_pull)
-
+        gc.collect()
         reportGPUMemUsage(logger)
 
         #####
@@ -284,6 +285,7 @@ def omnifold(
         # step_reweight = np.array([step_reweight]) if n_models_in_parallel == 1 else step_reweight
         for j in range(n_models_in_parallel):
             weights_push[j][passcut_gen] = step_reweight[j]
+        gc.collect()
 
         #####
         # step 2b: deal with events that do not pass truth cuts
@@ -323,7 +325,7 @@ def omnifold(
         for j in range(n_models_in_parallel):
         # save truth level weights of this iteration
             weights_unfold[j][i,:] = weights_push[j][passcut_gen]
-
+        gc.collect()
         reportGPUMemUsage(logger)
 
     # end of iteration loop
