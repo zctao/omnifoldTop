@@ -123,7 +123,8 @@ def omnifold(
     # features
     X_step1 = np.concatenate([ X_data[passcut_data], X_sim[passcut_sim] ])
     # labels: data=1, sim=0
-    Y_step1 = np.concatenate([ np.ones(len(X_data[passcut_data])), np.zeros(len(X_sim[passcut_sim])) ])
+    # Y_step1 = np.concatenate([ np.ones(len(X_data[passcut_data])), np.zeros(len(X_sim[passcut_sim])) ])
+    Y_step1 = np.concatenate([ np.ones(np.count_nonzero(passcut_data)), np.zeros(np.count_nonzero(passcut_sim)) ])
 
     log_size_bytes("feature array for step 1", X_step1.nbytes)
     log_size_bytes("label array for step 1", Y_step1.nbytes)
@@ -131,7 +132,8 @@ def omnifold(
     # Step 1b
     if np.any(~passcut_sim):
         X_step1b = np.concatenate([ X_gen[passcut_sim & passcut_gen], X_gen[passcut_sim & passcut_gen] ])
-        Y_step1b = np.concatenate([ np.ones(len(X_gen[passcut_sim & passcut_gen])), np.zeros(len(X_gen[passcut_sim & passcut_gen])) ])
+        # Y_step1b = np.concatenate([ np.ones(len(X_gen[passcut_sim & passcut_gen])), np.zeros(len(X_gen[passcut_sim & passcut_gen])) ])
+        Y_step1b = np.concatenate([ np.ones(np.count_nonzero(passcut_sim & passcut_gen)), np.zeros(np.count_nonzero(passcut_sim & passcut_gen)) ])
 
         log_size_bytes("feature array for step 1b", X_step1b.nbytes)
         log_size_bytes("label array for step 1b", Y_step1b.nbytes)
@@ -140,7 +142,8 @@ def omnifold(
     # features
     X_step2 = np.concatenate([ X_gen[passcut_gen], X_gen[passcut_gen] ])
     # labels
-    Y_step2 = np.concatenate([ np.ones(len(X_gen[passcut_gen])), np.zeros(len(X_gen[passcut_gen])) ])
+    # Y_step2 = np.concatenate([ np.ones(len(X_gen[passcut_gen])), np.zeros(len(X_gen[passcut_gen])) ])
+    Y_step2 = np.concatenate([np.ones(np.count_nonzero(passcut_gen)), np.zeros(np.count_nonzero(passcut_gen))])
 
     log_size_bytes("feature array for step 2", X_step2.nbytes)
     log_size_bytes("label array for step 2", Y_step2.nbytes)
@@ -148,7 +151,8 @@ def omnifold(
     # Step 2b
     if np.any(~passcut_gen):
         X_step2b = np.concatenate([ X_sim[passcut_sim & passcut_gen], X_sim[passcut_sim & passcut_gen] ])
-        Y_step2b = np.concatenate([ np.ones(len(X_sim[passcut_sim & passcut_gen])), np.zeros(len(X_sim[passcut_sim & passcut_gen])) ])
+        # Y_step2b = np.concatenate([ np.ones(len(X_sim[passcut_sim & passcut_gen])), np.zeros(len(X_sim[passcut_sim & passcut_gen])) ])
+        Y_step2b = np.concatenate([ np.ones(np.count_nonzero(passcut_sim & passcut_gen)), np.zeros(np.count_nonzero(passcut_sim & passcut_gen)) ])
 
         log_size_bytes("feature array for step 2b", X_step2b.nbytes)
         log_size_bytes("label array for step 2b", Y_step2b.nbytes)
@@ -168,7 +172,8 @@ def omnifold(
     weights_push = [np.ones(len(X_sim)) for i in range(n_models_in_parallel)]
     weights_pull = [np.ones(len(X_gen)) for i in range(n_models_in_parallel)]
 
-    weights_unfold = np.empty(shape=(n_models_in_parallel, niterations, len(X_gen[passcut_gen])))
+    # weights_unfold = np.empty(shape=(n_models_in_parallel, niterations, len(X_gen[passcut_gen])))
+    weights_unfold = np.empty(shape=(n_models_in_parallel, niterations, np.count_nonzero(passcut_gen)))
     # shape: (n_models_in_parallel, n_iterations, n_events[passcut_gen])
 
     reportGPUMemUsage(logger)
