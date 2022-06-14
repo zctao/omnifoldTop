@@ -192,8 +192,8 @@ def omnifold(
             logger.info("Use trained model for reweighting")
         else: # train model
             w_step1 = [np.concatenate([
-                w_data[passcut_data], (weights_push[i]*w_sim[i])[passcut_sim]
-                ]) for i in range(n_models_in_parallel)]
+                w_data[passcut_data], (weights_push[j]*w_sim[j])[passcut_sim]
+                ]) for j in range(n_models_in_parallel)]
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
@@ -224,9 +224,9 @@ def omnifold(
                 logger.info("Use trained model for reweighting")
             else: # train model
                 w_step1b = [np.concatenate([
-                    (weights_pull[i]*w_gen[i])[passcut_sim & passcut_gen],
-                    w_gen[i][passcut_sim & passcut_gen]
-                    ]) for i in range(n_models_in_parallel)]
+                    (weights_pull[j]*w_gen[j])[passcut_sim & passcut_gen],
+                    w_gen[j][passcut_sim & passcut_gen]
+                    ]) for j in range(n_models_in_parallel)]
 
                 logger.info("Start training")
                 train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
@@ -261,8 +261,8 @@ def omnifold(
             logger.info("Use trained model for reweighting")
         else: # train model
             w_step2 = [np.concatenate([
-                (weights_pull[i]*w_gen[i])[passcut_gen], w_gen[i][passcut_gen]*rw_step2
-                ]) for i in range(n_models_in_parallel)]
+                (weights_pull[j]*w_gen[j])[passcut_gen], w_gen[j][passcut_gen]*rw_step2
+                ]) for j in range(n_models_in_parallel)]
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
@@ -294,9 +294,9 @@ def omnifold(
                 logger.info("Use trained model for reweighting")
             else: # train model
                 w_step2b = [np.concatenate([
-                    (weights_push[i]*w_sim[i])[passcut_sim & passcut_gen],
-                    w_sim[i][passcut_sim & passcut_gen]
-                    ]) for i in range(n_models_in_parallel)]
+                    (weights_push[j]*w_sim[j])[passcut_sim & passcut_gen],
+                    w_sim[j][passcut_sim & passcut_gen]
+                    ]) for j in range(n_models_in_parallel)]
 
                 logger.info("Start training")
                 train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
