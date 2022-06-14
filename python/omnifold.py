@@ -320,7 +320,7 @@ def omnifold(
                 weights_push[j][~passcut_gen] = step_reweight[j]
 
         # TODO: check this
-        weights_push /= np.mean(weights_push)
+        weights_push /= np.mean(weights_push, axis=1)[:,None]
 
         for j in range(n_models_in_parallel):
         # save truth level weights of this iteration
