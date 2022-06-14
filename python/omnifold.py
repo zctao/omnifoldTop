@@ -249,7 +249,7 @@ def omnifold(
                 weights_pull[j][~passcut_sim] = step_reweight[j]
 
         # TODO: check this
-        weights_pull /= np.mean(weights_pull)
+        weights_pull /= np.mean(weights_pull, axis=1)[:,None]
         gc.collect()
         reportGPUMemUsage(logger)
 
