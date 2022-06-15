@@ -10,6 +10,7 @@ import histogramming as myhu
 from datahandler import DataHandler
 from datahandler_root import DataHandlerROOT
 from omnifold import omnifold
+from modelUtils import n_models_in_parallel
 
 import logging
 logger = logging.getLogger('OmniFoldTTbar')
@@ -382,7 +383,7 @@ class OmniFoldTTbar():
         # unfold
         assert(nruns>0)
         self.unfolded_weights = np.empty(
-            shape=(nruns, niterations, np.count_nonzero(passcut_gen))
+            shape=(nruns * n_models_in_parallel, niterations, np.count_nonzero(passcut_gen))
             )
 
         for ir in range(nruns):
@@ -404,7 +405,7 @@ class OmniFoldTTbar():
                 w_data, w_sim, w_gen = self._get_event_weights(resample=True)
 
             # omnifold
-            self.unfolded_weights[ir,:,:] = omnifold(
+            self.unfolded_weights[ir*n_models_in_parallel:(ir+1)*n_models_in_parallel,:,:] = omnifold(
                 X_data, X_sim, X_gen,
                 w_data, w_sim, w_gen,
                 passcut_data, passcut_sim, passcut_gen,
