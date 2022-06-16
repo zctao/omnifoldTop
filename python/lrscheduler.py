@@ -1,7 +1,14 @@
-# This file contains learning schedule functions that is used with tf.keras.callbacks.LearningRateScheduler
+# This class serves as a simpler combined interface to apply a learning rate scheduler
+# There are two main different ways to support this, through either
+# tf.keras.callbacks.LearningRateScheduler
+# tf.keras.optimizers.schedules
+# The two methods each has some nice features that are not trivially available in the other
+# note that using both two methods together technically will not cause a problem, as long as there is only one tf.keras.optimizers.schedules
+# however, the exact behaviour varies by combinations
 
 import numpy as np
-import tensorflow.keras.optimizers.schedules as s
+import tensorflow.keras.optimizers.schedules as schedules
+import tensorflow.keras.callbacks as callbacks
 
 WARM_UP_EPOCHS = 5
 PLATEAU = 10
@@ -11,6 +18,58 @@ debug = True
 import logging
 logger = logging.getLogger('lrs')
 logger.setLevel(logging.DEBUG)
+
+class LearningRateScheduler():
+    def __init__(self, initial_learning_rate, scheduler_names, **schedule_args):
+        """
+        Arguments
+        ---------
+        initial_learning_rate : inital learning rate
+        scheduler_name : list of names refering to the scheduler / callback to be applied, there can at most be one schedule, but many callbacks
+        schedule_args : dictionary, extra arguments for the schedule, required for using "piecewised"
+
+        Raise
+        -----
+        Exeption if more than 1 learning schedule is requested
+        """
+
+        self.inital_learning_rate = initial_learning_rate
+        self.callback_names = [name for name in scheduler_names if name in scheduler_dict]
+        self.schedules_names = [name for name in scheduler_names if name in schedules_dict]
+        self.callbacks = []
+        self.schedule = None
+
+        # enforce the requirements
+        # 1. at most 1 schedule
+        assert(len(scheduler_names) <= 1)
+
+        # assemble callbacks
+        for callback_name in self.callback_names:
+            self.callbacks += [callbacks.LearningRateScheduler(scheduler_dict[callback_name])]
+
+        # assemble schedules
+        for schedule_name in self.schedules_names:
+            if schedule_args:
+                self.schedule = schedules_dict[schedule_name](schedule_args)
+            # defaults
+            elif schedule_name in ["cosined", "cosinedr", "polynomiald"]:
+                # initial learning rate, decay steps
+                self.schedule = schedules_dict[schedule_name](initial_learning_rate, 1000)
+            elif schedule_name in ["expd", "inversetd"]:
+                # inital learning rate, decay steps, decay rate
+                self.schedule = schedules_dict[schedule_name](initial_learning_rate, 1000, 0.9)
+    
+    def callbacks(self):
+        """
+        return the callbacks, an empty list if no callback is requested
+        """
+        return self.callbacks
+    
+    def schedule(self):
+        """
+        return the schedule, just initial learning rate if no schedule is requested
+        """
+        return self.schedule if self.schedule is not None else self.inital_learning_rate
 
 def debug_learning_rate(lr):
     if debug:
@@ -35,38 +94,41 @@ def warm_up_constant(epoch, lr):
     else:
         return lr
 
-def exponential_decay(epoch, lr):
-    """
-    exponential decay of learning rate
-    """
-    debug_learning_rate(lr)
-    return lr * np.exp(-0.3)
 
-def warm_up_plateau_decay(epoch, lr):
-    """
-    perform warm up with a linearly increasing learning rate, hold for PLATEAU epochs, then start exponential decay
-    """
-    debug_learning_rate(lr)
-    if epoch < WARM_UP_EPOCHS + PLATEAU:
-        return warm_up_constant(epoch, lr)
-    else:
-        return exponential_decay(epoch, lr)
+# obsolete, use schedules
+# def exponential_decay(epoch, lr):
+#     """
+#     exponential decay of learning rate
+#     """
+#     debug_learning_rate(lr)
+#     return lr * np.exp(-0.3)
+
+# obsolete, basically warmc + expd schedule
+# def warm_up_plateau_decay(epoch, lr):
+#     """
+#     perform warm up with a linearly increasing learning rate, hold for PLATEAU epochs, then start exponential decay
+#     """
+#     debug_learning_rate(lr)
+#     if epoch < WARM_UP_EPOCHS + PLATEAU:
+#         return warm_up_constant(epoch, lr)
+#     else:
+#         return exponential_decay(epoch, lr)
 
 """
 put functions and their names as dictionary here to use with run params
 """
+# functions that is to be used with tensorflow.keras.callbacks.LearningRate
 scheduler_dict = {
     "constant" : constant,
     "warmc" : warm_up_constant,
-    "exp" : exponential_decay,
-    "warmexp" : warm_up_plateau_decay
 }
 
-def get_scheduler(name):
-    """
-    returns the requested learning rate scheduler, returns None if the requested scheduler does not exist
-    """
-    if name in scheduler_dict:
-        return scheduler_dict[name]
-    else:
-        return None
+# giving names to tf.keras.optimizers.schedules
+schedules_dict = {
+    "cosined" : schedules.CosineDecay,
+    "cosinedr" : schedules.CosineDecayRestarts,
+    "expd" : schedules.ExponentialDecay,
+    "inversetd" : schedules.InverseTimeDecay,
+    "piecewised" : schedules.PiecewiseConstantDecay,
+    "polynomiald" : schedules.PolynomialDecay
+}
