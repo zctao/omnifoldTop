@@ -22,7 +22,6 @@ def set_up_model(
     save_models_to = '', # str, directory to save the trained model to
     load_models_from = '', # str, directory to load trained model weights
     start_from_previous_iter = False, # bool, if True, initialize model from previous iteration
-    scheduler_name = None, # str, name of the requesting learning rate scheduler
     reduce_on_plateau = 0 # int, number of epoch to wait before reducing learning rate
     ):
 
@@ -37,7 +36,7 @@ def set_up_model(
     if save_models_to:
         filepath_save = os.path.join(save_models_to, mname)
 
-    callbacks = get_callbacks(scheduler_name, reduce_on_plateau, filepath_save)
+    callbacks = get_callbacks(reduce_on_plateau, filepath_save)
     
     # load trained model if needed
     if load_models_from:
@@ -87,7 +86,6 @@ def omnifold(
     passcut_gen, # flags to indicate if signal events pass truth level selections
     # Parameters
     niterations, # number of iterations
-    scheduler_name = None, # str, name of the requesting learning rate scheduler
     reduce_on_plateau = 0, # int, number of epoch to wait before reducing learning rate
     model_type='dense_100x3', # name of the model type 
     save_models_to='', # directory to save models to if provided
@@ -181,7 +179,7 @@ def omnifold(
         # set up the model
         model_step1, cb_step1 = set_up_model(
             model_type, X_step1.shape[1:], i, "model_step1",
-            save_models_to, load_models_from, start_from_previous_iter, scheduler_name = scheduler_name, reduce_on_plateau = reduce_on_plateau)
+            save_models_to, load_models_from, start_from_previous_iter, reduce_on_plateau = reduce_on_plateau)
 
         if load_models_from:
             logger.info("Use trained model for reweighting")
@@ -212,7 +210,7 @@ def omnifold(
             # Or alternatively, estimate the average weights: <w|x_true>
             model_step1b, cb_step1b = set_up_model(
                 model_type, X_step1b.shape[1:], i, "model_step1b",
-                save_models_to, load_models_from, start_from_previous_iter, scheduler_name = scheduler_name, reduce_on_plateau = reduce_on_plateau)
+                save_models_to, load_models_from, start_from_previous_iter, reduce_on_plateau = reduce_on_plateau)
 
             if load_models_from:
                 logger.info("Use trained model for reweighting")
@@ -246,7 +244,7 @@ def omnifold(
         logger.info("Step 2")
         model_step2, cb_step2 = set_up_model(
             model_type, X_step2.shape[1:], i, "model_step2",
-            save_models_to, load_models_from, start_from_previous_iter, scheduler_name = scheduler_name, reduce_on_plateau = reduce_on_plateau)
+            save_models_to, load_models_from, start_from_previous_iter, reduce_on_plateau = reduce_on_plateau)
 
         rw_step2 = 1. # always reweight against the prior
 #        rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
@@ -282,7 +280,7 @@ def omnifold(
             # Or alternatively, estimate the average weights: <w|x_reco>
             model_step2b, cb_step2b = set_up_model(
                 model_type, X_step2b.shape[1:], i, "model_step2b",
-                save_models_to, load_models_from, start_from_previous_iter, scheduler_name = scheduler_name, reduce_on_plateau = reduce_on_plateau)
+                save_models_to, load_models_from, start_from_previous_iter, reduce_on_plateau = reduce_on_plateau)
 
             if load_models_from:
                 logger.info("Use trained model for reweighting")

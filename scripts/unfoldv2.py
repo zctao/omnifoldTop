@@ -14,6 +14,7 @@ import metrics
 from OmniFoldTTbar import OmniFoldTTbar
 from make_histograms import make_histograms_from_unfolder
 from ibuv2 import run_ibu
+from lrscheduler import init_lr_scheduler
 
 def unfold(**parsed_args):
 
@@ -93,6 +94,8 @@ def unfold(**parsed_args):
         weight_type = parsed_args["weight_type"]
         )
 
+    init_lr_scheduler(parsed_args["learning_rate"], parsed_args["scheduler_names"], parsed_args["scheduler_args"])
+
     t_init_done = time.time()
     logger.debug(f"Initializing unfolder and loading input data took {(t_init_done-t_init_start):.2f} seconds.")
     mcurrent, mpeak = tracemalloc.get_traced_memory()
@@ -114,7 +117,6 @@ def unfold(**parsed_args):
 
         # run unfolding
         unfolder.run(
-            scheduler_name = parsed_args['scheduler_name'],
             reduce_on_plateau = parsed_args['reduce_on_plateau'],
             niterations = parsed_args['iterations'],
             resample_data = parsed_args['resample_data'],
@@ -254,9 +256,11 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="If True, run unfolding also with IBU for comparison")
     parser.add_argument('-w', '--weight-type', type=str, default='nominal',
                         help="Type of event weights to retrieve from ntuples")
-    parser.add_argument('--scheduler-name', help="Name of the learning rate scheduler to be used")
+    parser.add_argument('--scheduler-names', help="Name of the learning rate scheduler to be used", type=str, nargs='+')
     parser.add_argument('--reduce-on-plateau', type=int, default=0,
                         help="number of epoch to wait before reducing learning rate")
+    parser.add_argument('--scheduler-args', help="extra arguments for the requested scheduler", type=dict)
+    parser.add_argument('--learning-rate', type=float, default=0.001, help="Initial learning rate")
 
     if print_help:
         parser.print_help()

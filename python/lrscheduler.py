@@ -19,6 +19,8 @@ import logging
 logger = logging.getLogger('lrs')
 logger.setLevel(logging.DEBUG)
 
+lrscheduler = None
+
 class LearningRateScheduler():
     def __init__(self, initial_learning_rate, scheduler_names, **schedule_args):
         """
@@ -113,6 +115,27 @@ def warm_up_constant(epoch, lr):
 #         return warm_up_constant(epoch, lr)
 #     else:
 #         return exponential_decay(epoch, lr)
+
+def init_lr_scheduler(initial_learning_rate, scheduler_names, **schedule_args):
+    """
+    Arguments
+    ---------
+    initial_learning_rate : inital learning rate
+    scheduler_name : list of names refering to the scheduler / callback to be applied, there can at most be one schedule, but many callbacks
+    schedule_args : dictionary, extra arguments for the schedule, required for using "piecewised"
+
+    Raise
+    -----
+    Exeption if more than 1 learning schedule is requested
+    """
+    global lrscheduler
+    lrscheduler = LearningRateScheduler(initial_learning_rate, scheduler_names, **schedule_args)
+
+def get_lr_scheduler()->LearningRateScheduler:
+    """
+    returns the learning rate scheduler
+    """
+    return lrscheduler
 
 """
 put functions and their names as dictionary here to use with run params

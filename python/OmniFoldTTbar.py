@@ -348,7 +348,6 @@ class OmniFoldTTbar():
     def run(
         self,
         niterations, # number of iterations
-        scheduler_name = "constant",
         reduce_on_plateau = 0,
         resample_data=False,
         nruns=1,
@@ -412,7 +411,6 @@ class OmniFoldTTbar():
                 X_data, X_sim, X_gen,
                 w_data, w_sim, w_gen,
                 passcut_data, passcut_sim, passcut_gen,
-                scheduler_name = scheduler_name,
                 reduce_on_plateau = reduce_on_plateau,
                 niterations = niterations,
                 model_type = model_type,

@@ -9,7 +9,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 import tensorflow.keras.backend as K
 from sklearn.model_selection import train_test_split
-import lrscheduler
+from lrscheduler import get_lr_scheduler
 
 import plotter
 
@@ -18,7 +18,7 @@ n_models_in_parallel = 1
 import logging
 logger = logging.getLogger('model')
 
-def get_callbacks(scheduler_name = None, reduce_on_plateau = 0, model_filepath=None):
+def get_callbacks(reduce_on_plateau = 0, model_filepath=None):
     """
     Set up a list of standard callbacks used while training the models.
 
@@ -26,8 +26,6 @@ def get_callbacks(scheduler_name = None, reduce_on_plateau = 0, model_filepath=N
     ----------
     reduce_on_plateau : int, optional
         If not 0, the model will reduce learning rate by a certain multiplicative factor after set epoch without improvement
-    scheduler_name : str, optional
-        If provided, find the corresponding scheduler callback from lrscheduler
     model_filepath : str, optional
         If provided, location to save metrics from training the model
 
@@ -41,7 +39,7 @@ def get_callbacks(scheduler_name = None, reduce_on_plateau = 0, model_filepath=N
 
     Reduce = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor = 0.2, patience = reduce_on_plateau) if reduce_on_plateau != 0 else None
 
-    learning_rate_scheduler = keras.callbacks.LearningRateScheduler(lrscheduler.get_scheduler(scheduler_name))
+    lr_callbacks = get_lr_scheduler().callbacks()
 
     if model_filepath:
         # checkpoint_fp = model_filepath + '_Epoch-{epoch}'
@@ -56,9 +54,9 @@ def get_callbacks(scheduler_name = None, reduce_on_plateau = 0, model_filepath=N
 
         logger_fp = model_filepath + "_history.csv"
         CSVLogger = keras.callbacks.CSVLogger(filename=logger_fp, append=False)
-        return [cb for cb in [CheckPoint, CSVLogger, EarlyStopping, learning_rate_scheduler, Reduce] if cb is not None]
+        return [cb for cb in [CheckPoint, CSVLogger, EarlyStopping, Reduce] if cb is not None] + lr_callbacks
     else:
-        return [cb for cb in [EarlyStopping, learning_rate_scheduler, Reduce] if cb is not None]
+        return [cb for cb in [EarlyStopping, Reduce] if cb is not None] + lr_callbacks
 
 def weighted_binary_crossentropy(y_true, y_pred):
     """
@@ -177,9 +175,11 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     else:
         model = eval(model_name+"(input_shape, nclass)")
 
+    optimizer = keras.optimizers.Adam(learning_rate = get_lr_scheduler().schedule())
+
     model.compile(loss=weighted_binary_crossentropy,
                   #loss='binary_crossentropy',
-                  optimizer='Adam',
+                  optimizer=optimizer,
                   metrics=['accuracy'])
 
     model.summary()
