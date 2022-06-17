@@ -36,6 +36,10 @@ class LearningRateScheduler():
         """
 
         self.inital_learning_rate = initial_learning_rate
+
+        if scheduler_names is None : scheduler_names = []
+        if schedule_args is None: schedule_args = {}
+
         self.callback_names = [name for name in scheduler_names if name in scheduler_dict]
         self.schedules_names = [name for name in scheduler_names if name in schedules_dict]
         self.callbacks = []

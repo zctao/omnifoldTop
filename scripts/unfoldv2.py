@@ -95,7 +95,7 @@ def unfold(**parsed_args):
         weight_type = parsed_args["weight_type"]
         )
     
-    scheduler_args = json.loads(parsed_args["scheduler_args"])
+    scheduler_args = json.loads(parsed_args["scheduler_args"]) if parsed_args["scheduler_args"] is not None else None
 
     init_lr_scheduler(parsed_args["learning_rate"], parsed_args["scheduler_names"], scheduler_args)
 
