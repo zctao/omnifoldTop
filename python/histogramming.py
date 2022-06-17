@@ -17,32 +17,47 @@ import logging
 logger = logging.getLogger('Histogramming')
 logger.setLevel(logging.DEBUG)
 
-def get_bin_widths(h):
-    return h.axes.widths
-
 def get_bin_centers(h):
     return h.axes.centers
 
-def rescale_hist(h, norm=1.):
-    # !! underflow and overflow bins are not included in the calculation
-    h = h * norm / h.sum()['value']
-    return h
+def get_bin_edges(h):
+    return h.axes.edges
 
-def get_hist_areas(h):
-    # !! underflow and overflow bins are not included in the calculation
-    bin_widths = get_bin_widths(h)
-    areas = functools.reduce(operator.mul, bin_widths)
-    return areas
+def get_bin_widths(h):
+    return h.axes.widths
 
-def get_density(h):
-    # !! underflow and overflow bins are not included in the calculation
-    areas = get_hist_areas(h)
-    return h / h.sum()['value'] / areas
+def get_hist_widths(h):
+    """
+    For 1D Histogram, this returns an array of bin widths
+    For 2D Histogram, this returns a 2D array of bin areas
+    Note: underflow and overflow bins are not included
+    """
+    return functools.reduce(operator.mul, h.axes.widths)
 
-def check_hist_flow(h, threshold_underflow=0.01, threshold_overflow=0.01):
+def integral(h, flow=False):
+    """
+    return the sum of entry*width of all bins
+    """
+    total = (h.values() * get_hist_widths(h)).sum()
+
+    if flow: # include underflow and overflow bins
+        total = total + h[hist.underflow]['value'] + h[hist.overflow]['value']
+
+    return total
+
+def get_hist_norm(h, density=False, flow=True):
+    if density:
+        return integral(h, flow=flow)
+    else:
+        return h.sum(flow=flow)['value']
+
+def check_hist_flow(h, threshold_underflow=0.01, threshold_overflow=0.01, density=False):
+    """
+    Check if the underflow and overflow bins are above the thresholds
+    """
     n_underflow = h[hist.underflow]['value']
     n_overflow = h[hist.overflow]['value']
-    n_total = h.sum(flow=True)['value']
+    n_total = get_hist_norm(h, density=density, flow=True)
 
     if float(n_underflow/n_total) > threshold_underflow:
         logger.debug("Percentage of entries in the underflow bin: {}".format(float(n_underflow/n_total)))
@@ -55,6 +70,11 @@ def check_hist_flow(h, threshold_underflow=0.01, threshold_overflow=0.01):
         return False
 
     return True
+
+def renormalize_hist(h, norm=1., density=False, flow=True):
+    old_norm = get_hist_norm(h, density=density, flow=flow)
+    h *= norm / old_norm
+    return h
 
 def calc_hist(data, bins=10, weights=None, density=False, norm=None, check_flow=True):
     if np.ndim(bins) == 1: # an array
@@ -70,15 +90,16 @@ def calc_hist(data, bins=10, weights=None, density=False, norm=None, check_flow=
     h = Hist(hist.axis.Variable(bin_edges), storage=hist.storage.Weight())
     h.fill(data, weight=weights)
 
+    if density:
+        # normalize by bin widths
+        h /= get_hist_widths(h)
+
     if check_flow:
         # Warn if underflow or overflow bins have non-negligible entries    
-        check_hist_flow(h)
-
-    if density:
-        h = get_density(h)
+        check_hist_flow(h, density=density)
 
     if norm is not None:
-        h = rescale_hist(h, norm=norm)
+        h = renormalize_hist(h, norm=norm, density=density, flow=True)
 
     return h
 
@@ -91,10 +112,11 @@ def calc_hist2d(data_x, data_y, bins, weights=None, density=False, norm=None, ch
         pass
 
     if density:
-        h2d = get_density(h2d)
+        # normalize by bin widths
+        h2d / get_hist_widths(h2d)
 
     if norm is not None:
-        h2d = rescale_hist(h2d, norm=norm)
+        h2d = renormalize_hist(h2d, norm=norm, density=density, flow=True)
 
     return h2d
 
