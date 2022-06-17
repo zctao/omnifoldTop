@@ -10,6 +10,7 @@ from tensorflow.keras import layers
 import tensorflow.keras.backend as K
 from sklearn.model_selection import train_test_split
 from lrscheduler import get_lr_scheduler
+from callbacks import PrintLearningRate
 
 import plotter
 
@@ -38,6 +39,7 @@ def get_callbacks(reduce_on_plateau = 0, model_filepath=None):
     )
 
     Reduce = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor = 0.2, patience = reduce_on_plateau) if reduce_on_plateau != 0 else None
+    custom_callbacks = [PrintLearningRate()]
 
     lr_callbacks = get_lr_scheduler().get_callbacks()
 
@@ -54,9 +56,9 @@ def get_callbacks(reduce_on_plateau = 0, model_filepath=None):
 
         logger_fp = model_filepath + "_history.csv"
         CSVLogger = keras.callbacks.CSVLogger(filename=logger_fp, append=False)
-        return [cb for cb in [CheckPoint, CSVLogger, EarlyStopping, Reduce] if cb is not None] + lr_callbacks
+        return [cb for cb in [CheckPoint, CSVLogger, EarlyStopping, Reduce] if cb is not None] + lr_callbacks + custom_callbacks
     else:
-        return [cb for cb in [EarlyStopping, Reduce] if cb is not None] + lr_callbacks
+        return [cb for cb in [EarlyStopping, Reduce] if cb is not None] + lr_callbacks + custom_callbacks
 
 def weighted_binary_crossentropy(y_true, y_pred):
     """

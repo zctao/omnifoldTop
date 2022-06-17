@@ -82,14 +82,14 @@ def constant(epoch, lr):
     """
     constant learning rate, independent of epoch
     """
-    debug_learning_rate(lr)
+    # debug_learning_rate(lr)
     return lr
 
 def warm_up_constant(epoch, lr):
     """
     perform warm up in training with a linearly increasing learning rate for the first WARM_UP_EPOCHS epoch
     """
-    debug_learning_rate(lr)
+    # debug_learning_rate(lr)
     if epoch == 0:
         return lr / WARM_UP_EPOCHS
     elif epoch < WARM_UP_EPOCHS:
