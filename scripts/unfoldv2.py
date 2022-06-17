@@ -5,6 +5,7 @@ import time
 import tracemalloc
 import logging
 import numpy as np
+import json
 from copy import copy
 
 import util
@@ -93,8 +94,10 @@ def unfold(**parsed_args):
         data_reweighter = rw,
         weight_type = parsed_args["weight_type"]
         )
+    
+    scheduler_args = json.loads(parsed_args["scheduler_args"])
 
-    init_lr_scheduler(parsed_args["learning_rate"], parsed_args["scheduler_names"], parsed_args["scheduler_args"])
+    init_lr_scheduler(parsed_args["learning_rate"], parsed_args["scheduler_names"], scheduler_args)
 
     t_init_done = time.time()
     logger.debug(f"Initializing unfolder and loading input data took {(t_init_done-t_init_start):.2f} seconds.")
@@ -259,7 +262,7 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument('--scheduler-names', help="Name of the learning rate scheduler to be used", type=str, nargs='+')
     parser.add_argument('--reduce-on-plateau', type=int, default=0,
                         help="number of epoch to wait before reducing learning rate")
-    parser.add_argument('--scheduler-args', help="extra arguments for the requested scheduler", type=dict)
+    parser.add_argument('--scheduler-args', help="extra arguments for the requested scheduler", type=str)
     parser.add_argument('--learning-rate', type=float, default=0.001, help="Initial learning rate")
 
     if print_help:

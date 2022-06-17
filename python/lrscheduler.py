@@ -3,8 +3,7 @@
 # tf.keras.callbacks.LearningRateScheduler
 # tf.keras.optimizers.schedules
 # The two methods each has some nice features that are not trivially available in the other
-# note that using both two methods together technically will not cause a problem, as long as there is only one tf.keras.optimizers.schedules
-# however, the exact behaviour varies by combinations
+# note two methods can not be used together, since using schedules takes up the place for learning rate
 
 import numpy as np
 import tensorflow.keras.optimizers.schedules as schedules
@@ -22,7 +21,7 @@ logger.setLevel(logging.DEBUG)
 lrscheduler = None
 
 class LearningRateScheduler():
-    def __init__(self, initial_learning_rate, scheduler_names, **schedule_args):
+    def __init__(self, initial_learning_rate, scheduler_names, schedule_args):
         """
         Arguments
         ---------
@@ -32,7 +31,8 @@ class LearningRateScheduler():
 
         Raise
         -----
-        Exeption if more than 1 learning schedule is requested
+        Exception if more than 1 learning schedule is requested
+        Exception if callbacks and schedules are being used together
         """
 
         self.inital_learning_rate = initial_learning_rate
@@ -43,7 +43,8 @@ class LearningRateScheduler():
 
         # enforce the requirements
         # 1. at most 1 schedule
-        assert(len(scheduler_names) <= 1)
+        assert(len(self.schedules_names) <= 1)
+        assert((not self.schedules_names) or (not self.callback_names))
 
         # assemble callbacks
         for callback_name in self.callback_names:
@@ -52,7 +53,7 @@ class LearningRateScheduler():
         # assemble schedules
         for schedule_name in self.schedules_names:
             if schedule_args:
-                self.schedule = schedules_dict[schedule_name](schedule_args)
+                self.schedule = schedules_dict[schedule_name](**schedule_args)
             # defaults
             elif schedule_name in ["cosined", "cosinedr", "polynomiald"]:
                 # initial learning rate, decay steps
@@ -61,13 +62,13 @@ class LearningRateScheduler():
                 # inital learning rate, decay steps, decay rate
                 self.schedule = schedules_dict[schedule_name](initial_learning_rate, 1000, 0.9)
     
-    def callbacks(self):
+    def get_callbacks(self):
         """
         return the callbacks, an empty list if no callback is requested
         """
         return self.callbacks
     
-    def schedule(self):
+    def get_schedule(self):
         """
         return the schedule, just initial learning rate if no schedule is requested
         """
@@ -116,7 +117,7 @@ def warm_up_constant(epoch, lr):
 #     else:
 #         return exponential_decay(epoch, lr)
 
-def init_lr_scheduler(initial_learning_rate, scheduler_names, **schedule_args):
+def init_lr_scheduler(initial_learning_rate, scheduler_names, schedule_args):
     """
     Arguments
     ---------
@@ -129,7 +130,7 @@ def init_lr_scheduler(initial_learning_rate, scheduler_names, **schedule_args):
     Exeption if more than 1 learning schedule is requested
     """
     global lrscheduler
-    lrscheduler = LearningRateScheduler(initial_learning_rate, scheduler_names, **schedule_args)
+    lrscheduler = LearningRateScheduler(initial_learning_rate, scheduler_names, schedule_args)
 
 def get_lr_scheduler()->LearningRateScheduler:
     """

@@ -39,7 +39,7 @@ def get_callbacks(reduce_on_plateau = 0, model_filepath=None):
 
     Reduce = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor = 0.2, patience = reduce_on_plateau) if reduce_on_plateau != 0 else None
 
-    lr_callbacks = get_lr_scheduler().callbacks()
+    lr_callbacks = get_lr_scheduler().get_callbacks()
 
     if model_filepath:
         # checkpoint_fp = model_filepath + '_Epoch-{epoch}'
@@ -175,7 +175,7 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     else:
         model = eval(model_name+"(input_shape, nclass)")
 
-    optimizer = keras.optimizers.Adam(learning_rate = get_lr_scheduler().schedule())
+    optimizer = keras.optimizers.Adam(learning_rate = get_lr_scheduler().get_schedule())
 
     model.compile(loss=weighted_binary_crossentropy,
                   #loss='binary_crossentropy',
