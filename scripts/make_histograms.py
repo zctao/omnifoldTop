@@ -23,29 +23,46 @@ def get_ibu_unfolded_histogram_from_unfolder(
     niterations = None, # number of iterations
     all_iterations = False, # if True, return results at every iteration
     norm = None,
-    density = False
+    density = False,
+    absoluteValue = False
     ):
 
     # Prepare inputs
     # data array
     array_obs = unfolder.handle_obs[vname_reco]
+    if absoluteValue:
+        array_obs = np.abs(array_obs)
+
     wobs = unfolder.handle_obs.get_weights()
 
     if unfolder.handle_obsbkg is not None:
         array_obsbkg = unfolder.handle_obsbkg[vname_reco]
+        if absoluteValue:
+            array_obsbkg = np.abs(array_obsbkg)
+
         wobsbkg = unfolder.handle_obsbkg.get_weights()
+
         array_obs = np.concatenate([array_obs, array_obsbkg])
         wobs = np.concatenate([wobs, wobsbkg])
 
     # simulation
     array_sim = unfolder.handle_sig[vname_reco]
+    if absoluteValue:
+        array_sim = np.abs(array_sim)
+
     wsim = unfolder.handle_sig.get_weights()
 
     array_gen = unfolder.handle_sig[vname_truth]
+    if absoluteValue:
+        array_gen = np.abs(array_gen)
+
     wgen = unfolder.handle_sig.get_weights(reco_level=False)
 
     if unfolder.handle_bkg is not None:
         array_bkg = unfolder.handle_bkg[vname_reco]
+        if absoluteValue:
+            array_bkg = np.abs(array_bkg)
+
         wbkg = unfolder.handle_bkg.get_weights()
     else:
         array_bkg, wbkg = None, None
@@ -75,7 +92,6 @@ def make_histograms_of_observable(
     binning_config, # str, path to binning config file
     iteration = -1, # int, which iteration to use as the nominal. Default is the last one
     nruns = None, # int, number of runs. Default is to take all that are available
-    absoluteValue = False, # If True, use the absolute value to fill the histogram
     normalize = True, # If True, rescale all truth-level histograms to the same normalization
     all_runs = True, # If True, include unfolded histograms of all runs at specified iteration
     all_iterations = False, # If True, include nominal unfolded histograms at all iterations
@@ -89,6 +105,8 @@ def make_histograms_of_observable(
 
     varname_truth = obsConfig_d[observable]['branch_mc']
 
+    absValue = "_abs" in observable
+
     # get bin edges
     bins_mc = util.get_bins(observable, binning_config)
 
@@ -101,7 +119,7 @@ def make_histograms_of_observable(
         iteration = iteration,
         nresamples = nruns,
         density = density,
-        absoluteValue = absoluteValue
+        absoluteValue = absValue
         )
 
     norm_uf = myhu.get_hist_norm(h_uf, density=density, flow=True) if normalize else None
@@ -120,7 +138,7 @@ def make_histograms_of_observable(
             iteration = iteration,
             nresamples = nruns,
             density = density,
-            absoluteValue = absoluteValue
+            absoluteValue = absValue
             )
 
     if all_iterations:
@@ -131,7 +149,7 @@ def make_histograms_of_observable(
             nresamples = nruns,
             all_iterations = True,
             density = density,
-            absoluteValue = absoluteValue
+            absoluteValue = absValue
             )[0]
 
     if all_histograms:
@@ -141,7 +159,7 @@ def make_histograms_of_observable(
             nresamples = nruns,
             density = density,
             all_iterations=True,
-            absoluteValue = absoluteValue
+            absoluteValue = absValue
             )
 
     ###
@@ -154,7 +172,7 @@ def make_histograms_of_observable(
         bins_mc,
         density = density,
         norm = norm_uf,
-        absoluteValue = absoluteValue
+        absoluteValue = absValue
         )
 
     ##
@@ -166,7 +184,7 @@ def make_histograms_of_observable(
             bins_mc,
             density = density,
             norm = norm_uf,
-            absoluteValue=absoluteValue
+            absoluteValue = absValue
             )
 
     ##
@@ -185,7 +203,8 @@ def make_histograms_of_observable(
             bins_det, bins_mc,
             all_iterations = True,
             norm = norm_uf,
-            density = density
+            density = density,
+            absoluteValue = absValue
         )
 
         # take the ones at the same iteration as OmniFold
@@ -210,7 +229,7 @@ def make_histograms_of_observable(
             varname_reco,
             bins_det,
             density = density,
-            absoluteValue = absoluteValue
+            absoluteValue = absValue
             )
 
         if unfolder.handle_obsbkg is not None:
@@ -218,7 +237,7 @@ def make_histograms_of_observable(
                 varname_reco,
                 bins_det,
                 density = density,
-                absoluteValue = absoluteValue)
+                absoluteValue = absValue)
 
         hists_v_d['reco_data'] = h_data
 
@@ -227,7 +246,7 @@ def make_histograms_of_observable(
             varname_reco,
             bins_det,
             density = density,
-            absoluteValue = absoluteValue
+            absoluteValue = absValue
             )
 
         # background simulation if available
@@ -236,7 +255,7 @@ def make_histograms_of_observable(
                 varname_reco,
                 bins_det,
                 density = density,
-                absoluteValue = absoluteValue
+                absoluteValue = absValue
                 )
 
     return hists_v_d
@@ -477,7 +496,6 @@ def make_histograms_from_unfolder(
             binning_config,
             iteration = iteration,
             nruns = nruns,
-            absoluteValue = False, # ob in ['th_y', 'tl_y']
             normalize = normalize,
             all_runs = all_runs,
             all_iterations = all_iterations,
