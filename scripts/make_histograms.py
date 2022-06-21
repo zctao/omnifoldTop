@@ -46,17 +46,20 @@ def get_ibu_unfolded_histogram_from_unfolder(
         wobs = np.concatenate([wobs, wobsbkg])
 
     # simulation
-    array_sim = unfolder.handle_sig[vname_reco]
+    # Take only events that are truth matched i.e. pass both reco and truth cuts
+    pass_all_sig = unfolder.handle_sig.pass_reco & unfolder.handle_sig.pass_truth
+
+    array_sim = unfolder.handle_sig.get_arrays(vname_reco)[pass_all_sig]
     if absoluteValue:
         array_sim = np.abs(array_sim)
 
-    wsim = unfolder.handle_sig.get_weights()
+    wsim = unfolder.handle_sig.get_weights(valid_only=False)[pass_all_sig]
 
-    array_gen = unfolder.handle_sig[vname_truth]
+    array_gen = unfolder.handle_sig.get_arrays(vname_truth)[pass_all_sig]
     if absoluteValue:
         array_gen = np.abs(array_gen)
 
-    wgen = unfolder.handle_sig.get_weights(reco_level=False)
+    wgen = unfolder.handle_sig.get_weights(reco_level=False, valid_only=False)[pass_all_sig]
 
     if unfolder.handle_bkg is not None:
         array_bkg = unfolder.handle_bkg[vname_reco]
