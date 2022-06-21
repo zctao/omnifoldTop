@@ -84,7 +84,7 @@ syst_dict = {
 
 def getSamples_detNP(
     sample_dir, # top directory to read sample files
-    category, # "ejets" or "mjets"
+    category, # "ejets" or "mjets" or "ljets"
     systematics = 'nominal', # type of systematics
     subcampaigns = ["mc16a", "mc16d", "mc16e"]
     ):
@@ -100,32 +100,38 @@ def getSamples_detNP(
         else:
             raise RuntimeError(f"Unknown MC subcampaign {e}")
 
+    if category == "ljets":
+        channels = ["ejets", "mjets"]
+    elif category == "ejets" or category == "mjets":
+        channels = [category]
+
     ###
     # observed data
-    data = [os.path.join(sample_dir, f"obs/{y}/data_0_pseudotop_{category}.root") for y in years]
+    data = [os.path.join(sample_dir, f"obs/{y}/data_0_pseudotop_{c}.root") for c in channels for y in years]
 
     ###
     # background
     backgrounds = []
 
     # Fakes
-    backgrounds += [os.path.join(sample_dir, f"fakes/{y}/data_0_pseudotop_{category}.root") for y in years]
+    backgrounds += [os.path.join(sample_dir, f"fakes/{y}/data_0_pseudotop_{c}.root") for c in channels for y in years]
 
     # W+jets
-    backgrounds += [os.path.join(sample_dir, f"systCRL/Wjets_nominal/{e}/Wjets_0_pseudotop_{category}.root") for e in subcampaigns]
+    backgrounds += [os.path.join(sample_dir, f"systCRL/Wjets_nominal/{e}/Wjets_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
 
     # Z+jets
-    backgrounds += [os.path.join(sample_dir, f"systCRL/Zjets_nominal/{e}/Zjets_0_pseudotop_{category}.root") for e in subcampaigns]
+    backgrounds += [os.path.join(sample_dir, f"systCRL/Zjets_nominal/{e}/Zjets_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
 
     # other samples
     for bkg in ['singleTop', 'ttH', 'ttV', 'VV']:
-        backgrounds += [os.path.join(sample_dir, f"detNP/{bkg}_{systematics}/{e}/{bkg}_0_pseudotop_{category}.root") for e in subcampaigns]
+        backgrounds += [os.path.join(sample_dir, f"detNP/{bkg}_{systematics}/{e}/{bkg}_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
 
     ###
     # signal
     signal = []
     for e in subcampaigns:
-        s = glob.glob(os.path.join(sample_dir, f"detNP/ttbar_{systematics}/{e}/ttbar_*_pseudotop_parton_{category}.root"))
+        for c in channels:
+            s = glob.glob(os.path.join(sample_dir, f"detNP/ttbar_{systematics}/{e}/ttbar_*_pseudotop_parton_{c}.root"))
         s.sort()
         signal += s
 
@@ -137,7 +143,7 @@ def getSamples_detNP(
     
 def createRun2Config(
         sample_local_dir,
-        channel, # "ejets" or "mjets"
+        category, # "ejets" or "mjets" or "ljets"
         outname_config = 'runConfig',
         output_top_dir = '.',
         subcampaigns = ["mc16a", "mc16d", "mc16e"],
@@ -153,12 +159,12 @@ def createRun2Config(
     print("nominal")
     obs_nominal, sig_nominal, bkg_nominal = getSamples_detNP(
         sample_local_dir,
-        category = channel,
+        category = category,
         systematics = 'nominal',
         subcampaigns = subcampaigns
     )
 
-    outdir_nominal = os.path.join(output_top_dir, "nominal", f"output_run2_{channel}")
+    outdir_nominal = os.path.join(output_top_dir, "nominal", f"output_run2_{category}")
 
     nominal_cfg = common_cfg.copy()
     nominal_cfg.update({
@@ -177,7 +183,7 @@ def createRun2Config(
     # bootstrap for statistical uncertainties
     if do_bootstrap:
         nresamples = 10
-        outdir_resample = os.path.join(output_top_dir, "nominal", f"output_run2_bootstrap_{channel}")
+        outdir_resample = os.path.join(output_top_dir, "nominal", f"output_run2_bootstrap_{category}")
         outdir_resample_dict = {
             f"resample{n}" : outdir_resample for n in range(nresamples)
             }
@@ -219,12 +225,12 @@ def createRun2Config(
 
                 obs_syst, sig_syst, bkg_syst = getSamples_detNP(
                     sample_local_dir,
-                    category = channel,
+                    category = category,
                     systematics = syst,
                     subcampaigns = subcampaigns
                 )
 
-                outdir_syst = os.path.join(output_top_dir, syst, f"output_run2_{channel}")
+                outdir_syst = os.path.join(output_top_dir, syst, f"output_run2_{category}")
 
                 syst_cfg = common_cfg.copy()
                 syst_cfg.update({
@@ -253,7 +259,7 @@ if __name__ == "__main__":
                         help="Sample directory")
     parser.add_argument("-n", "--config-name", type=str,
                         default="runConfig")
-    parser.add_argument("-c", "--channel", choices=["ejets", "mjets"],
+    parser.add_argument("-c", "--category", choices=["ejets", "mjets", "ljets"],
                         default="ejets")
     parser.add_argument("-r", "--result-dir", type=str,
                         default=os.path.join(os.getenv("HOME"),"data/OmniFoldOutputs/Run2wSyst"),
@@ -278,7 +284,7 @@ if __name__ == "__main__":
 
     createRun2Config(
         args.sample_dir,
-        channel = args.channel,
+        category = args.category,
         outname_config = args.config_name,
         output_top_dir = args.result_dir,
         subcampaigns = args.subcampaigns,
