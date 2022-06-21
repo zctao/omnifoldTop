@@ -329,7 +329,8 @@ def plot_distributions_reco(
     hep.histplot(hist_sim, yerr=False, stack=True, ax=axes[0], **style_sim)
 
     # data
-    hep.histplot(hist_data, yerr=True, xerr=True, ax=axes[0], **data_style)
+    data_yerr = get_values_and_errors(hist_data)[1]
+    hep.histplot(hist_data, yerr=data_yerr, xerr=True, ax=axes[0], **data_style)
 
     # legend
     axes[0].legend(loc=legend_loc, ncol=legend_ncol, frameon=False)
@@ -426,10 +427,12 @@ def plot_distributions_unfold(
 
     # IBU if available
     if hist_ibu is not None:
-        hep.histplot(hist_ibu, ax=ax, yerr=True, xerr=True, **ibu_style)
+        ibu_yerr = get_values_and_errors(hist_ibu)[1]
+        hep.histplot(hist_ibu, ax=ax, yerr=ibu_yerr, xerr=True, **ibu_style)
 
     # Unfold
-    hep.histplot(hist_unfold, ax=ax, yerr=True, xerr=True, **omnifold_style)
+    uf_yerr = get_values_and_errors(hist_unfold)[1]
+    hep.histplot(hist_unfold, ax=ax, yerr=uf_yerr, xerr=True, **omnifold_style)
 
     # legend
     ax.legend(loc=legend_loc, ncol=legend_ncol, frameon=False)
@@ -509,8 +512,9 @@ def plot_multiple_histograms(
     assert(len(colors_toplot)==len(hists_toplot))
 
     for i, h, c in zip(selected_i, hists_toplot, colors_toplot):
+        hyerr = get_values_and_errors(h)[1]
         hep.histplot(
-            h, ax=ax, histtype='errorbar', yerr=True, xerr=True, color=c,
+            h, ax=ax, histtype='errorbar', yerr=hyerr, xerr=True, color=c,
             #label = 
             **draw_options
             )
@@ -548,7 +552,8 @@ def plot_distributions_resamples(
     # plot
     for i, (huf, color) in enumerate(zip(hists_uf_resample, colors_rs)):
         label = 'Resample' if i==0 else None
-        hep.histplot(huf, histtype='step', yerr=True, label=label, ax=axes[0], ls='--', lw=1)
+        rs_yerr = get_values_and_errors(huf)[1]
+        hep.histplot(huf, histtype='step', yerr=rs_yerr, label=label, ax=axes[0], ls='--', lw=1)
 
 #    bin_edges = hist_prior.axes[0].edges
 #
@@ -617,8 +622,9 @@ def plot_distributions_iteration(
     colors = set_default_colors(len(selected_i))
 
     for i, h, c in zip(selected_i, hists_toplot, colors):
+        it_yerr = get_values_and_errors(h)[1]
         hep.histplot(
-            h, ax=axes[0], histtype='errorbar', yerr=True, xerr=True, color=c,
+            h, ax=axes[0], histtype='errorbar', yerr=it_yerr, xerr=True, color=c,
             label=f"iteration {i}", alpha=0.8, marker='o', markersize=2)
 
     # ratio
