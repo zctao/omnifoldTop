@@ -170,7 +170,8 @@ def unfold(**parsed_args):
             normalize = True,
             include_ibu = parsed_args['run_ibu'],
             compute_metrics = True,
-            plot_verbosity = parsed_args['plot_verbosity']
+            plot_verbosity = parsed_args['plot_verbosity'],
+            density = False
             )
 
     t_result_stop = time.time()

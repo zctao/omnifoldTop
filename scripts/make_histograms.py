@@ -22,7 +22,8 @@ def get_ibu_unfolded_histogram_from_unfolder(
     bins_truth,
     niterations = None, # number of iterations
     all_iterations = False, # if True, return results at every iteration
-    norm = None
+    norm = None,
+    density = False
     ):
 
     # Prepare inputs
@@ -61,6 +62,7 @@ def get_ibu_unfolded_histogram_from_unfolder(
         wobs, wsim, wgen, wbkg,
         niterations = niterations,
         all_iterations = all_iterations,
+        density = density,
         norm = norm
         )
 
@@ -79,7 +81,8 @@ def make_histograms_of_observable(
     all_iterations = False, # If True, include nominal unfolded histograms at all iterations
     all_histograms = False, # If True, include also histograms of every run and every iteration
     include_ibu = False, # If True, include also IBU for comparison
-    include_reco = False # If True, include also reco level histograms
+    include_reco = False, # If True, include also reco level histograms
+    density = False # If True, normalize the histograms by bin widths
     ):
 
     hists_v_d = {}
@@ -97,10 +100,11 @@ def make_histograms_of_observable(
         bins_mc,
         iteration = iteration,
         nresamples = nruns,
+        density = density,
         absoluteValue = absoluteValue
         )
 
-    norm_uf = h_uf.sum(flow=True)['value'] if normalize else None
+    norm_uf = myhu.get_hist_norm(h_uf, density=density, flow=True) if normalize else None
 
     # set x-axis label
     h_uf.axes[0].label = obsConfig_d[observable]['xlabel']
@@ -115,6 +119,7 @@ def make_histograms_of_observable(
             bins_mc,
             iteration = iteration,
             nresamples = nruns,
+            density = density,
             absoluteValue = absoluteValue
             )
 
@@ -124,7 +129,8 @@ def make_histograms_of_observable(
             varname_truth,
             bins_mc,
             nresamples = nruns,
-            all_iterations=True,
+            all_iterations = True,
+            density = density,
             absoluteValue = absoluteValue
             )[0]
 
@@ -133,6 +139,7 @@ def make_histograms_of_observable(
             varname_truth,
             bins_mc,
             nresamples = nruns,
+            density = density,
             all_iterations=True,
             absoluteValue = absoluteValue
             )
@@ -142,25 +149,25 @@ def make_histograms_of_observable(
     ##
     # Prior
     logger.debug(f" Prior distribution")
-    h_gen = unfolder.handle_sig.get_histogram(
-        varname_truth, bins_mc, absoluteValue=absoluteValue)
-
-    if norm_uf:
-        h_gen *= (norm_uf/h_gen.sum(flow=True)['value'])
-
-    hists_v_d['prior'] = h_gen
+    hists_v_d['prior'] = unfolder.handle_sig.get_histogram(
+        varname_truth,
+        bins_mc,
+        density = density,
+        norm = norm_uf,
+        absoluteValue = absoluteValue
+        )
 
     ##
     # truth distribution if using pseudo data
     if unfolder.handle_obs.data_truth is not None:
         logger.debug(f" Truth distribution")
-        h_truth = unfolder.handle_obs.get_histogram(
-            varname_truth, bins_mc, absoluteValue=absoluteValue)
-
-        if norm_uf:
-            h_truth *= (norm_uf/h_truth.sum(flow=True)['value'])
-
-        hists_v_d['truth'] = h_truth
+        hists_v_d['truth'] = unfolder.handle_obs.get_histogram(
+            varname_truth,
+            bins_mc,
+            density = density,
+            norm = norm_uf,
+            absoluteValue=absoluteValue
+            )
 
     ##
     # IBU
@@ -177,7 +184,8 @@ def make_histograms_of_observable(
             varname_reco, varname_truth,
             bins_det, bins_mc,
             all_iterations = True,
-            norm = norm_uf
+            norm = norm_uf,
+            density = density
         )
 
         # take the ones at the same iteration as OmniFold
@@ -199,22 +207,37 @@ def make_histograms_of_observable(
 
         # observed data
         h_data = unfolder.handle_obs.get_histogram(
-            varname_reco, bins_det, absoluteValue=absoluteValue)
+            varname_reco,
+            bins_det,
+            density = density,
+            absoluteValue = absoluteValue
+            )
 
         if unfolder.handle_obsbkg is not None:
             h_data += unfolder.handle_obsbkg.get_histogram(
-                varname_reco, bins_det, absoluteValue=absoluteValue)
+                varname_reco,
+                bins_det,
+                density = density,
+                absoluteValue = absoluteValue)
 
         hists_v_d['reco_data'] = h_data
 
         # signal simulation
         hists_v_d['reco_sig'] = unfolder.handle_sig.get_histogram(
-            varname_reco, bins_det, absoluteValue=absoluteValue)
+            varname_reco,
+            bins_det,
+            density = density,
+            absoluteValue = absoluteValue
+            )
 
         # background simulation if available
         if unfolder.handle_bkg is not None:
             hists_v_d['reco_bkg'] = unfolder.handle_bkg.get_histogram(
-                varname_reco, bins_det, absoluteValue=absoluteValue)
+                varname_reco,
+                bins_det,
+                density = density,
+                absoluteValue = absoluteValue
+                )
 
     return hists_v_d
 
@@ -425,7 +448,8 @@ def make_histograms_from_unfolder(
     outfilename = "histograms.root", # str, output file name
     include_ibu = False, # If True, include also IBU for comparison
     compute_metrics = False, # If True, compute metrics
-    plot_verbosity = 0 # int, control how many plots to make
+    plot_verbosity = 0, # int, control how many plots to make
+    density = False # bool, if True, normalize histograms by bin widths
     ):
 
     # output directory
@@ -459,7 +483,8 @@ def make_histograms_from_unfolder(
             all_iterations = all_iterations,
             all_histograms = all_histograms,
             include_ibu = include_ibu, 
-            include_reco = include_reco
+            include_reco = include_reco,
+            density = density
             )
 
         # compute metrics
@@ -516,7 +541,8 @@ def make_histograms(
     include_ibu = False,
     compute_metrics = False,
     plot_verbosity = 0,
-    verbose = False
+    verbose = False,
+    density = False
     ):
 
     logger.setLevel(logging.DEBUG if verbose else logging.INFO)
@@ -564,12 +590,13 @@ def make_histograms(
         obsConfig_d,
         iteration = iteration,
         nruns = nruns,
-        normalize = True,
+        normalize = normalize,
         outputdir = outputdir,
         outfilename = outfilename,
         include_ibu = include_ibu,
         compute_metrics = compute_metrics,
-        plot_verbosity = plot_verbosity
+        plot_verbosity = plot_verbosity,
+        density = density
         )
 
     t_hist_stop = time.time()
@@ -613,6 +640,8 @@ if __name__ == "__main__":
                         help="Plot verbose level. '-ppp' to make all plots.")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="If True, set logging level to DEBUG, otherwise INFO")
+    parser.add_argument('--density', action='store_true',
+                        help="If True, normalize histograms by bin widths")
 
     args = parser.parse_args()
 

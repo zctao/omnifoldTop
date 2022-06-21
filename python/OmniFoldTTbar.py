@@ -452,6 +452,7 @@ class OmniFoldTTbar():
         all_iterations=False,
         iteration=-1, # default: the last iteration
         nresamples=None, # default: take all that are available
+        density=False,
         absoluteValue=False
         ):
 
@@ -483,15 +484,7 @@ class OmniFoldTTbar():
 
             # truth-level prior weights
             wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
-            h = self.handle_sig.get_histogram(varname, bins, wprior*rw, absoluteValue=absoluteValue)
-
-            if norm is not None:
-                # normalize distributions from each resampling
-                if all_iterations:
-                    for hh in h: # for each iteration
-                        hh *= (norm / hh.sum(flow=True)['value'])
-                else:
-                    h *= (norm / h.sum(flow=True)['value'])
+            h = self.handle_sig.get_histogram(varname, bins, wprior*rw, density=density, norm=norm, absoluteValue=absoluteValue)
 
             hists_resample.append(h)
 
@@ -505,6 +498,7 @@ class OmniFoldTTbar():
         all_iterations=False,
         iteration=-1, # default: the last iteration
         nresamples=None, # default, take all that are avaiable
+        density=False,
         absoluteValue=False
         ):
 
@@ -515,6 +509,7 @@ class OmniFoldTTbar():
             all_iterations=all_iterations,
             iteration=iteration,
             nresamples=nresamples,
+            density=density,
             absoluteValue=absoluteValue
             )
         # hists_uf is a list of hist objects or a list of a list of hist objects
@@ -526,9 +521,9 @@ class OmniFoldTTbar():
             # rescale the unfolded histograms to the norm
             if all_iterations:
                 for hh in h_uf:
-                    hh *= (norm / hh.sum(flow=True)['value'])
+                    hh = myhu.renormalize_hist(hh, norm=norm, density=density, flow=True)
             else:
-                h_uf *= (norm / h_uf.sum(flow=True)['value'])
+                h_uf = myhu.renormalize_hist(h_uf, norm=norm, density=density, flow=True)
 
         # bin correlations
         bin_corr = None

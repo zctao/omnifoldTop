@@ -8,7 +8,8 @@ import histogramming as myhu
 def _response_matrix(array_sim, array_gen, bins_reco, bins_truth, weights):
 
     r = myhu.calc_hist2d(
-        array_sim, array_gen, bins=(bins_reco, bins_truth), weights=weights
+        array_sim, array_gen, bins=(bins_reco, bins_truth), weights=weights,
+        density=False
     )
 
     # normalize per truth bin
@@ -29,16 +30,23 @@ def _get_obs_distribution(
     if bootstrap:
         weights_obs = weights_obs * np.random.poisson(1, size=len(weights_obs))
 
-    h_obs = myhu.calc_hist(array_obs, bins, weights=weights_obs)
+    h_obs = myhu.calc_hist(array_obs, bins, weights=weights_obs, density=False)
 
     # if there is background, subtract it
     if array_bkg is not None:
-        h_bkg = myhu.calc_hist(array_bkg, bins, weights=weights_bkg)
+        h_bkg = myhu.calc_hist(array_bkg, bins, weights=weights_bkg, density=False)
         h_obs = h_obs + (-1 * h_bkg)
 
     return h_obs
 
-def _unfold(response, h_obs, h_prior, niterations, acceptance_correction=None, efficiency_correction=None):
+def _unfold(
+    response,
+    h_obs,
+    h_prior,
+    niterations,
+    acceptance_correction=None,
+    efficiency_correction=None
+    ):
 
     # apply acceptance correction if available
     if acceptance_correction is not None:
@@ -58,7 +66,7 @@ def _unfold(response, h_obs, h_prior, niterations, acceptance_correction=None, e
         m = response.values() * hists_unfold[-1].values()
         m /= (m.sum(axis=1)[:,np.newaxis] + 10**-50)
 
-        i_unfold = np.dot(m.T, h_obs.values()) * wbins_reco / wbins_truth
+        i_unfold = np.dot(m.T, h_obs.values())
         h_ibu = myhu.get_hist(bins_truth, i_unfold)
         hists_unfold.append(h_ibu)
 
@@ -84,6 +92,7 @@ def run_ibu(
     acceptance_correction = None, # histogram for acceptance correction
     efficiency_correction = None, # histogram for efficiency correction
     all_iterations = False, # if True, return results at every iteration
+    density = False, # if True, normalize the final histograms by its bin widths
     norm = None
     ):
 
@@ -99,7 +108,7 @@ def run_ibu(
     )
 
     # signal MC truth level prior
-    h_prior = myhu.calc_hist(array_gen, bins_truth, weights=weights_gen)
+    h_prior = myhu.calc_hist(array_gen, bins_truth, weights=weights_gen, density=False)
 
     # unfolded distribution
     hists_ibu = _unfold(r, h_obs, h_prior, niterations,
@@ -129,7 +138,12 @@ def run_ibu(
     # normalization
     if norm is not None:
         for h in hists_ibu:
-            h *= (norm / h.sum(flow=True)['value'])
+            h = myhu.renormalize_hist(h, norm, density=False)
+
+    if density:
+        # divide the histogram by its bin widths
+        for h in hists_ibu:
+            h /= myhu.get_hist_widths(h)
 
     # bin correlations
     bin_corr = []

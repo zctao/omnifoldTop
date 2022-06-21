@@ -436,7 +436,7 @@ class DataHandler(Mapping):
         correlations = df.corr()
         return correlations
 
-    def get_histogram(self, variable, bin_edges, weights=None, density=False, absoluteValue=False):
+    def get_histogram(self, variable, bin_edges, weights=None, density=False, norm=None, absoluteValue=False):
         """
         Retrieve the histogram of a weighted variable in the dataset.
 
@@ -449,6 +449,10 @@ class DataHandler(Mapping):
             per-event weightings. If None, use self.weights or self.weights_mc
         bin_edges : array-like of shape (nbins + 1,)
             Locations of the edges of the bins of the histogram.
+        density : bool
+            If True, normalize the histogram by bin widths
+        norm : float, default None
+            If not None, rescale the histogram to norm
 
         Returns
         -------
@@ -469,15 +473,15 @@ class DataHandler(Mapping):
                     varr = np.abs(varr)
                 assert(len(varr) == len(weights))
 
-                return calc_hist(varr, weights=weights, bins=bin_edges, density=density)
+                return calc_hist(varr, weights=weights, bins=bin_edges, density=density, norm=norm)
             elif weights.ndim == 2: # make the 2D array into a list of 1D array
-                return self.get_histogram(variable, bin_edges, list(weights), density)
+                return self.get_histogram(variable, bin_edges=bin_edges, weights=list(weights), density=density, norm=norm, absoluteValue=absoluteValue)
             else:
                 raise RuntimeError("Only 1D or 2D array or a list of 1D array of weights can be processed.")
         elif isinstance(weights, list): # if weights is a list of 1D array
             hists = []
             for w in weights:
-                h = self.get_histogram(variable, bin_edges, w, density)
+                h = self.get_histogram(variable, bin_edges=bin_edges, weights=w, density=density, norm=norm, absoluteValue=absoluteValue)
                 hists.append(h)
             return hists
         else:

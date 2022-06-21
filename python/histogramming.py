@@ -113,7 +113,7 @@ def calc_hist2d(data_x, data_y, bins, weights=None, density=False, norm=None, ch
 
     if density:
         # normalize by bin widths
-        h2d / get_hist_widths(h2d)
+        h2d /= get_hist_widths(h2d)
 
     if norm is not None:
         h2d = renormalize_hist(h2d, norm=norm, density=density, flow=True)
