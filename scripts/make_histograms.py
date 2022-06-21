@@ -491,7 +491,7 @@ def make_histograms_from_unfolder(
 
         histograms_dict[ob] = make_histograms_of_observable(
             unfolder,
-            ob, 
+            ob,
             obsConfig_d,
             binning_config,
             iteration = iteration,
@@ -500,7 +500,7 @@ def make_histograms_from_unfolder(
             all_runs = all_runs,
             all_iterations = all_iterations,
             all_histograms = all_histograms,
-            include_ibu = include_ibu, 
+            include_ibu = include_ibu,
             include_reco = include_reco,
             density = density
             )
@@ -522,7 +522,7 @@ def make_histograms_from_unfolder(
             plot_verbosity,
             outdir = outputdir,
             xlabel = obsConfig_d[ob]['xlabel'],
-            ylabel = obsConfig_d[ob]['ylabel'],
+            ylabel = obsConfig_d[ob]['ylabel'] if not density else obsConfig_d[ob]['ylabel_density'],
             legend_loc = obsConfig_d[ob]['legend_loc'],
             legend_ncol = obsConfig_d[ob]['legend_ncol'],
             stamp_loc =  obsConfig_d[ob]['stamp_xy']
