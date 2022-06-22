@@ -135,8 +135,7 @@ def run_ibu(
         )
 
     # standard deviation of each bin
-    hists_ibu_resample = np.asarray(hists_ibu_resample)['value']
-    bin_errors = np.std(hists_ibu_resample, axis=0, ddof=1) # shape: (niterations, nbins_hist)
+    bin_errors = myhu.get_sigma_from_hists(hists_ibu_resample) # shape: (niterations, nbins_hist)
 
     # set error
     myhu.set_hist_errors(hists_ibu, bin_errors)
@@ -152,12 +151,7 @@ def run_ibu(
             h /= myhu.get_hist_widths(h)
 
     # bin correlations
-    bin_corr = []
-    # for each iteration
-    for i in range(niterations):
-        df_ihist = pd.DataFrame(hists_ibu_resample[:,i,:])
-        bin_corr.append(df_ihist.corr())
-        #assert( np.allclose(np.sqrt(np.asarray([df_ihist.cov()[i][i] for i in range(len(df_ihist.columns))])), errors[i]) ) # sanity check
+    bin_corr = myhu.get_bin_correlations_from_hists(hists_ibu_resample)
 
     # Return results
     if all_iterations:
