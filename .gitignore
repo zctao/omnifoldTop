@@ -4,9 +4,11 @@ output/
 output_*/
 external/
 test/
+configs/run/
 __*__
 *tmp*
 *.pyc
 *.png
 *.pdf
+*.log
 venv/
