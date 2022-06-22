@@ -70,12 +70,18 @@ def _unfold(
         h_ibu = myhu.get_hist(bins_truth, i_unfold)
         hists_unfold.append(h_ibu)
 
+    # exclude h_prior
+    hists_unfold = hists_unfold[1:]
+
+    # FIXME
     if efficiency_correction is not None:
         # apply efficiency correction
-        # TODO
-        pass
+        f_eff = np.array([ 1. / efficiency_correction[hist.loc(c)].value for c in h_obs.axes[0].centers ])
 
-    return hists_unfold[1:] # shape: (niterations, )
+        for huf in hists_unfold:
+            huf *= f_eff
+
+    return hists_unfold # shape: (niterations, )
 
 def run_ibu(
     bins_reco, bins_truth, # binning for reco and truth level variable
