@@ -292,6 +292,10 @@ def make_histograms_of_observable(
                 absoluteValue = absValue
                 )
 
+    # acceptance and efficiency corrections if available
+    hists_v_d['acceptance'] = acceptance
+    hists_v_d['efficiency'] = efficiency
+
     return hists_v_d
 
 def evaluate_metrics(
@@ -583,6 +587,7 @@ def make_histograms_from_unfolder(
             'reco_data', 'reco_sig', 'reco_bkg',
             'ibu', 'ibu_correlation', 'response',
             'relativeDiffXs_ibu', 'absoluteDiffXs_ibu',
+            'acceptance', 'efficiency'
             ]
 
         hists_to_write = {}
