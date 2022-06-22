@@ -10,6 +10,9 @@ import plotter
 import histogramming as myhu
 from OmniFoldTTbar import load_unfolder
 from ibuv2 import run_ibu
+import hist
+
+from ttbarDiffXsRun2.helpers import get_acceptance_correction, get_efficiency_correction
 
 import logging
 logger = logging.getLogger("make_histograms")
@@ -24,7 +27,9 @@ def get_ibu_unfolded_histogram_from_unfolder(
     all_iterations = False, # if True, return results at every iteration
     norm = None,
     density = False,
-    absoluteValue = False
+    absoluteValue = False,
+    acceptance = None,
+    efficiency = None
     ):
 
     # Prepare inputs
@@ -83,10 +88,21 @@ def get_ibu_unfolded_histogram_from_unfolder(
         niterations = niterations,
         all_iterations = all_iterations,
         density = density,
-        norm = norm
+        norm = norm,
+        acceptance_correction = acceptance,
+        efficiency_correction = efficiency
         )
 
     return hists_ibu, h_ibu_corr, reponse
+
+def apply_efficiency_correction(histogram, h_eff_corr):
+    if isinstance(histogram, list):
+        return [ apply_efficiency_correction(hh, h_eff_corr) for hh in histogram ]
+    else:
+        # in case the efficiency correction histogram has a different binning
+        # get the correction factors using histogram's bin center
+        f_eff = np.array([ 1. / h_eff_corr[hist.loc(bc)].value for bc in histogram.axes[0].centers ])
+        return histogram * f_eff
 
 def make_histograms_of_observable(
     unfolder,
@@ -99,9 +115,12 @@ def make_histograms_of_observable(
     all_runs = True, # If True, include unfolded histograms of all runs at specified iteration
     all_iterations = False, # If True, include nominal unfolded histograms at all iterations
     all_histograms = False, # If True, include also histograms of every run and every iteration
-    include_ibu = False, # If True, include also IBU for comparison
     include_reco = False, # If True, include also reco level histograms
-    density = False # If True, normalize the histograms by bin widths
+    density = False, # If True, normalize the histograms by bin widths
+    # For IBU
+    include_ibu = False, # If True, include also IBU for comparison
+    acceptance = None, # histogram for acceptance correction
+    efficiency = None # histogram for efficiency correction
     ):
 
     hists_v_d = {}
@@ -125,6 +144,9 @@ def make_histograms_of_observable(
         absoluteValue = absValue
         )
 
+    if efficiency:
+        h_uf = apply_efficiency_correction(h_uf, efficiency)
+
     norm_uf = myhu.get_hist_norm(h_uf, density=density, flow=True) if normalize else None
 
     # set x-axis label
@@ -144,6 +166,10 @@ def make_histograms_of_observable(
             absoluteValue = absValue
             )
 
+        if efficiency:
+            hists_v_d['unfolded_allruns'] = apply_efficiency_correction(
+                hists_v_d['unfolded_allruns'], efficiency)
+
     if all_iterations:
         # unfoldedd histograms at every iteration
         hists_v_d['unfolded_alliters'] = unfolder.get_unfolded_distribution(
@@ -155,6 +181,10 @@ def make_histograms_of_observable(
             absoluteValue = absValue
             )[0]
 
+        if efficiency:
+            hists_v_d['unfolded_alliters'] = apply_efficiency_correction(
+                hists_v_d['unfolded_alliters'], efficiency)
+
     if all_histograms:
         hists_v_d['unfolded_all'] = unfolder.get_unfolded_hists_resamples(
             varname_truth,
@@ -164,6 +194,10 @@ def make_histograms_of_observable(
             all_iterations=True,
             absoluteValue = absValue
             )
+
+        if efficiency:
+            hists_v_d['unfolded_all'] = apply_efficiency_correction(
+                hists_v_d['unfolded_all'], efficiency)
 
     ###
     # Other truth-level distributions
@@ -207,7 +241,9 @@ def make_histograms_of_observable(
             all_iterations = True,
             norm = norm_uf,
             density = density,
-            absoluteValue = absValue
+            absoluteValue = absValue,
+            acceptance = acceptance,
+            efficiency = efficiency
         )
 
         # take the ones at the same iteration as OmniFold
@@ -471,7 +507,8 @@ def make_histograms_from_unfolder(
     include_ibu = False, # If True, include also IBU for comparison
     compute_metrics = False, # If True, compute metrics
     plot_verbosity = 0, # int, control how many plots to make
-    density = False # bool, if True, normalize histograms by bin widths
+    density = False, # bool, if True, normalize histograms by bin widths
+    binned_correction_dir = None # str, directory to read binned corrections from
     ):
 
     # output directory
@@ -492,6 +529,14 @@ def make_histograms_from_unfolder(
     for ob in observables:
         logger.info(f"Make histograms for {ob}")
 
+        # read binned corrections if available
+        if binned_correction_dir:
+            acceptance = get_acceptance_correction(ob, binned_correction_dir)
+            efficiency = get_efficiency_correction(ob, binned_correction_dir)
+        else:
+            acceptance = None
+            efficiency = None
+
         histograms_dict[ob] = make_histograms_of_observable(
             unfolder,
             ob,
@@ -505,7 +550,9 @@ def make_histograms_from_unfolder(
             all_histograms = all_histograms,
             include_ibu = include_ibu,
             include_reco = include_reco,
-            density = density
+            density = density,
+            acceptance = acceptance,
+            efficiency = efficiency
             )
 
         # compute metrics
@@ -563,7 +610,8 @@ def make_histograms(
     compute_metrics = False,
     plot_verbosity = 0,
     verbose = False,
-    density = False
+    density = False,
+    binned_correction_dir = None
     ):
 
     logger.setLevel(logging.DEBUG if verbose else logging.INFO)
@@ -617,7 +665,8 @@ def make_histograms(
         include_ibu = include_ibu,
         compute_metrics = compute_metrics,
         plot_verbosity = plot_verbosity,
-        density = density
+        density = density,
+        binned_correction_dir = binned_correction_dir
         )
 
     t_hist_stop = time.time()
@@ -663,6 +712,9 @@ if __name__ == "__main__":
                         help="If True, set logging level to DEBUG, otherwise INFO")
     parser.add_argument('--density', action='store_true',
                         help="If True, normalize histograms by bin widths")
+    parser.add_argument('--correction-dir', dest="binned_correction_dir",
+                        type=str,
+                        help="Directory to read binned correction from")
 
     args = parser.parse_args()
 
