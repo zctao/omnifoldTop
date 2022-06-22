@@ -52,7 +52,7 @@ def _unfold(
     if acceptance_correction is not None:
         # in case the acceptance correction histogram has different binning
         # get the correction factors using h_obs bin center
-        f_acc = [ acceptance_correction[hist.loc(c)].value for c in h_obs.axes[0].centers ]
+        f_acc = np.array([ acceptance_correction[hist.loc(c)].value for c in h_obs.axes[0].centers ])
         h_obs = h_obs * f_acc
 
     # bin widths
