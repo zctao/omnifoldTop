@@ -150,6 +150,13 @@ def get_hist(bins, contents, errors=None):
         set_hist_errors(h, errors)
     return h
 
+def get_hist2d(xbins, ybinx, contents, errors=None):
+    h2d = Hist(hist.axis.Variable(xbins), hist.axis.Variable(ybinx), storage=hist.storage.Weight())
+    set_hist_contents(h2d, contents)
+    if errors is not None:
+        set_hist_errors(h2d, errors)
+    return h2d
+
 def get_values_and_errors(histogram):
     if isinstance(histogram, list):
         hvals, herrs = [], []
@@ -257,7 +264,7 @@ def get_bin_correlations_from_hists(histogram_list):
 
     Returns
     -------
-    DataFrame correlation matrix or a list of them
+    A 2D hist.Hist object
     """
     if len(histogram_list) == 0: # in case it is empty
         return None
@@ -265,18 +272,28 @@ def get_bin_correlations_from_hists(histogram_list):
     hists_content = np.asarray(histogram_list)['value']
     if hists_content.ndim == 2:
         # input shape: (n_resamples, n_bins)
+
+        # bin edges
+        bins = histogram_list[0].axes[0].edges
+
         df_i = pd.DataFrame(hists_content)
-        bins_corr = df_i.corr()
-        return bins_corr
+        h2d_corr = get_hist2d(bins, bins, df_i.corr().to_numpy())
+        return h2d_corr
 
     elif hists_content.ndim == 3: # all iterations
         # input shape: (n_resamples, n_iterations, n_bins)
+
+        # bin edges
+        bins = histogram_list[0][0].axes[0].edges
+
         niters = hists_content.shape[1]
-        bins_corr = []
+        h2d_corr = []
         for i in range(niters):
             df_i = pd.DataFrame(hists_content[:,i,:])
-            bins_corr.append(df_i.corr()) # ddof = 1
-        return bins_corr
+            h2d_corr.append(
+                get_hist2d(bins, bins, df_i.corr().to_numpy()) # ddof = 1
+                )
+        return h2d_corr
     else:
         logger.error("Cannot handle the histogram collection of dimension {}".format(hists_content.ndim))
         return None
