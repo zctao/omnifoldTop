@@ -1,13 +1,16 @@
 import os
 import glob
 import numpy as np
+from copy import copy
 
 import util
 import plotter
+import reweight
 import histogramming as myhu
 from datahandler import DataHandler
 from datahandler_root import DataHandlerROOT
 from omnifold import omnifold
+from modelUtils import n_models_in_parallel
 
 import logging
 logger = logging.getLogger('OmniFoldTTbar')
@@ -346,6 +349,7 @@ class OmniFoldTTbar():
         niterations, # number of iterations
         resample_data=False,
         nruns=1,
+        resample_everyrun=False,
         model_type='dense_100x3',
         save_models=True,
         load_previous_iteration=True,
@@ -359,7 +363,7 @@ class OmniFoldTTbar():
 
         # preprocess data and weights
         X_data, X_sim, X_gen = self._get_input_arrays()
-        w_data, w_sim, w_gen = self._get_event_weights()
+        w_data, w_sim, w_gen = self._get_event_weights(resample=resample_data)
         passcut_data, passcut_sim, passcut_gen = self._get_event_flags()
 
         # plot variable and event weight distributions for training
@@ -379,7 +383,7 @@ class OmniFoldTTbar():
         # unfold
         assert(nruns>0)
         self.unfolded_weights = np.empty(
-            shape=(nruns, niterations, np.count_nonzero(passcut_gen))
+            shape=(nruns * n_models_in_parallel, niterations, np.count_nonzero(passcut_gen))
             )
 
         for ir in range(nruns):
@@ -396,12 +400,12 @@ class OmniFoldTTbar():
                 else:
                     save_model_dir = ''
 
-            if resample_data:
+            if resample_data and resample_everyrun:
                 # fluctuate data weights
                 w_data, w_sim, w_gen = self._get_event_weights(resample=True)
 
             # omnifold
-            self.unfolded_weights[ir,:,:] = omnifold(
+            self.unfolded_weights[ir*n_models_in_parallel:(ir+1)*n_models_in_parallel,:,:] = omnifold(
                 X_data, X_sim, X_gen,
                 w_data, w_sim, w_gen,
                 passcut_data, passcut_sim, passcut_gen,
@@ -421,7 +425,7 @@ class OmniFoldTTbar():
                     plotter.plot_train_log(csvfile)
 
         # save weights to disk
-        wfile = os.path.join(self.outdir, f"weights_unfolded.npz")
+        wfile = os.path.join(self.outdir, "weights_unfolded.npz")
         np.savez(wfile, unfolded_weights = self.unfolded_weights)
 
     def load(self, filepaths_unfolded_weights):
@@ -448,6 +452,7 @@ class OmniFoldTTbar():
         all_iterations=False,
         iteration=-1, # default: the last iteration
         nresamples=None, # default: take all that are available
+        density=False,
         absoluteValue=False
         ):
 
@@ -479,15 +484,7 @@ class OmniFoldTTbar():
 
             # truth-level prior weights
             wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
-            h = self.handle_sig.get_histogram(varname, bins, wprior*rw, absoluteValue=absoluteValue)
-
-            if norm is not None:
-                # normalize distributions from each resampling
-                if all_iterations:
-                    for hh in h: # for each iteration
-                        hh *= (norm / hh.sum(flow=True)['value'])
-                else:
-                    h *= (norm / h.sum(flow=True)['value'])
+            h = self.handle_sig.get_histogram(varname, bins, wprior*rw, density=density, norm=norm, absoluteValue=absoluteValue)
 
             hists_resample.append(h)
 
@@ -501,6 +498,7 @@ class OmniFoldTTbar():
         all_iterations=False,
         iteration=-1, # default: the last iteration
         nresamples=None, # default, take all that are avaiable
+        density=False,
         absoluteValue=False
         ):
 
@@ -511,45 +509,26 @@ class OmniFoldTTbar():
             all_iterations=all_iterations,
             iteration=iteration,
             nresamples=nresamples,
+            density=density,
             absoluteValue=absoluteValue
             )
         # hists_uf is a list of hist objects or a list of a list of hist objects
 
-        if not hists_uf:
-            # no unfolded weights available
-            return None, None
-
-        # take the histogram from the first run
-        h_uf = hists_uf[0]
-
-        # bin corrections
-        bin_corr = None
-
-        if len(hists_uf) > 1:
-            # compute bin correlations
-            bin_corr = myhu.get_bin_correlations_from_hists(hists_uf)
-
-            # average bin entries of all runs
-            # mean of each bin
-            hmean = myhu.get_mean_from_hists(hists_uf)
-
-            # standard deviation of each bin
-            hsigma = myhu.get_sigma_from_hists(hists_uf)
-
-            # standard error of the mean
-            hstderr = hsigma / np.sqrt( len(hists_uf) )
-
-            # update unfolded histogram
-            myhu.set_hist_contents(h_uf, hmean)
-            myhu.set_hist_errors(h_uf, hstderr)
+        # compute the average of each bin
+        h_uf = myhu.average_histograms(hists_uf)
 
         if norm is not None:
             # rescale the unfolded histograms to the norm
             if all_iterations:
                 for hh in h_uf:
-                    hh *= (norm / hh.sum(flow=True)['value'])
+                    hh = myhu.renormalize_hist(hh, norm=norm, density=density, flow=True)
             else:
-                h_uf *= (norm / h_uf.sum(flow=True)['value'])
+                h_uf = myhu.renormalize_hist(h_uf, norm=norm, density=density, flow=True)
+
+        # bin correlations
+        bin_corr = None
+        if len(hists_uf) > 1:
+            bin_corr = myhu.get_bin_correlations_from_hists(hists_uf)
 
         return h_uf, bin_corr
 
@@ -562,3 +541,68 @@ class OmniFoldTTbar():
             label = ['Sim.', 'Data'],
             title = "Event weights",
             xlabel = 'w')
+
+#####
+# helper function to instantiate an unfolder from a previous result directory
+def load_unfolder(
+    # Path to the arguments json config
+    fpath_arguments, # str
+    # List of observables. If empty, use the observables from arguments config
+    observables=[], # list of str
+    # Observable configuration. If empty, use the config from arguments
+    obsConfig={}, # dict
+    # Binning configuration. If empty, use the config from arguments
+    ):
+
+    logger.info(f"Read arguments from {fpath_arguments}")
+    args_d = util.read_dict_from_json(fpath_arguments)
+
+    # observables
+    if not observables:
+        # if not specified, take the list of observabes from arguments config
+        observables[:] = args_d['observables'] + args_d['observables_extra']
+
+    # configuration for observables
+    if not obsConfig:
+        # if not provided, use the one from the arguments config
+        observable_config = args_d['observable_config']
+        logger.info(f"Get observable config from {observable_config}")
+        obsConfig.update(util.read_dict_from_json(observable_config))
+
+        if not obsConfig:
+            logger.error("Failed to load observable config. Abort...")
+            return None
+
+    # reco level variable names
+    varnames_reco = [obsConfig[k]['branch_det'] for k in observables]
+
+    # truth level variable names
+    varnames_truth = [obsConfig[k]["branch_mc"] for k in observables]
+
+    # reweighter
+    rw = None
+    if args_d['reweight_data']:
+        var_lookup = np.vectorize(lambda v: obsConfig[v]["branch_mc"])
+        rw = copy(reweight.rw[args_d["reweight_data"]])
+        rw.variables = var_lookup(rw.variables)
+
+    logger.info("Construct unfolder")
+    unfolder = OmniFoldTTbar(
+        varnames_reco,
+        varnames_truth,
+        filepaths_obs = args_d['data'],
+        filepaths_sig = args_d['signal'],
+        filepaths_bkg = args_d['background'],
+        normalize_to_data = args_d['normalize'],
+        dummy_value = args_d['dummy_value'],
+        weight_type = args_d['weight_type'],
+        truth_known = args_d['truth_known'],
+        outputdir = args_d['outputdir'],
+        data_reweighter = rw
+    )
+
+    # read unfolded event weights
+    fnames_uw = os.path.join(args_d['outputdir'], "weights_unfolded.npz")
+    unfolder.load(fnames_uw)
+
+    return unfolder

@@ -84,7 +84,7 @@ syst_dict = {
 
 def getSamples_detNP(
     sample_dir, # top directory to read sample files
-    category, # "ejets" or "mjets"
+    category, # "ejets" or "mjets" or "ljets"
     systematics = 'nominal', # type of systematics
     subcampaigns = ["mc16a", "mc16d", "mc16e"]
     ):
@@ -100,32 +100,38 @@ def getSamples_detNP(
         else:
             raise RuntimeError(f"Unknown MC subcampaign {e}")
 
+    if category == "ljets":
+        channels = ["ejets", "mjets"]
+    elif category == "ejets" or category == "mjets":
+        channels = [category]
+
     ###
     # observed data
-    data = [os.path.join(sample_dir, f"obs/{y}/data_0_pseudotop_{category}.root") for y in years]
+    data = [os.path.join(sample_dir, f"obs/{y}/data_0_pseudotop_{c}.root") for c in channels for y in years]
 
     ###
     # background
     backgrounds = []
 
     # Fakes
-    backgrounds += [os.path.join(sample_dir, f"fakes/{y}/data_0_pseudotop_{category}.root") for y in years]
+    backgrounds += [os.path.join(sample_dir, f"fakes/{y}/data_0_pseudotop_{c}.root") for c in channels for y in years]
 
     # W+jets
-    backgrounds += [os.path.join(sample_dir, f"systCRL/Wjets_nominal/{e}/Wjets_0_pseudotop_{category}.root") for e in subcampaigns]
+    backgrounds += [os.path.join(sample_dir, f"systCRL/Wjets_nominal/{e}/Wjets_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
 
     # Z+jets
-    backgrounds += [os.path.join(sample_dir, f"systCRL/Zjets_nominal/{e}/Zjets_0_pseudotop_{category}.root") for e in subcampaigns]
+    backgrounds += [os.path.join(sample_dir, f"systCRL/Zjets_nominal/{e}/Zjets_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
 
     # other samples
     for bkg in ['singleTop', 'ttH', 'ttV', 'VV']:
-        backgrounds += [os.path.join(sample_dir, f"detNP/{bkg}_{systematics}/{e}/{bkg}_0_pseudotop_{category}.root") for e in subcampaigns]
+        backgrounds += [os.path.join(sample_dir, f"detNP/{bkg}_{systematics}/{e}/{bkg}_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
 
     ###
     # signal
     signal = []
     for e in subcampaigns:
-        s = glob.glob(os.path.join(sample_dir, f"detNP/ttbar_{systematics}/{e}/ttbar_*_pseudotop_parton_{category}.root"))
+        for c in channels:
+            s = glob.glob(os.path.join(sample_dir, f"detNP/ttbar_{systematics}/{e}/ttbar_*_pseudotop_parton_{c}.root"))
         s.sort()
         signal += s
 
@@ -137,26 +143,28 @@ def getSamples_detNP(
     
 def createRun2Config(
         sample_local_dir,
-        channel, # "ejets" or "mjets"
-        outname_config = 'runConfig.json',
+        category, # "ejets" or "mjets" or "ljets"
+        outname_config = 'runConfig',
         output_top_dir = '.',
         subcampaigns = ["mc16a", "mc16d", "mc16e"],
-        nominal_only = False,
+        do_bootstrap = False,
+        systematics = [],
         common_cfg = {}
     ):
 
-    cfg_dict_list = []
-    
+    # in case outname_config comes with an extension
+    outname_config = os.path.splitext(outname_config)[0]
+
     # nominal input files
     print("nominal")
     obs_nominal, sig_nominal, bkg_nominal = getSamples_detNP(
         sample_local_dir,
-        category = channel,
+        category = category,
         systematics = 'nominal',
         subcampaigns = subcampaigns
     )
 
-    outdir_nominal = os.path.join(output_top_dir, "nominal", f"output_run2_{channel}")
+    outdir_nominal = os.path.join(output_top_dir, "nominal", f"output_run2_{category}")
 
     nominal_cfg = common_cfg.copy()
     nominal_cfg.update({
@@ -168,27 +176,61 @@ def createRun2Config(
         "run_ibu": True
         })
 
-    cfg_dict_list.append(nominal_cfg)
-    if nominal_only:
-        util.write_dict_to_json(cfg_dict_list, outname_config)
+    # write nominal run configuration
+    outname_config_nominal = f"{outname_config}_nominal.json"
+    util.write_dict_to_json(nominal_cfg, outname_config_nominal)
+
+    # bootstrap for statistical uncertainties
+    if do_bootstrap:
+        nresamples = 10
+        outdir_resample = os.path.join(output_top_dir, "nominal", f"output_run2_bootstrap_{category}")
+        outdir_resample_dict = {
+            f"resample{n}" : outdir_resample for n in range(nresamples)
+            }
+
+        resample_cfg = common_cfg.copy()
+        resample_cfg.update({
+            "data": obs_nominal,
+            "signal": sig_nominal,
+            "background": bkg_nominal,
+            "outputdir": outdir_resample_dict,
+            "resample_data": True
+            })
+
+        # write bootstrap run configuration
+        outname_config_bootstrap = f"{outname_config}_bootstrap.json"
+        util.write_dict_to_json(resample_cfg, outname_config_bootstrap)
+
+    if not systematics: # no systematic uncertainties to evaluate
         return
 
     # for systematic uncertainties
+    cfg_dict_list = []
+
+    # A special case in which all available systematic uncertainties are included
+    include_all_syst = systematics == ["all"]
+
     for k in syst_dict:
         prefix = syst_dict[k]["prefix"]
         for s in syst_dict[k]["uncertainties"]:
+
+            if not include_all_syst and not f"{prefix}_{s}" in systematics:
+                    # skip this one
+                    continue
+
             for v in syst_dict[k]["variations"]:
                 syst = f"{prefix}_{s}_{v}"
+
                 print(syst)
 
                 obs_syst, sig_syst, bkg_syst = getSamples_detNP(
                     sample_local_dir,
-                    category = channel,
+                    category = category,
                     systematics = syst,
                     subcampaigns = subcampaigns
                 )
 
-                outdir_syst = os.path.join(output_top_dir, syst, f"output_run2_{channel}")
+                outdir_syst = os.path.join(output_top_dir, syst, f"output_run2_{category}")
 
                 syst_cfg = common_cfg.copy()
                 syst_cfg.update({
@@ -196,12 +238,15 @@ def createRun2Config(
                     "signal": sig_syst,
                     "background": bkg_syst,
                     "outputdir": outdir_syst,
-                    "load_models": outdir_nominal
+                    "load_models": outdir_nominal,
+                    "nruns": 10 # TODO: 1?
                     })
 
                 cfg_dict_list.append(syst_cfg)
 
-    util.write_dict_to_json(cfg_dict_list, outname_config)
+    # write systematic run config to file
+    outname_config_syst = f"{outname_config}_syst.json"
+    util.write_dict_to_json(cfg_dict_list, outname_config_syst)
 
 if __name__ == "__main__":
 
@@ -209,20 +254,21 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-s", "--sample-dir", type=str,
+    parser.add_argument("-d", "--sample-dir", type=str,
                         default=os.path.join(os.getenv("HOME"),"data/ttbarDiffXs13TeV/latest"),
                         help="Sample directory")
     parser.add_argument("-n", "--config-name", type=str,
-                        default="runConfig.json")
-    parser.add_argument("-c", "--channel", choices=["ejets", "mjets"],
+                        default="runConfig")
+    parser.add_argument("-c", "--category", choices=["ejets", "mjets", "ljets"],
                         default="ejets")
-    parser.add_argument("-o", "--output-dir", type=str,
-                        default=os.path.join(os.getenv("HOME"),"data/OmniFoldOutputs/Run2wSyst",
-                        help="Output directory to unfolding jobs"),
+    parser.add_argument("-r", "--result-dir", type=str,
+                        default=os.path.join(os.getenv("HOME"),"data/OmniFoldOutputs/Run2wSyst"),
                         help="Output directory of unfolding runs")
     parser.add_argument("-e", "--subcampaigns", nargs='+', choices=["mc16a", "mc16d", "mc16e"], default=["mc16a", "mc16d", "mc16e"])
-    parser.add_argument("--nominal-only", action="store_true",
-                        help="If True, produce run config for only the nominal sample")
+    parser.add_argument("-s", "--systematics", type=str, nargs="*", default=[],
+                        help="List of systematic uncertainties to evaluate. A special case: 'all' includes all systematics")
+    parser.add_argument("-b", "--do-bootstrap", action="store_true",
+                        help="If True, also generate run configs to do bootstrap")
 
     args = parser.parse_args()
 
@@ -232,15 +278,17 @@ if __name__ == "__main__":
         "iterations" : 5,
         "batch_size" : 20000,
         "normalize" : True,
-        "error_type" : "bootstrap_full",
-        "nresamples" : 10,
+        "nruns" : 10,
+        "resample_data" : False
     }
 
     createRun2Config(
         args.sample_dir,
-        channel = args.channel,
+        category = args.category,
         outname_config = args.config_name,
-        output_top_dir = args.output_dir,
+        output_top_dir = args.result_dir,
         subcampaigns = args.subcampaigns,
-        nominal_only = args.nominal_only,
-        common_cfg = common_cfg)
+        do_bootstrap = args.do_bootstrap,
+        systematics = args.systematics,
+        common_cfg = common_cfg
+        )

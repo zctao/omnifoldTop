@@ -1,6 +1,7 @@
 """
 Define model architectures.
 """
+# FIXME: Fix support for other types of networks, currently only default dense network works
 
 import numpy as np
 import tensorflow as tf
@@ -10,6 +11,8 @@ import tensorflow.keras.backend as K
 from sklearn.model_selection import train_test_split
 
 import plotter
+
+n_models_in_parallel = 1
 
 import logging
 logger = logging.getLogger('model')
@@ -175,41 +178,34 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
 
     return model
 
-def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32, epochs=100, verbose=1):
+def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1):
 
-    # train validation split
-    X_train, X_val, Y_train, Y_val, w_train, w_val = train_test_split(X, Y, w)
+    # initalize empty lists
+    X_train_list, X_val_list, Yw_train_list, Yw_val_list = [], [], [], []
 
-    # TF Dataset
-    #dset_train = tf.data.Dataset.from_tensor_slices((X_train, Y_train, w_train)).batch(batch_size)
-    #dset_val = tf.data.Dataset.from_tensor_slices((X_val, Y_val, w_val)).batch(batch_size)
-    # already shuffled in train_test_split()
-    # do it instead using tf.data.Dataset.shuffle(buffer_size)?
+    # prepare the lists
+    for i in range(n_models_in_parallel):
+        X_train, X_val, Y_train, Y_val, w_train, w_val = train_test_split(X, Y, w[i])
 
-    # Zip label and weight arrays to use the customized loss function
-    Yw_train = np.column_stack((Y_train, w_train))
-    Yw_val = np.column_stack((Y_val, w_val))
-    # TF Dataset
-    dset_train = tf.data.Dataset.from_tensor_slices((X_train, Yw_train)).batch(batch_size)
-    dset_val = tf.data.Dataset.from_tensor_slices((X_val, Yw_val)).batch(batch_size)
+        # Zip label and weight arrays to use the customized loss function
+        Yw_train_list += [np.column_stack((Y_train, w_train))]
+        Yw_val_list  += [np.column_stack((Y_val, w_val))]
+        X_train_list += [X_train]
+        X_val_list += [X_val]
 
-    # cache
-    dset_train = dset_train.cache()
-    dset_val = dset_val.cache()
+    fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
 
-    # prefetch
-    dset_train = dset_train.prefetch(tf.data.AUTOTUNE)
-    dset_val = dset_val.prefetch(tf.data.AUTOTUNE)
+    if n_models_in_parallel == 1:
+        model.fit(X_train_list[0], Yw_train_list[0], validation_data=(X_val_list[0], Yw_val_list[0]), **fitargs)
+    else:
+        model.fit(X_train_list, Yw_train_list, validation_data=(X_val_list, Yw_val_list), **fitargs)
 
-    fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose}
-
-    model.fit(dset_train, validation_data=dset_val, **fitargs)
-
-    if figname:
-        logger.info(f"Plot model output distributions: {figname}")
-        preds_train = model.predict(X_train, batch_size=batch_size)[:,1]
-        preds_val = model.predict(X_val, batch_size=batch_size)[:,1]
-        plotter.plot_training_vs_validation(figname, preds_train, Y_train, w_train, preds_val, Y_val, w_val)
+    # FIXME: Y and w are stacked together into Yw and requires separating for plotting
+    # if figname:
+    #     logger.info(f"Plot model output distributions: {figname}")
+    #     preds_train = model.predict(X_train_list, batch_size=batch_size)[:,1]
+    #     preds_val = model.predict(X_val_list, batch_size=batch_size)[:,1]
+    #     plotter.plot_training_vs_validation(figname, preds_train, Y_train, w_train, preds_val, Y_val, w_val)
 
 def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     """
@@ -229,14 +225,19 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     -------
     tf.keras.models.Model
     """
-    inputs = keras.layers.Input(input_shape)
+    inputs, outputs = [], []
 
-    prev_layer = inputs
-    for n in nnodes:
-        prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
+    for i in range(n_models_in_parallel):
+        input_layer = keras.layers.Input(input_shape)
+        prev_layer = input_layer
+        for n in nnodes:
+            prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
 
-    #outputs = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
-    outputs = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
+        #output_layer = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
+        output_layer = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
+
+        inputs += [input_layer]
+        outputs += [output_layer]
 
     return keras.models.Model(inputs=inputs, outputs=outputs)
 
