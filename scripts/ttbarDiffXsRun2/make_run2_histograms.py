@@ -64,6 +64,7 @@ for cwd, subdirs, files in os.walk(args.top_result_dir):
     make_histograms(
         cwd,
         binning_config = args.binning_config,
+        observables = [],
         outfilename = args.outfilename,
         iterations = args.iterations,
         include_ibu = args.include_ibu,
