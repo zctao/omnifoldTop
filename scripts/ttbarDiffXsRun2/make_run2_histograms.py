@@ -23,8 +23,6 @@ parser.add_argument("--correction-dir", type=str,
                     help="Directory to read binned connections")
 parser.add_argument("--include-ibu", action='store_true',
                     help="If True, run unfolding with IBU too")
-parser.add_argument("--overwrite", action="store_true",
-                    help="If True, overwrite the existing histogram file with th same name specified by --outfilename ")
 parser.add_argument("-k", "--resdir-keywords", nargs='+',
                     default=['output_run2'],
                     help="Keywords to match the result directory names. If multiple keywords are provided, only directories containing all the keywords are selected.")
@@ -59,17 +57,8 @@ for cwd, subdirs, files in os.walk(args.top_result_dir):
 
     logger.info(f"Make histograms for {cwd}")
 
-    # check if the output histogram file is already made
-    hasHistFile = args.outfilename in files
-    if hasHistFile:
-        logger.info(f"  {args.outfilename} already exists")
-        if args.overwrite:
-            logger.info("  Overwrite the existing one ...")
-        else:
-            logger.info("  Skip ...")
-            continue
-
     if args.dryrun:
+        logger.info("skip...")
         continue
 
     make_histograms(
