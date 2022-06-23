@@ -51,10 +51,15 @@ for cwd, subdirs, files in os.walk(args.top_result_dir):
         # cwd is not a directory containing unfolding results
         continue
 
-    # check if the current working directory name contains the keywards
+    # check if the current working directory name contains the keywords
     matched = True
     for kw in args.resdir_keywords:
-        matched &= kw in cwd
+        if kw.startswith('!'):
+            # if kw starts with '!', veto the directory that contains the keyword
+            kw_veto = kw.lstrip('!')
+            matched &= not (kw_veto in cwd)
+        else:
+            matched &= kw in cwd
 
     if not matched:
         continue
