@@ -514,7 +514,13 @@ def make_histograms_from_unfolder(
     # output directory
     if not outputdir:
         outputdir = unfolder.outdir
-    elif not os.path.isdir(outputdir):
+
+    # in case it is not the last iteration that is used
+    if iteration != -1:
+        outputdir = os.path.join(outputdir, f"iter{iteration+1}")
+        # +1 because the index 0 of the weights array is for iteration 1
+
+    if not os.path.isdir(outputdir):
         logger.info(f"Create directory {outputdir}")
         os.makedirs(outputdir)
 
@@ -608,7 +614,7 @@ def make_histograms(
     binning_config,
     observables = [],
     observable_config = '',
-    iteration = -1,
+    iterations = [-1],
     nruns = None,
     normalize = True,
     outputdir = None,
@@ -658,21 +664,24 @@ def make_histograms(
     logger.info("Start histogramming")
     t_hist_start = time.time()
 
-    make_histograms_from_unfolder(
-        ufdr,
-        binning_config,
-        observables,
-        obsConfig_d,
-        iteration = iteration,
-        nruns = nruns,
-        normalize = normalize,
-        outputdir = outputdir,
-        outfilename = outfilename,
-        include_ibu = include_ibu,
-        compute_metrics = compute_metrics,
-        plot_verbosity = plot_verbosity,
-        binned_correction_dir = binned_correction_dir
-        )
+    for it in iterations:
+        logger.info(f"iteration: {it}")
+
+        make_histograms_from_unfolder(
+            ufdr,
+            binning_config,
+            observables,
+            obsConfig_d,
+            iteration = it,
+            nruns = nruns,
+            normalize = normalize,
+            outputdir = outputdir,
+            outfilename = outfilename,
+            include_ibu = include_ibu,
+            compute_metrics = compute_metrics,
+            plot_verbosity = plot_verbosity,
+            binned_correction_dir = binned_correction_dir
+            )
 
     t_hist_stop = time.time()
     logger.debug(f"Histogramming time: {(t_hist_stop-t_hist_start):.2f} seconds")
@@ -699,7 +708,7 @@ if __name__ == "__main__":
                         help="List of observables to make histograms. If not provided, use the same ones from the unfolding results")
     parser.add_argument("--observable_config", type=str,
                         help="Path to the observable config file. If not provided, use the same one from the unfolding results")
-    parser.add_argument("-i", "--iteration", type=int, default=-1,
+    parser.add_argument("-i", "--iterations", type=int, nargs='+', default=[-1],
                         help="Use the results at the specified iteration")
     parser.add_argument("-n", "--nruns", type=int,
                         help="Number of runs for making unfolded distributions. If not specified, use all that are available")

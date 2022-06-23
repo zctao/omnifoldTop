@@ -17,8 +17,8 @@ parser.add_argument("--binning-config", type=str,
                     help="Path to the binning config file for variables.")
 parser.add_argument("-f", "--outfilename", type=str, default="histograms.root",
                     help="Output file name")
-parser.add_argument("-i", "--iteration", type=int, default=-1,
-                    help="Use the result at the specified iteration")
+parser.add_argument("-i", "--iterations", type=int, nargs='+', default=[-1],
+                    help="Use the result at the specified iterations")
 parser.add_argument("--correction-dir", type=str,
                     help="Directory to read binned connections")
 parser.add_argument("--include-ibu", action='store_true',
@@ -35,13 +35,6 @@ args = parser.parse_args()
 
 logger = logging.getLogger("make_run2_histograms")
 util.configRootLogger()
-
-# add suffix to histogram name if args.iteration is not -1
-if args.iteration != -1: # not the last iteration
-    fname, extension = os.path.splitext(args.outfilename)
-    args.outfilename = f"{fname}_iter{args.iteration+1}{extension}"
-    # +1 because it is used as the index to access weight array
-    # Index 0 of the weight array is the result from 1 iteration
 
 for cwd, subdirs, files in os.walk(args.top_result_dir):
     if not files:
@@ -83,7 +76,7 @@ for cwd, subdirs, files in os.walk(args.top_result_dir):
         cwd,
         binning_config = args.binning_config,
         outfilename = args.outfilename,
-        iteration = args.iteration,
+        iterations = args.iterations,
         include_ibu = args.include_ibu,
         binned_correction_dir = args.correction_dir
         )
