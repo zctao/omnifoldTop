@@ -293,8 +293,10 @@ def make_histograms_of_observable(
                 )
 
     # acceptance and efficiency corrections if available
-    hists_v_d['acceptance'] = acceptance
-    hists_v_d['efficiency'] = efficiency
+    if acceptance is not None:
+        hists_v_d['acceptance'] = acceptance
+    if efficiency is not None:
+        hists_v_d['efficiency'] = efficiency
 
     return hists_v_d
 
