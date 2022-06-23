@@ -706,7 +706,7 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--outfilename", type=str, default="histograms.root",
                         help="Output file name")
     parser.add_argument('--include-ibu', action='store_true',
-                        help="If True, run unfolding also with IBU as well")
+                        help="If True, run unfolding also with IBU")
     parser.add_argument('--compute-metrics', action='store_true',
                         help="If True, compute metrics of unfolding performance")
     parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
