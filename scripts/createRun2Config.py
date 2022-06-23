@@ -172,7 +172,7 @@ def createRun2Config(
         "signal": sig_nominal,
         "background": bkg_nominal,
         "outputdir": outdir_nominal,
-        "plot_verbosity": 3,
+        "plot_verbosity": 2,
         "run_ibu": True
         })
 
@@ -275,11 +275,13 @@ if __name__ == "__main__":
     # hard code common config here for now
     common_cfg = {
         "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
+        "binning_config" : "configs/binning/bins_ttdiffxs.json",
         "iterations" : 5,
         "batch_size" : 20000,
         "normalize" : True,
         "nruns" : 10,
-        "resample_data" : False
+        "resample_data" : False,
+        "dummy_value" : -99.
     }
 
     createRun2Config(
