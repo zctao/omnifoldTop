@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import mplhep as hep
 
 import util
-from histogramming import get_values_and_errors, get_mean_from_hists, get_sigma_from_hists, get_hist, calc_hist
+import histogramming as myhu
 
 import logging
 logger = logging.getLogger('plotter')
@@ -47,7 +47,7 @@ def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer):
     bin_edges = hist_denom.axes[0].edges
 
     # denominator uncertainty
-    values_denom, errors_denom = get_values_and_errors(hist_denom)
+    values_denom, errors_denom = myhu.get_values_and_errors(hist_denom)
     if errors_denom is not None:
         relerrs_denom = np.divide(errors_denom, values_denom, out=np.zeros_like(values_denom), where=(values_denom!=0))
         relerrs_denom = np.append(relerrs_denom, relerrs_denom[-1])
@@ -58,7 +58,7 @@ def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer):
         if hnum is None:
             continue
 
-        values_num, errors_num = get_values_and_errors(hnum)
+        values_num, errors_num = myhu.get_values_and_errors(hnum)
         ratio = np.divide(values_num, values_denom, out=np.zeros_like(values_denom), where=(values_denom!=0))
 
         if errors_num is not None:
@@ -92,7 +92,7 @@ def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045):
         if txt is not None:
             ax.text(x, y-i*dy, txt, **textopts)
 
-def set_default_colors(ncolors):
+def get_default_colors(ncolors):
     """
     Get up to the first `ncolors` of the default colour cycle.
 
@@ -108,7 +108,12 @@ def set_default_colors(ncolors):
          number of colours equal to the shorter of (`ncolors`, length of
          the cycle).
     """
+    assert(ncolors<=10)
     return plt.rcParams['axes.prop_cycle'].by_key()['color'][:ncolors]
+
+def get_random_colors(ncolors, alpha=1):
+    colors = [ tuple(np.random.random(3)) + (alpha,) for i in range(ncolors)]
+    return colors
 
 def plot_graphs(
         figname,
@@ -171,7 +176,7 @@ def plot_graphs(
         ax.set_yscale('log', basey=2)
 
     if colors is None:
-        colors = set_default_colors(len(data_arrays))
+        colors = get_default_colors(len(data_arrays))
     else:
         assert(len(data_arrays)==len(colors))
 
@@ -269,6 +274,117 @@ def plot_hist(
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
 
+def get_color_from_draw_options(draw_opt):
+    c = draw_opt.get('color')
+
+    if c is None:
+        c = draw_opt.get('edgecolor')
+
+    if c is None:
+        c = draw_opt.get('facecolor')
+
+    if c is None:
+        logger.warn("Color is not set")
+
+    if isinstance(c, list):
+        c = c[-1]
+
+    return c
+
+def plot_histograms_and_ratios(
+    figname,
+    hists_numerator, # list of Hist
+    hist_denominator = None, # Hist; If None, don't plot the ratio
+    draw_options_numerator = None, # list of dict
+    draw_option_denominator = {}, # dict
+    xlabel = '',
+    ylabel = '',
+    ylabel_ratio = 'Ratio',
+    log_scale = False,
+    legend_loc="best",
+    legend_ncol=1,
+    stamp_texts=[],
+    stamp_loc=(0.75, 0.75),
+    denominator_ratio_only = False,
+    ratio_lim = None
+    ):
+
+    if not hists_numerator:
+        logger.warn("No histograms to plot")
+        return
+
+    fig, axes = plt.subplots(
+        2 if hist_denominator else 1,
+        sharex = True,
+        gridspec_kw = {
+            'height_ratios': (3.5,1) if hist_denominator else (1,),
+            'hspace': 0.0
+        }
+    )
+
+    if hist_denominator:
+        ax = axes[0]
+        ax_ratio = axes[1]
+    else:
+        ax = axes
+        ax_ratio = None
+
+    # labels and x-axis limits
+    bin_edges = hists_numerator[0].axes[0].edges
+
+    ax.set_ylabel(ylabel)
+    ax.set_xlim(bin_edges[0], bin_edges[-1])
+
+    if ax_ratio:
+        ax_ratio.set_ylabel(ylabel_ratio)
+        ax_ratio.set_xlabel(xlabel)
+        ax_ratio.set_xlim(bin_edges[0], bin_edges[-1])
+
+        if ratio_lim:
+            ax_ratio.set_ylim(*sorted(ratio_lim))
+
+    else:
+        ax.set_xlabel(xlabel)
+
+    if log_scale:
+        ax.set_yscale('log')
+
+    # draw histograms
+    if hist_denominator and not denominator_ratio_only:
+        yerr_d = myhu.get_values_and_errors(hist_denominator)[1]
+        hep.histplot(hist_denominator, yerr=yerr_d, ax=ax, **draw_option_denominator)
+
+    if not draw_options_numerator:
+        draw_options_numerator = [{}] * len(hists_numerator)
+    else:
+        assert(len(hists_numerator) == len(draw_options_numerator))
+
+    for hist_num, draw_opt in zip(hists_numerator, draw_options_numerator):
+        yerr_n = myhu.get_values_and_errors(hist_num)[1]
+        hep.histplot(hist_num, yerr=yerr_n, ax=ax, **draw_opt)
+
+    # draw ratios
+    if hist_denominator:
+        draw_ratio(
+            ax_ratio,
+            hist_denominator,
+            hists_numerator,
+            get_color_from_draw_options(draw_option_denominator),
+            [get_color_from_draw_options(opt) for opt in draw_options_numerator]
+            )
+
+    # legend
+    if legend_loc is not None:
+        ax.legend(loc=legend_loc, ncol=legend_ncol, frameon=False)
+
+    # stamp
+    if stamp_texts:
+        draw_stamp(ax, stamp_texts, *stamp_loc)
+
+    # save plot
+    fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
+    plt.close(fig)
+
 def plot_distributions_reco(
     figname,
     hist_data,
@@ -302,51 +418,35 @@ def plot_distributions_reco(
         Number of column of legend
     """
 
-    fig, axes = plt.subplots(2, sharex=True, gridspec_kw={'height_ratios': (3.5,1), 'hspace': 0.0})
-
-    # label
-    axes[0].set_ylabel(ylabel)
-    axes[1].set_ylabel(ylabel_ratio)
-    axes[1].set_xlabel(xlabel)
-
-    # x limits
-    bin_edges = hist_data.axes[0].edges
-    for ax in axes:
-        ax.set_xlim(bin_edges[0], bin_edges[-1])
-
     # simulation
     if hist_bkg is None:
         hist_sim = hist_sig
         label_sim = "Sim."
-        style_sim = sim_style
+        style_sim = sim_style.copy()
     else:
         hist_sim = [hist_bkg, hist_sig]
         label_sim = ["Bkg.", "Sim."]
         style_sim = { k: [bkg_style[k], sim_style[k]] for k in sim_style}
         # Hack: histype does not allow a list i.e. different styles for the stacked histograms
         style_sim['histtype'] = 'fill'
+        style_sim['stack'] = True
 
-    hep.histplot(hist_sim, yerr=False, stack=True, ax=axes[0], **style_sim)
+    style_data = data_style.copy()
+    style_data.update({"xerr":True})
 
-    # data
-    data_yerr = get_values_and_errors(hist_data)[1]
-    hep.histplot(hist_data, yerr=data_yerr, xerr=True, ax=axes[0], **data_style)
-
-    # legend
-    axes[0].legend(loc=legend_loc, ncol=legend_ncol, frameon=False)
-
-    # ratio
-    draw_ratio(
-        axes[1],
-        hist_data,
-        [hist_sig] if hist_bkg is None else [hist_sig + hist_bkg],
-        data_style['color'],
-        [sim_style['color']]
-    )
-
-    # save plot
-    fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
-    plt.close(fig)
+    plot_histograms_and_ratios(
+        figname,
+        hists_numerator = [hist_sim],
+        hist_denominator = hist_data,
+        draw_options_numerator = [style_sim],
+        draw_option_denominator = style_data,
+        xlabel = xlabel,
+        ylabel = ylabel,
+        ylabel_ratio = ylabel_ratio,
+        log_scale = False,
+        legend_loc = legend_loc,
+        legend_ncol = legend_ncol
+        )
 
 def plot_distributions_unfold(
     figname,
@@ -388,69 +488,40 @@ def plot_distributions_unfold(
     stamp_loc : tuple of (float, float)
         Position of the additional text in data coordinates.
     """
-    fig, axes = plt.subplots(
-        2 if hist_truth is not None else 1,
-        sharex = True,
-        gridspec_kw={
-            'height_ratios': (3.5,1) if hist_truth is not None else (1,),
-            'hspace': 0.0
-        }
-    )
 
-    if hist_truth is not None:
-        ax = axes[0]
-        ax_rp = axes[1]
-    else:
-        ax = axes
-        ax_rp = None
+    hists_toplot = []
+    draw_options = []
 
-    # labels and x limits
-    bin_edges = hist_unfold.axes[0].edges
+    if hist_prior:
+        hists_toplot.append(hist_prior)
+        draw_options.append(gen_style)
 
-    ax.set_ylabel(ylabel)
-    ax.set_xlim(bin_edges[0], bin_edges[-1])
-
-    if ax_rp is not None:
-        ax_rp.set_xlim(bin_edges[0], bin_edges[-1])
-        ax_rp.set_ylabel(ylabel_ratio)
-        ax_rp.set_xlabel(xlabel)
-    else:
-        ax.set_xlabel(xlabel)
-
-     # MC truth if known
-    if hist_truth is not None:
-        hep.histplot(hist_truth, ax=ax, **truth_style)
-
-    # Prior
-    if hist_prior is not None:
-        hep.histplot(hist_prior, ax=ax, **gen_style)
-
-    # IBU if available
     if hist_ibu is not None:
-        ibu_yerr = get_values_and_errors(hist_ibu)[1]
-        hep.histplot(hist_ibu, ax=ax, yerr=ibu_yerr, xerr=True, **ibu_style)
+        hists_toplot.append(hist_ibu)
+        ibu_opt = ibu_style.copy()
+        ibu_opt.update({'xerr':True})
+        draw_options.append(ibu_opt)
 
-    # Unfold
-    uf_yerr = get_values_and_errors(hist_unfold)[1]
-    hep.histplot(hist_unfold, ax=ax, yerr=uf_yerr, xerr=True, **omnifold_style)
+    hists_toplot.append(hist_unfold)
+    omnifold_opt = omnifold_style.copy()
+    omnifold_opt.update({'xerr':True})
+    draw_options.append(omnifold_opt)
 
-    # legend
-    ax.legend(loc=legend_loc, ncol=legend_ncol, frameon=False)
-
-    # ratio
-    if ax_rp is not None:
-        draw_ratio(ax_rp, hist_truth, [hist_prior, hist_ibu, hist_unfold],
-            truth_style['edgecolor'],
-            [gen_style['color'], ibu_style['color'], omnifold_style['color']]
+    plot_histograms_and_ratios(
+        figname,
+        hists_numerator = hists_toplot,
+        hist_denominator = hist_truth,
+        draw_options_numerator = draw_options,
+        draw_option_denominator = truth_style,
+        xlabel = xlabel,
+        ylabel = ylabel,
+        ylabel_ratio = ylabel_ratio,
+        log_scale = False,
+        legend_loc = legend_loc,
+        legend_ncol = legend_ncol,
+        stamp_texts = stamp_texts,
+        stamp_loc = stamp_loc,
         )
-
-    # metric stamp
-    if stamp_texts:
-        draw_stamp(ax, stamp_texts, *stamp_loc)
-
-    # save plot
-    fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
-    plt.close(fig)
 
 def plot_correlations(figname, correlations, bins=None):
     fig, ax = plt.subplots()
@@ -473,60 +544,6 @@ def plot_correlations(figname, correlations, bins=None):
     fig.savefig(figname+'.png', dpi=200)
     plt.close(fig)
 
-def plot_multiple_histograms(
-    figname,
-    histograms_list,
-    xlabel = '',
-    ylabel = '',
-    colors = None,
-    nhistmax = 10,
-    draw_legend = False,
-    log_scale = False,
-    **draw_options
-    ):
-
-    fig, ax = plt.subplots()
-
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-
-    if log_scale:
-        ax.set_yscale('log')
-
-    nhists = len(histograms_list)
-    if nhists > nhistmax:
-        selected_i = np.linspace(1, nhists-2, nhistmax-2).astype(int).tolist()
-        # the first [0] and the last [-1] are always plotted
-        selected_i = [0] + selected_i + [nhists-1]
-    else:
-        selected_i = list(range(nhists))
-
-    hists_toplot = [histograms_list[i] for i in selected_i]
-
-    if colors is None:
-        colors_toplot = set_default_colors(len(hists_toplot))
-    elif len(colors) == nhists:
-        colors_toplot = [colors[i] for i in selected_i]
-    else:
-        colors_toplot = colors
-    assert(len(colors_toplot)==len(hists_toplot))
-
-    for i, h, c in zip(selected_i, hists_toplot, colors_toplot):
-        hyerr = get_values_and_errors(h)[1]
-        hep.histplot(
-            h, ax=ax, histtype='errorbar', yerr=hyerr, xerr=True, color=c,
-            #label = 
-            **draw_options
-            )
-
-    # legend
-    if draw_legend:
-        ax.legend(frameon=False)
-
-    # save plot
-    fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
-    plt.close(fig)
-
 def plot_distributions_resamples(
     figname,
     hists_uf_resample,
@@ -536,57 +553,41 @@ def plot_distributions_resamples(
     ylabel=''
     ):
 
-    fig, axes = plt.subplots(
-        2, sharex=True, gridspec_kw={'height_ratios': (3.5,1), 'hspace': 0.0}
-    )
+    # colors
+    colors_rs = get_random_colors(len(hists_uf_resample), alpha=0.5)
 
-    axes[0].set_ylabel(ylabel)
-    axes[1].set_xlabel(xlabel)
+    draw_options_rs = []
 
-    # assign colors
-    alpha=0.5
-    colors_rs = []
-    for i in range(len(hists_uf_resample)):
-        colors_rs.append( tuple(np.random.random(3))+(alpha,) )
-
-    # plot
     for i, (huf, color) in enumerate(zip(hists_uf_resample, colors_rs)):
-        label = 'Resample' if i==0 else None
-        rs_yerr = get_values_and_errors(huf)[1]
-        hep.histplot(huf, histtype='step', yerr=rs_yerr, label=label, ax=axes[0], ls='--', lw=1)
+        draw_opt_i = {"histtype":"step", "ls":"--", "lw":1, "color":color}
+        if i==0:
+            draw_opt_i.update({"label":"Resample"})
 
-#    bin_edges = hist_prior.axes[0].edges
-#
-#    # mean of each bin
-#    hmean = get_mean_from_hists(hists_uf_resample)
-#    hsigma = get_sigma_from_hists(hists_uf_resample)
-#    hist_mean = get_hist(bin_edges, hmean, hsigma)
-#
-#    hep.histplot(hist_mean, ax=axes[0], label="Mean", histtype='step', color=omnifold_stype['color'])
+        draw_options_rs.append(draw_opt_i)
 
-    # prior distribution
-    hep.histplot(hist_prior, ax=axes[0], **gen_style)
-
-    # truth distribution
-    if hist_truth is not None:
-        hep.histplot(hist_truth, ax=axes[0], histtype='step', label=truth_style['label'], color=truth_style['edgecolor'])
-
-    # ratio
-    if hist_truth is None:
-        # ratio to the prior
-        draw_ratio(axes[1], hist_prior, hists_uf_resample, gen_style['color'], colors_rs)
-        axes[1].set_ylabel("Ratio to \nPrior")
+    if hist_truth:
+        hists_numer = hists_uf_resample + [hist_prior]
+        draw_opt_numer = draw_options_rs + [gen_style]
+        hist_denom = hist_truth
+        draw_opt_denom = {'histtype':'step', 'label':truth_style['label'], 'color':truth_style['edgecolor']}
+        ylabel_ratio = "Ratio to \nTruth"
     else:
-        # ratio to MC truth
-        draw_ratio(axes[1], hist_truth, hists_uf_resample, truth_style['edgecolor'], colors_rs)
-        axes[1].set_ylabel("Ratio to \nTruth")
+        hists_numer = hists_uf_resample
+        draw_opt_numer = draw_options_rs
+        hist_denom = hist_prior
+        draw_opt_denom = gen_style
+        ylabel_ratio = "Ratio to \nPrior"
 
-    # legend
-    axes[0].legend(frameon=False, handlelength=2, numpoints=2)
-
-    # save plot
-    fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
-    plt.close(fig)
+    plot_histograms_and_ratios(
+        figname,
+        hists_numerator = hists_numer,
+        hist_denominator = hist_denom,
+        draw_options_numerator = draw_opt_numer,
+        draw_option_denominator = draw_opt_denom,
+        xlabel = xlabel,
+        ylabel = ylabel,
+        ylabel_ratio = ylabel_ratio
+        )
 
 def plot_distributions_iteration(
     figname,
@@ -597,13 +598,6 @@ def plot_distributions_iteration(
     xlabel='',
     ylabel=''
     ):
-
-    fig, axes = plt.subplots(
-        2, sharex=True, gridspec_kw={'height_ratios': (3.5,1), 'hspace': 0.0}
-    )
-
-    axes[0].set_ylabel(ylabel)
-    axes[1].set_xlabel(xlabel)
 
     # add prior to the head of the unfolded hist list i.e. as iteration 0
     hists_all = [hist_prior] + list(hists_unfold)
@@ -619,30 +613,39 @@ def plot_distributions_iteration(
 
     hists_toplot = [hists_all[i] for i in selected_i]
 
-    colors = set_default_colors(len(selected_i))
+    colors = get_default_colors(len(selected_i))
 
+    draw_options_num = []
     for i, h, c in zip(selected_i, hists_toplot, colors):
-        it_yerr = get_values_and_errors(h)[1]
-        hep.histplot(
-            h, ax=axes[0], histtype='errorbar', yerr=it_yerr, xerr=True, color=c,
-            label=f"iteration {i}", alpha=0.8, marker='o', markersize=2)
+        draw_options_num.append({
+            'histtype':'errorbar', 'xerr':True,
+            'color':c, 'alpha':0.8,
+            'marker':'o', 'markersize':2,
+            'label':f'iteration {i}'
+            })
 
-    # ratio
-    if hist_truth is None:
-        # ratio to prior
-        axes[1].set_ylabel("Ratio to\n Prior")
-        draw_ratio(axes[1], hists_toplot[0], hists_toplot[1:], colors[0], colors[1:])
-    else:
+    if hist_truth:
         # ratio to truth
-        axes[1].set_ylabel("Ratio to\n Truth")
-        draw_ratio(axes[1], hist_truth, hists_toplot, truth_style['edgecolor'], colors)
+        ylabel_ratio = "Ratio to\n Truth"
+        hist_denom = hist_truth
+        draw_opt_denom = truth_style
+    else:
+        # ratio to prior
+        ylabel_ratio = "Ratio to\n Prior"
+        hist_denom = hist_prior
+        draw_opt_denom = draw_options_num[0]
 
-    # legend
-    axes[0].legend(frameon=False)
-
-    # save plots
-    fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
-    plt.close(fig)
+    plot_histograms_and_ratios(
+        figname,
+        hists_numerator = hists_toplot,
+        hist_denominator = hist_denom,
+        draw_options_numerator = draw_options_num,
+        draw_option_denominator = draw_opt_denom,
+        xlabel = xlabel,
+        ylabel = ylabel,
+        ylabel_ratio = ylabel_ratio,
+        denominator_ratio_only = True
+        )
 
 def plot_hists_bin_distr(figname, histograms_list, histogram_ref=None):
 
@@ -744,7 +747,7 @@ def plot_LR_distr(figname, ratios, labels=None):
     #ax.set_yscale('log')
 
     for i,r in enumerate(ratios):
-        hr = calc_hist(r, bins_r, density=False)
+        hr = myhu.calc_hist(r, bins_r, density=False)
         l = labels[i] if labels is not None else None
         hep.histplot(hr, ax=ax, label=l)
 
@@ -804,8 +807,8 @@ def plot_training_vs_validation(
         w_cat1_t = weights_train[labels_train.argmax(axis=1)==1]
         w_cat0_t = weights_train[labels_train.argmax(axis=1)==0]
 
-    hist_preds_cat1_t = calc_hist(preds_cat1_t, bins_preds, weights=w_cat1_t, density=True)
-    hist_preds_cat0_t = calc_hist(preds_cat0_t, bins_preds, weights=w_cat0_t, density=True)
+    hist_preds_cat1_t = myhu.calc_hist(preds_cat1_t, bins_preds, weights=w_cat1_t, density=True)
+    hist_preds_cat0_t = myhu.calc_hist(preds_cat0_t, bins_preds, weights=w_cat0_t, density=True)
 
     # validation data
     if labels_val.ndim == 1: # label array is simply a 1D array
@@ -819,8 +822,8 @@ def plot_training_vs_validation(
         w_cat1_v = weights_val[labels_val.argmax(axis=1)==1]
         w_cat0_v = weights_val[labels_val.argmax(axis=1)==0]
 
-    hist_preds_cat1_v = calc_hist(preds_cat1_v, bins_preds, weights=w_cat1_v, density=True)
-    hist_preds_cat0_v = calc_hist(preds_cat0_v, bins_preds, weights=w_cat0_v, density=True)
+    hist_preds_cat1_v = myhu.calc_hist(preds_cat1_v, bins_preds, weights=w_cat1_v, density=True)
+    hist_preds_cat0_v = myhu.calc_hist(preds_cat0_v, bins_preds, weights=w_cat0_v, density=True)
 
     fig, ax = plt.subplots()
     ax.set_xlabel("Prediction (y = 1)")
@@ -920,7 +923,7 @@ def plot_training_inputs_step2(figname_prefix, variable_names, Xgen, wgen):
         xlabel = 'w (training)',
         title = "Step-2 prior weights at truth level")
 
-def plot_response(figname, histogram2d, variable):
+def plot_response(figname, histogram2d, variable, title='Detector Response'):
     """
     Plot the unfolded detector response matrix.
 
@@ -938,7 +941,7 @@ def plot_response(figname, histogram2d, variable):
     yedges = histogram2d.axes[1].edges
 
     fig, ax = plt.subplots()
-    ax.set_title('Detector Response')
+    ax.set_title(title)
     ax.set_xlabel(f'Detector-level {variable}')
     ax.set_ylabel(f'Truth-level {variable}')
 

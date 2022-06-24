@@ -242,7 +242,7 @@ def compare_syst_computations(
         'label':'Baseline', 'edgecolor':'black', 'facecolor':'none', 'lw':1
         })
 
-    colors = plotter.set_default_colors(len(relerrs_allruns))
+    colors = plotter.get_random_colors(len(relerrs_allruns))
     for i, (relerr, c) in enumerate(zip(relerrs_allruns, colors)):
         errors_toplot.append(relerr)
         draw_options.append({
