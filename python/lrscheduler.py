@@ -61,10 +61,10 @@ class LearningRateScheduler():
             # defaults
             elif schedule_name in ["cosined", "cosinedr", "polynomiald"]:
                 # initial learning rate, decay steps
-                self.schedule = schedules_dict[schedule_name](initial_learning_rate, 1000)
+                self.schedule = schedules_dict[schedule_name](initial_learning_rate, 5000)
             elif schedule_name in ["expd", "inversetd"]:
                 # inital learning rate, decay steps, decay rate
-                self.schedule = schedules_dict[schedule_name](initial_learning_rate, 1000, 0.9)
+                self.schedule = schedules_dict[schedule_name](initial_learning_rate, 1000, 0.95)
     
     def get_callbacks(self):
         """
