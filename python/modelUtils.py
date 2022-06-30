@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 
 import plotter
 
-n_models_in_parallel = 1
+n_models_in_parallel = 10
 
 import logging
 logger = logging.getLogger('model')
@@ -180,25 +180,21 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
 
 def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1):
 
-    # initalize empty lists
-    X_train_list, X_val_list, Yw_train_list, Yw_val_list = [], [], [], []
+    # initalize empty dictionaries
+    train_dictionary, val_dictionary = {}, {}
+    train_yw_dictionary, val_yw_dictionary = {}, {}
 
-    # prepare the lists
+    X_train, X_val, Y_train, Y_val = train_test_split(X, Y, random_state=325)
+
+    # prepare the dictionaries
     for i in range(n_models_in_parallel):
-        X_train, X_val, Y_train, Y_val, w_train, w_val = train_test_split(X, Y, w[i])
-
-        # Zip label and weight arrays to use the customized loss function
-        Yw_train_list += [np.column_stack((Y_train, w_train))]
-        Yw_val_list  += [np.column_stack((Y_val, w_val))]
-        X_train_list += [X_train]
-        X_val_list += [X_val]
+        w_train, w_val = train_test_split(w[i], random_state=325)
+        train_dictionary["input_"+str(i)], val_dictionary["input_"+str(i)] = X_train, X_val
+        train_yw_dictionary["output_"+str(i)], val_yw_dictionary["output_"+str(i)] = np.column_stack((Y_train, w_train)), np.column_stack((Y_val, w_val))
 
     fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
 
-    if n_models_in_parallel == 1:
-        model.fit(X_train_list[0], Yw_train_list[0], validation_data=(X_val_list[0], Yw_val_list[0]), **fitargs)
-    else:
-        model.fit(X_train_list, Yw_train_list, validation_data=(X_val_list, Yw_val_list), **fitargs)
+    model.fit(train_dictionary, train_yw_dictionary, validation_data=(val_dictionary, val_yw_dictionary), **fitargs)
 
     # FIXME: Y and w are stacked together into Yw and requires separating for plotting
     # if figname:
@@ -228,13 +224,13 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     inputs, outputs = [], []
 
     for i in range(n_models_in_parallel):
-        input_layer = keras.layers.Input(input_shape)
+        input_layer = keras.layers.Input(input_shape, name="input_"+str(i))
         prev_layer = input_layer
         for n in nnodes:
             prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
 
         #output_layer = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
-        output_layer = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
+        output_layer = keras.layers.Dense(1, activation="sigmoid", name="output_"+str(i))(prev_layer)
 
         inputs += [input_layer]
         outputs += [output_layer]
