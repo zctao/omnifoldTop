@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 
 import plotter
 
-n_models_in_parallel = 10
+n_models_in_parallel = 50
 
 import logging
 logger = logging.getLogger('model')
@@ -169,8 +169,8 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     else:
         model = eval(model_name+"(input_shape, nclass)")
 
-    model.compile(loss=weighted_binary_crossentropy,
-                  #loss='binary_crossentropy',
+    model.compile(#loss=weighted_binary_crossentropy,
+                  loss='binary_crossentropy',
                   optimizer='Adam',
                   metrics=['accuracy'])
 
@@ -182,19 +182,27 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
 
     # initalize empty dictionaries
     train_dictionary, val_dictionary = {}, {}
-    train_yw_dictionary, val_yw_dictionary = {}, {}
+    train_y_dictionary, val_y_dictionary = {}, {}
+
+    train_w, val_w = [], []
 
     X_train, X_val, Y_train, Y_val = train_test_split(X, Y, random_state=325)
 
     # prepare the dictionaries
     for i in range(n_models_in_parallel):
         w_train, w_val = train_test_split(w[i], random_state=325)
+        # train_dictionary["input_"+str(i)], val_dictionary["input_"+str(i)] = X_train, X_val
+        # train_yw_dictionary["output_"+str(i)], val_yw_dictionary["output_"+str(i)] = np.column_stack((Y_train, w_train)), np.column_stack((Y_val, w_val))
+
         train_dictionary["input_"+str(i)], val_dictionary["input_"+str(i)] = X_train, X_val
-        train_yw_dictionary["output_"+str(i)], val_yw_dictionary["output_"+str(i)] = np.column_stack((Y_train, w_train)), np.column_stack((Y_val, w_val))
+        train_y_dictionary["output_"+str(i)], val_y_dictionary["output_"+str(i)] = Y_train , Y_val
+
+        train_w += [w_train]
+        val_w += [w_val]
 
     fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
 
-    model.fit(train_dictionary, train_yw_dictionary, validation_data=(val_dictionary, val_yw_dictionary), **fitargs)
+    model.fit(train_dictionary, train_y_dictionary, sample_weight=train_w, validation_data=(val_dictionary, val_y_dictionary, val_w), **fitargs)
 
     # FIXME: Y and w are stacked together into Yw and requires separating for plotting
     # if figname:
