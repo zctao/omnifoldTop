@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split
 import plotter
 
 n_models_in_parallel = 50
+multigpu_strategy = tf.distribute.MirroredStrategy()
 
 import logging
 logger = logging.getLogger('model')
@@ -164,10 +165,11 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     # parse model_name
     nodes_list = parse_name_for_dense(model_name)
 
-    if nodes_list:
-        model = dense_net(input_shape, nodes_list, nclass)
-    else:
-        model = eval(model_name+"(input_shape, nclass)")
+    with multigpu_strategy.scope():
+        if nodes_list:
+            model = dense_net(input_shape, nodes_list, nclass)
+        else:
+            model = eval(model_name+"(input_shape, nclass)")
 
     model.compile(#loss=weighted_binary_crossentropy,
                   loss='binary_crossentropy',
