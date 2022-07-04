@@ -89,8 +89,8 @@ def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
         logging.error("No GPU found!")
         raise RuntimeError("No GPU found!")
 
-    # if gpu is not None:
-    #     tf.config.experimental.set_visible_devices(gpus[gpu], 'GPU')
+    if gpu is not None:
+        tf.config.experimental.set_visible_devices(gpus[gpu], 'GPU')
 
     # limit GPU memory growth
     if limit_gpu_mem:
