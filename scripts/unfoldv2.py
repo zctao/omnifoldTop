@@ -260,7 +260,7 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="If True, run unfolding also with IBU for comparison")
     parser.add_argument('-w', '--weight-type', type=str, default='nominal',
                         help="Type of event weights to retrieve from ntuples")
-    parser.add_arguments("--preprocessor-config", type=str, default=None, help="path to the preprocessor config file")
+    parser.add_argument("--preprocessor-config", type=str, default=None, help="path to the preprocessor config file")
 
     if print_help:
         parser.print_help()

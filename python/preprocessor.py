@@ -4,7 +4,7 @@ a class for preprocessing observables
 
 import json
 import numpy as np
-from os import join
+from os.path import join
 
 # if nothing is specified, no preprocessor will be applied
 CONFIG_PATH = join("preprocess", "none.json")
@@ -15,7 +15,8 @@ def preprocessor(config_path = None):
     """
     returns a single instance of Preprocessor, if it is uninitialized, then initialize it from config_path
     """
-    if not PREPROCESSOR: PREPROCESSOR = Preprocessor(config_path)
+    global PREPROCESSOR
+    if PREPROCESSOR is None: PREPROCESSOR = Preprocessor(config_path)
     return PREPROCESSOR
 
 # define preprocessing functions here
