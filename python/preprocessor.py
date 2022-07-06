@@ -67,8 +67,9 @@ class Preprocessor():
         for feature in features:
             dictionary[feature] = []
         
-        for prp_feature in self.config:
-            dictionary[feature] = [function_map[prp_name] for prp_name in self.config[prp_feature]]
+        if self.config is not None:
+            for prp_feature in self.config:
+                dictionary[feature] = [function_map[prp_name] for prp_name in self.config[prp_feature]]
 
         # apply preprocessing by each observable, in original supplied order
         feature_array = None
@@ -78,8 +79,9 @@ class Preprocessor():
             # apply preprocessors sequentially
             for preprocessor_function in dictionary[feature]:
                 result = preprocessor_function(result)
+            result = np.reshape(result, (*result.shape, 1)) # convert to two dimensional array
             
-            if feature_array:
+            if feature_array is not None:
                 feature_array = np.concatenate((feature_array, result), axis = 1)
             else:
                 feature_array = result
