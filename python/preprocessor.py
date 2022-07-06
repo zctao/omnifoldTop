@@ -79,7 +79,7 @@ class Preprocessor():
             # apply preprocessors sequentially
             for preprocessor_function in dictionary[feature]:
                 result = preprocessor_function(result)
-            result = np.reshape(result, (*result.shape, 1)) # convert to two dimensional array
+            if len(result.shape) < 2: result = np.reshape(result, (*result.shape, 1)) # convert to two dimensional array if not alreay is
             
             if feature_array is not None:
                 feature_array = np.concatenate((feature_array, result), axis = 1)
