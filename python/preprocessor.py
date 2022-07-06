@@ -37,37 +37,16 @@ function_map = {
 }
 
 class Preprocessor():
-    def _config_to_dict(self, config):
-        """
-        converts a config dictionary with key value pairs of type (str:list) to (preprocessor function : list) and save in this class
-
-        arguments
-        ---------
-        config: json object of config
-
-        raises
-        ------
-        KeyError: if the requested preprocessor is not found
-        """
-        self.dictionary = {}
-        for name in config:
-            self.dictionary[function_map[name]] = config[name]
-        
     def __init__(self, config_path) -> None:
         """
         arguments
         ---------
         config_path: str, path to the preprocessor configuration file, usually located in configs/preprocess
         """
-        config = None
+        self.config = None
         if config_path:
             with open(config_path, "r") as config_file:
-                config = json.load(config_file)
-        self._config_to_dict(config)
-        
-        self.preprocessing_features = set()
-        for name in config:
-            self.preprocessing_features.update(config[name])
+                self.config = json.load(config_file)
     
     def preprocess(self, features, datahandler, valid_only):
         """
@@ -82,11 +61,26 @@ class Preprocessor():
         preprocessed data
         """
 
-        base = [feature for feature in features if feature not in self.preprocess_features]
-        feature_array = datahandler.get_arrays(base, valid_only = valid_only)
+        # build a dictionary mapping feature names to assigned preprocessor functions
+        dictionary = {}
+        for feature in features:
+            dictionary[feature] = []
+        
+        for prp_feature in self.config:
+            dictionary[feature] = [function_map[prp_name] for prp_name in self.config[prp_feature]]
 
-        for preprocess in self.dictionary:
-            result = preprocess(datahandler.get_arrays(self.dictionary[preprocess], valid_only = valid_only))
-            feature_array = np.concatenate((feature_array, result), axis = 1) # concatenate along the axis representing event features, thus the shape will be (number of events, number of features)
+        # apply preprocessing by each observable, in original supplied order
+        feature_array = None
+
+        for feature in dictionary:
+            result = datahandler.get_arrays(feature, valid_only = valid_only)
+            # apply preprocessors sequentially
+            for preprocessor_function in dictionary[feature]:
+                result = preprocessor_function(result)
+            
+            if feature_array:
+                feature_array = np.concatenate((feature_array, result), axis = 1)
+            else:
+                feature_array = result
 
         return feature_array

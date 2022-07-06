@@ -11,6 +11,7 @@ from datahandler import DataHandler
 from datahandler_root import DataHandlerROOT
 from omnifold import omnifold
 from modelUtils import n_models_in_parallel
+import preprocessor
 
 import logging
 logger = logging.getLogger('OmniFoldTTbar')
@@ -243,25 +244,31 @@ class OmniFoldTTbar():
     def _get_input_arrays(self, preprocess=True):
         logger.debug("Prepare input arrays")
 
+        prp = preprocessor.preprocessor() # the preprocessor is already initiated in unfoldv2.py before calling unfolder
         # observed data (or pseudo data)
-        arr_data = self.handle_obs.get_arrays(self.varnames_reco, valid_only=False)
+        # arr_data = self.handle_obs.get_arrays(self.varnames_reco, valid_only=False)
+        arr_data = prp.preprocess(self.varnames_reco, self.handle_obs, False)
 
         # only for testing with pseudo data:
         # mix background simulation with signal simulation as pseudo data
         if self.handle_obsbkg is not None:
-            arr_dataobs = self.handle_obsbkg.get_arrays(self.varnames_reco, valid_only=False)
+            # arr_dataobs = self.handle_obsbkg.get_arrays(self.varnames_reco, valid_only=False)
+            arr_dataobs = prp.preprocess(self.varnames_reco, self.handle_obsbkg, False)
             arr_data = np.concatenate([arr_data, arr_dataobs])
 
         # add backgrouund simulation to the data array (with negative weights)
         if self.handle_bkg is not None:
-            arr_bkg = self.handle_bkg.get_arrays(self.varnames_reco, valid_only=False)
+            # arr_bkg = self.handle_bkg.get_arrays(self.varnames_reco, valid_only=False)
+            arr_bkg = prp.preprocess(self.varnames_reco, self.handle_bkg, False)
             arr_data = np.concatenate([arr_data, arr_bkg])
 
         # signal simulation
         # reco level
-        arr_sim = self.handle_sig.get_arrays(self.varnames_reco, valid_only=False)
+        # arr_sim = self.handle_sig.get_arrays(self.varnames_reco, valid_only=False)
+        arr_sim = prp.preprocess(self.varnames_reco, self.handle_sig, False)
         # truth level
-        arr_gen = self.handle_sig.get_arrays(self.varnames_truth, valid_only=False)
+        # arr_gen = self.handle_sig.get_arrays(self.varnames_truth, valid_only=False)
+        arr_gen = prp.preprocess(self.varnames_truth, self.handle_sig, False)
 
         if preprocess:
             logger.info("Preprocess feature arrays")
