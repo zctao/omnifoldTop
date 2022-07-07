@@ -116,7 +116,7 @@ class Preprocessor():
         for i in feature_array.shape[1]:
             feature_result = feature_array[:, i]
 
-            # apply preprocessor function is exsits
+            # apply preprocessor function if exsits
             if i in i_to_f:
                 for function in i_to_f[i]:
                     feature_result = function(feature_result, args)
