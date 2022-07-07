@@ -57,7 +57,7 @@ class Preprocessor():
             self.variable_dict[observable_dict[observable]['branch_det']] = observable
             self.variable_dict[observable_dict[observable]['branch_mc']] = observable
 
-    def _preprocess_single(self, features, datahandler, valid_only):
+    def _preprocess_single(self, features, datahandler, valid_only, **args):
         """
         arguments
         ---------
@@ -71,13 +71,12 @@ class Preprocessor():
         """
 
         # build a dictionary mapping feature names to assigned preprocessor functions
+        # create a dictionary of the requested features
         dictionary = {}
-        for feature in features:
-            dictionary[feature] = []
-        
         if self.config is not None:
-            for prp_feature in self.config:
-                dictionary[feature] = [function_map[prp_name] for prp_name in self.config[prp_feature]]
+            for feature in features:
+                # branch name -> config preprocessor name -> actual function
+                dictionary[feature] = [function_map[preprocessor_name] for preprocessor_name in self.config[self.variable_dict[feature]]]
 
         # apply preprocessing by each observable, in original supplied order
         feature_array = None
@@ -86,7 +85,8 @@ class Preprocessor():
             result = datahandler.get_arrays(feature, valid_only = valid_only)
             # apply preprocessors sequentially
             for preprocessor_function in dictionary[feature]:
-                result = preprocessor_function(result)
+                # pass extra args to preprocessor
+                result = preprocessor_function(result, args)
             if len(result.shape) < 2: result = np.reshape(result, (*result.shape, 1)) # convert to two dimensional array if not alreay is
             
             if feature_array is not None:
