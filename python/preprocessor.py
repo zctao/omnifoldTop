@@ -75,3 +75,23 @@ class Preprocessor():
         self.index_map = {}
         for idx, ob_name in enumerate(observables):
             self.index_map[ob_name] = idx
+    
+    def _map_branch_names(self, features):
+        """
+        transform branch names (features) to a map of index to functions
+
+        arguments
+        ---------
+        featuers: list of str, a list of branch names in the root files
+
+        returns
+        -------
+        a dictionary from index to functions
+        """
+        i_to_f = {}
+        for feature in features:
+            ob_name = self.observable_name_dict[feature]
+            idx = self.index_map[ob_name]
+            function_name_list = self.config[ob_name]
+            i_to_f[idx] = [function_map[function_name] for function_name in function_name_list]
+        return i_to_f
