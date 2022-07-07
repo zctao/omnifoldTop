@@ -9,8 +9,19 @@ import numpy as np
 
 # preprocessor functions defined here
 
-def angle_to_sin_cos():
-    pass
+def angle_to_sin_cos(feature_array, **args):
+    """
+    maps an angle to its sine and cosine
+
+    arguments
+    ---------
+    feature_array: 1d numpy array representing of some angle observable
+
+    returns
+    -------
+    a 2d numpy array of the same length of [sine, cosine]
+    """
+    return np.stack((np.sin(feature_array), np.cos(feature_array)))
 
 def normalize():
     pass
