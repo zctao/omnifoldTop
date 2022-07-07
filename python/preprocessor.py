@@ -7,32 +7,6 @@ remember to update this class if that assumption is changed
 import json
 import numpy as np
 
-# preprocessor functions defined here
-
-def angle_to_sin_cos(feature_array, **args):
-    """
-    maps an angle to its sine and cosine
-
-    arguments
-    ---------
-    feature_array: 1d numpy array representing of some angle observable
-
-    returns
-    -------
-    a 2d numpy array of the same length of [sine, cosine]
-    """
-    return np.stack((np.sin(feature_array), np.cos(feature_array)))
-
-def normalize():
-    pass
-
-# map from string options to functions
-
-function_map = {
-    "angle_to_sin_cos": angle_to_sin_cos,
-    "normalize": normalize
-}
-
 # preprocessor instance
 
 preprocessor = None
@@ -70,6 +44,14 @@ class Preprocessor():
         prep_config_path: str, path to the preprocessor config file, usually located in configs/preprocessor
         """
         
+
+        # map from string options to functions
+
+        self.function_map = {
+            "angle_to_sin_cos": self._angle_to_sin_cos,
+            "normalize": self._normalize
+        }
+
         # convert observable dict to a variable dict, mapping branch name to observable name
         self.observable_name_dict = {}
         for ob_name in observable_dict:
@@ -87,6 +69,27 @@ class Preprocessor():
         self.index_map = {}
         for idx, ob_name in enumerate(observables):
             self.index_map[ob_name] = idx
+
+    # preprocessor functions defined here
+
+    def _angle_to_sin_cos(self, feature_array, **args):
+        """
+        maps an angle to its sine and cosine
+
+        arguments
+        ---------
+        feature_array: 1d numpy array representing of some angle observable
+
+        returns
+        -------
+        a 2d numpy array of the same length of [sine, cosine]
+        """
+        return np.stack((np.sin(feature_array), np.cos(feature_array)))
+
+    def _normalize(self, feature_array, **args):
+        """
+        maps an
+        """
     
     def _map_branch_names(self, features):
         """
@@ -105,7 +108,7 @@ class Preprocessor():
             ob_name = self.observable_name_dict[feature]
             idx = self.index_map[ob_name]
             function_name_list = self.config[ob_name]
-            i_to_f[idx] = [function_map[function_name] for function_name in function_name_list]
+            i_to_f[idx] = [self.function_map[function_name] for function_name in function_name_list]
         return i_to_f
 
     def preprocess(self, features, feature_array, **args):
