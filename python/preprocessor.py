@@ -5,6 +5,7 @@ the implementation of this class use the assumption that feature array is constr
 remember to update this class if that assumption is changed
 """
 import json
+import numpy as np
 
 # preprocessor functions defined here
 
@@ -95,3 +96,39 @@ class Preprocessor():
             function_name_list = self.config[ob_name]
             i_to_f[idx] = [function_map[function_name] for function_name in function_name_list]
         return i_to_f
+
+    def preprocess(self, features, feature_array, **args):
+        """
+        preprocess feature_array by applying requested preprocessor functions
+
+        arguments
+        ---------
+        features: name of root tree branchs
+        feature_array: 2d numpy array with shape (number of events, observables in each event)
+        args: extra parameters that will be passed directly to supported preprocessor functions
+
+        returns
+        -------
+        preprocessed feature array, which is returned as an independent copy
+        """
+        i_to_f = self._map_branch_names(features)
+        result = None
+        for i in feature_array.shape[1]:
+            feature_result = feature_array[:, i]
+
+            # apply preprocessor function is exsits
+            if i in i_to_f:
+                for function in i_to_f[i]:
+                    feature_result = function(feature_result, args)
+            # convert feature_result to a 2d array with shape (number of events, 1) if it is a 1d array
+            if len(feature_result.shape) < 2: result = np.reshape(result, (*result.shape, 1))
+
+            # append column(s) to result
+            if result is not None:
+                result = np.concatenate((result, feature_result), axis = 1)
+            else:
+                result = feature_result
+        return result
+
+
+
