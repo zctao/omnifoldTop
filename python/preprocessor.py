@@ -43,7 +43,6 @@ class Preprocessor():
         observable_dict: dictionary loaded from observable config
         prep_config_path: str, path to the preprocessor config file, usually located in configs/preprocessor
         """
-        
 
         # map from string options to functions
 
@@ -64,11 +63,9 @@ class Preprocessor():
         for observable in observables:
             if observable not in self.config:
                 self.config[observable] = []
-        
-        # map observable names to index
-        self.index_map = {}
-        for idx, ob_name in enumerate(observables):
-            self.index_map[ob_name] = idx
+
+        # dictionary for normalization function to ensure normalized result respects relative magnitudes in original dataset
+        self.normalization_dictionary = {}
 
     # preprocessor functions defined here
 
@@ -88,26 +85,53 @@ class Preprocessor():
 
     def _normalize(self, feature_array, **args):
         """
-        maps an
-        """
-    
-    def _map_branch_names(self, features):
-        """
-        transform branch names (features) to a map of index to functions
+        normalize given feature array to a mean of 0 and standard deviation of 1
 
         arguments
         ---------
-        featuers: list of str, a list of branch names in the root files
+        feature_array: 1d numpy array
+        pairing: str, an indicator for pairing feature arrays into groups
+        idx: int, column index of this slice of feature array, representing which observable it represents
+        """
+        pairing = args['pairing']
+        idx = args['idx']
+        if pairing not in self.normalization_dictionary:
+            self.normalization_dictionary[pairing] = []
+        if idx not in self.normalization_dictionary[pairing]:
+            divisor = 
+
+    # other functions
+
+    def _get_index_map(self, observables):
+        """
+        get the index map by remapping the list of observables to their position in the list
+
+        arguments
+        ---------
+        observables: observable names, these refer to the physical observables instead of root file branch names
+        """
+        index_map = {}
+        for idx, ob_name in enumerate(observables):
+            index_map[ob_name] = idx
+        return index_map
+    
+    def _map_idx_to_function(self, observables):
+        """
+        transform observable names to a map of index to functions
+
+        arguments
+        ---------
+        observables: list of str, a list of branch names in the root files
 
         returns
         -------
         a dictionary from index to functions
         """
         i_to_f = {}
-        for feature in features:
-            ob_name = self.observable_name_dict[feature]
-            idx = self.index_map[ob_name]
+        for idx, ob_name in enumerate(observables):
             function_name_list = self.config[ob_name]
+            # add preprocessor functions associated to the 'all' keyword
+            if 'all' in self.config: function_name_list.append(self.config['all'])
             i_to_f[idx] = [self.function_map[function_name] for function_name in function_name_list]
         return i_to_f
 
@@ -133,7 +157,8 @@ class Preprocessor():
             # apply preprocessor function if exsits
             if i in i_to_f:
                 for function in i_to_f[i]:
-                    feature_result = function(feature_result, args)
+                    args['idx'] = i
+                    feature_result = function(feature_result, **args)
             # convert feature_result to a 2d array with shape (number of events, 1) if it is a 1d array
             if len(feature_result.shape) < 2: result = np.reshape(result, (*result.shape, 1))
 
