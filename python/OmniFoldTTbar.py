@@ -11,6 +11,7 @@ from datahandler import DataHandler
 from datahandler_root import DataHandlerROOT
 from omnifold import omnifold
 from modelUtils import n_models_in_parallel
+import preprocessor
 
 import logging
 logger = logging.getLogger('OmniFoldTTbar')
@@ -263,23 +264,32 @@ class OmniFoldTTbar():
         # truth level
         arr_gen = self.handle_sig.get_arrays(self.varnames_truth, valid_only=False)
 
-        if preprocess:
-            logger.info("Preprocess feature arrays")
+        # preprocess input arrays
 
-            # estimate the order of magnitude
-            logger.debug("Divide each variable by its order of magnitude")
-            # use only the valid events
-            xmean_reco = np.mean(np.abs(self.handle_obs[self.varnames_reco]), axis=0)
-            xoom_reco = 10**(np.log10(xmean_reco).astype(int))
-            arr_data /= xoom_reco
-            arr_sim /= xoom_reco
+        p = preprocessor.get()
 
-            xmean_truth = np.mean(np.abs(self.handle_sig[self.varnames_truth]), axis=0)
-            xoom_truth = 10**(np.log10(xmean_truth).astype(int))
-            arr_gen /= xoom_truth
+        arr_data = p.preprocess(self.varnames_reco, arr_data)
+        
+        arr_sim = p.preprocess(self.varnames_reco, arr_sim)
+        arr_gen = p.preprocess(self.varnames_truth, arr_gen)
 
-            # TODO: check alternative
-            # standardize feature arrays to mean of zero and variance of one
+        # if preprocess:
+        #     logger.info("Preprocess feature arrays")
+
+        #     # estimate the order of magnitude
+        #     logger.debug("Divide each variable by its order of magnitude")
+        #     # use only the valid events
+        #     xmean_reco = np.mean(np.abs(self.handle_obs[self.varnames_reco]), axis=0)
+        #     xoom_reco = 10**(np.log10(xmean_reco).astype(int))
+        #     arr_data /= xoom_reco
+        #     arr_sim /= xoom_reco
+
+        #     xmean_truth = np.mean(np.abs(self.handle_sig[self.varnames_truth]), axis=0)
+        #     xoom_truth = 10**(np.log10(xmean_truth).astype(int))
+        #     arr_gen /= xoom_truth
+
+        #     # TODO: check alternative
+        #     # standardize feature arrays to mean of zero and variance of one
 
         return arr_data, arr_sim, arr_gen
 

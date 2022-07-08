@@ -14,31 +14,6 @@ import json
 import numpy as np
 from collections import OrderedDict
 
-# preprocessor instance
-
-preprocessor = None
-
-def initialize(observables, observable_dict, prep_config_path):
-    """
-    create a preprocessor instance from given parameters
-
-    arguments
-    ---------
-    observables: list of str, name of the observables used in training
-    observable_dict: dictionary loaded from observable config
-    prep_config_path: str, path to the preprocessor config file, usually located in configs/preprocessor
-    """
-    global preprocessor
-    preprocessor = Preprocessor(observables, observable_dict, prep_config_path)
-
-def get():
-    """
-    returns
-    -------
-    the preprocessor instance
-    """
-    return preprocessor
-
 # preprocessor class
 
 class Preprocessor():
@@ -110,12 +85,7 @@ class Preprocessor():
         pairing: str, an indicator for pairing feature arrays into groups
         idx: int, column index of this slice of feature array, representing which observable it represents
         """
-        pairing = args['pairing']
-        idx = args['idx']
-        if pairing not in self.normalization_dictionary:
-            self.normalization_dictionary[pairing] = []
-        if idx not in self.normalization_dictionary[pairing]:
-            divisor = 
+        pass
 
     # other functions
 
@@ -206,5 +176,28 @@ class Preprocessor():
         # return the feature array after preprocessing
         return feature_array
 
+# preprocessor instance
 
+preprocessor = None
+
+def initialize(observables, observable_dict, prep_config_path):
+    """
+    create a preprocessor instance from given parameters
+
+    arguments
+    ---------
+    observables: list of str, name of the observables used in training
+    observable_dict: dictionary loaded from observable config
+    prep_config_path: str, path to the preprocessor config file, usually located in configs/preprocessor
+    """
+    global preprocessor
+    preprocessor = Preprocessor(observables, observable_dict, prep_config_path)
+
+def get() -> Preprocessor:
+    """
+    returns
+    -------
+    the preprocessor instance
+    """
+    return preprocessor
 
