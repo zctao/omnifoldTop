@@ -184,28 +184,14 @@ class Preprocessor():
             function = self.function_map[function_name]
 
             # create a mask for the next operation
+            mask = self._mask(observables, list_of_observable)
 
-
+            # call preprocessor function, passing any additional args as is
+            # modify args here to add in additional arguments passed to preprocessor function
+            feature_array, observables = function(feature_array, mask, **args)
         
-        i_to_f = self._map_branch_names(features)
-        result = None
-        for i in feature_array.shape[1]:
-            feature_result = feature_array[:, i]
-
-            # apply preprocessor function if exsits
-            if i in i_to_f:
-                for function in i_to_f[i]:
-                    args['idx'] = i
-                    feature_result = function(feature_result, **args)
-            # convert feature_result to a 2d array with shape (number of events, 1) if it is a 1d array
-            if len(feature_result.shape) < 2: result = np.reshape(result, (*result.shape, 1))
-
-            # append column(s) to result
-            if result is not None:
-                result = np.concatenate((result, feature_result), axis = 1)
-            else:
-                result = feature_result
-        return result
+        # return the feature array after preprocessing
+        return feature_array
 
 
 
