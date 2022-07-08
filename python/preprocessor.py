@@ -14,6 +14,10 @@ import json
 import numpy as np
 from collections import OrderedDict
 
+import logging
+logger = logging.getLogger('Preprocessor')
+logger.setLevel(logging.DEBUG)
+
 # preprocessor class
 
 class Preprocessor():
@@ -25,6 +29,8 @@ class Preprocessor():
         observable_dict: dictionary loaded from observable config
         prep_config_path: str, path to the preprocessor config file, usually located in configs/preprocessor
         """
+
+        logger.info("Initializing Preprocessor")
 
         # map from string options to functions
 
@@ -45,6 +51,8 @@ class Preprocessor():
 
         # dictionary for normalization function to ensure normalized result respects relative magnitudes in original dataset
         self.normalization_dictionary = {}
+
+        logger.debug("Initializing Preprocessor: Done")
 
     # preprocessor functions defined here
     # they should be of the form
@@ -162,7 +170,10 @@ class Preprocessor():
         # use as a checklist to mark the items that are done
         task_list = self.config.copy()
 
+        logger.debug("Observable order before preprocessing: "+str(observables))
+
         while task_list:
+            logger.debug("Applying preprocessing function " + function_name)
             function_name, list_of_observable = task_list.popitem(last = False)
             function = self.function_map[function_name]
 
@@ -172,6 +183,8 @@ class Preprocessor():
             # call preprocessor function, passing any additional args as is
             # modify args here to add in additional arguments passed to preprocessor function
             feature_array, observables = function(feature_array, mask, observables, **args)
+
+            logger.debug("Observable order after preprocessing round: "+str(observables))
         
         # return the feature array after preprocessing
         return feature_array
