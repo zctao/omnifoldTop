@@ -3,9 +3,16 @@ preprocessor class that is used to apply pre training mapping to data, gen, sim
 preprocessor only uses trainig variables, extra observables do not enter training and are not preprocessed
 the implementation of this class use the assumption that feature array is constructed in the same order as how the observable argument is ordered
 remember to update this class if that assumption is changed
+the preprocessor config should be written in the format of
+{
+    name of preprocessor function : [list of observables to apply],
+    other preprocessing tasks
+}
+the preprocessor functions will be run in the same order from top to bottom
 """
 import json
 import numpy as np
+from collections import OrderedDict
 
 # preprocessor instance
 
@@ -59,10 +66,7 @@ class Preprocessor():
 
         # read in config, fill those without assigned preprocessor to an empty list
         with open(prep_config_path, "r") as config_file:
-            self.config = json.load(config_file)
-        for observable in observables:
-            if observable not in self.config:
-                self.config[observable] = []
+            self.config = json.load(config_file, object_pairs_hook=OrderedDict)
 
         # dictionary for normalization function to ensure normalized result respects relative magnitudes in original dataset
         self.normalization_dictionary = {}
@@ -147,8 +151,15 @@ class Preprocessor():
 
         returns
         -------
-        preprocessed feature array, which is returned as an independent copy
+        preprocessed feature array
         """
+        # convert feature names to observable names
+        observables = [self.observable_name_dict[feature] for feature in features]
+
+        # use as a checklist to mark the items that are done
+        task_list = self.config.copy()
+
+        
         i_to_f = self._map_branch_names(features)
         result = None
         for i in feature_array.shape[1]:
