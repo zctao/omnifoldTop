@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from ast import parse
 import os
 import sys
 import time
@@ -14,6 +15,7 @@ import metrics
 from OmniFoldTTbar import OmniFoldTTbar
 from make_histograms import make_histograms_from_unfolder
 from ibuv2 import run_ibu
+import preprocessor
 
 def unfold(**parsed_args):
 
@@ -62,6 +64,12 @@ def unfold(**parsed_args):
     else:
         varnames_extra_reco = []
         varnames_extra_truth = []
+
+    #################
+    # Initialize preprocessor
+    #################
+
+    preprocessor.initialize(parsed_args['observables'], observable_dict, parsed_args['preprocessor_config'])
 
     #################
     # Initialize and load data
@@ -253,6 +261,7 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="If True, run unfolding also with IBU for comparison")
     parser.add_argument('-w', '--weight-type', type=str, default='nominal',
                         help="Type of event weights to retrieve from ntuples")
+    parser.add_argument("--preprocessor-config", type=str, default='configs/preprocessor/none.json', help="location of the preprocessor config file")
 
     if print_help:
         parser.print_help()
