@@ -72,20 +72,33 @@ class Preprocessor():
         self.normalization_dictionary = {}
 
     # preprocessor functions defined here
+    # they should be of the form
+    # arguments: feature_array, mask, observables, other keyword arguments
+    # returns: preprocessed array, modified observable list (in this order)
 
-    def _angle_to_sin_cos(self, feature_array, **args):
+    def _angle_to_sin_cos(self, feature_array, mask, observables, **args):
         """
         maps an angle to its sine and cosine
 
         arguments
         ---------
         feature_array: 1d numpy array representing of some angle observable
+        mask: list of boolean, indicating which observables to be modified
+        observables: list of str, observable names indicating their position in the feature array
 
         returns
         -------
-        a 2d numpy array of the same length of [sine, cosine]
+        a 2d numpy array of the shape (number of events, number of observabless) with the original observables replaced by sine and cosine under the same name
         """
-        return np.stack((np.sin(feature_array), np.cos(feature_array)))
+
+        constant = feature_array[:, ~mask] # part of feature array that will not get modified
+        modifying = feature_array[:, mask] # angles that will be encoded
+
+        feature_array = np.concatenate((constant, np.sin(modifying), np.cos(modifying)), axis = 1)
+
+        observables = np.concatenate((observables[~mask], observables[mask], observables[mask]))
+
+        return feature_array, observables
 
     def _normalize(self, feature_array, **args):
         """
@@ -188,7 +201,7 @@ class Preprocessor():
 
             # call preprocessor function, passing any additional args as is
             # modify args here to add in additional arguments passed to preprocessor function
-            feature_array, observables = function(feature_array, mask, **args)
+            feature_array, observables = function(feature_array, mask, observables, **args)
         
         # return the feature array after preprocessing
         return feature_array
