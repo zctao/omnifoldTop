@@ -139,6 +139,26 @@ class Preprocessor():
             i_to_f[idx] = [self.function_map[function_name] for function_name in function_name_list]
         return i_to_f
 
+    def _mask(self, observables, modify):
+        """
+        return a mask indicating whether each index is to be included in the preprocessing
+
+        arguments
+        ---------
+        observables: the list of observable names indicating position of the observables in the feature array
+        modify: list of str, the name of the observables that will be modified by the next preprocessor
+
+        returns
+        -------
+        an 1d numpy array of boolean indicating whether each index is to be modified
+        """
+        mask = np.zeros(np.shape(observables))
+        for ob_name in modify:
+            mask[observables == ob_name] = 1
+        mask = mask == 1
+        return mask
+
+
     def preprocess(self, features, feature_array, **args):
         """
         preprocess feature_array by applying requested preprocessor functions
@@ -158,6 +178,13 @@ class Preprocessor():
 
         # use as a checklist to mark the items that are done
         task_list = self.config.copy()
+
+        while task_list:
+            function_name, list_of_observable = task_list.popitem(last = False)
+            function = self.function_map[function_name]
+
+            # create a mask for the next operation
+
 
         
         i_to_f = self._map_branch_names(features)
