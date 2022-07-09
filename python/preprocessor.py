@@ -11,9 +11,9 @@ the preprocessor config should be written in the format of
 the preprocessor functions will be run in the same order from top to bottom
 """
 import json
-from click import pass_context
 import numpy as np
 from collections import OrderedDict
+import gc
 
 import logging
 logger = logging.getLogger('Preprocessor')
@@ -173,6 +173,8 @@ class Preprocessor():
             feature_array, observables = function(feature_array, mask, observables, **args)
 
             logger.debug("Observable order after preprocessing round: "+str(observables))
+
+        gc.collect()
         
         # return the feature array after preprocessing
         return feature_array
