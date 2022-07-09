@@ -269,6 +269,7 @@ class OmniFoldTTbar():
         p = preprocessor.get()
 
         arr_data = p.preprocess(self.varnames_reco, arr_data)
+        # TODO: a truth known option?
         
         arr_sim = p.preprocess(self.varnames_reco, arr_sim)
         arr_gen = p.preprocess(self.varnames_truth, arr_gen)
@@ -290,6 +291,11 @@ class OmniFoldTTbar():
 
         #     # TODO: check alternative
         #     # standardize feature arrays to mean of zero and variance of one
+
+        arr_data, arr_sim = p.group_standardize((arr_data, arr_sim))
+
+        # TODO: a truth known option?
+        arr_gen = p.standardize(arr_gen)
 
         return arr_data, arr_sim, arr_gen
 

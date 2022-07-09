@@ -11,6 +11,7 @@ the preprocessor config should be written in the format of
 the preprocessor functions will be run in the same order from top to bottom
 """
 import json
+from click import pass_context
 import numpy as np
 from collections import OrderedDict
 
@@ -35,8 +36,7 @@ class Preprocessor():
         # map from string options to functions
 
         self.function_map = {
-            "angle_to_sin_cos": self._angle_to_sin_cos,
-            "normalize": self._normalize
+            "angle_to_sin_cos": self._angle_to_sin_cos
         }
 
         # convert observable dict to a variable dict, mapping branch name to observable name
@@ -82,18 +82,6 @@ class Preprocessor():
         observables = np.concatenate((observables[~mask], observables[mask], observables[mask]))
 
         return feature_array, observables
-
-    def _normalize(self, feature_array, **args):
-        """
-        normalize given feature array to a mean of 0 and standard deviation of 1
-
-        arguments
-        ---------
-        feature_array: 1d numpy array
-        pairing: str, an indicator for pairing feature arrays into groups
-        idx: int, column index of this slice of feature array, representing which observable it represents
-        """
-        pass
 
     # other functions
 
@@ -165,7 +153,7 @@ class Preprocessor():
         preprocessed feature array
         """
         # convert feature names to observable names
-        observables = [self.observable_name_dict[feature] for feature in features]
+        observables = np.array([self.observable_name_dict[feature] for feature in features])
 
         # use as a checklist to mark the items that are done
         task_list = self.config.copy()
@@ -173,8 +161,8 @@ class Preprocessor():
         logger.debug("Observable order before preprocessing: "+str(observables))
 
         while task_list:
-            logger.debug("Applying preprocessing function " + function_name)
             function_name, list_of_observable = task_list.popitem(last = False)
+            logger.debug("Applying preprocessing function " + function_name)
             function = self.function_map[function_name]
 
             # create a mask for the next operation
@@ -188,6 +176,50 @@ class Preprocessor():
         
         # return the feature array after preprocessing
         return feature_array
+
+    # other functions that can be called directly as an utility
+
+    def standardize(self, feature_array):
+        """
+        standardize the given feature array
+
+        arguments
+        ---------
+        feature_arrays: numpy 2d arrays of shape (number of events, features in each event)
+
+        returns
+        -------
+        feature_array standardized to a mean of 0 and standard deviation of one
+        """
+
+        # compute mean over all feature_arrays together
+        mean = np.mean(feature_array, axis=0)
+        std = np.std(feature_array, axis=0)
+
+        return (feature_array - mean) / std
+
+    def group_standardize(self, feature_arrays):
+        """
+        standardize the given feature arrays using the same factors to retain the relative comparision between them
+
+        arguments
+        ---------
+        feature_arrays: tuple of numpy 2d arrays of shape (number of events, features in each event)
+
+        returns
+        -------
+        tuple of feature_arrays as a group standardized to a mean of 0 and standard deviation of one, but not necessarily for each one of them
+        """
+
+        # compute mean over all feature_arrays together
+        combine = np.concatenate(feature_arrays, axis=0)
+        mean = np.mean(combine, axis=0)
+        std = np.std(combine, axis=0)
+
+        feature_arrays = ((feature_array - mean) / std for feature_array in feature_arrays)
+
+        return feature_arrays
+        
 
 # preprocessor instance
 
@@ -213,4 +245,3 @@ def get() -> Preprocessor:
     the preprocessor instance
     """
     return preprocessor
-
