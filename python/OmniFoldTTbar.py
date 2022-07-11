@@ -241,7 +241,7 @@ class OmniFoldTTbar():
         if self.handle_bkg is not None:
             logger.info(f"Total weights of background events: {self.handle_bkg.sum_weights()}")
 
-    def _get_input_arrays(self, preprocess=True):
+    def _get_input_arrays(self):
         logger.debug("Prepare input arrays")
 
         # observed data (or pseudo data)

@@ -294,7 +294,7 @@ def initialize(observable_dict, prep_config_path):
     prep_config_path: str, path to the preprocessor config file, usually located in configs/preprocessor
     """
     global preprocessor
-    preprocessor = Preprocessor(observables, observable_dict, prep_config_path)
+    preprocessor = Preprocessor(observable_dict, prep_config_path)
 
 def get() -> Preprocessor:
     """
