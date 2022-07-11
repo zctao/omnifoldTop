@@ -22,7 +22,7 @@ logger.setLevel(logging.DEBUG)
 # preprocessor class
 
 class Preprocessor():
-    def __init__(self, observables, observable_dict, prep_config_path) -> None:
+    def __init__(self, observable_dict, prep_config_path) -> None:
         """
         arguments
         ---------
