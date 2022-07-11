@@ -36,7 +36,9 @@ class Preprocessor():
         # map from string options to functions
 
         self.function_map = {
-            "angle_to_sin_cos": self._angle_to_sin_cos
+            "angle_to_sin_cos": self._angle_to_sin_cos,
+            "angle_to_sin": self._angle_to_sin,
+            "angle_to_cos": self._angle_to_cos
         }
 
         # convert observable dict to a variable dict, mapping branch name to observable name
@@ -90,6 +92,45 @@ class Preprocessor():
         observables = np.concatenate((observables[~mask], observables[mask], observables[mask]))
 
         return feature_array, observables
+
+    def _angle_to_sin(self, feature_array, mask, observables, **args):
+        """
+        maps an angle to sine of that angle
+
+        arguments
+        ---------
+        feature_array: 1d numpy array representing of some angle observable
+        mask: list of boolean, indicating which observables to be modified
+        observables: list of str, observable names indicating their position in the feature array
+
+        returns
+        -------
+        a 2d numpy array of the shape (number of events, number of observabless) with the original observables replaced by sine under the same name
+        """
+
+        feature_array[:, mask] = np.sin(feature_array[:, mask])
+
+        return feature_array, observables
+
+    def _angle_to_cos(self, feature_array, mask, observables, **args):
+        """
+        maps an angle to cosine of that angle
+
+        arguments
+        ---------
+        feature_array: 1d numpy array representing of some angle observable
+        mask: list of boolean, indicating which observables to be modified
+        observables: list of str, observable names indicating their position in the feature array
+
+        returns
+        -------
+        a 2d numpy array of the shape (number of events, number of observabless) with the original observables replaced by cosine under the same name
+        """
+
+        feature_array[:, mask] = np.cos(feature_array[:, mask])
+
+        return feature_array, observables
+
 
     # other functions
     def _get_index_map(self, observables):
