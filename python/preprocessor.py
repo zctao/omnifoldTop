@@ -283,7 +283,7 @@ class Preprocessor():
 
 preprocessor = None
 
-def initialize(observables, observable_dict, prep_config_path):
+def initialize(observable_dict, prep_config_path):
     """
     create a preprocessor instance from given parameters
 
