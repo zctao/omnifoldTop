@@ -277,7 +277,43 @@ class Preprocessor():
         feature_arrays = ((feature_array - mean) / std for feature_array in feature_arrays)
 
         return feature_arrays
-        
+
+    def normalize(self, feature_array):
+        """
+        normalize the given feature array through dividing by the order of magnitude of the mean
+
+        arguments
+        ---------
+        feature_array: numpy 2d array of shape (number of events, features in each event)
+
+        returns
+        -------
+        feature_array normalized
+        """
+
+        mean = np.mean(np.abs(feature_array), axis=0)
+        oom = 10**(np.log10(mean).astype(int))
+        return feature_array / oom
+
+    def group_normalize(self, feature_arrays):
+        """
+        normalize the given feature arrays using the same oom calculated from all data
+
+        arguments
+        ---------
+        feature_arrays: tuple of numpy 2d arrays of shape (number of events, features in each event)
+
+        returns
+        -------
+        tuple of feature_arrays normalized together
+        """
+        combine = np.concatenate(feature_arrays, axis=0)
+        mean = np.mean(np.abs(combine), axis=0)
+        oom = 10**(np.log10(mean).astype(int))
+
+        feature_arrays = (feature_array / oom for feature_array in feature_arrays)
+
+        return feature_arrays
 
 # preprocessor instance
 
