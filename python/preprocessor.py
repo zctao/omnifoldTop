@@ -55,7 +55,7 @@ class Preprocessor():
             # should be removed to not confuse the function_map
             del self.config["preprocess_utility"]
         else:
-            self.utility = False
+            self.utility = True
 
         # dictionary for normalization function to ensure normalized result respects relative magnitudes in original dataset
         self.normalization_dictionary = {}
