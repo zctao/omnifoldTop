@@ -48,6 +48,14 @@ class Preprocessor():
         # read in config, fill those without assigned preprocessor to an empty list
         with open(prep_config_path, "r") as config_file:
             self.config = json.load(config_file, object_pairs_hook=OrderedDict)
+        
+        # save the input on whether the utility functions should be used for outside callers, defaults to False
+        if "preprocess_utility" in self.config:
+            self.utility = self.config["preprocess_utility"]
+            # should be removed to not confuse the function_map
+            del self.config["preprocess_utility"]
+        else:
+            self.utility = False
 
         # dictionary for normalization function to ensure normalized result respects relative magnitudes in original dataset
         self.normalization_dictionary = {}
@@ -84,7 +92,6 @@ class Preprocessor():
         return feature_array, observables
 
     # other functions
-
     def _get_index_map(self, observables):
         """
         get the index map by remapping the list of observables to their position in the list
@@ -178,6 +185,14 @@ class Preprocessor():
         
         # return the feature array after preprocessing
         return feature_array
+
+    def use_utility(self):
+        """
+        returns
+        -------
+        whether the config specified the utility functions to be used
+        """
+        return self.utility
 
     # other functions that can be called directly as an utility
 
