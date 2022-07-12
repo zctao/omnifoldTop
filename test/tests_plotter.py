@@ -6,6 +6,7 @@ make sure to run this file at correct level if relative path is used
 from os.path import join
 import json
 import matplotlib.pyplot as plotter
+import numpy as np
 
 # the path to the test results
 results_path = [
@@ -94,4 +95,71 @@ def chi2(metric):
         a 1d array consisting of the chi2/ndf values for each iteration if metric is "nominal"
         a 2d array of shape (nruns, n iterations) of chi2/ndf values if metric is "resample"
     """
-    return metric["Chi2"]["chi2/ndf"]
+    return np.array(metric["Chi2"]["chi2/ndf"])
+
+def delta(metric):
+    """
+    extract the delta values from existing dictionary that represents either the "nominal" or "resample" part of the metric
+
+    arguments
+    ---------
+    metric: dict
+        a dictionary representing either the "nominal" or "resample" part of the metric
+
+    returns
+    -------
+    chi2: numpy array
+        a 1d array consisting of the delta values for each iteration if metric is "nominal"
+        a 2d array of shape (nruns, n iterations) of delta values if metric is "resample"
+    """
+    return np.array(metric["Delta"]["delta"])
+
+def delta(metric):
+    """
+    extract the delta values from existing dictionary that represents either the "nominal" or "resample" part of the metric
+
+    arguments
+    ---------
+    metric: dict
+        a dictionary representing either the "nominal" or "resample" part of the metric
+
+    returns
+    -------
+    chi2: numpy array
+        a 1d array consisting of the delta values for each iteration if metric is "nominal"
+        a 2d array of shape (nruns, n iterations) of delta values if metric is "resample"
+    """
+    return np.array(metric["Delta"]["delta"])
+
+def binerror(metric):
+    """
+    extract the bin error values from existing dictionary that represents either the "nominal" or "resample" part of the metric
+
+    arguments
+    ---------
+    metric: dict
+        a dictionary representing either the "nominal" or "resample" part of the metric
+
+    returns
+    -------
+    chi2: numpy array
+        a 2d array consisting of the bin error values for each iteration if metric is "nominal", in the shape (n iterations, n bins)
+        a 3d array of bin error values if metric is "resample", in the shape (nruns, n iterations, n bins)
+    """
+    return np.array(metric["BinErrors"]["percentage"])
+
+def binerror(metric):
+    """
+    extract the bin edges from existing dictionary that represents either the "nominal" or "resample" part of the metric
+
+    arguments
+    ---------
+    metric: dict
+        a dictionary representing either the "nominal" or "resample" part of the metric
+
+    returns
+    -------
+    chi2: numpy array
+        a numpy array indicating the bin edges in the shape of (n bins + 1,)
+    """
+    return np.array(metric["BinErrors"]["bin edges"])
