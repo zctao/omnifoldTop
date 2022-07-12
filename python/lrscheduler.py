@@ -101,26 +101,6 @@ def warm_up_constant(epoch, lr):
     else:
         return lr
 
-
-# obsolete, use schedules
-# def exponential_decay(epoch, lr):
-#     """
-#     exponential decay of learning rate
-#     """
-#     debug_learning_rate(lr)
-#     return lr * np.exp(-0.3)
-
-# obsolete, basically warmc + expd schedule
-# def warm_up_plateau_decay(epoch, lr):
-#     """
-#     perform warm up with a linearly increasing learning rate, hold for PLATEAU epochs, then start exponential decay
-#     """
-#     debug_learning_rate(lr)
-#     if epoch < WARM_UP_EPOCHS + PLATEAU:
-#         return warm_up_constant(epoch, lr)
-#     else:
-#         return exponential_decay(epoch, lr)
-
 def init_lr_scheduler(initial_learning_rate, scheduler_names, schedule_args):
     """
     Arguments
