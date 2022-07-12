@@ -14,11 +14,18 @@ results_path = [
     "output_tmp"
 ]
 
+# metrics as dictionaries corresponding one to one to results_path
+# will be read automatically, just a place holder here
+metrics = []
+
 # plotting styles, one to one corresponding to result_path
 
 styles = [
 
 ]
+
+# these are functions for extracting the information from metric files
+# if something doesn't work, check if the metric format has changed
 
 def read_metric(observable, result_path):
     """
@@ -163,3 +170,21 @@ def binedges(metric):
         a numpy array indicating the bin edges in the shape of (n bins + 1,)
     """
     return np.array(metric["BinErrors"]["bin edges"])
+
+# these are functions for plotting, they can be called directly to produce plots
+
+def compare_delta_variance(save_location):
+    """
+    compares the variance of the deltas, can be interpreted as a measure of algorithm stability
+
+    arguments
+    ---------
+    save_location: str
+        the path to where the generated plot is to be saved
+    """
+
+# automatic initialization
+for result_path in results_path:
+    metrics += [read_metric(result_path)]
+
+# put plotting commands here
