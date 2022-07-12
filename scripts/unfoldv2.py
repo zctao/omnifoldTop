@@ -15,7 +15,7 @@ import metrics
 from OmniFoldTTbar import OmniFoldTTbar
 from make_histograms import make_histograms_from_unfolder
 from ibuv2 import run_ibu
-from lrscheduler import init_lr_scheduler
+import lrscheduler
 
 def unfold(**parsed_args):
 
@@ -103,10 +103,8 @@ def unfold(**parsed_args):
     #################
     # Initialize learning rate scheduler
     #################
-    
-    scheduler_args = json.loads(parsed_args["scheduler_args"]) if parsed_args["scheduler_args"] is not None else None
 
-    init_lr_scheduler(parsed_args["learning_rate"], parsed_args["scheduler_names"], scheduler_args)
+    lrscheduler.init_lr_scheduler(parsed_args["lrscheduler_config"])
 
     #################
     # Run unfolding
