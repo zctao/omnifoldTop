@@ -117,10 +117,13 @@ def init_lr_scheduler(init_path):
 
     with open(init_path, "r") as init_file:
         config = json.load(init_file)
+
+    scheduler_args = json.loads(config["scheduler_args"]) if config["scheduler_args"] is not None else None
     
     lrscheduler = LearningRateScheduler(config["initial_learning_rate"],
                                         config["scheduler_names"],
-                                        config["scheduler_args"])
+                                        scheduler_args,
+                                        config["reduce_on_plateau"])
 
 def get_lr_scheduler()->LearningRateScheduler:
     """
