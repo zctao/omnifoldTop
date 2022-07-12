@@ -24,6 +24,18 @@ styles = [
 
 ]
 
+# observables, each should appear in all metrics
+observables = [
+        "th_pt",
+        "th_y",
+        "th_phi",
+        "th_e",
+        "tl_pt",
+        "tl_y",
+        "tl_phi",
+        "tl_e"
+    ]
+
 # these are functions for extracting the information from metric files
 # if something doesn't work, check if the metric format has changed
 
@@ -182,6 +194,7 @@ def compare_delta_variance(save_location):
     save_location: str
         the path to where the generated plot is to be saved
     """
+    
 
 # automatic initialization
 for result_path in results_path:
