@@ -94,15 +94,19 @@ def unfold(**parsed_args):
         data_reweighter = rw,
         weight_type = parsed_args["weight_type"]
         )
-    
-    scheduler_args = json.loads(parsed_args["scheduler_args"]) if parsed_args["scheduler_args"] is not None else None
-
-    init_lr_scheduler(parsed_args["learning_rate"], parsed_args["scheduler_names"], scheduler_args)
 
     t_init_done = time.time()
     logger.debug(f"Initializing unfolder and loading input data took {(t_init_done-t_init_start):.2f} seconds.")
     mcurrent, mpeak = tracemalloc.get_traced_memory()
     logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
+
+    #################
+    # Initialize learning rate scheduler
+    #################
+    
+    scheduler_args = json.loads(parsed_args["scheduler_args"]) if parsed_args["scheduler_args"] is not None else None
+
+    init_lr_scheduler(parsed_args["learning_rate"], parsed_args["scheduler_names"], scheduler_args)
 
     #################
     # Run unfolding
@@ -259,11 +263,7 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="If True, run unfolding also with IBU for comparison")
     parser.add_argument('-w', '--weight-type', type=str, default='nominal',
                         help="Type of event weights to retrieve from ntuples")
-    parser.add_argument('--scheduler-names', help="Name of the learning rate scheduler to be used", type=str, nargs='+')
-    parser.add_argument('--reduce-on-plateau', type=int, default=0,
-                        help="number of epoch to wait before reducing learning rate")
-    parser.add_argument('--scheduler-args', help="extra arguments for the requested scheduler", type=str)
-    parser.add_argument('--learning-rate', type=float, default=0.001, help="Initial learning rate")
+    parser.add_argument('--lrscheduler-config', type=str, default="configs/lrs/constant_warm_up.json", help="config file for learning rate scheduler")
 
     if print_help:
         parser.print_help()
