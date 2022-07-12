@@ -121,22 +121,6 @@ def init_lr_scheduler(init_path):
     lrscheduler = LearningRateScheduler(config["initial_learning_rate"],
                                         config["scheduler_names"],
                                         config["scheduler_args"])
-    
-
-def init_lr_scheduler(initial_learning_rate, scheduler_names, schedule_args):
-    """
-    Arguments
-    ---------
-    initial_learning_rate : inital learning rate
-    scheduler_name : list of names refering to the scheduler / callback to be applied, there can at most be one schedule, but many callbacks
-    schedule_args : dictionary, extra arguments for the schedule, required for using "piecewised"
-
-    Raise
-    -----
-    Exeption if more than 1 learning schedule is requested
-    """
-    global lrscheduler
-    lrscheduler = LearningRateScheduler(initial_learning_rate, scheduler_names, schedule_args)
 
 def get_lr_scheduler()->LearningRateScheduler:
     """
