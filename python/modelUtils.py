@@ -19,7 +19,7 @@ n_models_in_parallel = 1
 import logging
 logger = logging.getLogger('model')
 
-def get_callbacks(reduce_on_plateau = 0, model_filepath=None):
+def get_callbacks(model_filepath=None):
     """
     Set up a list of standard callbacks used while training the models.
 

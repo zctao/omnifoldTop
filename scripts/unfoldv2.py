@@ -122,7 +122,6 @@ def unfold(**parsed_args):
 
         # run unfolding
         unfolder.run(
-            reduce_on_plateau = parsed_args['reduce_on_plateau'],
             niterations = parsed_args['iterations'],
             resample_data = parsed_args['resample_data'],
             nruns = parsed_args['nruns'],
