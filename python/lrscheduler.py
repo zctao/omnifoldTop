@@ -9,6 +9,7 @@ import numpy as np
 import tensorflow.keras.optimizers.schedules as schedules
 import tensorflow.keras.callbacks as callbacks
 import json
+from callbacks import PrintLearningRate
 
 WARM_UP_EPOCHS = 5
 PLATEAU = 10
@@ -56,6 +57,8 @@ class LearningRateScheduler():
             self.callbacks += [callbacks.LearningRateScheduler(scheduler_dict[callback_name])]
         if reduce_on_plateau > 0:
             self.callbacks += [callbacks.ReduceLROnPlateau(monitor='val_loss', factor = 0.2, patience = reduce_on_plateau)]
+        if debug:
+            self.callbacks += [PrintLearningRate()]
 
         # assemble schedules
         for schedule_name in self.schedules_names:
