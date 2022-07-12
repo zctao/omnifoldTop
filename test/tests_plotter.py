@@ -148,7 +148,7 @@ def binerror(metric):
     """
     return np.array(metric["BinErrors"]["percentage"])
 
-def binerror(metric):
+def binedges(metric):
     """
     extract the bin edges from existing dictionary that represents either the "nominal" or "resample" part of the metric
 
