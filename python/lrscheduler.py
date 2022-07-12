@@ -12,7 +12,7 @@ import tensorflow.keras.callbacks as callbacks
 WARM_UP_EPOCHS = 5
 PLATEAU = 10
 
-debug = True
+debug = False
 
 import logging
 logger = logging.getLogger('lrs')
