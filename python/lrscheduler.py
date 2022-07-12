@@ -15,10 +15,6 @@ PLATEAU = 10
 
 debug = False
 
-import logging
-logger = logging.getLogger('lrs')
-logger.setLevel(logging.DEBUG)
-
 lrscheduler = None
 
 class LearningRateScheduler():
@@ -85,22 +81,16 @@ class LearningRateScheduler():
         """
         return self.schedule if self.schedule is not None else self.inital_learning_rate
 
-def debug_learning_rate(lr):
-    if debug:
-        logger.debug("Current learning rate is {0}".format(float(lr)))
-
 def constant(epoch, lr):
     """
     constant learning rate, independent of epoch
     """
-    # debug_learning_rate(lr)
     return lr
 
 def warm_up_constant(epoch, lr):
     """
     perform warm up in training with a linearly increasing learning rate for the first WARM_UP_EPOCHS epoch
     """
-    # debug_learning_rate(lr)
     if epoch == 0:
         return lr / WARM_UP_EPOCHS
     elif epoch < WARM_UP_EPOCHS:
