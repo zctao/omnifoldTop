@@ -22,13 +22,18 @@ logger.setLevel(logging.DEBUG)
 lrscheduler = None
 
 class LearningRateScheduler():
-    def __init__(self, initial_learning_rate, scheduler_names, schedule_args):
+    def __init__(self, initial_learning_rate, scheduler_names, schedule_args, reduce_on_plateau):
         """
         Arguments
         ---------
-        initial_learning_rate : inital learning rate
-        scheduler_name : list of names refering to the scheduler / callback to be applied, there can at most be one schedule, but many callbacks
-        schedule_args : dictionary, extra arguments for the schedule, required for using "piecewised"
+        initial_learning_rate: float
+            inital learning rate
+        scheduler_name: list of str
+            names refering to the scheduler / callback to be applied, there can at most be one schedule, but many callbacks. Schedulers and Callbacks can not be used together.
+        schedule_args: dictionary
+            extra arguments for the schedule, required for using "piecewised"
+        reduce_on_plateau: int
+            the number of epoch to wait before reducing learning rate, a value of 0 indicates that reduce on plateau will not happen
 
         Raise
         -----
@@ -47,13 +52,14 @@ class LearningRateScheduler():
         self.schedule = None
 
         # enforce the requirements
-        # 1. at most 1 schedule
         assert(len(self.schedules_names) <= 1)
         assert((not self.schedules_names) or (not self.callback_names))
 
         # assemble callbacks
         for callback_name in self.callback_names:
             self.callbacks += [callbacks.LearningRateScheduler(scheduler_dict[callback_name])]
+        if reduce_on_plateau > 0:
+            self.callbacks += [callbacks.ReduceLROnPlateau(monitor='val_loss', factor = 0.2, patience = reduce_on_plateau)]
 
         # assemble schedules
         for schedule_name in self.schedules_names:
@@ -118,7 +124,7 @@ def init_lr_scheduler(init_path):
     with open(init_path, "r") as init_file:
         config = json.load(init_file)
 
-    scheduler_args = json.loads(config["scheduler_args"]) if config["scheduler_args"] is not None else None
+    scheduler_args = json.loads(config["scheduler_args"]) if config["scheduler_args"] is not "" else None
     
     lrscheduler = LearningRateScheduler(config["initial_learning_rate"],
                                         config["scheduler_names"],

@@ -38,7 +38,6 @@ def get_callbacks(reduce_on_plateau = 0, model_filepath=None):
         monitor="val_loss", patience=10, verbose=1, restore_best_weights=True
     )
 
-    Reduce = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor = 0.2, patience = reduce_on_plateau) if reduce_on_plateau != 0 else None
     custom_callbacks = [PrintLearningRate()]
 
     lr_callbacks = get_lr_scheduler().get_callbacks()
@@ -56,9 +55,9 @@ def get_callbacks(reduce_on_plateau = 0, model_filepath=None):
 
         logger_fp = model_filepath + "_history.csv"
         CSVLogger = keras.callbacks.CSVLogger(filename=logger_fp, append=False)
-        return [cb for cb in [CheckPoint, CSVLogger, EarlyStopping, Reduce] if cb is not None] + lr_callbacks + custom_callbacks
+        return [CheckPoint, CSVLogger, EarlyStopping] + lr_callbacks + custom_callbacks
     else:
-        return [cb for cb in [EarlyStopping, Reduce] if cb is not None] + lr_callbacks + custom_callbacks
+        return [EarlyStopping] + lr_callbacks + custom_callbacks
 
 def weighted_binary_crossentropy(y_true, y_pred):
     """
