@@ -199,7 +199,7 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
         X_train_list += [X_train]
         X_val_list += [X_val]
 
-    fitargs = {'callbacks': callbacks, 'epochs': 5000, 'verbose': verbose, 'batch_size': batch_size}
+    fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
 
     if n_models_in_parallel == 1:
         model.fit(X_train_list[0], Yw_train_list[0], validation_data=(X_val_list[0], Yw_val_list[0]), **fitargs)
