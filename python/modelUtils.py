@@ -14,7 +14,7 @@ from callbacks import PrintLearningRate
 
 import plotter
 
-n_models_in_parallel = 3
+n_models_in_parallel = 1
 
 import logging
 logger = logging.getLogger('model')
