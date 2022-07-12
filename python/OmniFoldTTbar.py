@@ -2,7 +2,6 @@ import os
 import glob
 import numpy as np
 from copy import copy
-from python.lrscheduler import constant
 
 import util
 import plotter
