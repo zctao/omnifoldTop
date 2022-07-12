@@ -8,6 +8,7 @@
 import numpy as np
 import tensorflow.keras.optimizers.schedules as schedules
 import tensorflow.keras.callbacks as callbacks
+import json
 
 WARM_UP_EPOCHS = 5
 PLATEAU = 10
@@ -100,6 +101,27 @@ def warm_up_constant(epoch, lr):
         return (epoch + 1) * lr / epoch
     else:
         return lr
+
+def init_lr_scheduler(init_path):
+    """
+    arguments
+    ---------
+    init_path: str
+        path to where the lrscheduler config file is located
+
+    raises
+    ------
+    exception if more than 1 learning schedule is requested
+    """
+    global lrscheduler
+
+    with open(init_path, "r") as init_file:
+        config = json.load(init_file)
+    
+    lrscheduler = LearningRateScheduler(config["initial_learning_rate"],
+                                        config["scheduler_names"],
+                                        config["scheduler_args"])
+    
 
 def init_lr_scheduler(initial_learning_rate, scheduler_names, schedule_args):
     """
