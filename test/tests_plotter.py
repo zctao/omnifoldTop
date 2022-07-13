@@ -226,15 +226,15 @@ def compare_delta(save_location, average=True):
         n = np.shape(delta(resample(metric)))[0] # first dimension is nruns
         compval = sumd / n if average else sumd
         plotter.plot(iterations(metric), compval, **styles[idx])
-        typeplot = "average" if average else "sum"
-        title = typeplot + " delta against iterations"
-        plotter.title(title)
-        plotter.xlabel("number of iterations")
-        plotter.ylabel(typeplot + " of delta")
-        plotter.grid(True)
-        plotter.legend(names)
-        plotter.savefig(save_location)
-        plotter.clf()
+    typeplot = "average" if average else "sum"
+    title = typeplot + " delta against iterations"
+    plotter.title(title)
+    plotter.xlabel("number of iterations")
+    plotter.ylabel(typeplot + " of delta")
+    plotter.grid(True)
+    plotter.legend(names)
+    plotter.savefig(save_location)
+    plotter.clf()
 
 def compare_bin_errors(save_location):
     """
