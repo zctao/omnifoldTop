@@ -99,6 +99,22 @@ def resample(observable, result_path):
     metric = read_metric(observable, result_path)
     return metric["resample"]
 
+def iterations(metric):
+    """
+    extract the number of iterations from existing read metric
+
+    arguments
+    ---------
+    metric: dict
+        read metric from original metric file
+    
+    returns
+    -------
+    iterations: numpy 1d array
+        iteration number from 0 to n iterations - 1
+    """
+    return np.array(nominal(metric)["Chi2"]["iterations"])
+
 def chi2(metric):
     """
     extract the chi2/ndf values from existing dictionary that represents either the "nominal" or "resample" part of the metric
@@ -115,23 +131,6 @@ def chi2(metric):
         a 2d array of shape (nruns, n iterations) of chi2/ndf values if metric is "resample"
     """
     return np.array(metric["Chi2"]["chi2/ndf"])
-
-def delta(metric):
-    """
-    extract the delta values from existing dictionary that represents either the "nominal" or "resample" part of the metric
-
-    arguments
-    ---------
-    metric: dict
-        a dictionary representing either the "nominal" or "resample" part of the metric
-
-    returns
-    -------
-    chi2: numpy array
-        a 1d array consisting of the delta values for each iteration if metric is "nominal"
-        a 2d array of shape (nruns, n iterations) of delta values if metric is "resample"
-    """
-    return np.array(metric["Delta"]["delta"])
 
 def delta(metric):
     """
@@ -194,6 +193,18 @@ def compare_delta_variance(save_location):
     save_location: str
         the path to where the generated plot is to be saved
     """
+    plotter.clf()
+    for idx, metric in enumerate(metrics):
+        vard = np.var(delta(resample(metric)), axis=0)
+        plotter.plot(iterations(metric), vard, **styles[idx])
+    plotter.title("variance in delta against iterations")
+    plotter.xlabel("number of iterations")
+    plotter.ylabel("variance in delta")
+    plotter.grid(True)
+    plotter.savefig(save_location)
+    plotter.clf()
+        
+        
     
 
 # automatic initialization
