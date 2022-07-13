@@ -260,7 +260,7 @@ def compare_bin_errors(save_location):
         plot.set_title("bin error at iteration " + str(plot_idx))
         plot.set_xlabel("bin starting number")
         plot.set_xticks(x, binedges(nominal(metrics[0]))[:len(x)])
-        plot.legend()
+        if plot_idx == 0: plot.legend()
 
     fig.tight_layout()
     plotter.savefig(save_location)
