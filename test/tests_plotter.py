@@ -66,42 +66,36 @@ def read_metric(observable, result_path):
         metric = json.load(file)
     return metric
 
-def nominal(observable, result_path):
+def nominal(metric):
     """
-    read and return the nominal part of the metric for the observable in result_path
+    read and return the nominal part of the metric
 
     arguments
     ---------
-    observable: str
-        the observable name
-    result_path: str
-        path to the result folder
+    metric:
+        metric read from metric file
 
     returns
     -------
     nominal: dict
         dictionary containing the content of the metric file that corresponds to nominal
     """
-    metric = read_metric(observable, result_path)
     return metric["nominal"]
 
-def resample(observable, result_path):
+def resample(metric):
     """
-    read and return the resample part of the metric for the observable in result_path
+    read and return the resample part of the metric
 
     arguments
     ---------
-    observable: str
-        the observable name
-    result_path: str
-        path to the result folder
+    metric:
+        metric read from metric file
 
     returns
     -------
-    resample: dict
+    nominal: dict
         dictionary containing the content of the metric file that corresponds to nominal
     """
-    metric = read_metric(observable, result_path)
     return metric["resample"]
 
 def iterations(metric):
@@ -263,10 +257,15 @@ def compare_bin_errors(save_location):
 
     fig.tight_layout()
     plotter.savefig(save_location)
-    
-
-# automatic initialization
-for result_path in results_path:
-    metrics += [read_metric(result_path)]
 
 # put plotting commands here
+for observable in observables:
+    # initialize metric
+    metrics = []
+    for result_path in results_path:
+        metrics += [read_metric(observable, result_path)]
+    
+    # plot commands here
+    compare_delta(observable + "_delta.png")
+    compare_delta_variance(observable + "_delta_variance.png")
+    compare_bin_errors(observable + "_bin_error.png")
