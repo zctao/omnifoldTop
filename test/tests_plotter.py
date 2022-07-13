@@ -234,8 +234,35 @@ def compare_delta(save_location, average=True):
         plotter.grid(True)
         plotter.savefig(save_location)
         plotter.clf()
-        
-        
+
+def compare_bin_errors(save_location):
+    """
+    compare the bin errors between tests.
+
+    arguments
+    ---------
+    save_location: str
+        path to where generated plot will be saved
+    """        
+    plotter.clf()
+    x = np.arange(len(binedges(nominal(metrics[0]))) - 1) # all unfold results should have the save bin config
+    width = 0.2
+
+    fig, ax = plotter.subplots(len(iterations(metrics[0])), 1)
+
+    ax = ax.flatten()
+
+    for plot_idx, plot in enumerate(ax):
+        for idx, metric in enumerate(metrics):
+            plot.bar(x +  width * idx, binerror(nominal(metric)), width, label=names[idx])
+        plot.set_ylabel("bin error")
+        plot.set_title("bin error at iteration " + str(plot_idx))
+        plot.set_xlabel("bin starting number")
+        ax.set_xticks(x, binedges(metrics[0])[:len(x)])
+        ax.legend()
+
+    fig.tight_layout()
+    plotter.savefig(save_location)
     
 
 # automatic initialization
