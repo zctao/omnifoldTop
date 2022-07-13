@@ -11,22 +11,27 @@ import numpy as np
 # the path to the test results
 results_path = [
     "output_only_standardization",
-    "output_tmp"
+    "output_tmp",
+    "output_cos",
+    "output_sin"
 ]
 
 # name of the results to be used in legend
 
 names = [
+    "standardize only",
+    "map to sine and cosine",
+    "map to sine",
+    "map to cosine"
 ]
-
-# metrics as dictionaries corresponding one to one to results_path
-# will be read automatically, just a place holder here
-metrics = []
 
 # plotting styles, one to one corresponding to result_path
 
 styles = [
-
+    {"color": "blue", "marker": "o", "alpha": 0.3},
+    {"color": "orange", "marker": "o", "alpha": 0.6},
+    {"color": "green", "marker": "o", "alpha": 0.7},
+    {"color": "brown", "marker": "o", "alpha": 0.3}
 ]
 
 # observables, each should appear in all metrics
@@ -200,6 +205,7 @@ def compare_delta_variance(save_location):
     plotter.xlabel("number of iterations")
     plotter.ylabel("variance in delta")
     plotter.grid(True)
+    plotter.legend(names)
     plotter.savefig(save_location)
     plotter.clf()
 
@@ -226,6 +232,7 @@ def compare_delta(save_location, average=True):
         plotter.xlabel("number of iterations")
         plotter.ylabel(typeplot + " of delta")
         plotter.grid(True)
+        plotter.legend(names)
         plotter.savefig(save_location)
         plotter.clf()
 
@@ -248,12 +255,12 @@ def compare_bin_errors(save_location):
 
     for plot_idx, plot in enumerate(ax):
         for idx, metric in enumerate(metrics):
-            plot.bar(x +  width * idx, binerror(nominal(metric)), width, label=names[idx])
+            plot.bar(x +  width * idx, np.array(binerror(nominal(metric))[plot_idx]), width, label=names[idx])
         plot.set_ylabel("bin error")
         plot.set_title("bin error at iteration " + str(plot_idx))
         plot.set_xlabel("bin starting number")
-        ax.set_xticks(x, binedges(metrics[0])[:len(x)])
-        ax.legend()
+        plot.set_xticks(x, binedges(nominal(metrics[0]))[:len(x)])
+        plot.legend()
 
     fig.tight_layout()
     plotter.savefig(save_location)
@@ -263,7 +270,7 @@ for observable in observables:
     # initialize metric
     metrics = []
     for result_path in results_path:
-        metrics += [read_metric(observable, result_path)]
+        metrics += [read_metric(observable, result_path)[observable]]
     
     # plot commands here
     compare_delta(observable + "_delta.png")
