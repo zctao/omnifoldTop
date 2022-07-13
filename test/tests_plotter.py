@@ -14,6 +14,11 @@ results_path = [
     "output_tmp"
 ]
 
+# name of the results to be used in legend
+
+names = [
+]
+
 # metrics as dictionaries corresponding one to one to results_path
 # will be read automatically, just a place holder here
 metrics = []
@@ -203,6 +208,32 @@ def compare_delta_variance(save_location):
     plotter.grid(True)
     plotter.savefig(save_location)
     plotter.clf()
+
+def compare_delta(save_location, average=True):
+    """
+    compare the delta between tests. When there are the same number of runs in each test, a sum is the equivalent to an average
+
+    arguments
+    ---------
+    save_location: str
+        path to where generated plot will be saved
+    average: boolean
+        whether the plot will be averaged based on the number of runs
+    """
+    plotter.clf()
+    for idx, metric in enumerate(metrics):
+        sumd = np.sum(delta(resample(metric)), axis=0)
+        n = np.shape(delta(resample(metric)))[0] # first dimension is nruns
+        compval = sumd / n if average else sumd
+        plotter.plot(iterations(metric), compval, **styles[idx])
+        typeplot = "average" if average else "sum"
+        title = typeplot + " delta against iterations"
+        plotter.title(title)
+        plotter.xlabel("number of iterations")
+        plotter.ylabel(typeplot + " of delta")
+        plotter.grid(True)
+        plotter.savefig(save_location)
+        plotter.clf()
         
         
     
