@@ -132,8 +132,8 @@ def getSamples_detNP(
     for e in subcampaigns:
         for c in channels:
             s = glob.glob(os.path.join(sample_dir, f"detNP/ttbar_{systematics}/{e}/ttbar_*_pseudotop_parton_{c}.root"))
-        s.sort()
-        signal += s
+            s.sort()
+            signal += s
 
     assert(data)
     assert(signal)
