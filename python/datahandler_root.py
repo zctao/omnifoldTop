@@ -77,13 +77,17 @@ def load_dataset_root(
     #####
     # feature variables
     if variable_names:
-        branches = [variable_names] if isinstance(variable_names, str) else variable_names
+        branches = [variable_names] if isinstance(variable_names, str) else variable_names.copy()
 
         # event flags
         branches += ['isMatched', 'isDummy']
 
         # in case of KLFitter
-        branches.append('klfitter_logLikelihood')
+        # check if any variable is KLFitter variable
+        for vname in variable_names:
+            if 'klfitter' in vname:
+                branches.append('klfitter_logLikelihood')
+                break
 
         # for filtering a small fraction of reco events with zero weights
         # due to weight_pileup
