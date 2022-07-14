@@ -306,7 +306,8 @@ def plot_histograms_and_ratios(
     stamp_texts=[],
     stamp_loc=(0.75, 0.75),
     denominator_ratio_only = False,
-    ratio_lim = None
+    ratio_lim = None,
+    title = ''
     ):
 
     if not hists_numerator:
@@ -348,6 +349,9 @@ def plot_histograms_and_ratios(
 
     if log_scale:
         ax.set_yscale('log')
+
+    if title:
+        ax.set_title(title)
 
     # draw histograms
     if hist_denominator and not denominator_ratio_only:
