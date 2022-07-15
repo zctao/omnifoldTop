@@ -188,7 +188,7 @@ class Preprocessor():
         observables = np.array([self.observable_name_dict[feature] for feature in features])
 
         # use as a checklist to mark the items that are done
-        task_list = self.config.copy()
+        task_list = (self.config[FEATURE]).copy()
 
         logger.debug("Observable order before preprocessing: "+str(observables))
 
