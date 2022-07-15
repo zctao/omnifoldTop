@@ -91,7 +91,7 @@ def load_dataset_root(
 
         # for filtering a small fraction of reco events with zero weights
         # due to weight_pileup
-        branches += ['totalWeight_nominal']
+        branches += ['normalized_weight']
 
         # for checking invalid value in truth trees
         branches.append('MC_thad_afterFSR_y')
@@ -117,9 +117,9 @@ def load_dataset_root(
     if 'klfitter_logLikelihood' in data_array.dtype.names:
         pass_sel &= data_array['klfitter_logLikelihood'] > -52.
 
-    if 'totalWeight_nominal' in data_array.dtype.names:
+    if 'normalized_weight' in data_array.dtype.names:
         # remove reco events with zero event weights
-        pass_sel &= data_array['totalWeight_nominal'] > 0.
+        pass_sel &= data_array['normalized_weight'] != 0.
 
     # A special case where some matched events in truth trees contain invalid
     # (nan or inf) values
