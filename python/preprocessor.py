@@ -141,21 +141,6 @@ class Preprocessor():
 
         return feature_array, observables
 
-
-    # other functions
-    def _get_index_map(self, observables):
-        """
-        get the index map by remapping the list of observables to their position in the list
-
-        arguments
-        ---------
-        observables: observable names, these refer to the physical observables instead of root file branch names
-        """
-        index_map = {}
-        for idx, ob_name in enumerate(observables):
-            index_map[ob_name] = idx
-        return index_map
-
     def _mask(self, observables, modify):
         """
         return a mask indicating whether each index is to be included in the preprocessing
