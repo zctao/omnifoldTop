@@ -19,6 +19,10 @@ import logging
 logger = logging.getLogger('Preprocessor')
 logger.setLevel(logging.DEBUG)
 
+# keys in config
+FEATURE = "feature"
+WEIGHT = "weight"
+
 # preprocessor class
 
 class Preprocessor():
@@ -52,10 +56,10 @@ class Preprocessor():
             self.config = json.load(config_file, object_pairs_hook=OrderedDict)
         
         # save the input on whether the utility functions should be used for outside callers, defaults to False
-        if "preprocess_utility" in self.config:
-            self.utility = self.config["preprocess_utility"]
+        if "preprocess_utility" in self.config[FEATURE]:
+            self.utility = self.config[FEATURE]["preprocess_utility"]
             # should be removed to not confuse the function_map
-            del self.config["preprocess_utility"]
+            del self.config[FEATURE]["preprocess_utility"]
         else:
             self.utility = True
 
@@ -145,26 +149,6 @@ class Preprocessor():
         for idx, ob_name in enumerate(observables):
             index_map[ob_name] = idx
         return index_map
-    
-    def _map_idx_to_function(self, observables):
-        """
-        transform observable names to a map of index to functions
-
-        arguments
-        ---------
-        observables: list of str, a list of branch names in the root files
-
-        returns
-        -------
-        a dictionary from index to functions
-        """
-        i_to_f = {}
-        for idx, ob_name in enumerate(observables):
-            function_name_list = self.config[ob_name]
-            # add preprocessor functions associated to the 'all' keyword
-            if 'all' in self.config: function_name_list.append(self.config['all'])
-            i_to_f[idx] = [self.function_map[function_name] for function_name in function_name_list]
-        return i_to_f
 
     def _mask(self, observables, modify):
         """
