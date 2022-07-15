@@ -42,10 +42,14 @@ class Preprocessor():
 
         # map from string options to functions
 
-        self.function_map = {
+        self.feature_preprocessing_function_map = {
             "angle_to_sin_cos": self._angle_to_sin_cos,
             "angle_to_sin": self._angle_to_sin,
             "angle_to_cos": self._angle_to_cos
+        }
+
+        weight_preprocessing_function_map = {
+
         }
 
         # convert observable dict to a variable dict, mapping branch name to observable name
@@ -61,13 +65,12 @@ class Preprocessor():
         # save the input on whether the utility functions should be used for outside callers, defaults to False
         if "preprocess_utility" in self.config[FEATURE]:
             self.utility = self.config[FEATURE]["preprocess_utility"]
-            # should be removed to not confuse the function_map
+            # should be removed to not confuse the feature_preprocessing_function_map
             del self.config[FEATURE]["preprocess_utility"]
         else:
             self.utility = True
 
-        # dictionary for normalization function to ensure normalized result respects relative magnitudes in original dataset
-        self.normalization_dictionary = {}
+        self.weight_preprocessing_functions = [weight_preprocessing_function_map[name] for name in self.config[WEIGHT]]
 
         logger.debug("Initializing Preprocessor: Done")
 
@@ -202,7 +205,7 @@ class Preprocessor():
         while task_list:
             function_name, list_of_observable = task_list.popitem(last = False)
             logger.debug("Applying preprocessing function " + function_name)
-            function = self.function_map[function_name]
+            function = self.feature_preprocessing_function_map[function_name]
 
             # create a mask for the next operation
             mask = self._mask(observables, list_of_observable)
@@ -305,6 +308,15 @@ class Preprocessor():
         feature_arrays = (feature_array / oom for feature_array in feature_arrays)
 
         return feature_arrays
+
+    """
+    preprocessor function for weights
+    they should have the form
+    arguments: feature arrays (corresponding to the weight, a list of feature arrays), weights (list of weights), observables (indicating order in feature array), other keyword arguments
+    returns: reweighed weight array
+    """
+
+
 
 # preprocessor instance
 
