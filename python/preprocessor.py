@@ -23,6 +23,9 @@ logger.setLevel(logging.DEBUG)
 FEATURE = "feature"
 WEIGHT = "weight"
 
+# observable name indicating all observables will be preprocessed
+all_observable_key = "all_observables"
+
 # preprocessor class
 
 class Preprocessor():
@@ -164,8 +167,12 @@ class Preprocessor():
         an 1d numpy array of boolean indicating whether each index is to be modified
         """
         mask = np.zeros(np.shape(observables))
-        for ob_name in modify:
-            mask[observables == ob_name] = 1
+        if all_observable_key in modify:
+            # indicating all observables should be preprocessed
+            mask = mask + 1 # set every mask item to 1
+        else:
+            for ob_name in modify:
+                mask[observables == ob_name] = 1
         mask = mask == 1
         return mask
 
