@@ -1,3 +1,6 @@
 {
-    "preprocess_utility": true
+    "feature":
+    {
+        "preprocess_utility": true
+    }
 }

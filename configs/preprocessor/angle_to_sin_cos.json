@@ -1,4 +1,7 @@
 {
-    "angle_to_sin_cos": ["th_phi", "tl_phi"],
-    "preprocess_utility": true
+    "feature":
+    {
+        "angle_to_sin_cos": ["th_phi", "tl_phi"],
+        "preprocess_utility": true
+    }
 }
