@@ -2,5 +2,6 @@
     "feature":
     {
         "preprocess_utility": true
-    }
+    },
+    "weight": []
 }

@@ -147,8 +147,10 @@ class Preprocessor():
 
         arguments
         ---------
-        observables: the list of observable names indicating position of the observables in the feature array
-        modify: list of str, the name of the observables that will be modified by the next preprocessor
+        observables: numpy array
+            the list of observable names indicating position of the observables in the feature array
+        modify: list of str
+            the name of the observables that will be modified by the next preprocessor
 
         returns
         -------
@@ -163,7 +165,6 @@ class Preprocessor():
                 mask[observables == ob_name] = 1
         mask = mask == 1
         return mask
-
 
     def preprocess(self, features, feature_array, **args):
         """
@@ -205,6 +206,22 @@ class Preprocessor():
         
         # return the feature array after preprocessing
         return feature_array
+    
+    def preprocess_weight(self, feature_arrays, weights, observables, **args):
+        """
+        apply the list of weight preprocessors in sequence and return the final set of preprocessed weights
+
+        arguments
+        ---------
+        feature_arrays: tuple of numpy arrays
+            feature arrays in the order of [data, sim, gen]
+        weights: tuple of numpy arrays
+            event weights in the same order as feature arrays
+        observables: list of str
+            indicating the position of each observable in feature array
+        """
+
+        return weights
 
     def use_utility(self):
         """
