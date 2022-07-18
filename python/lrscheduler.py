@@ -11,9 +11,7 @@ import tensorflow.keras.callbacks as callbacks
 import json
 from callbacks import PrintLearningRate
 
-WARM_UP_EPOCHS = 5
-
-debug = False
+debug = True
 
 lrscheduler = None
 
@@ -53,7 +51,9 @@ class LearningRateScheduler():
 
         # assemble callbacks
         for callback_name in self.callback_names:
-            self.callbacks += [callbacks.LearningRateScheduler(scheduler_dict[callback_name])]
+            base = scheduler_dict[callback_name] # base function
+            def scheduler_function(epoch, lr) : return base(epoch, lr, **schedule_args)
+            self.callbacks += [callbacks.LearningRateScheduler(scheduler_function)]
         if reduce_on_plateau > 0:
             self.callbacks += [callbacks.ReduceLROnPlateau(monitor='val_loss', factor = 0.2, patience = reduce_on_plateau)]
         if debug:
@@ -83,19 +83,25 @@ class LearningRateScheduler():
         """
         return self.schedule if self.schedule is not None else self.inital_learning_rate
 
-def constant(epoch, lr):
+def constant(epoch, lr, **args):
     """
     constant learning rate, independent of epoch
     """
     return lr
 
-def warm_up_constant(epoch, lr):
+def warm_up_constant(epoch, lr, **args):
     """
     perform warm up in training with a linearly increasing learning rate for the first WARM_UP_EPOCHS epoch
     """
+
+    if "warm_up_epochs" in args:
+        warm_up_epochs = args["warm_up_epochs"]
+    else:
+        warm_up_epochs = 5
+
     if epoch == 0:
-        return lr / WARM_UP_EPOCHS
-    elif epoch < WARM_UP_EPOCHS:
+        return lr / warm_up_epochs
+    elif epoch < warm_up_epochs:
         return (epoch + 1) * lr / epoch
     else:
         return lr
@@ -116,7 +122,8 @@ def init_lr_scheduler(init_path):
     with open(init_path, "r") as init_file:
         config = json.load(init_file)
 
-    scheduler_args = json.loads(config["scheduler_args"]) if config["scheduler_args"] is not "" else None
+    scheduler_args = config["scheduler_args"]
+    # scheduler_args = json.loads(config["scheduler_args"]) if config["scheduler_args"] is not "" else None
     
     lrscheduler = LearningRateScheduler(config["initial_learning_rate"],
                                         config["scheduler_names"],
