@@ -24,8 +24,6 @@ def get_callbacks(model_filepath=None):
 
     Parameters
     ----------
-    reduce_on_plateau : int, optional
-        If not 0, the model will reduce learning rate by a certain multiplicative factor after set epoch without improvement
     model_filepath : str, optional
         If provided, location to save metrics from training the model
 
