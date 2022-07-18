@@ -13,7 +13,7 @@ from lrscheduler import get_lr_scheduler
 
 import plotter
 
-n_models_in_parallel = 1
+n_models_in_parallel = 5
 
 import logging
 logger = logging.getLogger('model')
