@@ -12,7 +12,6 @@ import json
 from callbacks import PrintLearningRate
 
 WARM_UP_EPOCHS = 5
-PLATEAU = 10
 
 debug = False
 
