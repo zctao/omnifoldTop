@@ -8,6 +8,5 @@
   "batch_size" : 20000,
   "plot_verbosity" : 3,
   "outputdir" : "output_tmp",
-  "reweight_data" : "linear_th_pt",
-  "lrscheduler_config": "configs/lrs/constant_warm_up.json"
+  "reweight_data" : "linear_th_pt"
 }
