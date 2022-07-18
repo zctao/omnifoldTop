@@ -11,7 +11,7 @@ import tensorflow.keras.callbacks as callbacks
 import json
 from callbacks import PrintLearningRate
 
-debug = True
+debug = False
 
 lrscheduler = None
 
