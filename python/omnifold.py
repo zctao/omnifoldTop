@@ -170,6 +170,7 @@ def omnifold(
     ################
     # Start iterations
     # Weights
+
     # weights_push = [np.ones(len(X_sim)) for i in range(n_models_in_parallel)]
     # weights_pull = [np.ones(len(X_gen)) for i in range(n_models_in_parallel)]
     weights_push = np.ones(shape=(n_models_in_parallel, len(X_sim)))
