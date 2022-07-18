@@ -5,7 +5,6 @@ import time
 import tracemalloc
 import logging
 import numpy as np
-import json
 from copy import copy
 
 import util
