@@ -221,6 +221,9 @@ class Preprocessor():
             indicating the position of each observable in feature array
         """
 
+        for function in self.weight_preprocessing_functions:
+            weights = function(feature_arrays, weights, observables, **args)
+
         return weights
 
     def use_utility(self):
