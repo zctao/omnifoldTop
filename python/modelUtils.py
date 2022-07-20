@@ -10,10 +10,11 @@ from tensorflow.keras import layers
 import tensorflow.keras.backend as K
 from sklearn.model_selection import train_test_split
 from lrscheduler import get_lr_scheduler
+from callbacks import EarlyLocking
 
 import plotter
 
-n_models_in_parallel = 1
+n_models_in_parallel = 2
 
 import logging
 logger = logging.getLogger('model')
@@ -35,6 +36,8 @@ def get_callbacks(model_filepath=None):
         monitor="val_loss", patience=10, verbose=1, restore_best_weights=True
     )
 
+    EarlyLockingCallback = EarlyLocking()
+
     lr_callbacks = get_lr_scheduler().get_callbacks()
 
     if model_filepath:
@@ -50,9 +53,9 @@ def get_callbacks(model_filepath=None):
 
         logger_fp = model_filepath + "_history.csv"
         CSVLogger = keras.callbacks.CSVLogger(filename=logger_fp, append=False)
-        return [CheckPoint, CSVLogger, EarlyStopping] + lr_callbacks
+        return [CheckPoint, CSVLogger, EarlyStopping, EarlyLockingCallback] + lr_callbacks
     else:
-        return [EarlyStopping] + lr_callbacks
+        return [EarlyStopping, EarlyLockingCallback] + lr_callbacks
 
 def weighted_binary_crossentropy(y_true, y_pred):
     """
