@@ -3,6 +3,7 @@ this file includes custom callback class(es) for tensorflow keras
 """
 from tensorflow import keras
 from tensorflow import float32
+import numpy as np
 
 import logging
 logger = logging.getLogger('callbacks')
@@ -19,7 +20,7 @@ class EarlyLocking(keras.callbacks.Callback):
     set patience, it is locked out from training with trainable set to false. Its weights will be restored to that of patience epoch ago (best result).
     The entire training process will be terminated when every parallel model has stopped improving.
     """
-    def __init__(self, monitor, patience, verbose, restore_best_weights):
+    def __init__(self, monitor, patience, verbose, restore_best_weights, n_models_in_parallel):
         """
         initalize the early locking callback
 
@@ -33,16 +34,33 @@ class EarlyLocking(keras.callbacks.Callback):
             verbosity of the callback, it has no effect at the moment
         restore_best_weights: boolean
             whether the best weights for each parallel model will be restored
+        n_models_in_parallel: int
+            the number of parallel models
         """
         super(EarlyLocking, self).__init__()
         self.monitor = monitor
         self.patience = patience
         self.verbose = verbose
         self.restore_best_weights = restore_best_weights
+        self.n_models_in_parallel = n_models_in_parallel
+    
+    def on_train_begin(self, logs=None):
+        """
+        initialization at the before any epoch starts
+        """
+        self.best_weights = None
+        # a count down for each parallel model before it goes to 0
+        self.counters = np.zeros(self.n_models_in_parallel) + self.patience
 
     def on_epoch_end(self, epoch, logs=None):
+        once = True
         for key, value in self.model._get_trainable_state().items():
             print(key, value)
-            if(key.name == "dense_4") and epoch > 2:
+            if value and once and not "model" in key.name :
+                print(key.name)
+                print(once)
                 key.trainable = False
+                once = False
+
+        print(np.sum([keras.backend.count_params(w) for w in self.model.trainable_weights]))
 

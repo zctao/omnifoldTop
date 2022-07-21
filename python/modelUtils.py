@@ -32,7 +32,7 @@ def get_callbacks(model_filepath=None):
     -------
     sequence of `tf.keras.callbacks.Callback`
     """
-    EarlyLockingCallback = EarlyLocking(monitor="val_loss", patience=10, verbose=1, restore_best_weights=True)
+    EarlyLockingCallback = EarlyLocking(monitor="val_loss", patience=10, verbose=1, restore_best_weights=True, n_models_in_parallel=n_models_in_parallel)
 
     lr_callbacks = get_lr_scheduler().get_callbacks()
 
@@ -231,13 +231,13 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     inputs, outputs = [], []
 
     for i in range(n_models_in_parallel):
-        input_layer = keras.layers.Input(input_shape)
+        input_layer = keras.layers.Input(input_shape, name="model_{0}_input".format(i))
         prev_layer = input_layer
-        for n in nnodes:
-            prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
+        for idx,n in enumerate(nnodes):
+            prev_layer = keras.layers.Dense(n, activation="relu", name="model_{0}_dense_{1}".format(i, idx))(prev_layer)
 
         #output_layer = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
-        output_layer = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
+        output_layer = keras.layers.Dense(1, activation="sigmoid", name="model_{0}_output".format(i))(prev_layer)
 
         inputs += [input_layer]
         outputs += [output_layer]
