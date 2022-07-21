@@ -77,19 +77,17 @@ class EarlyLocking(keras.callbacks.Callback):
         self.counters -= 1
         # initialize self.best_weights if this is the first epoch
         if self.best_weights == None:
-            print("loading initial set of weights")
+            logger.debug("loading initial set of weights")
             self.best_weights = {}
             for layer in self.model.layers:
                 self.best_weights[layer.name] = layer.get_weights()
-            print("initial weight load complete")
 
-        print(logs)
         # update counter, best_weights, and best_monitor_value if improvement is seen for each individual models
         for model_idx in range(self.n_models_in_parallel):
             new_monitor_val = logs[self._monitor_key(model_idx)]
             if new_monitor_val < self.best_monitor_value[model_idx]:
                 # if we achieved better result than before
-                print("updating current best")
+                logger.debug("saving best set of weight for parallel model {0}".format(model_idx))
                 # update best weight
                 for layer in self.model.layers:
                     if "model_{0}".format(model_idx) in layer.name:
@@ -100,13 +98,11 @@ class EarlyLocking(keras.callbacks.Callback):
 
                 # update best_monitor_value
                 self.best_monitor_value[model_idx] = new_monitor_val
-        print(self.counters)
-        print(self.best_monitor_value)
 
         # lock models and restore best weight when its counter goes to 0
         for model_idx in range(self.n_models_in_parallel):
             if self.counters[model_idx] == 0:
-                print("restoring best weight for model"+str(model_idx))
+                logger.debug("restoring best set of weights for parallel model {0}".format(model_idx))
                 # restore best weights and set them to untrainable
                 for layer_name in self.best_weights:
                     if "model_{0}".format(model_idx) in layer_name:
@@ -116,6 +112,6 @@ class EarlyLocking(keras.callbacks.Callback):
 
         # early stopping when all counters are less than or equal to 0
         if np.all(self.counters <= 0):
-            print("Early Stopping")
+            logger.debug("early stopping")
             self.model.stop_training = True
 
