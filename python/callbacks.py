@@ -87,7 +87,7 @@ class EarlyLocking(keras.callbacks.Callback):
             new_monitor_val = logs[self._monitor_key(model_idx)]
             if new_monitor_val < self.best_monitor_value[model_idx]:
                 # if we achieved better result than before
-                logger.debug("saving best set of weight for parallel model {0}".format(model_idx))
+                logger.debug("improvement by {0}, saving best set of weight for parallel model {1}".format(self.best_monitor_value[model_idx] - new_monitor_val, model_idx))
                 # update best weight
                 for layer in self.model.layers:
                     if "model_{0}".format(model_idx) in layer.name:
