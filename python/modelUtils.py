@@ -231,18 +231,41 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     inputs, outputs = [], []
 
     for i in range(n_models_in_parallel):
-        input_layer = keras.layers.Input(input_shape, name="model_{0}_input".format(i))
+        input_layer = keras.layers.Input(input_shape, name=_layer_name(i, "input"))
         prev_layer = input_layer
         for idx,n in enumerate(nnodes):
-            prev_layer = keras.layers.Dense(n, activation="relu", name="model_{0}_dense_{1}".format(i, idx))(prev_layer)
+            prev_layer = keras.layers.Dense(n, activation="relu", name=_layer_name(i, "dense", idx))(prev_layer)
 
         #output_layer = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
-        output_layer = keras.layers.Dense(1, activation="sigmoid", name="model_{0}_output".format(i))(prev_layer)
+        output_layer = keras.layers.Dense(1, activation="sigmoid", name=_layer_name(i, "output"))(prev_layer)
 
         inputs += [input_layer]
         outputs += [output_layer]
 
     return keras.models.Model(inputs=inputs, outputs=outputs)
+
+def _layer_name(parallel_model_idx, layer_type, dense_depth = 0):
+    """
+    give proper name to a layer, necessary to follow name conventions since they can be used by other moduels to identify models and layers
+
+    arguments
+    ---------
+    parallel_model_idx: int
+        unique index from 0 to n_models_in_parallel for each parallel model
+    layer_type: str
+        type of the layer, currently only one of "input", "output", and "dense"
+    dense_depth: int
+        indicating this layer is the dense_depth th dense layer
+
+    returns
+    -------
+    name: str
+        proper name for the layer following the same naming convention
+    """
+    if layer_type == "input" or layer_type == "output":
+        return "model_{0}_{1}".format(parallel_model_idx, layer_type)
+    elif layer_type == "dense":
+        return "model_{0}_{1}_{2}".format(parallel_model_idx, layer_type, dense_depth)
 
 def pfn(input_shape, nclass=2, nlatent=8):
     """

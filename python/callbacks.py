@@ -49,8 +49,9 @@ class EarlyLocking(keras.callbacks.Callback):
         initialization at the before any epoch starts
         """
         self.best_weights = None
+        self.best_monitor_value = np.full(self.n_models_in_parallel, np.Infinity)
         # a count down for each parallel model before it goes to 0
-        self.counters = np.zeros(self.n_models_in_parallel) + self.patience
+        self.counters = np.full(self.n_models_in_parallel, self.patience)
 
     def on_epoch_end(self, epoch, logs=None):
         # initialize self.best_weights if this is the first epoch
@@ -60,6 +61,9 @@ class EarlyLocking(keras.callbacks.Callback):
             for layer in self.model.layers:
                 self.best_weights[layer.name] = layer.get_weights()
             print("initial weight load complete")
+
+        # update counter, best_weights, and best_monitor_value if improvement is seen for each individual models
+
 
         # just keeping record of how to do this, remove when not needed
         once = True
