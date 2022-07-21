@@ -119,5 +119,3 @@ class EarlyLocking(keras.callbacks.Callback):
             print("Early Stopping")
             self.model.stop_training = True
 
-        print(np.sum([keras.backend.count_params(w) for w in self.model.trainable_weights]))
-
