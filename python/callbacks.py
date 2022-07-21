@@ -54,6 +54,11 @@ class EarlyLocking(keras.callbacks.Callback):
         # a count down for each parallel model before it goes to 0
         self.counters = np.full(self.n_models_in_parallel, self.patience)
 
+        # build a name layer dictionary
+        self.layer_idx_dict = {}
+        for idx, layer in enumerate(self.model.layers):
+            self.layer_idx_dict[layer.name] = idx
+
     def _monitor_key(self, parallel_model_idx):
         """
         get the name of the monitor value for the parallel model, following keras' naming convention
@@ -97,19 +102,22 @@ class EarlyLocking(keras.callbacks.Callback):
                 self.best_monitor_value[model_idx] = new_monitor_val
         print(self.counters)
         print(self.best_monitor_value)
-                    
 
+        # lock models and restore best weight when its counter goes to 0
+        for model_idx in range(self.n_models_in_parallel):
+            if self.counters[model_idx] == 0:
+                print("restoring best weight for model"+str(model_idx))
+                # restore best weights and set them to untrainable
+                for layer_name in self.best_weights:
+                    if "model_{0}".format(model_idx) in layer_name:
+                        layer = self.model.layers[self.layer_idx_dict[layer_name]]
+                        layer.set_weights(self.best_weights[layer_name])
+                        layer.trainable = False
 
-
-        # just keeping record of how to do this, remove when not needed
-        once = True
-        for key, value in self.model._get_trainable_state().items():
-            print(key, value)
-            if value and once and not "model" in key.name :
-                print(key.name)
-                print(once)
-                key.trainable = False
-                once = False
+        # early stopping when all counters are less than or equal to 0
+        if np.all(self.counters <= 0):
+            print("Early Stopping")
+            self.model.stop_training = True
 
         print(np.sum([keras.backend.count_params(w) for w in self.model.trainable_weights]))
 
