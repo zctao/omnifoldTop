@@ -53,6 +53,15 @@ class EarlyLocking(keras.callbacks.Callback):
         self.counters = np.zeros(self.n_models_in_parallel) + self.patience
 
     def on_epoch_end(self, epoch, logs=None):
+        # initialize self.best_weights if this is the first epoch
+        if self.best_weights == None:
+            print("loading initial set of weights")
+            self.best_weights = {}
+            for layer in self.model.layers:
+                self.best_weights[layer.name] = layer.get_weights()
+            print("initial weight load complete")
+
+        # just keeping record of how to do this, remove when not needed
         once = True
         for key, value in self.model._get_trainable_state().items():
             print(key, value)
