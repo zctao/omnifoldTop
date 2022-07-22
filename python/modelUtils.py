@@ -205,7 +205,7 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
         model.fit(X_train_list, Yw_train_list, validation_data=(X_val_list, Yw_val_list), **fitargs)
     
     if model_filepath:
-        model.save(model_filepath+"test")
+        model.save_weights(model_filepath+"test")
 
     # FIXME: Y and w are stacked together into Yw and requires separating for plotting
     # if figname:

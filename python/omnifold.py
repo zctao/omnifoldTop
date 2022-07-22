@@ -230,7 +230,8 @@ def omnifold(
             train_model(model_step1, X_step1, Y_step1, w_step1,
                         callbacks = cb_step1,
                         #figname = fname_preds,
-                        batch_size=batch_size, epochs=epochs, verbose=verbose
+                        batch_size=batch_size, epochs=epochs, verbose=verbose,
+                        model_filepath=file_path_save("model_step1", i, save_models_to)
                         )
             logger.info("Training done")
 
@@ -261,7 +262,7 @@ def omnifold(
                 logger.info("Start training")
                 train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
                             callbacks = cb_step1b, batch_size=batch_size,
-                            epochs=epochs, verbose=verbose)
+                            epochs=epochs, verbose=verbose, model_filepath=file_path_save("model_step1b", i, save_models_to))
                 logger.info("Training done")
 
             # reweight
@@ -296,7 +297,8 @@ def omnifold(
             train_model(model_step2, X_step2, Y_step2, w_step2,
                         callbacks = cb_step2,
                         #figname = fname_preds,
-                        batch_size=batch_size, epochs=epochs, verbose=verbose)
+                        batch_size=batch_size, epochs=epochs, verbose=verbose,
+                        model_filepath=file_path_save("model_step2", i, save_models_to))
             logger.info("Training done")
 
         # reweight
@@ -326,7 +328,8 @@ def omnifold(
                 logger.info("Start training")
                 train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
                             callbacks = cb_step2b, batch_size=batch_size,
-                            epochs=epochs, verbose=verbose)
+                            epochs=epochs, verbose=verbose,
+                            model_filepath=file_path_save("model_step2b", i, save_models_to))
                 logger.info("Training done")
 
             # reweight
