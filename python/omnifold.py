@@ -15,6 +15,31 @@ logger.setLevel(logging.DEBUG)
 
 B_TO_MB = 2**-20 # constant for converting size in bytes to MBs
 
+def file_path_save(name_prefix="model", iteration=0, save_models_to=""):
+    """
+    assemble the path to save model related files
+
+    arguments
+    ---------
+    name_prefix: str
+        prefix of the model name
+    iteratino: int
+        iteration index
+    save_model_to: str
+        directory to save the trained model to
+
+    returns
+    -------
+    filepath_save: str
+        path to save model files if save_model_to is specified, otherwise None
+    """
+    if save_models_to:
+        # name of the model checkpoint
+        mname = name_prefix + "_iter{}".format(iteration)
+        return os.path.join(save_models_to, mname)
+    else:
+        return None
+
 def set_up_model(
     model_type, # str, type of the network
     input_shape, # tuple, shape of the input layer
