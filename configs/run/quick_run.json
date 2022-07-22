@@ -8,5 +8,6 @@
   "batch_size" : 20000,
   "plot_verbosity" : 3,
   "outputdir" : "output_tmp",
-  "reweight_data" : "linear_th_pt"
+  "reweight_data" : "linear_th_pt",
+  "load_models": "output_tmp"
 }

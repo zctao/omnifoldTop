@@ -59,6 +59,7 @@ def set_up_model(
     
     # load trained model if needed
     if load_models_from:
+        mname = name_prefix + "_iter{}".format(iteration)
         filepath_load = os.path.join(load_models_from, mname)
         model.load_weights(filepath_load).expect_partial()
         logger.info(f"Load model from {filepath_load}")
