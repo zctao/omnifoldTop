@@ -38,19 +38,9 @@ def get_callbacks(model_filepath=None):
     lr_callbacks = get_lr_scheduler().get_callbacks()
 
     if model_filepath:
-        # checkpoint_fp = model_filepath + '_Epoch-{epoch}'
-        checkpoint_fp = model_filepath
-        CheckPoint = keras.callbacks.ModelCheckpoint(
-            filepath=checkpoint_fp,
-            verbose=1,
-            monitor="val_loss",
-            save_best_only=True,
-            save_weights_only=True,
-        )
-
         logger_fp = model_filepath + "_history.csv"
         CSVLogger = keras.callbacks.CSVLogger(filename=logger_fp, append=False)
-        return [CheckPoint, CSVLogger, EarlyStopping] + lr_callbacks
+        return [CSVLogger, EarlyStopping] + lr_callbacks
     else:
         return [EarlyStopping] + lr_callbacks
 
@@ -182,7 +172,7 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
 
     return model
 
-def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1):
+def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1, model_filepath=None):
 
     # initalize empty lists
     X_train_list, X_val_list, Yw_train_list, Yw_val_list = [], [], [], []
@@ -203,6 +193,9 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
         model.fit(X_train_list[0], Yw_train_list[0], validation_data=(X_val_list[0], Yw_val_list[0]), **fitargs)
     else:
         model.fit(X_train_list, Yw_train_list, validation_data=(X_val_list, Yw_val_list), **fitargs)
+    
+    if model_filepath:
+        model.save_weights(model_filepath)
 
     # FIXME: Y and w are stacked together into Yw and requires separating for plotting
     # if figname:
