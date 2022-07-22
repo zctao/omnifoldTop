@@ -52,14 +52,8 @@ def set_up_model(
 
     # get network
     model = get_model(input_shape, nclass=2, model_name=model_type)
-
-    # name of the model checkpoint
-    mname = name_prefix + "_iter{}".format(iteration)
-
-    # callbacks
-    filepath_save = None
-    if save_models_to:
-        filepath_save = os.path.join(save_models_to, mname)
+    
+    filepath_save = file_path_save(name_prefix, iteration, save_models_to)
 
     callbacks = get_callbacks(filepath_save)
     
