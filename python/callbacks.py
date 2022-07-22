@@ -77,6 +77,8 @@ class EarlyLocking(keras.callbacks.Callback):
         self.counters -= 1
         # initialize self.best_weights if this is the first epoch
         if self.best_weights == None:
+            # the initialization should not be count towards patience
+            self.counters += 1
             logger.debug("loading initial set of weights")
             self.best_weights = {}
             for layer in self.model.layers:
@@ -84,7 +86,8 @@ class EarlyLocking(keras.callbacks.Callback):
 
         # update counter, best_weights, and best_monitor_value if improvement is seen for each individual models
         for model_idx in range(self.n_models_in_parallel):
-            new_monitor_val = logs[self._monitor_key(model_idx)]
+            monitor_key = self._monitor_key(model_idx) if self.n_models_in_parallel > 1 else self.monitor
+            new_monitor_val = logs[monitor_key]
             if new_monitor_val < self.best_monitor_value[model_idx]:
                 # if we achieved better result than before
                 logger.debug("improvement by {0}, saving best set of weight for parallel model {1}".format(self.best_monitor_value[model_idx] - new_monitor_val, model_idx))
