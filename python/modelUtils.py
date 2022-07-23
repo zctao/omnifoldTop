@@ -32,7 +32,7 @@ def get_callbacks(model_filepath=None):
     -------
     sequence of `tf.keras.callbacks.Callback`
     """
-    EarlyLockingCallback = EarlyLocking(monitor="val_loss", patience=1, verbose=1, restore_best_weights=True, n_models_in_parallel=n_models_in_parallel)
+    EarlyLockingCallback = EarlyLocking(monitor="val_loss", patience=10, verbose=1, restore_best_weights=True, n_models_in_parallel=n_models_in_parallel)
 
     lr_callbacks = get_lr_scheduler().get_callbacks()
 
