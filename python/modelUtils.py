@@ -15,7 +15,7 @@ from layer_namer import _layer_name
 from callbacks import EarlyLocking
 import plotter
 
-n_models_in_parallel = 1
+n_models_in_parallel = 4
 
 import logging
 logger = logging.getLogger('model')
