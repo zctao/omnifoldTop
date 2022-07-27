@@ -16,6 +16,7 @@ from OmniFoldTTbar import OmniFoldTTbar
 from make_histograms import make_histograms_from_unfolder
 from ibuv2 import run_ibu
 import preprocessor
+import lrscheduler
 
 def unfold(**parsed_args):
 
@@ -105,6 +106,12 @@ def unfold(**parsed_args):
     logger.debug(f"Initializing unfolder and loading input data took {(t_init_done-t_init_start):.2f} seconds.")
     mcurrent, mpeak = tracemalloc.get_traced_memory()
     logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
+
+    #################
+    # Initialize learning rate scheduler
+    #################
+
+    lrscheduler.init_lr_scheduler(parsed_args["lrscheduler_config"])
 
     #################
     # Run unfolding
@@ -262,6 +269,7 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument('-w', '--weight-type', type=str, default='nominal',
                         help="Type of event weights to retrieve from ntuples")
     parser.add_argument("--preprocessor-config", type=str, default='configs/preprocessor/angle_to_cos.json', help="location of the preprocessor config file")
+    parser.add_argument('--lrscheduler-config', type=str, default="configs/lrs/constant_warm_up.json", help="config file for learning rate scheduler")
 
     if print_help:
         parser.print_help()
