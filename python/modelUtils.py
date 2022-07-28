@@ -9,6 +9,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 import tensorflow.keras.backend as K
 from sklearn.model_selection import train_test_split
+from lrscheduler import get_lr_scheduler
 
 import plotter
 
@@ -34,23 +35,14 @@ def get_callbacks(model_filepath=None):
         monitor="val_loss", patience=10, verbose=1, restore_best_weights=True
     )
 
-    if model_filepath:
-        # checkpoint_fp = model_filepath + '_Epoch-{epoch}'
-        checkpoint_fp = model_filepath
-        CheckPoint = keras.callbacks.ModelCheckpoint(
-            filepath=checkpoint_fp,
-            verbose=1,
-            monitor="val_loss",
-            save_best_only=True,
-            save_weights_only=True,
-        )
+    lr_callbacks = get_lr_scheduler().get_callbacks()
 
+    if model_filepath:
         logger_fp = model_filepath + "_history.csv"
         CSVLogger = keras.callbacks.CSVLogger(filename=logger_fp, append=False)
-
-        return [CheckPoint, CSVLogger, EarlyStopping]
+        return [CSVLogger, EarlyStopping] + lr_callbacks
     else:
-        return [EarlyStopping]
+        return [EarlyStopping] + lr_callbacks
 
 def weighted_binary_crossentropy(y_true, y_pred):
     """
@@ -168,17 +160,19 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
         model = dense_net(input_shape, nodes_list, nclass)
     else:
         model = eval(model_name+"(input_shape, nclass)")
+        
+    optimizer = keras.optimizers.Adam(learning_rate = get_lr_scheduler().get_schedule())
 
     model.compile(#loss=weighted_binary_crossentropy,
                   loss='binary_crossentropy',
-                  optimizer='Adam',
+                  optimizer=optimizer,
                   metrics=['accuracy'])
 
     model.summary()
 
     return model
 
-def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1):
+def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1, model_filepath=None):
 
     # initalize empty dictionaries
     train_dictionary, val_dictionary = {}, {}
@@ -203,6 +197,9 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
     fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
 
     model.fit(train_dictionary, train_y_dictionary, sample_weight=train_w, validation_data=(val_dictionary, val_y_dictionary, val_w), **fitargs)
+    
+    if model_filepath:
+        model.save_weights(model_filepath)
 
     # FIXME: Y and w are stacked together into Yw and requires separating for plotting
     # if figname:
