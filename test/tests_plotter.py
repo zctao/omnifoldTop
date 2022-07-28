@@ -7,6 +7,7 @@ from os.path import join
 import json
 import matplotlib.pyplot as plotter
 import numpy as np
+from statistics import NormalDist
 
 # the path to the test results
 results_path = [
@@ -28,10 +29,10 @@ names = [
 # plotting styles, one to one corresponding to result_path
 
 styles = [
-    {"color": "blue", "marker": "o", "alpha": 0.3},
-    {"color": "orange", "marker": "o", "alpha": 0.6},
-    {"color": "green", "marker": "o", "alpha": 0.7},
-    {"color": "brown", "marker": "o", "alpha": 0.3}
+    {"color": "blue", "marker": "o", "alpha": 0.9},
+    {"color": "orange", "marker": "o", "alpha": 0.8},
+    {"color": "green", "marker": "o", "alpha": 0.8},
+    {"color": "brown", "marker": "o", "alpha": 0.8}
 ]
 
 # observables, each should appear in all metrics
@@ -266,6 +267,36 @@ def compare_bin_errors(save_location):
     fig.tight_layout()
     plotter.savefig(save_location)
 
+def confidence_interval(data, confidence = )
+
+def compare_delta_with_errorbar(save_location, average=True):
+    """
+    compare the delta between tests with the variance being the error, delta will be the average by default
+
+    arguments
+    ---------
+    save_location: str
+        path to where produced plot will be saved
+    average: boolean
+        True by default, whether to plot the average of delta across nruns
+    """
+    plotter.clf()
+    for idx, metric in enumerate(metrics):
+        sumd = np.sum(delta(resample(metric)), axis=0)
+        vard = np.var(delta(resample(metric)), axis=0)
+        n = np.shape(delta(resample(metric)))[0] # first dimension is nruns
+        compval = sumd / n if average else sumd
+        plotter.errorbar(iterations(metric), compval, yerr=vard, elinewidth=2, capsize=10, **styles[idx])
+    typeplot = "average" if average else "sum"
+    title = typeplot + " delta against iterations"
+    plotter.title(title)
+    plotter.xlabel("number of iterations")
+    plotter.ylabel(typeplot + " of delta")
+    plotter.grid(True)
+    plotter.legend(names)
+    plotter.savefig(save_location)
+    plotter.clf()
+
 # put plotting commands here
 for observable in observables:
     # initialize metric
@@ -274,6 +305,7 @@ for observable in observables:
         metrics += [read_metric(observable, result_path)[observable]]
     
     # plot commands here
-    compare_delta(join("plots", observable + "_delta.png"))
-    compare_delta_variance(join("plots", observable + "_delta_variance.png"))
+    # compare_delta(join("plots", observable + "_delta.png"))
+    # compare_delta_variance(join("plots", observable + "_delta_variance.png"))
+    compare_delta_with_errorbar(join("plots", observable+"_delta_and_var.png"))
     compare_bin_errors(join("plots", observable + "_bin_error.png"))
