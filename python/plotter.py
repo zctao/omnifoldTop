@@ -3,6 +3,7 @@ import pandas as pd
 import math
 import matplotlib.pyplot as plt
 import mplhep as hep
+import functools
 
 import util
 import histogramming as myhu
@@ -307,7 +308,8 @@ def plot_histograms_and_ratios(
     stamp_loc=(0.75, 0.75),
     denominator_ratio_only = False,
     ratio_lim = None,
-    title = ''
+    title = '',
+    stack_numerators = False
     ):
 
     if not hists_numerator:
@@ -363,18 +365,35 @@ def plot_histograms_and_ratios(
     else:
         assert(len(hists_numerator) == len(draw_options_numerator))
 
-    for hist_num, draw_opt in zip(hists_numerator, draw_options_numerator):
-        yerr_n = myhu.get_values_and_errors(hist_num)[1]
-        hep.histplot(hist_num, yerr=yerr_n, ax=ax, **draw_opt)
+    if stack_numerators:
+        style_keys = list(draw_options_numerator[-1].keys())
+        style_stack = {
+            k: [dopt[k] for dopt in draw_options_numerator] for k in style_keys
+            }
+        # histtype does not allow a list of styles for the stacked histograms
+        style_stack['histtype'] = 'fill'
 
-    # draw ratios
+        hep.histplot(hists_numerator, yerr=False, stack=True, ax=ax, **style_stack)
+    else:
+        for hist_num, draw_opt in zip(hists_numerator, draw_options_numerator):
+            yerr_n = myhu.get_values_and_errors(hist_num)[1]
+            hep.histplot(hist_num, yerr=yerr_n, ax=ax, **draw_opt)
+
+    # draw_ratios
     if hist_denominator:
+
+        hists_num_ratio = [functools.reduce(lambda x,y: x+y, hists_numerator)] if stack_numerators else hists_numerator
+
+        colors_num_ratio = [get_color_from_draw_options(opt) for opt in draw_options_numerator]
+        if stack_numerators:
+            colors_num_ratio = [colors_num_ratio[-1]]
+
         draw_ratio(
             ax_ratio,
             hist_denominator,
-            hists_numerator,
+            hists_num_ratio,
             get_color_from_draw_options(draw_option_denominator),
-            [get_color_from_draw_options(opt) for opt in draw_options_numerator]
+            colors_num_ratio
             )
 
     # legend
@@ -424,32 +443,28 @@ def plot_distributions_reco(
 
     # simulation
     if hist_bkg is None:
-        hist_sim = hist_sig
-        label_sim = "Sim."
-        style_sim = sim_style.copy()
+        hist_sim = [hist_sig]
+        style_sim = [sim_style.copy()]
     else:
         hist_sim = [hist_bkg, hist_sig]
-        label_sim = ["Bkg.", "Sim."]
-        style_sim = { k: [bkg_style[k], sim_style[k]] for k in sim_style}
-        # Hack: histype does not allow a list i.e. different styles for the stacked histograms
-        style_sim['histtype'] = 'fill'
-        style_sim['stack'] = True
+        style_sim = [bkg_style.copy(), sim_style.copy()]
 
     style_data = data_style.copy()
     style_data.update({"xerr":True})
 
     plot_histograms_and_ratios(
         figname,
-        hists_numerator = [hist_sim],
+        hists_numerator = hist_sim,
         hist_denominator = hist_data,
-        draw_options_numerator = [style_sim],
+        draw_options_numerator = style_sim,
         draw_option_denominator = style_data,
         xlabel = xlabel,
         ylabel = ylabel,
         ylabel_ratio = ylabel_ratio,
         log_scale = False,
         legend_loc = legend_loc,
-        legend_ncol = legend_ncol
+        legend_ncol = legend_ncol,
+        stack_numerators = True
         )
 
 def plot_distributions_unfold(
