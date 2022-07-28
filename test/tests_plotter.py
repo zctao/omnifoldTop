@@ -5,6 +5,7 @@ make sure to run this file at correct level if relative path is used
 
 from os.path import join
 import json
+from sys import stdout
 import matplotlib.pyplot as plotter
 import numpy as np
 from statistics import NormalDist
@@ -267,11 +268,9 @@ def compare_bin_errors(save_location):
     fig.tight_layout()
     plotter.savefig(save_location)
 
-def confidence_interval(data, confidence = )
-
 def compare_delta_with_errorbar(save_location, average=True):
     """
-    compare the delta between tests with the variance being the error, delta will be the average by default
+    compare the delta between tests with the standard deviation being the error, delta will be the average by default
 
     arguments
     ---------
@@ -283,10 +282,10 @@ def compare_delta_with_errorbar(save_location, average=True):
     plotter.clf()
     for idx, metric in enumerate(metrics):
         sumd = np.sum(delta(resample(metric)), axis=0)
-        vard = np.var(delta(resample(metric)), axis=0)
+        std = np.sqrt(np.var(delta(resample(metric)), axis=0))
         n = np.shape(delta(resample(metric)))[0] # first dimension is nruns
         compval = sumd / n if average else sumd
-        plotter.errorbar(iterations(metric), compval, yerr=vard, elinewidth=2, capsize=10, **styles[idx])
+        plotter.errorbar(iterations(metric), compval, yerr=std, elinewidth=2, capsize=10, **styles[idx])
     typeplot = "average" if average else "sum"
     title = typeplot + " delta against iterations"
     plotter.title(title)
@@ -307,5 +306,5 @@ for observable in observables:
     # plot commands here
     # compare_delta(join("plots", observable + "_delta.png"))
     # compare_delta_variance(join("plots", observable + "_delta_variance.png"))
-    compare_delta_with_errorbar(join("plots", observable+"_delta_and_var.png"))
+    compare_delta_with_errorbar(join("plots", observable+"_delta_and_std.png"))
     compare_bin_errors(join("plots", observable + "_bin_error.png"))
