@@ -552,6 +552,9 @@ def load_unfolder(
     # Observable configuration. If empty, use the config from arguments
     obsConfig={}, # dict
     # Binning configuration. If empty, use the config from arguments
+    normalize_to_data = None, # bool
+    # If True, normalize simulation weights to data. If None, set the flag
+    # according to the run arguments
     ):
 
     logger.info(f"Read arguments from {fpath_arguments}")
@@ -586,6 +589,10 @@ def load_unfolder(
         rw = copy(reweight.rw[args_d["reweight_data"]])
         rw.variables = var_lookup(rw.variables)
 
+    # normalize simulation weights
+    if normalize_to_data is None:
+        normalize_to_data = args_d['normalize']
+
     logger.info("Construct unfolder")
     unfolder = OmniFoldTTbar(
         varnames_reco,
@@ -593,7 +600,7 @@ def load_unfolder(
         filepaths_obs = args_d['data'],
         filepaths_sig = args_d['signal'],
         filepaths_bkg = args_d['background'],
-        normalize_to_data = args_d['normalize'],
+        normalize_to_data = normalize_to_data,
         dummy_value = args_d['dummy_value'],
         weight_type = args_d['weight_type'],
         truth_known = args_d['truth_known'],

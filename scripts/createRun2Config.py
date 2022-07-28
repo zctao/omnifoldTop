@@ -278,7 +278,7 @@ if __name__ == "__main__":
         "binning_config" : "configs/binning/bins_ttdiffxs.json",
         "iterations" : 4,
         "batch_size" : 20000,
-        "normalize" : True,
+        "normalize" : False,
         "nruns" : 20,
         "resample_data" : False,
         "dummy_value" : -99.

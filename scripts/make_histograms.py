@@ -652,7 +652,12 @@ def make_histograms(
     logger.info(f"Load unfolder from {result_dir} ... ")
     t_load_start = time.time()
 
-    ufdr = load_unfolder(fpath_args_config, observables, obsConfig_d)
+    ufdr = load_unfolder(
+        fpath_args_config,
+        observables,
+        obsConfig_d,
+        normalize_to_data=False
+        )
 
     t_load_stop = time.time()
     logger.info(f"Done")
