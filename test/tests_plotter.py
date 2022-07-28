@@ -10,19 +10,19 @@ import numpy as np
 
 # the path to the test results
 results_path = [
-    "output_only_standardization",
-    "output_tmp",
-    "output_cos",
-    "output_sin"
+    "output_100_master",
+    "output_calllback",
+    "output_callback_update",
+    "output_master"
 ]
 
 # name of the results to be used in legend
 
 names = [
-    "standardize only",
-    "map to sine and cosine",
-    "map to sine",
-    "map to cosine"
+    "master 1 model",
+    "callback",
+    "updated callback",
+    "master 4 model"
 ]
 
 # plotting styles, one to one corresponding to result_path
@@ -249,7 +249,8 @@ def compare_bin_errors(save_location):
     x = np.arange(len(binedges(nominal(metrics[0]))) - 1) # all unfold results should have the save bin config
     width = 0.2
 
-    fig, ax = plotter.subplots(len(iterations(metrics[0])), 1)
+    # change the figsize argument if the generated plot can't be clearly seen
+    fig, ax = plotter.subplots(len(iterations(metrics[0])), 1, figsize=(10,10))
 
     ax = ax.flatten()
 
@@ -260,7 +261,7 @@ def compare_bin_errors(save_location):
         plot.set_title("bin error at iteration " + str(plot_idx))
         plot.set_xlabel("bin starting number")
         plot.set_xticks(x, binedges(nominal(metrics[0]))[:len(x)])
-        if plot_idx == 0: plot.legend()
+        if plot_idx == len(ax)-1: plot.legend(loc="lower left")
 
     fig.tight_layout()
     plotter.savefig(save_location)
@@ -273,6 +274,6 @@ for observable in observables:
         metrics += [read_metric(observable, result_path)[observable]]
     
     # plot commands here
-    compare_delta(observable + "_delta.png")
-    compare_delta_variance(observable + "_delta_variance.png")
-    compare_bin_errors(observable + "_bin_error.png")
+    compare_delta(join("plots", observable + "_delta.png"))
+    compare_delta_variance(join("plots", observable + "_delta_variance.png"))
+    compare_bin_errors(join("plots", observable + "_bin_error.png"))
