@@ -26,6 +26,8 @@ parser.add_argument("--include-ibu", action='store_true',
 parser.add_argument("-k", "--resdir-keywords", nargs='+',
                     default=['output_run2'],
                     help="Keywords to match the result directory names. If multiple keywords are provided, only directories containing all the keywords are selected.")
+parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
+                    help="Plot verbose level. '-ppp' to make all plots.")
 parser.add_argument("--dryrun", action="store_true",
                     help="If True, print the directory to make histograms without actually running make_histograms")
 
@@ -68,5 +70,6 @@ for cwd, subdirs, files in os.walk(args.top_result_dir):
         outfilename = args.outfilename,
         iterations = args.iterations,
         include_ibu = args.include_ibu,
-        binned_correction_dir = args.correction_dir
+        binned_correction_dir = args.correction_dir,
+        plot_verbosity = args.plot_verbosity
         )
