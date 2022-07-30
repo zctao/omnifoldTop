@@ -3,6 +3,8 @@ containing various utility functions that are used in the run_genetic_optimizati
 """
 
 import numpy as np
+from os.path import join
+import json
 
 def read_metric(observable, result_path):
     """
@@ -24,7 +26,7 @@ def read_metric(observable, result_path):
     path = join(result_path, "Metrics", observable+".json")
     with open(path, "r") as file:
         metric = json.load(file)
-    return metric
+    return metric[observable]
 
 def extract_nominal_pval(observable, path):
     """
