@@ -2,9 +2,10 @@
 a genetic algorithm optimizer
 """
 import numpy as np
-import time
+from time import time
 from os.path import isfile, join
 import json
+import subprocess
 
 # observables for the run, should match observable config
 observables = [
@@ -125,6 +126,13 @@ def fitness_func(solution, solution_idx):
     -------
     promised fitness value of the solutions
     """
+
+    # runtime
     write_config(solution)
+    run_path = join("configs", "run", "ga.json")
+    start = time()
+    subprocess.run(["./run_unfold.py", run_path])
+    duration = time() - start
+
 
 
