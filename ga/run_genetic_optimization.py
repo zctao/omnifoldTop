@@ -4,6 +4,7 @@ a genetic algorithm optimizer
 import numpy as np
 import time
 from os.path import isfile, join
+import json
 
 # observables for the run, should match observable config
 observables = [
@@ -46,6 +47,14 @@ def learning_rate(solution):
     """
     return solution[0]
 
+def node_list(solution):
+    """
+    returns
+    -------
+    node list from a solution
+    """
+    return [node for node in solution[1:] if node != 0]
+
 def write_config(solution):
     """
     write the solution to run config
@@ -54,6 +63,11 @@ def write_config(solution):
     ---------
     solution: a solution generated from pygad
     """
+
+    run_path = join("configs", "run", "ga.json")
+    lrs_path = join("configs", "lrs", "lrsga.json")
+
+    # run config here
     run = {
         "data": ["/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_hw_3_pseudotop_parton_ejets.root"],
         "signal": [
@@ -69,17 +83,27 @@ def write_config(solution):
         "normalize" : True,
         "batch_size" : 20000,
         "plot_verbosity" : 0,
-        "outputdir" : "output_ga"
+        "outputdir" : "output_ga",
+        "lrscheduler_config": lrs_path
     }
     
+    # lrs config here, identicle to default setting except for learning rate
     lrs = {
-        "initial_learning_rate": 0.001,
+        "initial_learning_rate": learning_rate(solution),
         "scheduler_names": ["warmc"],
         "scheduler_args": {
             "warm_up_epochs": 5
         },
         "reduce_on_plateau": 0
     }
+
+    # create files if not there
+    option = "w" if isfile(run_path) else "x"
+    with open(run_path, option) as file:
+        json.dump(run, file, indent="")
+    option = "w" if isfile(lrs_path) else "x"
+    with open(lrs_path, option) as file:
+        json.dump(lrs, file, indent="")
 
 def fitness_func(solution, solution_idx):
     """
