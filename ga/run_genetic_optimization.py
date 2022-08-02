@@ -24,3 +24,15 @@ metric_item_and_weights = {
 max_layers = 10
 # max nodes per layer
 max_nodes_per_layer = 200
+
+def generate_data_type_list():
+    """
+    returns a list of datatypes for the genes
+    """
+    return [float] + [int for i in range max_layers]
+def generate_gene_space_list():
+    """
+    returns a list of gene spaces (upper and lower limits for each entry)
+    """
+    return [{'low': 0.00001, 'high': 0.01}] + [{'low': 0, 'high': max_nodes_per_layer} for i in range max_layers]
+
