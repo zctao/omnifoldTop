@@ -65,6 +65,3 @@ def extract_rerun_delta_std(observable, path):
     """
     metric = read_metric(observable, path)
     return np.sqrt(np.var(np.array(metric["resample"]["Delta"]["delta"]), axis=0))
-
-def select_best_iteration(observables, path):
-    

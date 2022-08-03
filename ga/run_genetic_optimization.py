@@ -42,12 +42,12 @@ def generate_data_type_list():
     """
     returns a list of datatypes for the genes
     """
-    return [float] + [int for i in range max_layers]
+    return [float] + [int for i in range(max_layers)]
 def generate_gene_space_list():
     """
     returns a list of gene spaces (upper and lower limits for each entry)
     """
-    return [{'low': 0.00001, 'high': 0.01}] + [{'low': 0, 'high': max_nodes_per_layer} for i in range max_layers]
+    return [{'low': 0.00001, 'high': 0.01}] + [{'low': 0, 'high': max_nodes_per_layer} for i in range(max_layers)]
 
 def learning_rate(solution):
     """
@@ -198,12 +198,15 @@ initial_population = np.array(
     ]
 )
 
+gene_type = [float,int,int,int,int,int,int,int,int,int,int]
+
 ga = pygad.GA(fitness_func=fitness_func, initial_population=initial_population,
-            gene_type=generate_data_type_list(), parent_selection_type="tournament",
-            cross_over_type="two_points", crossover_probability=0.1,
-            mutation_type="adaptive", mutation_probability=0.2,
+            num_genes=11,
+            gene_type=gene_type, parent_selection_type="tournament",
+            crossover_type="two_points", crossover_probability=0.1,
+            mutation_type="adaptive", mutation_probability=[0.25, 0.1],
             on_mutation=on_mutation, on_crossover=on_crossover,
-            save_best_solutions=True, save_solutions=True,
+            save_best_solutions=False, save_solutions=False,
             num_generations=100, num_parents_mating = int(len(initial_population) / 3)
             )
 ga.save(join("ga", "ga_save"))
