@@ -111,6 +111,27 @@ def write_config(solution):
     with open(lrs_path, option) as file:
         json.dump(lrs, file, indent="")
 
+def shift_zero(solution):
+    """
+    shifts all non-zero layers to the left by ignoring zero layers
+    """
+    nonzero = solution[solution != 0]
+    zero = solution[solution == 0]
+    solution[:len(nonzero)] = nonzero
+    solution[len(nonzero):] = solution[solution == 0]
+
+def on_mutation(ga_instance, offspring_mutation):
+    """
+    shifts all non-zero layers to the left by ignoring zero layers
+    """
+    shift_zero(offspring_mutation)
+
+def on_crossover(ga_instance, offspring_crossover):
+    """
+    shifts all non-zero layers to the left by ignoring zero layers
+    """
+    shift_zero(offspring_crossover)
+
 def fitness_func(solution, solution_idx):
     """
     evaluates the fitness value of each solution, which has a higher value the better it performs
