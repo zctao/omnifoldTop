@@ -7,6 +7,7 @@ from os.path import isfile, join
 import json
 import subprocess
 import ga_utility
+import pygad
 
 # observables for the run, should match observable config
 observables = [
@@ -177,4 +178,33 @@ def fitness_func(solution, solution_idx):
     fitness = np.sum(pvals) + (ref["time"] - duration) / ref["time"]
     return fitness
     
+initial_population = np.array(
+    [
+        [0.001, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
+        [0.001, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
+        [0.001, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
+        [0.001, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+        [0.001, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
+        [0.005, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
+        [0.005, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
+        [0.005, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
+        [0.005, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+        [0.005, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
+        [0.01, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
+        [0.01, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
+        [0.01, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
+        [0.01, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+        [0.01, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0]
+    ]
+)
+
+ga = pygad.GA(fitness_func=fitness_func, initial_population=initial_population,
+            gene_type=generate_data_type_list(), parent_selection_type="tournament",
+            cross_over_type="two_points", crossover_probability=0.1,
+            mutation_type="adaptive", mutation_probability=0.2,
+            on_mutation=on_mutation, on_crossover=on_crossover,
+            save_best_solutions=True, save_solutions=True,
+            num_generations=100, num_parents_mating = int(len(initial_population) / 3)
+            )
+ga.save(join("ga", "ga_save"))
 
