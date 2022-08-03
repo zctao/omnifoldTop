@@ -6,6 +6,7 @@ from time import time
 from os.path import isfile, join
 import json
 import subprocess
+import ga_utility
 
 # observables for the run, should match observable config
 observables = [
@@ -28,6 +29,13 @@ metric_item_and_weights = {
 max_layers = 10
 # max nodes per layer
 max_nodes_per_layer = 200
+
+# name of output folder
+output_folder = "output_ga"
+
+# load ref run
+with open(join("ga", "ref.json"), "r") as file:
+    ref = json.load(file)
 
 def generate_data_type_list():
     """
@@ -88,7 +96,7 @@ def write_config(solution):
         "normalize" : True,
         "batch_size" : 20000,
         "plot_verbosity" : 0,
-        "outputdir" : "output_ga",
+        "outputdir" : output_folder,
         "lrscheduler_config": lrs_path,
         "model_name": model_name
     }
@@ -160,5 +168,13 @@ def fitness_func(solution, solution_idx):
     subprocess.run(["./run_unfold.py", run_path])
     duration = time() - start
 
+    pvals = []
+    for observable in observables:
+        # extract pval from last run
+        pvals += [(ga_utility.extract_nominal_pval())[-1]]
 
+    # temporary placeholder fitness
+    fitness = np.sum(pvals) + (ref["time"] - duration) / ref["time"]
+    return fitness
+    
 
