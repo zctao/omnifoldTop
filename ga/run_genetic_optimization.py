@@ -68,6 +68,10 @@ def write_config(solution):
     run_path = join("configs", "run", "ga.json")
     lrs_path = join("configs", "lrs", "lrsga.json")
 
+    # composed according to how they are parsed in modelUtils
+    model_name = "dense"
+    for node in node_list(solution):
+        model_name += "_"+str(node)
     # run config here
     run = {
         "data": ["/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_hw_3_pseudotop_parton_ejets.root"],
@@ -85,7 +89,8 @@ def write_config(solution):
         "batch_size" : 20000,
         "plot_verbosity" : 0,
         "outputdir" : "output_ga",
-        "lrscheduler_config": lrs_path
+        "lrscheduler_config": lrs_path,
+        "model_name": model_name
     }
     
     # lrs config here, identicle to default setting except for learning rate
