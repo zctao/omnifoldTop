@@ -172,7 +172,7 @@ def fitness_func(solution, solution_idx):
     pvals = []
     for observable in observables:
         # extract pval from last run
-        pvals += [(ga_utility.extract_nominal_pval())[-1]]
+        pvals += [(ga_utility.extract_nominal_pval(observable, output_folder))[-1]]
 
     # temporary placeholder fitness
     fitness = np.sum(pvals) + (ref["time"] - duration) / ref["time"]
@@ -198,16 +198,16 @@ initial_population = np.array(
     ]
 )
 
-gene_type = [float,int,int,int,int,int,int,int,int,int,int]
-
 ga = pygad.GA(fitness_func=fitness_func, initial_population=initial_population,
             num_genes=11,
-            gene_type=gene_type, parent_selection_type="tournament",
+            gene_type=generate_data_type_list(), gene_space=generate_gene_space_list(),
+            parent_selection_type="tournament",
             crossover_type="two_points", crossover_probability=0.1,
             mutation_type="adaptive", mutation_probability=[0.25, 0.1],
             on_mutation=on_mutation, on_crossover=on_crossover,
             save_best_solutions=False, save_solutions=False,
             num_generations=100, num_parents_mating = int(len(initial_population) / 3)
             )
+ga.run()
 ga.save(join("ga", "ga_save"))
 
