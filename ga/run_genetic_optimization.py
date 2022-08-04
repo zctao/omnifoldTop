@@ -91,8 +91,8 @@ def write_config(solution):
             "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_6_pseudotop_parton_ejets.root"
         ],
         "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
-        "iterations" : 4,
-        "nruns": 8,
+        "iterations" : 2,
+        "nruns": 2,
         "truth_known" : True,
         "normalize" : True,
         "batch_size" : 20000,
@@ -124,10 +124,11 @@ def shift_zero(solution):
     """
     shifts all non-zero layers to the left by ignoring zero layers
     """
-    nonzero = solution[solution != 0]
-    zero = solution[solution == 0]
-    solution[:len(nonzero)] = nonzero
-    solution[len(nonzero):] = solution[solution == 0]
+    for each in solution:
+        nonzero = each[each != 0]
+        zero = each[each == 0]
+        each[:len(nonzero)] = nonzero
+        each[len(nonzero):] = zero
 
 def on_mutation(ga_instance, offspring_mutation):
     """
