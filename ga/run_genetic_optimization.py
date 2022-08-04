@@ -8,6 +8,10 @@ import json
 import subprocess
 import ga_utility
 import pygad
+import matplotlib.pyplot as plt
+
+# if False, the script will attempt to read a previous ga save file and plot the results from it
+run_mode = True
 
 # observables for the run, should match observable config
 observables = [
@@ -83,13 +87,15 @@ def write_config(solution):
         model_name += "_"+str(node)
     # run config here
     run = {
-        "data": ["/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_hw_3_pseudotop_parton_ejets.root"],
-        "signal": [
-            "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_1_pseudotop_parton_ejets.root",
-            "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_4_pseudotop_parton_ejets.root",
-            "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_5_pseudotop_parton_ejets.root",
-            "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_6_pseudotop_parton_ejets.root"
-        ],
+        # "data": ["/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_hw_3_pseudotop_parton_ejets.root"],
+        # "signal": [
+        #     "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_1_pseudotop_parton_ejets.root",
+        #     "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_4_pseudotop_parton_ejets.root",
+        #     "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_5_pseudotop_parton_ejets.root",
+        #     "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_6_pseudotop_parton_ejets.root"
+        # ],
+        "data" : ["/data/ztao/ttbarDiffXs13TeV/latest/mcWAlt/ttbar_nominal/mc16a/ttbar_0_pseudotop_parton_ejets.root"],
+        "signal" : ["/data/ztao/ttbarDiffXs13TeV/latest/mcWAlt/ttbar_nominal/mc16a/ttbar_1_pseudotop_parton_ejets.root"],
         "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
         "iterations" : 2,
         "nruns": 2,
@@ -199,16 +205,20 @@ initial_population = np.array(
     ]
 )
 
-ga = pygad.GA(fitness_func=fitness_func, initial_population=initial_population,
-            num_genes=11,
-            gene_type=generate_data_type_list(), gene_space=generate_gene_space_list(),
-            parent_selection_type="tournament",
-            crossover_type="two_points", crossover_probability=0.1,
-            mutation_type="adaptive", mutation_probability=[0.25, 0.1],
-            on_mutation=on_mutation, on_crossover=on_crossover,
-            save_best_solutions=False, save_solutions=False,
-            num_generations=100, num_parents_mating = int(len(initial_population) / 3)
-            )
-ga.run()
-ga.save(join("ga", "ga_save"))
+if run_mode:
+    ga = pygad.GA(fitness_func=fitness_func, initial_population=initial_population,
+                num_genes=11,
+                gene_type=generate_data_type_list(), gene_space=generate_gene_space_list(),
+                parent_selection_type="tournament",
+                crossover_type="two_points", crossover_probability=0.1,
+                mutation_type="adaptive", mutation_probability=[0.25, 0.1],
+                on_mutation=on_mutation, on_crossover=on_crossover,
+                save_best_solutions=True, save_solutions=True,
+                num_generations=3, num_parents_mating = int(len(initial_population) / 3)
+                )
+    ga.run()
+    ga.save(join("ga", "ga_save"))
 
+ga = pygad.load(join("ga", "ga_save"))
+ga.plot_fitness(save_dir=join("ga", "fitness"))
+print("best solutions: ", ga.best_solutions)
