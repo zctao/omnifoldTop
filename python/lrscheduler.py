@@ -1,9 +1,24 @@
-# This class serves as a simpler combined interface to apply a learning rate scheduler
-# There are two main different ways to support this, through either
-# tf.keras.callbacks.LearningRateScheduler
-# tf.keras.optimizers.schedules
-# The two methods each has some nice features that are not trivially available in the other
-# note two methods can not be used together, since using schedules takes up the place for learning rate
+"""
+This class serves as a simpler combined interface to apply a learning rate scheduler
+There are two main ways to actually achieve this, through either
+- tf.keras.callbacks.LearningRateScheduler
+- tf.keras.optimizers.schedules
+They each provides some nice features, but are unfortunately not compatible with eachother
+Therefore, only one schedule or one scheduler can be applied at all times
+see the scheduler_dict and the schedules_dict for the available options
+
+configuration of the learning rate scheduler is stored in json files located in configs/lrs with following options
+
+- initial_learning_rate: can be understood as the learning rate for constant learning rate runs. It is subject to change from warm up and decays. In the case of warm up,
+    the learning rate will linearly rise from 0 (0 not included) to this value. 
+    * this option is overriden if tf.keras.optimizers.schedules is used with custom arguments *
+- scheduler_names: a list of names from the scheduler_dict or schedules_dict indicating that they will be used. Since the two types can not be used together, the list should only 
+    contain one type from schedules or schedulers. 
+    * there can not be multiple tf.keras.optimizers.schedules, but there can be multiple tf.keras.callbacks.LearningRateScheduler *
+- scheduler_args: a dictionary of custom scheduler arguments to be passed directly to underlying schedule or schedulers. This is intended to be used for specifically chosen configurations, such
+    as manually changing the decay rate for InverseTimeDecay or piecewise function for PiecewiseConstantDecay
+
+"""
 
 import numpy as np
 import tensorflow.keras.optimizers.schedules as schedules
@@ -139,12 +154,13 @@ def get_lr_scheduler()->LearningRateScheduler:
 """
 put functions and their names as dictionary here to use with run params
 """
+# - tf.keras.callbacks.LearningRateScheduler
 # functions that is to be used with tensorflow.keras.callbacks.LearningRate
 scheduler_dict = {
     "constant" : constant,
     "warmc" : warm_up_constant,
 }
-
+# - tf.keras.optimizers.schedules
 # giving names to tf.keras.optimizers.schedules
 schedules_dict = {
     "cosined" : schedules.CosineDecay,
