@@ -177,7 +177,7 @@ def calculate_std_score(stds):
     """
     ref_std = []
     for observable in observables:
-        ref_std += ref[observable+"_delta_std"]
+        ref_std += [ref[observable+"_delta_std"]]
     ref_std = np.array(ref_std)
     
     return (ref_std - stds) / ref_std
@@ -222,7 +222,7 @@ def fitness_func(solution, solution_idx):
     fitness = 0 # start from 0
     fitness += metric_weight["pval"] * np.sum(pvals)
     fitness += metric_weight["time"] * (ref["time"] - duration) / ref["time"]
-    fitness += metric_weight["std"] * calculate_std_score(stds)
+    fitness += metric_weight["std"] * np.sum(calculate_std_score(stds))
     log("Fitness Score: "+str(fitness))
     return fitness
     
