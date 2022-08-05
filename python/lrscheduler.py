@@ -17,7 +17,7 @@ configuration of the learning rate scheduler is stored in json files located in 
     * there can not be multiple tf.keras.optimizers.schedules, but there can be multiple tf.keras.callbacks.LearningRateScheduler *
 - scheduler_args: a dictionary of custom scheduler arguments to be passed directly to underlying schedule or schedulers. This is intended to be used for specifically chosen configurations, such
     as manually changing the decay rate for InverseTimeDecay or piecewise function for PiecewiseConstantDecay
-
+- reduce_on_plateau: an integer indicating the number of epochs to wait (patience) before reducing learning rate by a factor of 0.2. A value of 0 or less will have no effects.
 """
 
 import numpy as np
@@ -88,13 +88,19 @@ class LearningRateScheduler():
     
     def get_callbacks(self):
         """
-        return the callbacks, an empty list if no callback is requested
+        returns
+        -------
+        callbacks: list of tf.keras.callbacks.LearningRateScheduler
+            empty list if no callback is requested
         """
         return self.callbacks
     
     def get_schedule(self):
         """
-        return the schedule, just initial learning rate if no schedule is requested
+        returns
+        -------
+        schedule: tf.keras.optimizers.schedules or int
+            intended to take the place of learning rate in keras fit, initial learning rate as an integer if no schedule is specified
         """
         return self.schedule if self.schedule is not None else self.inital_learning_rate
 
@@ -147,7 +153,10 @@ def init_lr_scheduler(init_path):
 
 def get_lr_scheduler()->LearningRateScheduler:
     """
-    returns the learning rate scheduler
+    returns
+    -------
+    lrscheduler: LearningRateScheduler
+        the learning rate scheduler instance
     """
     return lrscheduler
 
