@@ -173,6 +173,33 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     return model
 
 def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1, model_filepath=None):
+    """
+    split the dataset into train and validation, prepare the data by assembling copies of X and Y for each weights, then train with keras fit function
+
+    arguments
+    ---------
+    model: keras model
+        model to be trained
+    X: numpy array
+        events
+    Y: numpy array
+        labels
+    w: numpy array
+        event weights
+    callbacks: keras callbacks
+        a list of keras callbacks to be applied during model training
+    figname: str
+        currently have no effects
+        TODO: fix plotting for multiple parallel models and each having their own train vs val plot
+    batch_size: int
+        batch size for training
+    epochs: int
+        maximum number of epochs
+    verbose: int
+        verbose argument passed directly into keras fit function
+    model_filepath: str
+        path to where trained model weights will be saved
+    """
 
     # initalize empty lists
     X_train_list, X_val_list, Yw_train_list, Yw_val_list = [], [], [], []
