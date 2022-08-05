@@ -105,15 +105,13 @@ def write_config(solution):
         model_name += "_"+str(node)
     # run config here
     run = {
-        # "data": ["/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_hw_3_pseudotop_parton_ejets.root"],
-        # "signal": [
-        #     "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_1_pseudotop_parton_ejets.root",
-        #     "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_4_pseudotop_parton_ejets.root",
-        #     "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_5_pseudotop_parton_ejets.root",
-        #     "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_6_pseudotop_parton_ejets.root"
-        # ],
-        "data" : ["/data/ztao/ttbarDiffXs13TeV/latest/mcWAlt/ttbar_nominal/mc16a/ttbar_0_pseudotop_parton_ejets.root"],
-        "signal" : ["/data/ztao/ttbarDiffXs13TeV/latest/mcWAlt/ttbar_nominal/mc16a/ttbar_1_pseudotop_parton_ejets.root"],
+        "data": ["/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_hw_3_pseudotop_parton_ejets.root"],
+        "signal": [
+            "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_1_pseudotop_parton_ejets.root",
+            "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_4_pseudotop_parton_ejets.root",
+            "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_5_pseudotop_parton_ejets.root",
+            "/fast_scratch/xyyu/model_learning_iteration_test_data/ttbar_6_pseudotop_parton_ejets.root"
+        ],
         "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
         "iterations" : 2,
         "nruns": 2,
@@ -239,34 +237,25 @@ def fitness_func(solution, solution_idx):
     log("Fitness Score: "+str(fitness))
     return fitness
     
-# initial_population = np.array(
-#     [
-#         [0.001, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
-#         [0.001, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
-#         [0.001, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
-#         [0.001, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
-#         [0.001, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
-#         [0.005, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
-#         [0.005, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
-#         [0.005, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
-#         [0.005, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
-#         [0.005, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
-#         [0.01, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
-#         [0.01, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
-#         [0.01, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
-#         [0.01, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
-#         [0.01, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0]
-#     ]
-# )
-
 initial_population = np.array(
     [
         [0.001, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
         [0.001, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
         [0.001, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
+        [0.001, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+        [0.001, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
+        [0.005, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
+        [0.005, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
+        [0.005, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
+        [0.005, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+        [0.005, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
+        [0.01, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
+        [0.01, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
+        [0.01, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
+        [0.01, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+        [0.01, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0]
     ]
 )
-
 
 if run_mode:
     ga = pygad.GA(fitness_func=fitness_func, initial_population=initial_population,
