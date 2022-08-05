@@ -1,6 +1,7 @@
 """
 a genetic algorithm optimizer
 """
+from lib2to3 import refactor
 import numpy as np
 from time import time
 from os.path import isfile, join
@@ -26,8 +27,10 @@ observables = [
     ]
 
 # extra factors that will be taken into the fit function and their weights
-metric_item_and_weights = {
-    "time" : 1
+metric_weight = {
+    "time" : 2,
+    "pval": 5,
+    "std" : 2
 }
 
 # max number of deep layers
@@ -38,9 +41,24 @@ max_nodes_per_layer = 200
 # name of output folder
 output_folder = "output_ga"
 
+# path to log, None for no log
+log_path = join("ga", "run.log")
+
 # load ref run
 with open(join("ga", "ref.json"), "r") as file:
     ref = json.load(file)
+
+def log(msg):
+    """
+    write log message to log file
+
+    arguments
+    ---------
+    msg: str
+        message to be recorded
+    """
+    with open(log_path, "a") as log:
+        log.write(msg+"\n")
 
 def generate_data_type_list():
     """
@@ -148,6 +166,22 @@ def on_crossover(ga_instance, offspring_crossover):
     """
     shift_zero(offspring_crossover)
 
+def calculate_std_score(stds):
+    """
+    calculates the model stability score by comparing the standard deviation of the last iteration to reference run value
+
+    arguments
+    ---------
+    stds: np array of float
+        a np array of standard deviations in the same order as the list of observables
+    """
+    ref_std = []
+    for observable in observables:
+        ref_std += ref[observable+"_delta_std"]
+    ref_std = np.array(ref_std)
+    
+    return (ref_std - stds) / ref_std
+
 def fitness_func(solution, solution_idx):
     """
     evaluates the fitness value of each solution, which has a higher value the better it performs
@@ -168,7 +202,7 @@ def fitness_func(solution, solution_idx):
     -------
     promised fitness value of the solutions
     """
-
+    log("Evaluate solution: "+str(solution))
     # runtime
     write_config(solution)
     run_path = join("configs", "run", "ga.json")
@@ -176,13 +210,20 @@ def fitness_func(solution, solution_idx):
     subprocess.run(["./run_unfold.py", run_path])
     duration = time() - start
 
-    pvals = []
+    pvals, stds = [], []
     for observable in observables:
         # extract pval from last run
         pvals += [(ga_utility.extract_nominal_pval(observable, output_folder))[-1]]
+        stds += [(ga_utility.extract_rerun_delta_std(observable, output_folder))[-1]]
+    pvals = np.array(pvals)
+    stds = np.array(stds)
 
     # temporary placeholder fitness
-    fitness = np.sum(pvals) + (ref["time"] - duration) / ref["time"]
+    fitness = 0 # start from 0
+    fitness += metric_weight["pval"] * np.sum(pvals)
+    fitness += metric_weight["time"] * (ref["time"] - duration) / ref["time"]
+    fitness += metric_weight["std"] * calculate_std_score(stds)
+    log("Fitness Score: "+str(fitness))
     return fitness
     
 initial_population = np.array(
@@ -216,9 +257,13 @@ if run_mode:
                 save_best_solutions=True, save_solutions=True,
                 num_generations=3, num_parents_mating = int(len(initial_population) / 3)
                 )
+    log("---------------------------------")
+    log("Run Begins")
     ga.run()
     ga.save(join("ga", "ga_save"))
 
 ga = pygad.load(join("ga", "ga_save"))
 ga.plot_fitness(save_dir=join("ga", "fitness"))
 print("best solutions: ", ga.best_solutions)
+log("---------------------------------")
+log("Run Completed")
