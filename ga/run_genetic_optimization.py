@@ -166,6 +166,19 @@ def on_crossover(ga_instance, offspring_crossover):
     """
     shift_zero(offspring_crossover)
 
+def on_generation(ga_instance):
+    """
+    callback for every generation, currently only for anouncing beginning of generations in log
+
+    arguments
+    ---------
+    ga_instance: pygad.GA
+        ga instance
+    """
+    log("++++++++++++++++++++++++")
+    log(str(ga_instance.generations_completed) + " generations completed")
+    log("++++++++++++++++++++++++")
+
 def calculate_std_score(stds):
     """
     calculates the model stability score by comparing the standard deviation of the last iteration to reference run value
@@ -226,25 +239,34 @@ def fitness_func(solution, solution_idx):
     log("Fitness Score: "+str(fitness))
     return fitness
     
+# initial_population = np.array(
+#     [
+#         [0.001, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
+#         [0.001, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
+#         [0.001, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
+#         [0.001, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+#         [0.001, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
+#         [0.005, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
+#         [0.005, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
+#         [0.005, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
+#         [0.005, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+#         [0.005, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
+#         [0.01, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
+#         [0.01, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
+#         [0.01, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
+#         [0.01, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+#         [0.01, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0]
+#     ]
+# )
+
 initial_population = np.array(
     [
         [0.001, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
         [0.001, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
         [0.001, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
-        [0.001, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
-        [0.001, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
-        [0.005, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
-        [0.005, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
-        [0.005, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
-        [0.005, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
-        [0.005, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
-        [0.01, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
-        [0.01, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
-        [0.01, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
-        [0.01, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
-        [0.01, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0]
     ]
 )
+
 
 if run_mode:
     ga = pygad.GA(fitness_func=fitness_func, initial_population=initial_population,
@@ -254,6 +276,7 @@ if run_mode:
                 crossover_type="two_points", crossover_probability=0.1,
                 mutation_type="adaptive", mutation_probability=[0.25, 0.1],
                 on_mutation=on_mutation, on_crossover=on_crossover,
+                callback_generation=on_generation,
                 save_best_solutions=True, save_solutions=True,
                 num_generations=3, num_parents_mating = int(len(initial_population) / 3)
                 )
