@@ -4,7 +4,8 @@ a genetic algorithm optimizer
 from lib2to3 import refactor
 import numpy as np
 from time import time
-from os.path import isfile, join
+from os.path import isfile, join, exists
+from os import makedirs
 import json
 import subprocess
 import ga_utility
@@ -40,6 +41,9 @@ max_nodes_per_layer = 200
 
 # name of output folder
 output_folder = "output_ga"
+
+# path to save generations
+generation_save = join("ga", "generations")
 
 # path to log, None for no log
 log_path = join("ga", "run.log")
@@ -166,7 +170,7 @@ def on_crossover(ga_instance, offspring_crossover):
 
 def on_generation(ga_instance):
     """
-    callback for every generation, currently only for anouncing beginning of generations in log
+    callback for every generation, currently for anouncing beginning of generations in log and saving current generation
 
     arguments
     ---------
@@ -175,6 +179,10 @@ def on_generation(ga_instance):
     """
     log("++++++++++++++++++++++++")
     log(str(ga_instance.generations_completed) + " generations completed")
+    
+    if not exists(generation_save):
+        makedirs(generation_save)
+    ga.save(join(generation_save, "gen_"+str(ga_instance.generations_completed)))
     log("++++++++++++++++++++++++")
 
 def calculate_std_score(stds):
