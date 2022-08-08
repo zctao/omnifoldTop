@@ -151,21 +151,40 @@ def shift_zero(solution):
     shifts all non-zero layers to the left by ignoring zero layers
     """
     for each in solution:
-        nonzero = each[each != 0]
+        nonzero = each[each != 0] # learning rate is never 0 from the set low limit
         zero = each[each == 0]
         each[:len(nonzero)] = nonzero
         each[len(nonzero):] = zero
+
+def chance_to_zero(solution):
+    """
+    Due to the current way of representing nodes in each layer, it is more likely to have some nodes
+    in each hidden layer than it spontaenously becoming zero. The purpose of this function is to 
+    reduce some layers to 0 (removing some layers) by chance when its node count has dropped below a set
+    constant number of nodes.
+
+    arguments
+    ---------
+    solution: numpy array
+        all current generated new solutions from mutation or crossover
+    """
+    for each in solution:
+        for idx, nodes in enumerate(each):
+            if idx != 0 and nodes < 20 and np.random.randint(0, 10) < 4: # if it is not the learning rate and there are not sufficient number of nodes and by 0.3 chance
+                each[idx] = 0
 
 def on_mutation(ga_instance, offspring_mutation):
     """
     shifts all non-zero layers to the left by ignoring zero layers
     """
+    chance_to_zero(offspring_mutation)
     shift_zero(offspring_mutation)
 
 def on_crossover(ga_instance, offspring_crossover):
     """
     shifts all non-zero layers to the left by ignoring zero layers
     """
+    chance_to_zero(offspring_crossover)
     shift_zero(offspring_crossover)
 
 def on_generation(ga_instance):
