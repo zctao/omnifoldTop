@@ -360,9 +360,10 @@ def initialize(observable_dict, prep_config_path):
 
     arguments
     ---------
-    observables: list of str, name of the observables used in training
-    observable_dict: dictionary loaded from observable config
-    prep_config_path: str, path to the preprocessor config file, usually located in configs/preprocessor
+    observable_dict: dictionary 
+        loaded from observable config
+    prep_config_path: str
+        path to the preprocessor config file, usually located in configs/preprocessor
     """
     global preprocessor
     preprocessor = Preprocessor(observable_dict, prep_config_path)
