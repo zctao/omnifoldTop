@@ -136,7 +136,7 @@ class Preprocessor():
         return feature_array, observables
 
     def _angle_to_cos(self, feature_array, mask, observables, **args):
-       """
+        """
         maps an angle to cosine of that angle
 
         arguments
@@ -155,11 +155,11 @@ class Preprocessor():
         observables: numpy array of str
             a 1d str array representing the order of observables after this step of preprocessing
         """
-
         feature_array[:, mask] = np.cos(feature_array[:, mask])
 
         return feature_array, observables
-
+        
+    # auxiliary functions for preprocessing
     def _mask(self, observables, modify):
         """
         return a mask indicating whether each index is to be included in the preprocessing
@@ -256,6 +256,61 @@ class Preprocessor():
         whether the config specified the utility functions to be used
         """
         return self.utility
+    
+    # auxiliary functions for utilities
+
+    def calculate_full_mean(self, feature_arrays):
+        """
+        calculate the mean across multiple feature arrays as if they are concatenated together
+        this function does not in fact concatenate them together but instead calculates the sum one by one
+
+        arguments
+        ---------
+        feature_arrays: 3d nump array 
+            feature arrays in the shape (number of arrays processed together, number of events, number of observables)
+            number of observables has to be identical for all feature array
+        
+        returns
+        -------
+        mean: 1d numpy array
+            the calculated mean of each observables
+        """
+        nobservables = len(feature_arrays[0][0])
+        fullsum, fulllength = np.zeros(nobservables), 0
+        for feature_array in feature_arrays:
+            fullsum += np.sum(feature_array, axis=0)
+            fulllength += len(feature_array)
+        mean = fullsum / fulllength
+
+        return mean
+
+    def std_scan(self, feature_arrays, mean):
+        """
+        calculate the std across multiple feature arrays as if they are concatenated together
+        this function does it by scanning through slices of each feature array in feature arrays to be memory efficient
+
+        arguments
+        ---------
+        feature_arrays: 3d numpy array
+            feature arrays in the shape (number of arrays processed together, number of events, number of observables)
+            number of obsrevables has to be identical for all feature array
+        mean: 1d numpy array
+            mean in each observable across the feature_arrays
+        
+        returns
+        -------
+        std: 1d numpy array
+            standard deviation in each observable
+        """
+        nobservables = len(feature_arrays[0][0])
+        fullvar, fulllength = np.zeros(nobservables), 0
+        for feature_array in feature_arrays:
+            arrayvar = np.zeros(nobservables)
+            for event in feature_array:
+                arrayvar += np.abs(event - mean)**2 # same as numpy.std implementation, abs to ensure positive real value with complex numbers
+                fulllength += 1
+            fullvar += arrayvar
+        return np.sqrt(fullvar / fulllength)
 
     # other functions that can be called directly as an utility
 
@@ -294,9 +349,8 @@ class Preprocessor():
         """
 
         # compute mean over all feature_arrays together
-        combine = np.concatenate(feature_arrays, axis=0)
-        mean = np.mean(combine, axis=0)
-        std = np.std(combine, axis=0)
+        mean = self.calculate_full_mean(feature_arrays)
+        std = self.std_scan(feature_arrays, mean)
 
         feature_arrays = ((feature_array - mean) / std for feature_array in feature_arrays)
 
