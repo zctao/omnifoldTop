@@ -180,7 +180,8 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
 
     train_w, val_w = [], []
 
-    X_train, X_val, Y_train, Y_val = train_test_split(X, Y, random_state=325)
+    random_state = np.random.randint(0, 2**16)
+    X_train, X_val, Y_train, Y_val = train_test_split(X, Y, random_state=random_state)
 
     # prepare the dictionaries
     for i in range(n_models_in_parallel):
