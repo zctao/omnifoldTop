@@ -185,7 +185,7 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
 
     # prepare the dictionaries
     for i in range(n_models_in_parallel):
-        w_train, w_val = train_test_split(w[i], random_state=325)
+        w_train, w_val = train_test_split(w[i], random_state=random_state)
         # train_dictionary["input_"+str(i)], val_dictionary["input_"+str(i)] = X_train, X_val
         # train_yw_dictionary["output_"+str(i)], val_yw_dictionary["output_"+str(i)] = np.column_stack((Y_train, w_train)), np.column_stack((Y_val, w_val))
 
