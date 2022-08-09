@@ -302,7 +302,7 @@ class Preprocessor():
 
         return feature_arrays
 
-    def normalize(self, feature_array):
+    def divide_by_magnitude_of_mean(self, feature_array):
         """
         normalize the given feature array through dividing by the order of magnitude of the mean
 
@@ -320,7 +320,7 @@ class Preprocessor():
         oom = 10**(np.log10(mean).astype(int))
         return feature_array / oom
 
-    def group_normalize(self, feature_arrays):
+    def group_divide_by_magnitude_of_mean(self, feature_arrays):
         """
         normalize the given feature arrays using the same oom calculated from all data
 
