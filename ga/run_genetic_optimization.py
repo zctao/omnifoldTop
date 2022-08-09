@@ -263,24 +263,76 @@ def fitness_func(solution, solution_idx):
     fitness += metric_weight["std"] * np.sum(calculate_std_score(stds))
     log("Fitness Score: "+str(fitness))
     return fitness
+
+def mutate_single(value, space, step, probability, type):
+    """
+    mutate a single value
+
+    arguments
+    ---------
+    value: int or float
+        value before mutation
+    space: dictionary
+        range of the value in the form {low, high}, both inclusive
+    step: numpy array
+        range of the mutation in the form of [low, high], where high is excluded but low is inclusive
+    probability: float
+        the probability of mutation from 0 to 1
+    type: str
+        either "float" or "int" specifiying the datatype of the value
+
+    returns
+    -------
+    new_value: int or float
+        mutated value
+    """
+    new_value = value
+    if np.random.random_sample() < probability:
+        # mutate
+        if type == "float": new_value = value + (step[1] - step[0]) * np.random.random_sample() + step[0]
+        if type == "int": new_value = value + np.random.randint(step[0], step[1])
+        # check if still in space
+        print(space)
+        print(new_value)
+        if new_value < space["low"]: new_value = space["low"]
+        if new_value > space["high"]: new_value = space["high"]
+    return new_value
+
+
+def mutation_func(offspring, ga_instance):
+    """
+    user defined mutation operator to handle the different data types and ensure consistent behaviour
+
+    arguments
+    ---------
+    offspring: numpy array
+        the next solutions to be mutated
+    ga_instance: pygad.GA
+        current ga instance
+    """
+    for each in offspring:
+        for idx, value in enumerate(each):
+            if idx == 0: each[0] = mutate_single(value, ga_instance.gene_space[0], np.array([0.00001, 0.0003]), ga_instance.mutation_probability, "float")
+            else: each[idx] = mutate_single(value, ga_instance.gene_space[idx], np.array([ga_instance.random_mutation_min_val, ga_instance.random_mutation_max_val]),
+                                                ga_instance.mutation_probability, "int")
     
 initial_population = np.array(
     [
         [0.001, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
         [0.001, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
         [0.001, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
-        [0.001, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
-        [0.001, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
-        [0.005, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
-        [0.005, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
-        [0.005, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
-        [0.005, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
-        [0.005, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
-        [0.01, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
-        [0.01, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
-        [0.01, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
-        [0.01, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
-        [0.01, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0]
+        # [0.001, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+        # [0.001, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
+        # [0.005, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
+        # [0.005, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
+        # [0.005, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
+        # [0.005, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+        # [0.005, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0],
+        # [0.01, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
+        # [0.01, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0],
+        # [0.01, 1000, 10, 10000, 0, 0, 0, 0, 0, 0, 0],
+        # [0.01, 50, 200, 50, 0, 0, 0, 0, 0, 0, 0],
+        # [0.01, 80, 80, 80, 80, 80, 0, 0, 0, 0, 0]
     ]
 )
 
@@ -290,7 +342,8 @@ if run_mode:
                 gene_type=generate_data_type_list(), gene_space=generate_gene_space_list(),
                 parent_selection_type="tournament",
                 crossover_type="two_points", crossover_probability=0.1,
-                mutation_type="adaptive", mutation_probability=[0.25, 0.1],
+                mutation_type=mutation_func, mutation_probability=0.2,
+                random_mutation_min_val=1, random_mutation_max_val=20,
                 on_mutation=on_mutation, on_crossover=on_crossover,
                 callback_generation=on_generation,
                 save_best_solutions=True, save_solutions=True,
