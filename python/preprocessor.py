@@ -33,9 +33,10 @@ class Preprocessor():
         """
         arguments
         ---------
-        observables: list of str, name of the observables used in training
-        observable_dict: dictionary loaded from observable config
-        prep_config_path: str, path to the preprocessor config file, usually located in configs/preprocessor
+        observable_dict: dictionary
+            loaded from observable config
+        prep_config_path: str
+            path to the preprocessor config file, usually located in configs/preprocessor
         """
 
         logger.info("Initializing Preprocessor")
@@ -85,13 +86,19 @@ class Preprocessor():
 
         arguments
         ---------
-        feature_array: 1d numpy array representing of some angle observable
-        mask: list of boolean, indicating which observables to be modified
-        observables: list of str, observable names indicating their position in the feature array
+        feature_array: 2d numpy array
+            feature array of the shape (number of events, number of observables)
+        mask: list of boolean
+            indicating which observables to be modified
+        observables: numpy array of str
+            observable names indicating their position in the feature array
 
         returns
         -------
-        a 2d numpy array of the shape (number of events, number of observabless) with the original observables replaced by sine and cosine under the same name
+        feature_array: 2d numpy array
+            a 2d feature array with additional observable (and original angle replaced) in each event representing the sine and cosine value of the corresponding original angle measurement
+        observables: numpy array of str
+            a 1d str array representing the order of observables after this step of preprocessing
         """
 
         constant = feature_array[:, ~mask] # part of feature array that will not get modified
@@ -109,13 +116,19 @@ class Preprocessor():
 
         arguments
         ---------
-        feature_array: 1d numpy array representing of some angle observable
-        mask: list of boolean, indicating which observables to be modified
-        observables: list of str, observable names indicating their position in the feature array
+        feature_array: 2d numpy array 
+            feature array of the shape (number of events, number of observables)
+        mask: list of boolean
+            indicating which observables to be modified
+        observables: numpy array of str
+            observable names indicating their position in the feature array
 
         returns
         -------
-        a 2d numpy array of the shape (number of events, number of observabless) with the original observables replaced by sine under the same name
+        feature array: 2d numpy array
+            a 2d feature array with the original angle observable replaced by its sine value
+        observables: numpy array of str
+            a 1d str array representing the order of observables after this step of preprocessing
         """
 
         feature_array[:, mask] = np.sin(feature_array[:, mask])
@@ -123,18 +136,24 @@ class Preprocessor():
         return feature_array, observables
 
     def _angle_to_cos(self, feature_array, mask, observables, **args):
-        """
+       """
         maps an angle to cosine of that angle
 
         arguments
         ---------
-        feature_array: 1d numpy array representing of some angle observable
-        mask: list of boolean, indicating which observables to be modified
-        observables: list of str, observable names indicating their position in the feature array
+        feature_array: 2d numpy array 
+            feature array of the shape (number of events, number of observables)
+        mask: list of boolean
+            indicating which observables to be modified
+        observables: numpy array of str
+            observable names indicating their position in the feature array
 
         returns
         -------
-        a 2d numpy array of the shape (number of events, number of observabless) with the original observables replaced by cosine under the same name
+        feature array: 2d numpy array
+            a 2d feature array with the original angle observable replaced by its cosine value
+        observables: numpy array of str
+            a 1d str array representing the order of observables after this step of preprocessing
         """
 
         feature_array[:, mask] = np.cos(feature_array[:, mask])
@@ -154,7 +173,8 @@ class Preprocessor():
 
         returns
         -------
-        an 1d numpy array of boolean indicating whether each index is to be modified
+        mask: 1d numpy array of boolean 
+            indicating whether each index is to be modified
         """
         mask = np.zeros(np.shape(observables))
         if all_observable_key in modify:
@@ -172,13 +192,16 @@ class Preprocessor():
 
         arguments
         ---------
-        features: name of root tree branchs
-        feature_array: 2d numpy array with shape (number of events, observables in each event)
+        features: list of str
+            name of root tree branchs, for example, "PseudoTop_Reco_ttbar_m"
+        feature_array: 2d numpy array 
+            feature array with shape (number of events, number of observables in each event)
         args: extra parameters that will be passed directly to supported preprocessor functions
 
         returns
         -------
-        preprocessed feature array
+        feature array: 2d numpy array
+            preprocessed feature array
         """
         # convert feature names to observable names
         observables = np.array([self.observable_name_dict[feature] for feature in features])
@@ -246,7 +269,8 @@ class Preprocessor():
 
         returns
         -------
-        feature_array standardized to a mean of 0 and standard deviation of one
+        standardized_feature_array: numpy 2d array
+            feature_array standardized to a mean of 0 and standard deviation of one
         """
 
         # compute mean over all feature_arrays together
@@ -265,7 +289,8 @@ class Preprocessor():
 
         returns
         -------
-        tuple of feature_arrays as a group standardized to a mean of 0 and standard deviation of one, but not necessarily for each one of them
+        feature arrays: tuple of numpy 2d arrays
+             feature_arrays as a group standardized to a mean of 0 and standard deviation of one, but not necessarily for each one of them
         """
 
         # compute mean over all feature_arrays together
@@ -287,7 +312,8 @@ class Preprocessor():
 
         returns
         -------
-        feature_array normalized
+        feature_array: numpy 2d array
+            normalized feature array
         """
 
         mean = np.mean(np.abs(feature_array), axis=0)
@@ -304,7 +330,8 @@ class Preprocessor():
 
         returns
         -------
-        tuple of feature_arrays normalized together
+        feature_arrays: tuple of numpy 2d arrays
+            feature_arrays normalized together
         """
         combine = np.concatenate(feature_arrays, axis=0)
         mean = np.mean(np.abs(combine), axis=0)
@@ -344,6 +371,7 @@ def get() -> Preprocessor:
     """
     returns
     -------
-    the preprocessor instance
+    preprocessor: Preprocessor
+        the preprocessor instance
     """
     return preprocessor
