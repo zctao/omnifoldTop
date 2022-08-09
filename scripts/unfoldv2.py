@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from ast import parse
 import os
 import sys
 import time
