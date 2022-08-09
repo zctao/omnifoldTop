@@ -2,7 +2,8 @@ import os
 import numpy as np
 
 import plotter
-from modelUtils import get_model, get_callbacks, train_model, n_models_in_parallel
+from modelUtils import get_model, get_callbacks, train_model
+import modelUtils
 
 from util import reportGPUMemUsage
 
@@ -74,16 +75,14 @@ def set_up_model(
     return model, callbacks
 
 def reweight(model, events, batch_size, figname=None):
-    events_list = [events for i in range(n_models_in_parallel)]
+    events_list = [events for i in range(modelUtils.n_models_in_parallel)]
     preds = model.predict(events_list, batch_size=batch_size)
     preds = np.squeeze(preds)
-    if n_models_in_parallel == 1 : preds = np.reshape(preds, (n_models_in_parallel,)+np.shape(preds)) # happens after squeezing, so that we keep the first dimension
-    # preds_list = [np.squeeze(pred) for pred in model.predict(events_list, batch_size=batch_size)] if n_models_in_parallel > 1 else np.squeeze(model.predict(events_list, batch_size=batch_size))
+    if modelUtils.n_models_in_parallel == 1 : preds = np.reshape(preds, (modelUtils.n_models_in_parallel,)+np.shape(preds)) # happens after squeezing, so that we keep the first dimension
     r = np.nan_to_num( preds / (1. - preds) )
-    # r = np.array([np.nan_to_num( preds / (1. - preds) ) for preds in preds_list]) if n_models_in_parallel > 1 else np.nan_to_num( preds_list / (1. - preds_list) )
 
     if figname: # plot the distribution
-        for i in range(n_models_in_parallel):
+        for i in range(modelUtils.n_models_in_parallel):
             logger.info(f"Plot likelihood ratio distribution {figname}{i}")
             plotter.plot_LR_distr(figname+str(i), [r[i]])
 
@@ -134,8 +133,8 @@ def omnifold(
     assert(len(X_gen)==len(passcut_gen))
 
     # Expand the weights arrays
-    w_sim = np.array([w_sim for i in range(n_models_in_parallel)])
-    w_gen = np.array([w_gen for i in range(n_models_in_parallel)])
+    w_sim = np.array([w_sim for i in range(modelUtils.n_models_in_parallel)])
+    w_gen = np.array([w_gen for i in range(modelUtils.n_models_in_parallel)])
 
     # no need to resize w_data, it is only used once and it is constant
 
@@ -144,7 +143,6 @@ def omnifold(
     # features
     X_step1 = np.concatenate([ X_data[passcut_data], X_sim[passcut_sim] ])
     # labels: data=1, sim=0
-    # Y_step1 = np.concatenate([ np.ones(len(X_data[passcut_data])), np.zeros(len(X_sim[passcut_sim])) ])
     Y_step1 = np.concatenate([ np.ones(np.count_nonzero(passcut_data)), np.zeros(np.count_nonzero(passcut_sim)) ])
 
     log_size_bytes("feature array for step 1", X_step1.nbytes)
@@ -153,7 +151,6 @@ def omnifold(
     # Step 1b
     if np.any(~passcut_sim):
         X_step1b = np.concatenate([ X_gen[passcut_sim & passcut_gen], X_gen[passcut_sim & passcut_gen] ])
-        # Y_step1b = np.concatenate([ np.ones(len(X_gen[passcut_sim & passcut_gen])), np.zeros(len(X_gen[passcut_sim & passcut_gen])) ])
         Y_step1b = np.concatenate([ np.ones(np.count_nonzero(passcut_sim & passcut_gen)), np.zeros(np.count_nonzero(passcut_sim & passcut_gen)) ])
 
         log_size_bytes("feature array for step 1b", X_step1b.nbytes)
@@ -163,7 +160,6 @@ def omnifold(
     # features
     X_step2 = np.concatenate([ X_gen[passcut_gen], X_gen[passcut_gen] ])
     # labels
-    # Y_step2 = np.concatenate([ np.ones(len(X_gen[passcut_gen])), np.zeros(len(X_gen[passcut_gen])) ])
     Y_step2 = np.concatenate([np.ones(np.count_nonzero(passcut_gen)), np.zeros(np.count_nonzero(passcut_gen))])
 
     log_size_bytes("feature array for step 2", X_step2.nbytes)
@@ -172,7 +168,6 @@ def omnifold(
     # Step 2b
     if np.any(~passcut_gen):
         X_step2b = np.concatenate([ X_sim[passcut_sim & passcut_gen], X_sim[passcut_sim & passcut_gen] ])
-        # Y_step2b = np.concatenate([ np.ones(len(X_sim[passcut_sim & passcut_gen])), np.zeros(len(X_sim[passcut_sim & passcut_gen])) ])
         Y_step2b = np.concatenate([ np.ones(np.count_nonzero(passcut_sim & passcut_gen)), np.zeros(np.count_nonzero(passcut_sim & passcut_gen)) ])
 
         log_size_bytes("feature array for step 2b", X_step2b.nbytes)
@@ -190,16 +185,11 @@ def omnifold(
     ################
     # Start iterations
     # Weights
+    weights_push = np.ones(shape=(modelUtils.n_models_in_parallel, len(X_sim)))
+    weights_pull = np.ones(shape=(modelUtils.n_models_in_parallel, len(X_gen)))
 
-    # weights_push = [np.ones(len(X_sim)) for i in range(n_models_in_parallel)]
-    # weights_pull = [np.ones(len(X_gen)) for i in range(n_models_in_parallel)]
-    weights_push = np.ones(shape=(n_models_in_parallel, len(X_sim)))
-    weights_pull = np.ones(shape=(n_models_in_parallel, len(X_gen)))
-
-    # weights_unfold = np.empty(shape=(n_models_in_parallel, niterations, len(X_gen[passcut_gen])))
-    weights_unfold = np.empty(shape=(n_models_in_parallel, niterations, np.count_nonzero(passcut_gen)))
-    # weights_unfold = np.empty(shape=(niterations, n_models_in_parallel, np.count_nonzero(passcut_gen)))
-    # shape: (n_models_in_parallel, n_iterations, n_events[passcut_gen])
+    weights_unfold = np.empty(shape=(modelUtils.n_models_in_parallel, niterations, np.count_nonzero(passcut_gen)))
+    # shape: (modelUtils.n_models_in_parallel, n_iterations, n_events[passcut_gen])
 
     reportGPUMemUsage(logger)
 
@@ -218,7 +208,7 @@ def omnifold(
         else: # train model
             w_step1 = [np.concatenate([
                 w_data[passcut_data], (weights_push[j]*w_sim[j])[passcut_sim]
-                ]) for j in range(n_models_in_parallel)]
+                ]) for j in range(modelUtils.n_models_in_parallel)]
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
@@ -233,7 +223,6 @@ def omnifold(
         # reweight
         logger.info("Reweight")
         fname_rdistr = save_models_to + f"/rdistr_step1_{i}" if save_models_to and plot else ''
-        # weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr) if n_models_in_parallel>1 else weights_push * np.array([reweight(model_step1, X_sim, batch_size, fname_rdistr)])
         weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr)
         gc.collect()
         #####
@@ -252,7 +241,7 @@ def omnifold(
                 w_step1b = [np.concatenate([
                     (weights_pull[j]*w_gen[j])[passcut_sim & passcut_gen],
                     w_gen[j][passcut_sim & passcut_gen]
-                    ]) for j in range(n_models_in_parallel)]
+                    ]) for j in range(modelUtils.n_models_in_parallel)]
 
                 logger.info("Start training")
                 train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
@@ -285,7 +274,7 @@ def omnifold(
         else: # train model
             w_step2 = [np.concatenate([
                 (weights_pull[j]*w_gen[j])[passcut_gen], w_gen[j][passcut_gen]*rw_step2
-                ]) for j in range(n_models_in_parallel)]
+                ]) for j in range(modelUtils.n_models_in_parallel)]
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
@@ -318,7 +307,7 @@ def omnifold(
                 w_step2b = [np.concatenate([
                     (weights_push[j]*w_sim[j])[passcut_sim & passcut_gen],
                     w_sim[j][passcut_sim & passcut_gen]
-                    ]) for j in range(n_models_in_parallel)]
+                    ]) for j in range(modelUtils.n_models_in_parallel)]
 
                 logger.info("Start training")
                 train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
