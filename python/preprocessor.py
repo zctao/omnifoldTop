@@ -51,7 +51,9 @@ class Preprocessor():
         self.feature_preprocessing_function_map = {
             "angle_to_sin_cos": self._angle_to_sin_cos,
             "angle_to_sin": self._angle_to_sin,
-            "angle_to_cos": self._angle_to_cos
+            "angle_to_cos": self._angle_to_cos,
+            "divide_by_magnitude_of_main": self._divide_by_magnitude_of_mean,
+            "standardize": self._standardize
         }
 
         weight_preprocessing_function_map = {
@@ -156,7 +158,7 @@ class Preprocessor():
 
         return feature_array, observables
 
-    def divide_by_magnitude_of_mean(self, feature_array, mask, observables, **args):
+    def _divide_by_magnitude_of_mean(self, feature_array, mask, observables, **args):
         """
         normalize the given feature array through dividing by the order of magnitude of the mean
 
@@ -182,7 +184,7 @@ class Preprocessor():
         feature_array[:, mask] = feature_array[:, mask] / oom
         return feature_array, observable
 
-    def standardize(self, feature_array):
+    def _standardize(self, feature_array):
         """
         standardize the given feature array
 
@@ -302,106 +304,6 @@ class Preprocessor():
             weights = function(feature_arrays, weights, observables, **args)
 
         return weights
-    
-    # auxiliary functions for utilities
-
-    def calculate_full_mean(self, feature_arrays):
-        """
-        calculate the mean across multiple feature arrays as if they are concatenated together
-        this function does not in fact concatenate them together but instead calculates the sum one by one
-
-        arguments
-        ---------
-        feature_arrays: 3d nump array 
-            feature arrays in the shape (number of arrays processed together, number of events, number of observables)
-            number of observables has to be identical for all feature array
-        
-        returns
-        -------
-        mean: 1d numpy array
-            the calculated mean of each observables
-        """
-        nobservables = len(feature_arrays[0][0])
-        fullsum, fulllength = np.zeros(nobservables), 0
-        for feature_array in feature_arrays:
-            fullsum += np.sum(feature_array, axis=0)
-            fulllength += len(feature_array)
-        mean = fullsum / fulllength
-
-        return mean
-
-    def std_scan(self, feature_arrays, mean):
-        """
-        calculate the std across multiple feature arrays as if they are concatenated together
-        this function does it by scanning through slices of each feature array in feature arrays to be memory efficient
-
-        arguments
-        ---------
-        feature_arrays: 3d numpy array
-            feature arrays in the shape (number of arrays processed together, number of events, number of observables)
-            number of obsrevables has to be identical for all feature array
-        mean: 1d numpy array
-            mean in each observable across the feature_arrays
-        
-        returns
-        -------
-        std: 1d numpy array
-            standard deviation in each observable
-        """
-        nobservables = len(feature_arrays[0][0])
-        fullvar, fulllength = np.zeros(nobservables), 0
-        for feature_array in feature_arrays:
-            arrayvar = np.zeros(nobservables)
-            for event in feature_array:
-                arrayvar += np.abs(event - mean)**2 # same as numpy.std implementation, abs to ensure positive real value with complex numbers
-                fulllength += 1
-            fullvar += arrayvar
-        return np.sqrt(fullvar / fulllength)
-
-    # other functions that can be called directly as an utility
-
-    def group_standardize(self, feature_arrays):
-        """
-        standardize the given feature arrays using the same factors to retain the relative comparision between them
-
-        arguments
-        ---------
-        feature_arrays: tuple of numpy 2d arrays of shape (number of events, features in each event)
-
-        returns
-        -------
-        feature arrays: tuple of numpy 2d arrays
-             feature_arrays as a group standardized to a mean of 0 and standard deviation of one, but not necessarily for each one of them
-        """
-
-        # compute mean over all feature_arrays together
-        mean = self.calculate_full_mean(feature_arrays)
-        std = self.std_scan(feature_arrays, mean)
-
-        feature_arrays = ((feature_array - mean) / std for feature_array in feature_arrays)
-
-        return feature_arrays
-
-    def group_divide_by_magnitude_of_mean(self, feature_arrays):
-        """
-        normalize the given feature arrays using the same oom calculated from all data
-
-        arguments
-        ---------
-        feature_arrays: tuple of numpy 2d arrays of shape (number of events, features in each event)
-
-        returns
-        -------
-        feature_arrays: tuple of numpy 2d arrays
-            feature_arrays normalized together
-        """
-        combine = np.concatenate(feature_arrays, axis=0)
-        mean = np.mean(np.abs(combine), axis=0)
-        oom = 10**(np.log10(mean).astype(int))
-
-        feature_arrays = (feature_array / oom for feature_array in feature_arrays)
-
-        return feature_arrays
 
     """
     preprocessor function for weights
