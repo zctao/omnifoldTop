@@ -155,6 +155,60 @@ class Preprocessor():
         feature_array[:, mask] = np.cos(feature_array[:, mask])
 
         return feature_array, observables
+
+    def divide_by_magnitude_of_mean(self, feature_array, mask, observables, **args):
+        """
+        normalize the given feature array through dividing by the order of magnitude of the mean
+
+        arguments
+        ---------
+        feature_array: numpy 2d array 
+            feature array of shape (number of events, features in each event)
+        mask: list of boolean
+            indicating which observables to be modified
+        observables: numpy array of str
+            observable names indicating their position in the feature array
+
+        returns
+        -------
+        feature_array: numpy 2d array
+            feature array divided by its order of magnitude of the mean, should have its absolute value in the order of 1
+        observables: numpy array of str
+            a 1d str array representing the order of observables after this step of preprocessing
+        """
+
+        mean = np.mean(np.abs(feature_array[:, mask]), axis=0)
+        oom = 10**(np.log10(mean).astype(int))
+        feature_array[:, mask] = feature_array[:, mask] / oom
+        return feature_array, observable
+
+    def standardize(self, feature_array):
+        """
+        standardize the given feature array
+
+        arguments
+        ---------
+        feature_array: numpy 2d array 
+            feature array of shape (number of events, features in each event)
+        mask: list of boolean
+            indicating which observables to be modified
+        observables: numpy array of str
+            observable names indicating their position in the feature array
+
+        returns
+        -------
+        feature_array: numpy 2d array
+            standardized feature array with mean of 0 and std of 1
+        observables: numpy array of str
+            a 1d str array representing the order of observables after this step of preprocessing
+        """
+
+        # compute mean over all feature_arrays together
+        mean = np.mean(feature_array[:, mask], axis=0)
+        std = np.std(feature_array, axis=0)
+        feature_array[:, mask] = (feature_array[:, mask] - mean) / std
+
+        return feature_array, observable
         
     # auxiliary functions for preprocessing
     def _mask(self, observables, modify):
@@ -306,26 +360,6 @@ class Preprocessor():
 
     # other functions that can be called directly as an utility
 
-    def standardize(self, feature_array):
-        """
-        standardize the given feature array
-
-        arguments
-        ---------
-        feature_arrays: numpy 2d arrays of shape (number of events, features in each event)
-
-        returns
-        -------
-        standardized_feature_array: numpy 2d array
-            feature_array standardized to a mean of 0 and standard deviation of one
-        """
-
-        # compute mean over all feature_arrays together
-        mean = np.mean(feature_array, axis=0)
-        std = np.std(feature_array, axis=0)
-
-        return (feature_array - mean) / std
-
     def group_standardize(self, feature_arrays):
         """
         standardize the given feature arrays using the same factors to retain the relative comparision between them
@@ -347,24 +381,6 @@ class Preprocessor():
         feature_arrays = ((feature_array - mean) / std for feature_array in feature_arrays)
 
         return feature_arrays
-
-    def divide_by_magnitude_of_mean(self, feature_array):
-        """
-        normalize the given feature array through dividing by the order of magnitude of the mean
-
-        arguments
-        ---------
-        feature_array: numpy 2d array of shape (number of events, features in each event)
-
-        returns
-        -------
-        feature_array: numpy 2d array
-            normalized feature array
-        """
-
-        mean = np.mean(np.abs(feature_array), axis=0)
-        oom = 10**(np.log10(mean).astype(int))
-        return feature_array / oom
 
     def group_divide_by_magnitude_of_mean(self, feature_arrays):
         """
