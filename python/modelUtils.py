@@ -189,8 +189,8 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
         # train_dictionary["input_"+str(i)], val_dictionary["input_"+str(i)] = X_train, X_val
         # train_yw_dictionary["output_"+str(i)], val_yw_dictionary["output_"+str(i)] = np.column_stack((Y_train, w_train)), np.column_stack((Y_val, w_val))
 
-        train_dictionary["input_"+str(i)], val_dictionary["input_"+str(i)] = X_train, X_val
-        train_y_dictionary["output_"+str(i)], val_y_dictionary["output_"+str(i)] = Y_train , Y_val
+        train_dictionary[_layer_name(i, "input")], val_dictionary[_layer_name(i, "input")] = X_train, X_val
+        train_y_dictionary[_layer_name(i, "output")], val_y_dictionary[_layer_name(i, "output")] = Y_train , Y_val
 
         train_w += [w_train]
         val_w += [w_val]
