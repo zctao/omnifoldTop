@@ -4,16 +4,21 @@ preprocessor only uses trainig variables, extra observables do not enter trainin
 the implementation of this class use the assumption that feature array is constructed in the same order as how the observable argument is ordered
 remember to update this class if that assumption is changed
 
-the preprocessor config should be written in two sections in the following format:
+the preprocessor config should be written in three sections in the following format:
 {
     "featrue": {
         "name of feature preprocessor": ["variables to apply to", "for example", "th_phi"],
         "there can be multiple of them": ["with", "same", "format"],
         "use all keyword to specify preprocessing all observables": ["all"]
     },
+    "normalization": {
+        "normalization method such as divide_by_magnitude_of_main": ["all"]
+    }
     "weight": ["a list", "of", "weight preprocessing", "function names"]
 }
 the preprocessor functions will be run in the same order as how they are supplied (top to bottom for features, left to right for weights)
+for normalization preprocessors, the default expected observable configuration is "all". The preprocessor will try to optimize memory usage with that setting. 
+Therefore, in the case of all observables are to be normalized, use the "all" keyword.
 """
 import json
 import numpy as np
@@ -52,7 +57,7 @@ class Preprocessor():
             "angle_to_sin_cos": self._angle_to_sin_cos,
             "angle_to_sin": self._angle_to_sin,
             "angle_to_cos": self._angle_to_cos,
-            "divide_by_magnitude_of_main": self._divide_by_magnitude_of_mean,
+            "divide_by_magnitude_of_mean": self._divide_by_magnitude_of_mean,
             "standardize": self._standardize
         }
 
@@ -332,7 +337,7 @@ def initialize(observable_dict, prep_config_path):
     global preprocessor
     preprocessor = Preprocessor(observable_dict, prep_config_path)
 
-def get() -> Preprocessor:
+def get(config) -> Preprocessor:
     """
     returns
     -------
