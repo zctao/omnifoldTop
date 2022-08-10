@@ -3,12 +3,16 @@ preprocessor class that is used to apply pre training mapping to data, gen, sim
 preprocessor only uses trainig variables, extra observables do not enter training and are not preprocessed
 the implementation of this class use the assumption that feature array is constructed in the same order as how the observable argument is ordered
 remember to update this class if that assumption is changed
-the preprocessor config should be written in the format of
+
+the preprocessor config should be written in two sections in the following format:
 {
-    name of preprocessor function : [list of observables to apply],
-    other preprocessing tasks
+    "featrue": {
+        "name of feature preprocessor": ["variables to apply to", "for example", "th_phi"],
+        "there can be multiple of them": ["with", "same", "format"]
+    },
+    "weight": ["a list", "of", "weight preprocessing", "function names"]
 }
-the preprocessor functions will be run in the same order from top to bottom
+the preprocessor functions will be run in the same order as how they are supplied (top to bottom for features, left to right for weights)
 """
 import json
 import numpy as np
