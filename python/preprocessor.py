@@ -8,7 +8,8 @@ the preprocessor config should be written in two sections in the following forma
 {
     "featrue": {
         "name of feature preprocessor": ["variables to apply to", "for example", "th_phi"],
-        "there can be multiple of them": ["with", "same", "format"]
+        "there can be multiple of them": ["with", "same", "format"],
+        "use all keyword to specify preprocessing all observables": ["all"]
     },
     "weight": ["a list", "of", "weight preprocessing", "function names"]
 }
@@ -208,12 +209,15 @@ class Preprocessor():
         logger.debug("Observable order before preprocessing: "+str(observables))
 
         while task_list:
-            function_name, list_of_observable = task_list.popitem(last = False)
+            function_name, modifying = task_list.popitem(last = False)
+            # replace modifying with all observables if keyword "all" is supplied
+            if "all" in modifying:
+                modifying = observables
             logger.debug("Applying preprocessing function " + function_name)
             function = self.feature_preprocessing_function_map[function_name]
 
             # create a mask for the next operation
-            mask = self._mask(observables, list_of_observable)
+            mask = self._mask(observables, modifying)
 
             # call preprocessor function, passing any additional args as is
             # modify args here to add in additional arguments passed to preprocessor function
