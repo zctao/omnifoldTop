@@ -66,14 +66,6 @@ class Preprocessor():
         # read in config, fill those without assigned preprocessor to an empty list
         with open(prep_config_path, "r") as config_file:
             self.config = json.load(config_file, object_pairs_hook=OrderedDict)
-        
-        # save the input on whether the utility functions should be used for outside callers, defaults to False
-        if "preprocess_utility" in self.config[FEATURE]:
-            self.utility = self.config[FEATURE]["preprocess_utility"]
-            # should be removed to not confuse the feature_preprocessing_function_map
-            del self.config[FEATURE]["preprocess_utility"]
-        else:
-            self.utility = True
 
         self.weight_preprocessing_functions = [weight_preprocessing_function_map[name] for name in self.config[WEIGHT]]
 
@@ -252,14 +244,6 @@ class Preprocessor():
             weights = function(feature_arrays, weights, observables, **args)
 
         return weights
-
-    def use_utility(self):
-        """
-        returns
-        -------
-        whether the config specified the utility functions to be used
-        """
-        return self.utility
     
     # auxiliary functions for utilities
 
