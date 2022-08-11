@@ -201,9 +201,9 @@ class Preprocessor():
             feature_array[:, mask] = feature_array[:, mask] / oom
 
         # observable is unaltered
-        return feature_array, observable
+        return feature_array, observables
 
-    def _standardize(self, feature_array):
+    def _standardize(self, feature_array, mask, observables, **args):
         """
         standardize the given feature array
 
@@ -234,7 +234,7 @@ class Preprocessor():
             feature_array[:, mask] = (feature_array[:, mask] - mean) / std
 
         # observable is unaltered
-        return feature_array, observable
+        return feature_array, observables
         
     # auxiliary functions for preprocessing
     def _mask(self, observables, modify):
@@ -282,8 +282,8 @@ class Preprocessor():
         observables: 1d numpy array
             the order of observables in feature array after all feature preprocessing steps
         """
-        if features == None:
-            if self.default_observable_names == None:
+        if features is None:
+            if self.default_observable_names is None:
                 raise ValueError("if observable list is not provided at feature preprocessing stage, default observable names needs to be set")
             observables = self.default_observable_names
         else:
@@ -291,7 +291,7 @@ class Preprocessor():
             observables = np.array([self.observable_name_dict[feature] for feature in features])
 
         # use as a checklist to mark the items that are done
-        feature_preprocessing_task_list = (self.config[FEATURE]).copy()
+        task_list = (self.config[FEATURE]).copy()
 
         logger.debug("Observable order before preprocessing: "+str(observables))
 
@@ -341,7 +341,7 @@ class Preprocessor():
             normalized feature array if there is at least one requested function
         """
         # use as a checklist to mark the items that are done
-        normalization_task_list = (self.config[NORMALIZATION]).copy()
+        task_list = (self.config[NORMALIZATION]).copy()
 
         while task_list:
             function_name, modifying = task_list.popitem(last = False)
@@ -417,7 +417,7 @@ def initialize(observable_dict, prep_config_path, default_observable_names=None)
     global preprocessor
     preprocessor = Preprocessor(observable_dict, prep_config_path, default_observable_names)
 
-def get(config) -> Preprocessor:
+def get() -> Preprocessor:
     """
     returns
     -------

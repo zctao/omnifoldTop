@@ -230,7 +230,7 @@ def omnifold(
         if load_models_from:
             logger.info("Use trained model for reweighting")
         else: # train model
-            w_step1_each_model = prp.preprocess_weight(X_step1
+            w_step1_each_model = prp.preprocess_weight(X_step1,
                 np.concatenate([w_data[passcut_data], (weights_push[j]*w_sim[j])[passcut_sim]]),
                 order_step1)
             w_step1 = [w_step1_each_model for j in range(n_models_in_parallel)]
