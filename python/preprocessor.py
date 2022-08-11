@@ -56,7 +56,10 @@ class Preprocessor():
         self.feature_preprocessing_function_map = {
             "angle_to_sin_cos": self._angle_to_sin_cos,
             "angle_to_sin": self._angle_to_sin,
-            "angle_to_cos": self._angle_to_cos,
+            "angle_to_cos": self._angle_to_cos
+        }
+
+        self.normalization_function_map = {
             "divide_by_magnitude_of_mean": self._divide_by_magnitude_of_mean,
             "standardize": self._standardize
         }
@@ -71,7 +74,7 @@ class Preprocessor():
             self.observable_name_dict[observable_dict[ob_name]["branch_det"]] = ob_name
             self.observable_name_dict[observable_dict[ob_name]["branch_mc"]] = ob_name
 
-        # read in config, fill those without assigned preprocessor to an empty list
+        # read in config, using OrderedDict to ensure order is correct
         with open(prep_config_path, "r") as config_file:
             self.config = json.load(config_file, object_pairs_hook=OrderedDict)
 
@@ -184,9 +187,17 @@ class Preprocessor():
             a 1d str array representing the order of observables after this step of preprocessing
         """
 
-        mean = np.mean(np.abs(feature_array[:, mask]), axis=0)
-        oom = 10**(np.log10(mean).astype(int))
-        feature_array[:, mask] = feature_array[:, mask] / oom
+        # optimize memory usage when all observables are used
+        if "using_all_observables" in args and args["using_all_observables"]: # ensure the key exists then check it's True
+            mean = np.mean(np.abs(feature_array), axis=0)
+            oom = 10**(np.log10(mean).astype(int))
+            feature_array = feature_array / oom
+        else:
+            mean = np.mean(np.abs(feature_array[:, mask]), axis=0)
+            oom = 10**(np.log10(mean).astype(int))
+            feature_array[:, mask] = feature_array[:, mask] / oom
+            
+        # observable is unaltered
         return feature_array, observable
 
     def _standardize(self, feature_array):
@@ -209,12 +220,17 @@ class Preprocessor():
         observables: numpy array of str
             a 1d str array representing the order of observables after this step of preprocessing
         """
+        # optimize memory usage when all observables are used
+        if "using_all_observables" in args and args["using_all_observables"]: # ensure the key exists then check it's True
+            mean = np.mean(feature_array, axis=0)
+            std = np.std(feature_array, axis=0)
+            feature_array = (feature_array - mean) / std
+        else:
+            mean = np.mean(feature_array[:, mask], axis=0)
+            std = np.std(feature_array[:, mask], axis=0)
+            feature_array[:, mask] = (feature_array[:, mask] - mean) / std
 
-        # compute mean over all feature_arrays together
-        mean = np.mean(feature_array[:, mask], axis=0)
-        std = np.std(feature_array, axis=0)
-        feature_array[:, mask] = (feature_array[:, mask] - mean) / std
-
+        # observable is unaltered
         return feature_array, observable
         
     # auxiliary functions for preprocessing
