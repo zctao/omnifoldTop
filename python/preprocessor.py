@@ -40,7 +40,7 @@ all_observable_key = "all_observables"
 # preprocessor class
 
 class Preprocessor():
-    def __init__(self, observable_dict, prep_config_path) -> None:
+    def __init__(self, observable_dict, prep_config_path, default_observable_names) -> None:
         """
         arguments
         ---------
@@ -80,6 +80,8 @@ class Preprocessor():
             self.config = json.load(config_file, object_pairs_hook=OrderedDict)
 
         self.weight_preprocessing_functions = [weight_preprocessing_function_map[name] for name in self.config[WEIGHT]]
+
+        self.default_observable_names = default_observable_names
 
         logger.debug("Initializing Preprocessor: Done")
 
@@ -261,16 +263,16 @@ class Preprocessor():
         mask = mask == 1
         return mask
 
-    def feature_preprocess(self, features, feature_array, **args):
+    def feature_preprocess(self, feature_array, features=None, **args):
         """
         preprocess feature_array by applying requested preprocessor functions
 
         arguments
         ---------
-        features: list of str
-            name of root tree branchs, for example, "PseudoTop_Reco_ttbar_m"
         feature_array: 2d numpy array 
             feature array with shape (number of events, number of observables in each event)
+        features: list of str
+            name of root tree branchs, for example, "PseudoTop_Reco_ttbar_m"
         args: extra parameters that will be passed directly to supported preprocessor functions
 
         returns
@@ -278,6 +280,11 @@ class Preprocessor():
         feature array: 2d numpy array
             preprocessed feature array
         """
+        if features == None:
+            if self.default_observable_names == None:
+                raise ValueError("if observable list is not provided at feature preprocessing stage, default observable names needs to be set")
+            features = self.default_observable_names
+
         # convert feature names to observable names
         observables = np.array([self.observable_name_dict[feature] for feature in features])
 
@@ -310,7 +317,7 @@ class Preprocessor():
         # return the feature array after preprocessing
         return feature_array
     
-    def apply_normalizer(self, features, feature_array, **args):
+    def apply_normalizer(self, observables, feature_array, **args):
         """
         preprocess feature array by applying requested normalizer functions. Normalizers are things like standardizing or dividing by order of magnitude of mean.
         this is implemented in almost identical way to to feature_preprocess. the two main reasons to keep them separated are:
@@ -320,8 +327,8 @@ class Preprocessor():
 
         arguments
         ---------
-        features: list of str
-            name of root tree branchs, for example, "PseudoTop_Reco_ttbar_m"
+        observables: list of str
+            name of observables, for example, "th_pt". normalization happens after feature preprocessing, so translated observable name is expected instead of branch names
         feature_array: 2d numpy array 
             feature array with shape (number of events, number of observables in each event)
         args: extra parameters that will be passed directly to supported preprocessor functions
@@ -331,9 +338,6 @@ class Preprocessor():
         feature array: 2d numpy array
             normalized feature array if there is at least one requested function
         """
-        # convert feature names to observable names
-        observables = np.array([self.observable_name_dict[feature] for feature in features])
-
         # use as a checklist to mark the items that are done
         normalization_task_list = (self.config[NORMALIZATION]).copy()
 
@@ -367,7 +371,7 @@ class Preprocessor():
         weights: tuple of numpy arrays
             event weights in the same order as feature arrays
         observables: list of str
-            indicating the position of each observable in feature array
+            name of observables, for example, "th_pt". weight preprocessing happens after feature preprocessing, so translated observable name is expected instead of branch names
         """
 
         for function in self.weight_preprocessing_functions:
@@ -388,7 +392,7 @@ class Preprocessor():
 
 preprocessor = None
 
-def initialize(observable_dict, prep_config_path, default_observable_names):
+def initialize(observable_dict, prep_config_path, default_observable_names=None):
     """
     create a preprocessor instance from given parameters
 
