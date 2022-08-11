@@ -354,6 +354,7 @@ class Preprocessor():
             # call preprocessor function, passing any additional args as is
             # modify args here to add in additional arguments passed to preprocessor function
             feature_array, observables = function(feature_array, mask, observables, **args)
+            gc.collect()
     
     def preprocess_weight(self, feature_arrays, weights, observables, **args):
         """
@@ -387,7 +388,7 @@ class Preprocessor():
 
 preprocessor = None
 
-def initialize(observable_dict, prep_config_path):
+def initialize(observable_dict, prep_config_path, default_observable_names):
     """
     create a preprocessor instance from given parameters
 
@@ -397,9 +398,16 @@ def initialize(observable_dict, prep_config_path):
         loaded from observable config
     prep_config_path: str
         path to the preprocessor config file, usually located in configs/preprocessor
+    default_observable_names: list of str
+        the assumed order of observables in feature arrays prior to preprocessing. The assumption is that no other preprocessing step that changes
+        this order took place and all data handling operations (such as handling cuts) respects and preserves the original order.
+        There can be a special case such that observables in, for example, data and sim are different. The Promise is that preprocessing steps will be applied to each of them
+        and the end result will be the same set of observables (as an example, data contains pt, theta, and eta. sim contains px, py, and pz, let's say we somehow want
+        to convert both to pt, cos(theta), cos(eta)). Then the list of observables will need to be expilcitly passed when calling preprocessing functions. Instead of calling
+        preprocessor.feature_preprocess(data), it needs to be preprocessor.feature_preprocess(observables_of_data, data))
     """
     global preprocessor
-    preprocessor = Preprocessor(observable_dict, prep_config_path)
+    preprocessor = Preprocessor(observable_dict, prep_config_path, default_observable_names)
 
 def get(config) -> Preprocessor:
     """

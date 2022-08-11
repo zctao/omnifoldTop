@@ -11,7 +11,6 @@ from datahandler import DataHandler
 from datahandler_root import DataHandlerROOT
 from omnifold import omnifold
 from modelUtils import n_models_in_parallel
-import preprocessor
 
 import logging
 logger = logging.getLogger('OmniFoldTTbar')

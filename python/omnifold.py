@@ -8,6 +8,7 @@ from util import reportGPUMemUsage
 
 import tensorflow as tf
 import gc
+import preprocessor
 
 import logging
 logger = logging.getLogger('omnifold')
@@ -139,10 +140,13 @@ def omnifold(
 
     # no need to resize w_data, it is only used once and it is constant
 
+    prp = preprocessor.get()
+
     # Step 1
     # Use events that pass reco level selections
     # features
     X_step1 = np.concatenate([ X_data[passcut_data], X_sim[passcut_sim] ])
+    X_step1 = prp.
     # labels: data=1, sim=0
     # Y_step1 = np.concatenate([ np.ones(len(X_data[passcut_data])), np.zeros(len(X_sim[passcut_sim])) ])
     Y_step1 = np.concatenate([ np.ones(np.count_nonzero(passcut_data)), np.zeros(np.count_nonzero(passcut_sim)) ])
