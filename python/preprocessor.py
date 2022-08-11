@@ -364,22 +364,22 @@ class Preprocessor():
         
         return feature_array
     
-    def preprocess_weight(self, feature_arrays, weights, observables, **args):
+    def preprocess_weight(self, feature_array, weights, observables, **args):
         """
-        apply the list of weight preprocessors in sequence and return the final set of preprocessed weights
+        apply the list of weight preprocessors in sequence and return preprocessed weight
 
         arguments
         ---------
-        feature_arrays: tuple of numpy arrays
-            feature arrays in the order of [data, sim, gen]
-        weights: tuple of numpy arrays
-            event weights in the same order as feature arrays
+        feature_array: 2d numpy array 
+            feature array with shape (number of events, number of observables in each event)
+        weights: 1d numpy array
+            event weights corresponding to the feature array
         observables: list of str
             name of observables, for example, "th_pt". weight preprocessing happens after feature preprocessing, so translated observable name is expected instead of branch names
         """
 
         for function in self.weight_preprocessing_functions:
-            weights = function(feature_arrays, weights, observables, **args)
+            weights = function(feature_array, weights, observables, **args)
 
         return weights
 
