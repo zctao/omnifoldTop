@@ -264,41 +264,6 @@ class OmniFoldTTbar():
         # truth level
         arr_gen = self.handle_sig.get_arrays(self.varnames_truth, valid_only=False)
 
-        # preprocess input arrays
-
-        p = preprocessor.get()
-
-        arr_data = p.preprocess(self.varnames_reco, arr_data)
-        # TODO: a truth known option?
-        
-        arr_sim = p.preprocess(self.varnames_reco, arr_sim)
-        arr_gen = p.preprocess(self.varnames_truth, arr_gen)
-
-        # if preprocess:
-        #     logger.info("Preprocess feature arrays")
-
-        #     # estimate the order of magnitude
-        #     logger.debug("Divide each variable by its order of magnitude")
-        #     # use only the valid events
-        #     xmean_reco = np.mean(np.abs(self.handle_obs[self.varnames_reco]), axis=0)
-        #     xoom_reco = 10**(np.log10(xmean_reco).astype(int))
-        #     arr_data /= xoom_reco
-        #     arr_sim /= xoom_reco
-
-        #     xmean_truth = np.mean(np.abs(self.handle_sig[self.varnames_truth]), axis=0)
-        #     xoom_truth = 10**(np.log10(xmean_truth).astype(int))
-        #     arr_gen /= xoom_truth
-
-        #     # TODO: check alternative
-        #     # standardize feature arrays to mean of zero and variance of one
-
-        if p.use_utility():
-
-            arr_data, arr_sim = p.group_standardize((arr_data, arr_sim))
-
-            # TODO: a truth known option?
-            arr_gen = p.standardize(arr_gen)
-
         return arr_data, arr_sim, arr_gen
 
     def _get_event_weights(self, resample=False, standardize=True):
@@ -346,14 +311,9 @@ class OmniFoldTTbar():
             wmean_gen = np.mean(wgen[self.handle_sig.pass_truth])
             wgen /= wmean_gen
 
-        p = preprocessor.get()
-
         arr_data = self.handle_obs.get_arrays(self.varnames_reco, valid_only=False)
         arr_sim = self.handle_sig.get_arrays(self.varnames_reco, valid_only=False)
         arr_gen = self.handle_sig.get_arrays(self.varnames_truth, valid_only=False)
-        
-        # varnames_reco or varnames_truth will get translated to observable names, so which one does not matter as long as they correspond to each other
-        wdata, wsim, wgen = p.preprocess_weight((arr_data, arr_sim, arr_gen), (wdata, wsim, wgen), self.varnames_reco)
 
         return wdata, wsim, wgen
 
