@@ -31,6 +31,7 @@ logger.setLevel(logging.DEBUG)
 
 # keys in config
 FEATURE = "feature"
+NORMALIZATION = "normalization"
 WEIGHT = "weight"
 
 # observable name indicating all observables will be preprocessed
@@ -196,7 +197,7 @@ class Preprocessor():
             mean = np.mean(np.abs(feature_array[:, mask]), axis=0)
             oom = 10**(np.log10(mean).astype(int))
             feature_array[:, mask] = feature_array[:, mask] / oom
-            
+
         # observable is unaltered
         return feature_array, observable
 
@@ -260,7 +261,7 @@ class Preprocessor():
         mask = mask == 1
         return mask
 
-    def preprocess(self, features, feature_array, **args):
+    def feature_preprocess(self, features, feature_array, **args):
         """
         preprocess feature_array by applying requested preprocessor functions
 
@@ -281,7 +282,7 @@ class Preprocessor():
         observables = np.array([self.observable_name_dict[feature] for feature in features])
 
         # use as a checklist to mark the items that are done
-        task_list = (self.config[FEATURE]).copy()
+        feature_preprocessing_task_list = (self.config[FEATURE]).copy()
 
         logger.debug("Observable order before preprocessing: "+str(observables))
 
@@ -300,12 +301,59 @@ class Preprocessor():
             # modify args here to add in additional arguments passed to preprocessor function
             feature_array, observables = function(feature_array, mask, observables, **args)
 
+            gc.collect()
+
             logger.debug("Observable order after preprocessing round: "+str(observables))
 
         gc.collect()
         
         # return the feature array after preprocessing
         return feature_array
+    
+    def apply_normalizer(self, features, feature_array, **args):
+        """
+        preprocess feature array by applying requested normalizer functions. Normalizers are things like standardizing or dividing by order of magnitude of mean.
+        this is implemented in almost identical way to to feature_preprocess. the two main reasons to keep them separated are:
+        1. normalization is almost always required 
+        2. normalization is usually applied to the entire feature array, so there can be extra memory saving optimizations
+        3. normalization and feature preprocessing can be quite distinct, for example, normalization never changes observable order and type in feature array
+
+        arguments
+        ---------
+        features: list of str
+            name of root tree branchs, for example, "PseudoTop_Reco_ttbar_m"
+        feature_array: 2d numpy array 
+            feature array with shape (number of events, number of observables in each event)
+        args: extra parameters that will be passed directly to supported preprocessor functions
+
+        returns
+        -------
+        feature array: 2d numpy array
+            normalized feature array if there is at least one requested function
+        """
+        # convert feature names to observable names
+        observables = np.array([self.observable_name_dict[feature] for feature in features])
+
+        # use as a checklist to mark the items that are done
+        normalization_task_list = (self.config[NORMALIZATION]).copy()
+
+        while task_list:
+            function_name, modifying = task_list.popitem(last = False)
+            # replace modifying with all observables if keyword "all" is supplied
+            if "all" in modifying:
+                modifying = observables
+                args["using_all_observables"] = True
+            else:
+                args["using_all_observables"] = False
+            logger.debug("Applying normalizing function " + function_name)
+            function = self.normalization_function_map[function_name]
+
+            # create a mask for the next operation
+            mask = self._mask(observables, modifying)
+
+            # call preprocessor function, passing any additional args as is
+            # modify args here to add in additional arguments passed to preprocessor function
+            feature_array, observables = function(feature_array, mask, observables, **args)
     
     def preprocess_weight(self, feature_arrays, weights, observables, **args):
         """
