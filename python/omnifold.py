@@ -146,7 +146,12 @@ def omnifold(
     # Use events that pass reco level selections
     # features
     X_step1 = np.concatenate([ X_data[passcut_data], X_sim[passcut_sim] ])
-    X_step1 = prp.feature_preprocess(X_step1, )
+
+    # preprocess
+    X_step1, order_step1 = prp.feature_preprocess(X_step1)
+    X_step1 = prp.apply_normalizer(X_step1, order_step1)
+
+
     # labels: data=1, sim=0
     # Y_step1 = np.concatenate([ np.ones(len(X_data[passcut_data])), np.zeros(len(X_sim[passcut_sim])) ])
     Y_step1 = np.concatenate([ np.ones(np.count_nonzero(passcut_data)), np.zeros(np.count_nonzero(passcut_sim)) ])
@@ -166,6 +171,11 @@ def omnifold(
     # Step 2
     # features
     X_step2 = np.concatenate([ X_gen[passcut_gen], X_gen[passcut_gen] ])
+
+    # preprocess
+    X_step2, order_step2 = prp.feature_preprocess(X_step2)
+    X_step2 = prp.apply_normalizer(X_step2, order_step2)
+
     # labels
     # Y_step2 = np.concatenate([ np.ones(len(X_gen[passcut_gen])), np.zeros(len(X_gen[passcut_gen])) ])
     Y_step2 = np.concatenate([np.ones(np.count_nonzero(passcut_gen)), np.zeros(np.count_nonzero(passcut_gen))])
@@ -220,9 +230,10 @@ def omnifold(
         if load_models_from:
             logger.info("Use trained model for reweighting")
         else: # train model
-            w_step1 = [np.concatenate([
-                w_data[passcut_data], (weights_push[j]*w_sim[j])[passcut_sim]
-                ]) for j in range(n_models_in_parallel)]
+            w_step1_each_model = prp.preprocess_weight(X_step1
+                np.concatenate([w_data[passcut_data], (weights_push[j]*w_sim[j])[passcut_sim]]),
+                order_step1)
+            w_step1 = [w_step1_each_model for j in range(n_models_in_parallel)]
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
@@ -287,9 +298,10 @@ def omnifold(
         if load_models_from:
             logger.info("Use trained model for reweighting")
         else: # train model
-            w_step2 = [np.concatenate([
-                (weights_pull[j]*w_gen[j])[passcut_gen], w_gen[j][passcut_gen]*rw_step2
-                ]) for j in range(n_models_in_parallel)]
+            w_step2_each_model = prp.preprocess_weight(X_step2,
+                np.concatenate([(weights_pull[j]*w_gen[j])[passcut_gen], w_gen[j][passcut_gen]*rw_step2]),
+                order_step2)
+            w_step2 = [w_step2_each_model for j in range(n_models_in_parallel)]
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''

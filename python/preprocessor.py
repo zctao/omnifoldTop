@@ -279,6 +279,8 @@ class Preprocessor():
         -------
         feature array: 2d numpy array
             preprocessed feature array
+        observables: 1d numpy array
+            the order of observables in feature array after all feature preprocessing steps
         """
         if features == None:
             if self.default_observable_names == None:
@@ -315,9 +317,9 @@ class Preprocessor():
         gc.collect()
         
         # return the feature array after preprocessing
-        return feature_array
+        return feature_array, observables
     
-    def apply_normalizer(self, observables, feature_array, **args):
+    def apply_normalizer(self, feature_array, observables, **args):
         """
         preprocess feature array by applying requested normalizer functions. Normalizers are things like standardizing or dividing by order of magnitude of mean.
         this is implemented in almost identical way to to feature_preprocess. the two main reasons to keep them separated are:
@@ -327,10 +329,10 @@ class Preprocessor():
 
         arguments
         ---------
-        observables: list of str
-            name of observables, for example, "th_pt". normalization happens after feature preprocessing, so translated observable name is expected instead of branch names
         feature_array: 2d numpy array 
             feature array with shape (number of events, number of observables in each event)
+        observables: list of str
+            name of observables, for example, "th_pt". normalization happens after feature preprocessing, so translated observable name is expected instead of branch names
         args: extra parameters that will be passed directly to supported preprocessor functions
 
         returns
@@ -359,6 +361,8 @@ class Preprocessor():
             # modify args here to add in additional arguments passed to preprocessor function
             feature_array, observables = function(feature_array, mask, observables, **args)
             gc.collect()
+        
+        return feature_array
     
     def preprocess_weight(self, feature_arrays, weights, observables, **args):
         """
