@@ -69,7 +69,7 @@ def unfold(**parsed_args):
     # Initialize preprocessor
     #################
 
-    preprocessor.initialize(observable_dict, parsed_args['preprocessor_config'])
+    preprocessor.initialize(observable_dict, parsed_args['preprocessor_config'], varnames_train_truth)
 
     #################
     # Initialize and load data

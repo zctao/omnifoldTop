@@ -81,7 +81,7 @@ class Preprocessor():
 
         self.weight_preprocessing_functions = [weight_preprocessing_function_map[name] for name in self.config[WEIGHT]]
 
-        self.default_observable_names = default_observable_names
+        self.default_observable_names = np.array([self.observable_name_dict[observable] for observable in default_observable_names])
 
         logger.debug("Initializing Preprocessor: Done")
 
@@ -283,10 +283,10 @@ class Preprocessor():
         if features == None:
             if self.default_observable_names == None:
                 raise ValueError("if observable list is not provided at feature preprocessing stage, default observable names needs to be set")
-            features = self.default_observable_names
-
-        # convert feature names to observable names
-        observables = np.array([self.observable_name_dict[feature] for feature in features])
+            observables = self.default_observable_names
+        else:
+            # convert feature names to observable names
+            observables = np.array([self.observable_name_dict[feature] for feature in features])
 
         # use as a checklist to mark the items that are done
         feature_preprocessing_task_list = (self.config[FEATURE]).copy()
