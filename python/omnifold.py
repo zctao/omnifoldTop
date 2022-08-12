@@ -139,8 +139,6 @@ def omnifold(
 
     # no need to resize w_data, it is only used once and it is constant
 
-    prp = preprocessor.get()
-
     # Step 1
     # Use events that pass reco level selections
     # features
@@ -165,10 +163,6 @@ def omnifold(
     # Step 2
     # features
     X_step2 = np.concatenate([ X_gen[passcut_gen], X_gen[passcut_gen] ])
-
-    # preprocess
-    X_step2, order_step2 = prp.feature_preprocess(X_step2)
-    X_step2 = prp.apply_normalizer(X_step2, order_step2)
 
     # labels
     # Y_step2 = np.concatenate([ np.ones(len(X_gen[passcut_gen])), np.zeros(len(X_gen[passcut_gen])) ])

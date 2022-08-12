@@ -61,8 +61,8 @@ class Preprocessor():
         }
 
         self.normalizer_map = {
-            "divide_by_magnitude_of_mean": DivideByMeansMagnitude
-            "standardize": Standardization
+            "divide_by_magnitude_of_mean": DivideByMeansMagnitude,
+            "standardize": Standardize
         }
 
         weight_preprocessing_function_map = {
@@ -292,7 +292,7 @@ class Preprocessor():
                 args["using_all_observables"] = True
             else:
                 args["using_all_observables"] = False
-            logger.debug("Applying normalizing functions " + function_name)
+            logger.debug("Applying normalizer " + normalizer_name)
             normalizer = (self.normalizer_map[normalizer_name])()
 
             # create a mask for the next operation
@@ -300,8 +300,8 @@ class Preprocessor():
 
             # call preprocessor functions, passing any additional args as is
             # modify args here to add in additional arguments passed to preprocessor function
-            arr_data = normalizer.single(arr_data, mask, observabes, **args)
-            arr_sim, arr_gen = normalizer.paired(arr_sim, arr_gen, mask, observabes, **args)
+            arr_data = normalizer.single(arr_data, mask, observables, **args)
+            arr_sim, arr_gen = normalizer.paired(arr_sim, arr_gen, mask, observables, **args)
             gc.collect()
         
         return arr_data, arr_sim, arr_gen
