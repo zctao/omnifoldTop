@@ -377,7 +377,9 @@ class OmniFoldTTbar():
 
         # step 4 normalization
 
-        
+        assert(X_data_order == X_sim_order and X_sim_order == X_gen_order)
+
+        X_data, X_sim, X_gen = p.apply_normalizer(X_data, X_sim, X_gen, X_data_order)
 
         # plot variable and event weight distributions for training
         if plot_status:

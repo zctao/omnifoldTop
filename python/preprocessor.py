@@ -60,9 +60,9 @@ class Preprocessor():
             "angle_to_cos": self._angle_to_cos
         }
 
-        self.normalization_function_map = {
-            "divide_by_magnitude_of_mean": self._divide_by_magnitude_of_mean,
-            "standardize": self._standardize
+        self.normalizer_map = {
+            "divide_by_magnitude_of_mean": DivideByMeansMagnitude
+            "standardize": Standardization
         }
 
         weight_preprocessing_function_map = {
@@ -252,7 +252,7 @@ class Preprocessor():
         # return the feature array after preprocessing
         return feature_array, observables
     
-    def apply_normalizer(self, feature_array, observables, **args):
+    def apply_normalizer(self, arr_data, arr_sim, arr_gen, observables, **args):
         """
         preprocess feature array by applying requested normalizer functions. Normalizers are things like standardizing or dividing by order of magnitude of mean.
         this is implemented in almost identical way to to feature_preprocess. the two main reasons to keep them separated are:
@@ -262,40 +262,49 @@ class Preprocessor():
 
         arguments
         ---------
-        feature_array: 2d numpy array 
-            feature array with shape (number of events, number of observables in each event)
+        arr_data: 2d numpy array 
+            data array with shape (number of events, number of observables in each event)
+        arr_sim: 2d numpy array 
+            sim array with shape (number of events, number of observables in each event)
+        arr_gen: 2d numpy array 
+            gen array with shape (number of events, number of observables in each event) 
         observables: list of str
             name of observables, for example, "th_pt". normalization happens after feature preprocessing, so translated observable name is expected instead of branch names
         args: extra parameters that will be passed directly to supported preprocessor functions
 
         returns
         -------
-        feature array: 2d numpy array
-            normalized feature array if there is at least one requested function
+        arr_data: 2d numpy array 
+            data array with shape (number of events, number of observables in each event)
+        arr_sim: 2d numpy array 
+            sim array with shape (number of events, number of observables in each event)
+        arr_gen: 2d numpy array 
+            gen array with shape (number of events, number of observables in each event) 
         """
         # use as a checklist to mark the items that are done
         task_list = (self.config[NORMALIZATION]).copy()
 
         while task_list:
-            function_name, modifying = task_list.popitem(last = False)
+            normalizer_name, modifying = task_list.popitem(last = False)
             # replace modifying with all observables if keyword "all" is supplied
             if "all" in modifying:
                 modifying = observables
                 args["using_all_observables"] = True
             else:
                 args["using_all_observables"] = False
-            logger.debug("Applying normalizing function " + function_name)
-            function = self.normalization_function_map[function_name]
+            logger.debug("Applying normalizing functions " + function_name)
+            normalizer = (self.normalizer_map[normalizer_name])()
 
             # create a mask for the next operation
             mask = self._mask(observables, modifying)
 
-            # call preprocessor function, passing any additional args as is
+            # call preprocessor functions, passing any additional args as is
             # modify args here to add in additional arguments passed to preprocessor function
-            feature_array, observables = function(feature_array, mask, observables, **args)
+            arr_data = normalizer.single(arr_data, mask, observabes, **args)
+            arr_sim, arr_gen = normalizer.paired(arr_sim, arr_gen, mask, observabes, **args)
             gc.collect()
         
-        return feature_array
+        return arr_data, arr_sim, arr_gen
     
     def preprocess_weight(self, feature_array, weights, observables, **args):
         """
@@ -438,10 +447,6 @@ class Standardize(Normalizer):
 
             feature_array_1[:, mask], feature_array_2[:, mask] = (feature_array_1_slice - mean) / std, (feature_array_2_slice - mean) / std
         return feature_array_1, feature_array_2
-
-    
-
-
 
 # preprocessor instance
 
