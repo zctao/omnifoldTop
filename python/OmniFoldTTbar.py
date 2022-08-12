@@ -139,6 +139,8 @@ class OmniFoldTTbar():
         vars_reco_all = list(set().union(variables_reco, variables_reco_extra)) if variables_reco_extra else variables_reco
         vars_truth_all = list(set().union(variables_truth, variables_truth_extra)) if variables_truth_extra else variables_truth
 
+        self.dummy_value = dummy_value
+
         # data handlers
         self.handle_obs = None
         self.handle_sig = None
@@ -357,15 +359,25 @@ class OmniFoldTTbar():
         p = preprocessor.get()
 
         # step 1: mapping
-        X_data[passcut_data], X_data_order = p.feature_preprocess(X_data)
+        X_data, X_data_order = p.feature_preprocess(X_data)
         X_sim, X_sim_order = p.feature_preprocess(X_sim)
         X_gen, X_gen_order = p.feature_preprocess(X_gen)
 
         # step 2: reset dummy values
 
+        X_data[~passcut_data] = self.dummy_value
+        X_sim[~passcut_sim] = self.dummy_value
+        X_gen[~passcut_gen] = self.dummy_value
+
         # step 3: weight preprocessing
 
+        w_data = p.preprocess_weight(X_data, w_data, X_data_order)
+        w_sim = p.preprocess_weight(X_sim, w_sim, X_sim_order)
+        w_gen = p.preprocess_weight(X_gen, w_gen, X_gen_order)
+
         # step 4 normalization
+
+        
 
         # plot variable and event weight distributions for training
         if plot_status:
