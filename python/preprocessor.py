@@ -12,7 +12,7 @@ the preprocessor config should be written in three sections in the following for
         "use all keyword to specify preprocessing all observables": ["all"]
     },
     "normalization": {
-        "normalization method such as divide_by_magnitude_of_main": ["all"]
+        "normalization method such as divide_by_magnitude_of_mean": ["all"]
     }
     "weight": ["a list", "of", "weight preprocessing", "function names"]
 }
@@ -443,6 +443,18 @@ class Normalizer():
             normalized feature array. The observable order should not change.
         """
         return feature_array_1, feature_array_2
+
+class DivideByMeansMagnitude(Normalizer):
+    def single(self, feature_array, mask, observables, **args):
+
+    def paired(self, feature_array_1, feature_array_2, mask, observables, **args):
+
+class Standardize(Normalizer):
+    def single(self, feature_array, mask, observables, **args):
+
+    def paired(self, feature_array_1, feature_array_2, mask, observables, **args):
+
+    
 
 
 
