@@ -8,7 +8,6 @@ from util import reportGPUMemUsage
 
 import tensorflow as tf
 import gc
-import preprocessor
 
 import logging
 logger = logging.getLogger('omnifold')

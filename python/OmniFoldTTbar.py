@@ -11,6 +11,7 @@ from datahandler import DataHandler
 from datahandler_root import DataHandlerROOT
 from omnifold import omnifold
 from modelUtils import n_models_in_parallel
+import preprocessor
 
 import logging
 logger = logging.getLogger('OmniFoldTTbar')
@@ -351,6 +352,20 @@ class OmniFoldTTbar():
         X_data, X_sim, X_gen = self._get_input_arrays()
         w_data, w_sim, w_gen = self._get_event_weights(resample=resample_data)
         passcut_data, passcut_sim, passcut_gen = self._get_event_flags()
+
+        # preprocessing
+        p = preprocessor.get()
+
+        # step 1: mapping
+        X_data[passcut_data], X_data_order = p.feature_preprocess(X_data)
+        X_sim, X_sim_order = p.feature_preprocess(X_sim)
+        X_gen, X_gen_order = p.feature_preprocess(X_gen)
+
+        # step 2: reset dummy values
+
+        # step 3: weight preprocessing
+
+        # step 4 normalization
 
         # plot variable and event weight distributions for training
         if plot_status:
