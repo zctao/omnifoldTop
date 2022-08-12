@@ -168,73 +168,6 @@ class Preprocessor():
         feature_array[:, mask] = np.cos(feature_array[:, mask])
 
         return feature_array, observables
-
-    def _divide_by_magnitude_of_mean(self, feature_array, mask, observables, **args):
-        """
-        normalize the given feature array through dividing by the order of magnitude of the mean
-
-        arguments
-        ---------
-        feature_array: numpy 2d array 
-            feature array of shape (number of events, features in each event)
-        mask: list of boolean
-            indicating which observables to be modified
-        observables: numpy array of str
-            observable names indicating their position in the feature array
-
-        returns
-        -------
-        feature_array: numpy 2d array
-            feature array divided by its order of magnitude of the mean, should have its absolute value in the order of 1
-        observables: numpy array of str
-            a 1d str array representing the order of observables after this step of preprocessing
-        """
-
-        # optimize memory usage when all observables are used
-        if "using_all_observables" in args and args["using_all_observables"]: # ensure the key exists then check it's True
-            mean = np.mean(np.abs(feature_array), axis=0)
-            oom = 10**(np.log10(mean).astype(int))
-            feature_array = feature_array / oom
-        else:
-            mean = np.mean(np.abs(feature_array[:, mask]), axis=0)
-            oom = 10**(np.log10(mean).astype(int))
-            feature_array[:, mask] = feature_array[:, mask] / oom
-
-        # observable is unaltered
-        return feature_array, observables
-
-    def _standardize(self, feature_array, mask, observables, **args):
-        """
-        standardize the given feature array
-
-        arguments
-        ---------
-        feature_array: numpy 2d array 
-            feature array of shape (number of events, features in each event)
-        mask: list of boolean
-            indicating which observables to be modified
-        observables: numpy array of str
-            observable names indicating their position in the feature array
-
-        returns
-        -------
-        feature_array: numpy 2d array
-            standardized feature array with mean of 0 and std of 1
-        observables: numpy array of str
-            a 1d str array representing the order of observables after this step of preprocessing
-        """
-        # optimize memory usage when all observables are used
-        if "using_all_observables" in args and args["using_all_observables"]: # ensure the key exists then check it's True
-            mean = np.mean(feature_array, axis=0)
-            std = np.std(feature_array, axis=0)
-            feature_array = (feature_array - mean) / std
-        else:
-            mean = np.mean(feature_array[:, mask], axis=0)
-            std = np.std(feature_array[:, mask], axis=0)
-            feature_array[:, mask] = (feature_array[:, mask] - mean) / std
-
-        # observable is unaltered
-        return feature_array, observables
         
     # auxiliary functions for preprocessing
     def _mask(self, observables, modify):
@@ -446,11 +379,39 @@ class Normalizer():
 
 class DivideByMeansMagnitude(Normalizer):
     def single(self, feature_array, mask, observables, **args):
+        if "using_all_observables" in args and args["using_all_observables"]: # ensure the key exists then check it's True
+            mean = np.mean(np.abs(feature_array), axis=0)
+            oom = 10**(np.log10(mean).astype(int))
+            feature_array = feature_array / oom
+        else:
+            mean = np.mean(np.abs(feature_array[:, mask]), axis=0)
+            oom = 10**(np.log10(mean).astype(int))
+            feature_array[:, mask] = feature_array[:, mask] / oom
+        return feature_array
 
     def paired(self, feature_array_1, feature_array_2, mask, observables, **args):
+        if "using_all_observables" in args and args["using_all_observables"]:
+            mean_1, mean_2 = np.mean(np.abs(feature_array_1), axis=0), np.mean(np.abs(feature_array_2), axis=0)
+            oom_1, oom_2 = 10**(np.log10(mean_1).astype(int)), 10**(np.log10(mean_2).astype(int))
+            oom = np.maximum(oom_1, oom_2)
+            feature_array_1, feature_array_2 = feature_array_1 / oom, feature_array_2 / oom
+        else:
+            mean_1, mean_2 = np.mean(np.abs(feature_array_1[:, mask]), axis=0), np.mean(np.abs(feature_array_2[:, mask]), axis=0)
+            oom_1, oom_2 = 10**(np.log10(mean_1).astype(int)), 10**(np.log10(mean_2).astype(int))
+            oom = np.maximum(oom_1, oom_2)
+            feature_array_1[:, mask], feature_array_2[:, mask] = feature_array_1[:, mask] / oom, feature_array_2[:, mask] / oom
 
 class Standardize(Normalizer):
     def single(self, feature_array, mask, observables, **args):
+        # optimize memory usage when all observables are used
+        if "using_all_observables" in args and args["using_all_observables"]: # ensure the key exists then check it's True
+            mean = np.mean(feature_array, axis=0)
+            std = np.std(feature_array, axis=0)
+            feature_array = (feature_array - mean) / std
+        else:
+            mean = np.mean(feature_array[:, mask], axis=0)
+            std = np.std(feature_array[:, mask], axis=0)
+            feature_array[:, mask] = (feature_array[:, mask] - mean) / std
 
     def paired(self, feature_array_1, feature_array_2, mask, observables, **args):
 
