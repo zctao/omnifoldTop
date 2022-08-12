@@ -425,6 +425,7 @@ class Standardize(Normalizer):
             mean = np.mean(feature_array_slice, axis=0)
             std = np.std(feature_array_slice, axis=0)
             feature_array[:, mask] = (feature_array_slice - mean) / std
+        return feature_array
 
     def paired(self, feature_array_1, feature_array_2, mask, observables, **args):
         if "using_all_observables" in  args and args["using_all_observables"]:

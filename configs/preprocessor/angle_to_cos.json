@@ -4,7 +4,7 @@
         "angle_to_cos": ["th_phi", "tl_phi"]
     },
     "normalization": {
-        "standardize": ["all"]
+        "divide_by_magnitude_of_mean": ["all"]
     },
     "weight": []
 }
