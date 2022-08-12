@@ -390,6 +390,60 @@ class Preprocessor():
     returns: reweighed weight array
     """
 
+# Normalizer classes
+# they are implemented in classes for provide better readability as each will have a single and paired normalization function
+
+class Normalizer():
+    """
+    a base class for normalizers. Other normalizer should inherit from this class and build on these functions.
+    """
+    def single(self, feature_array, mask, observables, **args):
+        """
+        single methods should preprocess a single 2d feature array and return the normalized array
+
+        arguments
+        ---------
+        feature_array: numpy 2d array
+            feature array of the shape (number of events, number of observables)
+        mask: numpy array
+            a mask indicating which observables will be normalized
+        observables: numpy array
+            indicating the order of observables in the feature array
+
+        returns
+        -------
+        feature_array: numpy 2d array
+            normalized feature array. The observable order should not change.
+        """
+        return feature_array
+    
+    def paired(self, feature_array_1, feature_array_2, mask, observables, **args):
+        """
+        paired method should preprocess 2 feature arrays together, usually sim and gen. They should be normalized using the same
+        values (such as average and std) calculated from the combination of both arrays.
+
+        the two feature arrays should have the same number and order of observables (which should be guarenteed if same set of preprocessors are used)
+
+        arguments
+        ---------
+        feature_array_1: numpy 2d array
+            feature array of the shape (number of events, number of observables)
+        feature_array_2: numpy 2d array
+            a second feature array of the shape (number of events, number of observables)
+        mask: numpy array
+            a mask indicating which observables will be normalized
+        observables: numpy array
+            indicating the order of observables in the feature array
+
+        returns
+        -------
+        feature_array_1: numpy 2d array
+            normalized feature array. The observable order should not change.
+        feature_array_2: numpy 2d array
+            normalized feature array. The observable order should not change.
+        """
+        return feature_array_1, feature_array_2
+
 
 
 # preprocessor instance
