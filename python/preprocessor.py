@@ -400,6 +400,7 @@ class DivideByMeansMagnitude(Normalizer):
             oom_1, oom_2 = 10**(np.log10(mean_1).astype(int)), 10**(np.log10(mean_2).astype(int))
             oom = np.maximum(oom_1, oom_2)
             feature_array_1[:, mask], feature_array_2[:, mask] = feature_array_1[:, mask] / oom, feature_array_2[:, mask] / oom
+        return feature_array_1, feature_array_2
 
 class Standardize(Normalizer):
     def single(self, feature_array, mask, observables, **args):
@@ -414,6 +415,24 @@ class Standardize(Normalizer):
             feature_array[:, mask] = (feature_array[:, mask] - mean) / std
 
     def paired(self, feature_array_1, feature_array_2, mask, observables, **args):
+        if "using_all_observables" in  args and args["using_all_observables"]:
+            s = np.sum(feature_array_1, axis=0) + np.sum(feature_array_2, axis=0)
+            s2 = np.sum(feature_array_1 * feature_array_1, axis=0) + np.sum(feature_array_2 * feature_array_2, axis=0)
+            n = len(feature_array_1) + len(feature_array_2)
+            
+            mean = s / n
+            std = np.sqrt(s2 / n - mean * mean)
+
+            feature_array_1, feature_array_2 = (feature_array_1 - mean) / std, (feature_array_2 - mean) / std
+        else:
+            s = np.sum(feature_array_1[:, mask], axis=0) + np.sum(feature_array_2[:, mask], axis=0)
+            s2 = np.sum(feature_array_1[:, mask] * feature_array_1[:, mask], axis=0) + np.sum(feature_array_2[:, mask] * feature_array_2[:, mask], axis=0)
+            n = len(feature_array_1[:, mask]) + len(feature_array_2[:, mask])
+            
+            mean = s / n
+            std = np.sqrt(s2 / n - mean * mean)
+
+            feature_array_1[:, mask], feature_array_2[:, mask] = (feature_array_1[:, mask] - mean) / std, (feature_array_2[:, mask] - mean) / std
 
     
 
