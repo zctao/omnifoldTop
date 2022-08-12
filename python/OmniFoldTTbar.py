@@ -381,6 +381,8 @@ class OmniFoldTTbar():
 
         X_data[passcut_data], X_sim[passcut_sim], X_gen[passcut_gen] = p.apply_normalizer(X_data[passcut_data], X_sim[passcut_sim], X_gen[passcut_gen], X_data_order)
 
+        assert(not X_data is None)
+
         # plot variable and event weight distributions for training
         if plot_status:
             plotter.plot_training_inputs_step1(
