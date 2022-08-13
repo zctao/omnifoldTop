@@ -300,8 +300,8 @@ class Preprocessor():
 
             # call preprocessor functions, passing any additional args as is
             # modify args here to add in additional arguments passed to preprocessor function
-            arr_data = normalizer.single(arr_data, mask, observables, **args)
-            arr_sim, arr_gen = normalizer.paired(arr_sim, arr_gen, mask, observables, **args)
+            arr_gen = normalizer.single(arr_gen, mask, observables, **args)
+            arr_data, arr_sim = normalizer.paired(arr_data, arr_sim, mask, observables, **args)
             gc.collect()
         
         return arr_data, arr_sim, arr_gen
