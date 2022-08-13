@@ -10,7 +10,8 @@ from tensorflow.keras import layers
 import tensorflow.keras.backend as K
 from sklearn.model_selection import train_test_split
 from lrscheduler import get_lr_scheduler
-
+from layer_namer import _layer_name
+from callbacks import EarlyLocking
 import plotter
 
 n_models_in_parallel = 1
@@ -31,18 +32,16 @@ def get_callbacks(model_filepath=None):
     -------
     sequence of `tf.keras.callbacks.Callback`
     """
-    EarlyStopping = keras.callbacks.EarlyStopping(
-        monitor="val_loss", patience=10, verbose=1, restore_best_weights=True
-    )
+    EarlyLockingCallback = EarlyLocking(monitor="val_loss", patience=10, verbose=1, restore_best_weights=True, n_models_in_parallel=n_models_in_parallel)
 
     lr_callbacks = get_lr_scheduler().get_callbacks()
 
     if model_filepath:
         logger_fp = model_filepath + "_history.csv"
         CSVLogger = keras.callbacks.CSVLogger(filename=logger_fp, append=False)
-        return [CSVLogger, EarlyStopping] + lr_callbacks
+        return [CSVLogger, EarlyLockingCallback] + lr_callbacks
     else:
-        return [EarlyStopping] + lr_callbacks
+        return [EarlyLockingCallback] + lr_callbacks
 
 def weighted_binary_crossentropy(y_true, y_pred):
     """
@@ -160,11 +159,11 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
         model = dense_net(input_shape, nodes_list, nclass)
     else:
         model = eval(model_name+"(input_shape, nclass)")
-
+        
     optimizer = keras.optimizers.Adam(learning_rate = get_lr_scheduler().get_schedule())
 
-    model.compile(loss=weighted_binary_crossentropy,
-                  #loss='binary_crossentropy',
+    model.compile(#loss=weighted_binary_crossentropy,
+                  loss='binary_crossentropy',
                   optimizer=optimizer,
                   metrics=['accuracy'])
 
@@ -174,25 +173,31 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
 
 def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1, model_filepath=None):
 
-    # initalize empty lists
-    X_train_list, X_val_list, Yw_train_list, Yw_val_list = [], [], [], []
+    # initalize empty dictionaries
+    train_dictionary, val_dictionary = {}, {}
+    train_y_dictionary, val_y_dictionary = {}, {}
 
-    # prepare the lists
+    train_w, val_w = [], []
+
+    random_state = np.random.randint(0, 2**16)
+    X_train, X_val, Y_train, Y_val = train_test_split(X, Y, random_state=random_state)
+
+    # prepare the dictionaries
     for i in range(n_models_in_parallel):
-        X_train, X_val, Y_train, Y_val, w_train, w_val = train_test_split(X, Y, w[i])
+        w_train, w_val = train_test_split(w[i], random_state=random_state)
+        # for using with custom loss function
+        # train_dictionary["input_"+str(i)], val_dictionary["input_"+str(i)] = X_train, X_val
+        # train_yw_dictionary["output_"+str(i)], val_yw_dictionary["output_"+str(i)] = np.column_stack((Y_train, w_train)), np.column_stack((Y_val, w_val))
 
-        # Zip label and weight arrays to use the customized loss function
-        Yw_train_list += [np.column_stack((Y_train, w_train))]
-        Yw_val_list  += [np.column_stack((Y_val, w_val))]
-        X_train_list += [X_train]
-        X_val_list += [X_val]
+        train_dictionary[_layer_name(i, "input")], val_dictionary[_layer_name(i, "input")] = X_train, X_val
+        train_y_dictionary[_layer_name(i, "output")], val_y_dictionary[_layer_name(i, "output")] = Y_train , Y_val
+
+        train_w += [w_train]
+        val_w += [w_val]
 
     fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
 
-    if n_models_in_parallel == 1:
-        model.fit(X_train_list[0], Yw_train_list[0], validation_data=(X_val_list[0], Yw_val_list[0]), **fitargs)
-    else:
-        model.fit(X_train_list, Yw_train_list, validation_data=(X_val_list, Yw_val_list), **fitargs)
+    model.fit(train_dictionary, train_y_dictionary, sample_weight=train_w, validation_data=(val_dictionary, val_y_dictionary, val_w), **fitargs)
     
     if model_filepath:
         model.save_weights(model_filepath)
@@ -225,13 +230,13 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     inputs, outputs = [], []
 
     for i in range(n_models_in_parallel):
-        input_layer = keras.layers.Input(input_shape)
+        input_layer = keras.layers.Input(input_shape, name=_layer_name(i, "input"))
         prev_layer = input_layer
-        for n in nnodes:
-            prev_layer = keras.layers.Dense(n, activation="relu")(prev_layer)
+        for idx,n in enumerate(nnodes):
+            prev_layer = keras.layers.Dense(n, activation="relu", name=_layer_name(i, "dense", idx))(prev_layer)
 
         #output_layer = keras.layers.Dense(nclass, activation="softmax")(prev_layer)
-        output_layer = keras.layers.Dense(1, activation="sigmoid")(prev_layer)
+        output_layer = keras.layers.Dense(1, activation="sigmoid", name=_layer_name(i, "output"))(prev_layer)
 
         inputs += [input_layer]
         outputs += [output_layer]

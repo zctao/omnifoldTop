@@ -398,7 +398,7 @@ class OmniFoldTTbar():
         # unfold
         assert(nruns>0)
         self.unfolded_weights = np.empty(
-            shape=(nruns * n_models_in_parallel, niterations, np.count_nonzero(passcut_gen))
+            shape=(nruns * modelUtils.n_models_in_parallel, niterations, np.count_nonzero(passcut_gen))
             )
 
         for ir in range(nruns):
@@ -420,7 +420,7 @@ class OmniFoldTTbar():
                 w_data, w_sim, w_gen = self._get_event_weights(resample=True)
 
             # omnifold
-            self.unfolded_weights[ir*n_models_in_parallel:(ir+1)*n_models_in_parallel,:,:] = omnifold(
+            self.unfolded_weights[ir*modelUtils.n_models_in_parallel:(ir+1)*modelUtils.n_models_in_parallel,:,:] = omnifold(
                 X_data, X_sim, X_gen,
                 w_data, w_sim, w_gen,
                 passcut_data, passcut_sim, passcut_gen,
