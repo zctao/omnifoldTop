@@ -1,7 +1,9 @@
 {
     "feature":
     {
-        "preprocess_utility": true
+    },
+    "normalization": {
+        "divide_by_magnitude_of_mean": ["all"]
     },
     "weight": []
 }
