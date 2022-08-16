@@ -292,8 +292,6 @@ def mutate_single(value, space, step, probability, type):
         if type == "float": new_value = value + (step[1] - step[0]) * np.random.random_sample() + step[0]
         if type == "int": new_value = value + np.random.randint(step[0], step[1])
         # check if still in space
-        print(space)
-        print(new_value)
         if new_value < space["low"]: new_value = space["low"]
         if new_value > space["high"]: new_value = space["high"]
     return new_value
@@ -315,6 +313,7 @@ def mutation_func(offspring, ga_instance):
             if idx == 0: each[0] = mutate_single(value, ga_instance.gene_space[0], np.array([0.00001, 0.0003]), ga_instance.mutation_probability, "float")
             else: each[idx] = mutate_single(value, ga_instance.gene_space[idx], np.array([ga_instance.random_mutation_min_val, ga_instance.random_mutation_max_val]),
                                                 ga_instance.mutation_probability, "int")
+    return offspring
     
 initial_population = np.array(
     [
