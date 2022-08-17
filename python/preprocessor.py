@@ -79,6 +79,8 @@ class Preprocessor():
         with open(prep_config_path, "r") as config_file:
             self.config = json.load(config_file, object_pairs_hook=OrderedDict)
 
+        
+        if self.config[WEIGHT]: logger.debug("Weight preprocessors: "+str(self.config[WEIGHT]))
         self.weight_preprocessing_functions = [weight_preprocessing_function_map[name] for name in self.config[WEIGHT]]
 
         self.default_observable_names = np.array([self.observable_name_dict[observable] for observable in default_observable_names])
