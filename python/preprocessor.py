@@ -66,7 +66,7 @@ class Preprocessor():
         }
 
         weight_preprocessing_function_map = {
-
+            "standardize": self.standardize_weight
         }
 
         # convert observable dict to a variable dict, mapping branch name to observable name
@@ -328,9 +328,27 @@ class Preprocessor():
     """
     preprocessor function for weights
     they should have the form
-    arguments: feature arrays (corresponding to the weight, a list of feature arrays), weights (list of weights), observables (indicating order in feature array), other keyword arguments
-    returns: reweighed weight array
+    arguments
+    ---------
+    feature_array: 2d numpy array 
+        feature array with shape (number of events, number of observables in each event)
+    weights: 1d numpy array
+        event weights corresponding to the feature array
+    observables: list of str
+        name of observables, for example, "th_pt". weight preprocessing happens after feature preprocessing, so translated observable name is expected instead of branch names
+    returns
+    -------
+    weights: 1d numpy array
+        reweighed weight array
     """
+
+    def standardize_weight(self, feature_array, weights, observables, **args):
+        mean = np.mean(weights)
+        std = np.std(weights)
+        weights = (weights - mean) / std
+        return weights
+
+
 
 # Normalizer classes
 # they are implemented in classes for provide better readability as each will have a single and paired normalization function
