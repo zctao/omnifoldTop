@@ -346,8 +346,7 @@ class Preprocessor():
 
     def standardize_weight(self, feature_array, weights, observables, **args):
         mean = np.mean(weights)
-        std = np.std(weights)
-        weights = (weights - mean) / std
+        weights = weights / mean
         return weights
 
 
