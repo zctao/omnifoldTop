@@ -313,10 +313,6 @@ class OmniFoldTTbar():
             wmean_gen = np.mean(wgen[self.handle_sig.pass_truth])
             wgen /= wmean_gen
 
-        arr_data = self.handle_obs.get_arrays(self.varnames_reco, valid_only=False)
-        arr_sim = self.handle_sig.get_arrays(self.varnames_reco, valid_only=False)
-        arr_gen = self.handle_sig.get_arrays(self.varnames_truth, valid_only=False)
-
         return wdata, wsim, wgen
 
     def _get_event_flags(self):
