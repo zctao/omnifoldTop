@@ -14,6 +14,9 @@ import metrics
 from OmniFoldTTbar import OmniFoldTTbar
 from make_histograms import make_histograms_from_unfolder
 from ibuv2 import run_ibu
+import preprocessor
+import modelUtils
+import lrscheduler
 
 def unfold(**parsed_args):
 
@@ -64,6 +67,12 @@ def unfold(**parsed_args):
         varnames_extra_truth = []
 
     #################
+    # Initialize preprocessor
+    #################
+
+    preprocessor.initialize(observable_dict, parsed_args['preprocessor_config'], varnames_train_truth)
+
+    #################
     # Initialize and load data
     #################
 
@@ -97,6 +106,19 @@ def unfold(**parsed_args):
     logger.debug(f"Initializing unfolder and loading input data took {(t_init_done-t_init_start):.2f} seconds.")
     mcurrent, mpeak = tracemalloc.get_traced_memory()
     logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
+
+
+    #################
+    # Set up parallelization
+    #################
+    modelUtils.n_models_in_parallel = parsed_args["parallel_models"]
+    logger.debug(f"{modelUtils.n_models_in_parallel} models will run in parallel")
+
+    #################
+    # Initialize learning rate scheduler
+    #################
+
+    lrscheduler.init_lr_scheduler(parsed_args["lrscheduler_config"])
 
     #################
     # Run unfolding
@@ -252,6 +274,9 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="If True, run unfolding also with IBU for comparison")
     parser.add_argument('-w', '--weight-type', type=str, default='nominal',
                         help="Type of event weights to retrieve from ntuples")
+    parser.add_argument("--preprocessor-config", type=str, default='configs/preprocessor/angle_to_cos.json', help="location of the preprocessor config file")
+    parser.add_argument('--parallel-models', type=int, default=1, help="Number of parallel models, default ot 1")
+    parser.add_argument('--lrscheduler-config', type=str, default="configs/lrs/constant_warm_up.json", help="config file for learning rate scheduler")
 
     if print_help:
         parser.print_help()
