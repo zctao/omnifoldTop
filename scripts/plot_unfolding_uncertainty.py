@@ -62,7 +62,7 @@ def plot_unfolding_uncertainty(
                 errors_d[varname]["labels"].append(label.format(iteration))
 
     # make plots
-    colors = plotter.get_default_colors(len(result_labels)*len(iterations))
+    colors = plotter.get_random_colors(len(result_labels)*len(iterations))
 
     for vname in errors_d:
         print(f"Plot {vname}")
