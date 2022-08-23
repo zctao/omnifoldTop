@@ -142,6 +142,7 @@ def omnifold(
     # Use events that pass reco level selections
     # features
     X_step1 = np.concatenate([ X_data[passcut_data], X_sim[passcut_sim] ])
+
     # labels: data=1, sim=0
     Y_step1 = np.concatenate([ np.ones(np.count_nonzero(passcut_data)), np.zeros(np.count_nonzero(passcut_sim)) ])
 
@@ -159,6 +160,7 @@ def omnifold(
     # Step 2
     # features
     X_step2 = np.concatenate([ X_gen[passcut_gen], X_gen[passcut_gen] ])
+
     # labels
     Y_step2 = np.concatenate([np.ones(np.count_nonzero(passcut_gen)), np.zeros(np.count_nonzero(passcut_gen))])
 

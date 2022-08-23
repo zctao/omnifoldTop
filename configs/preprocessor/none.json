@@ -1,0 +1,9 @@
+{
+    "feature":
+    {
+    },
+    "normalization": {
+        "divide_by_magnitude_of_mean": ["all"]
+    },
+    "weight": []
+}

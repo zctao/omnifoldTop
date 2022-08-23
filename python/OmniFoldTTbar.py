@@ -11,6 +11,7 @@ from datahandler import DataHandler
 from datahandler_root import DataHandlerROOT
 from omnifold import omnifold
 import modelUtils
+import preprocessor
 
 import logging
 logger = logging.getLogger('OmniFoldTTbar')
@@ -138,6 +139,8 @@ class OmniFoldTTbar():
         vars_reco_all = list(set().union(variables_reco, variables_reco_extra)) if variables_reco_extra else variables_reco
         vars_truth_all = list(set().union(variables_truth, variables_truth_extra)) if variables_truth_extra else variables_truth
 
+        self.dummy_value = dummy_value
+
         # data handlers
         self.handle_obs = None
         self.handle_sig = None
@@ -240,7 +243,7 @@ class OmniFoldTTbar():
         if self.handle_bkg is not None:
             logger.info(f"Total weights of background events: {self.handle_bkg.sum_weights()}")
 
-    def _get_input_arrays(self, preprocess=True):
+    def _get_input_arrays(self):
         logger.debug("Prepare input arrays")
 
         # observed data (or pseudo data)
@@ -262,24 +265,6 @@ class OmniFoldTTbar():
         arr_sim = self.handle_sig.get_arrays(self.varnames_reco, valid_only=False)
         # truth level
         arr_gen = self.handle_sig.get_arrays(self.varnames_truth, valid_only=False)
-
-        if preprocess:
-            logger.info("Preprocess feature arrays")
-
-            # estimate the order of magnitude
-            logger.debug("Divide each variable by its order of magnitude")
-            # use only the valid events
-            xmean_reco = np.mean(np.abs(self.handle_obs[self.varnames_reco]), axis=0)
-            xoom_reco = 10**(np.log10(xmean_reco).astype(int))
-            arr_data /= xoom_reco
-            arr_sim /= xoom_reco
-
-            xmean_truth = np.mean(np.abs(self.handle_sig[self.varnames_truth]), axis=0)
-            xoom_truth = 10**(np.log10(xmean_truth).astype(int))
-            arr_gen /= xoom_truth
-
-            # TODO: check alternative
-            # standardize feature arrays to mean of zero and variance of one
 
         return arr_data, arr_sim, arr_gen
 
@@ -365,6 +350,32 @@ class OmniFoldTTbar():
         X_data, X_sim, X_gen = self._get_input_arrays()
         w_data, w_sim, w_gen = self._get_event_weights(resample=resample_data)
         passcut_data, passcut_sim, passcut_gen = self._get_event_flags()
+
+        # preprocessing
+        p = preprocessor.get()
+
+        # step 1: mapping
+        X_data, X_data_order = p.feature_preprocess(X_data)
+        X_sim, X_sim_order = p.feature_preprocess(X_sim)
+        X_gen, X_gen_order = p.feature_preprocess(X_gen)
+
+        # step 2: reset dummy values
+
+        X_data[~passcut_data] = self.dummy_value
+        X_sim[~passcut_sim] = self.dummy_value
+        X_gen[~passcut_gen] = self.dummy_value
+
+        # step 3: weight preprocessing
+
+        w_data = p.preprocess_weight(X_data, w_data, X_data_order)
+        w_sim = p.preprocess_weight(X_sim, w_sim, X_sim_order)
+        w_gen = p.preprocess_weight(X_gen, w_gen, X_gen_order)
+
+        # step 4 normalization
+
+        assert(np.array_equal(X_data_order, X_sim_order) and np.array_equal(X_sim_order, X_gen_order))
+
+        X_data[passcut_data], X_sim[passcut_sim], X_gen[passcut_gen] = p.apply_normalizer(X_data[passcut_data], X_sim[passcut_sim], X_gen[passcut_gen], X_data_order)
 
         # plot variable and event weight distributions for training
         if plot_status:

@@ -1,0 +1,10 @@
+{
+    "feature":
+    {
+        "angle_to_cos": ["th_phi", "tl_phi"]
+    },
+    "normalization": {
+        "divide_by_magnitude_of_mean": ["all"]
+    },
+    "weight": []
+}
