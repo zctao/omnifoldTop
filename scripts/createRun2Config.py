@@ -140,7 +140,7 @@ def getSamples_detNP(
     assert(backgrounds)
 
     return data, signal, backgrounds
-    
+
 def createRun2Config(
         sample_local_dir,
         category, # "ejets" or "mjets" or "ljets"
@@ -279,7 +279,8 @@ if __name__ == "__main__":
         "iterations" : 4,
         "batch_size" : 20000,
         "normalize" : False,
-        "nruns" : 20,
+        "nruns" : 7,
+        "parallel_models" : 3,
         "resample_data" : False,
         "dummy_value" : -99.
     }
