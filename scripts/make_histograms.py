@@ -10,6 +10,9 @@ import plotter
 import histogramming as myhu
 from OmniFoldTTbar import load_unfolder
 from ibuv2 import run_ibu
+import hist
+
+from ttbarDiffXsRun2.helpers import get_acceptance_correction, get_efficiency_correction
 
 import logging
 logger = logging.getLogger("make_histograms")
@@ -23,8 +26,9 @@ def get_ibu_unfolded_histogram_from_unfolder(
     niterations = None, # number of iterations
     all_iterations = False, # if True, return results at every iteration
     norm = None,
-    density = False,
-    absoluteValue = False
+    absoluteValue = False,
+    acceptance = None,
+    efficiency = None
     ):
 
     # Prepare inputs
@@ -82,11 +86,22 @@ def get_ibu_unfolded_histogram_from_unfolder(
         wobs, wsim, wgen, wbkg,
         niterations = niterations,
         all_iterations = all_iterations,
-        density = density,
-        norm = norm
+        density = False,
+        norm = norm,
+        acceptance_correction = acceptance,
+        efficiency_correction = efficiency
         )
 
     return hists_ibu, h_ibu_corr, reponse
+
+def apply_efficiency_correction(histogram, h_eff_corr):
+    if isinstance(histogram, list):
+        return [ apply_efficiency_correction(hh, h_eff_corr) for hh in histogram ]
+    else:
+        # in case the efficiency correction histogram has a different binning
+        # get the correction factors using histogram's bin center
+        f_eff = np.array([ 1. / h_eff_corr[hist.loc(bc)].value for bc in histogram.axes[0].centers ])
+        return histogram * f_eff
 
 def make_histograms_of_observable(
     unfolder,
@@ -99,39 +114,49 @@ def make_histograms_of_observable(
     all_runs = True, # If True, include unfolded histograms of all runs at specified iteration
     all_iterations = False, # If True, include nominal unfolded histograms at all iterations
     all_histograms = False, # If True, include also histograms of every run and every iteration
-    include_ibu = False, # If True, include also IBU for comparison
     include_reco = False, # If True, include also reco level histograms
-    density = False # If True, normalize the histograms by bin widths
+    include_ibu = False, # If True, include also IBU for comparison
+    acceptance = None, # histogram for acceptance correction
+    efficiency = None # histogram for efficiency correction
     ):
 
     hists_v_d = {}
 
     varname_truth = obsConfig_d[observable]['branch_mc']
 
-    absValue = "_abs" in observable
-
     # get bin edges
     bins_mc = util.get_bins(observable, binning_config)
+
+    absValue = "_abs" in observable
 
     ###
     # The unfolded distributions
     logger.debug(f" Unfolded distributions")
-    h_uf, h_uf_corr = unfolder.get_unfolded_distribution(
+    h_uf, h_uf_correlation = unfolder.get_unfolded_distribution(
         varname_truth,
         bins_mc,
         iteration = iteration,
         nresamples = nruns,
-        density = density,
+        density = False,
         absoluteValue = absValue
         )
 
-    norm_uf = myhu.get_hist_norm(h_uf, density=density, flow=True) if normalize else None
+    norm_uf = myhu.get_hist_norm(h_uf, density=False, flow=True) if normalize else None
 
     # set x-axis label
     h_uf.axes[0].label = obsConfig_d[observable]['xlabel']
 
     hists_v_d['unfolded'] = h_uf
-    hists_v_d['unfolded_corr'] = h_uf_corr
+    hists_v_d['unfolded_correlation'] = h_uf_correlation
+
+    if efficiency:
+        h_uf_corrected = apply_efficiency_correction(h_uf, efficiency)
+        hists_v_d['unfolded_effcor'] = h_uf_corrected
+
+        # FIXME: scale properly and separate into absolute and relative diffXs
+        # For now
+        hists_v_d['relativeDiffXs'] = h_uf_corrected / myhu.get_hist_widths(h_uf_corrected)
+        myhu.renormalize_hist(hists_v_d['relativeDiffXs'], density=True)
 
     if all_runs:
         # unfolded histograms from every run
@@ -140,7 +165,7 @@ def make_histograms_of_observable(
             bins_mc,
             iteration = iteration,
             nresamples = nruns,
-            density = density,
+            density = False,
             absoluteValue = absValue
             )
 
@@ -151,7 +176,7 @@ def make_histograms_of_observable(
             bins_mc,
             nresamples = nruns,
             all_iterations = True,
-            density = density,
+            density = False,
             absoluteValue = absValue
             )[0]
 
@@ -160,7 +185,7 @@ def make_histograms_of_observable(
             varname_truth,
             bins_mc,
             nresamples = nruns,
-            density = density,
+            density = False,
             all_iterations=True,
             absoluteValue = absValue
             )
@@ -173,7 +198,7 @@ def make_histograms_of_observable(
     hists_v_d['prior'] = unfolder.handle_sig.get_histogram(
         varname_truth,
         bins_mc,
-        density = density,
+        density = False,
         norm = norm_uf,
         absoluteValue = absValue
         )
@@ -185,7 +210,7 @@ def make_histograms_of_observable(
         hists_v_d['truth'] = unfolder.handle_obs.get_histogram(
             varname_truth,
             bins_mc,
-            density = density,
+            density = False,
             norm = norm_uf,
             absoluteValue = absValue
             )
@@ -200,23 +225,29 @@ def make_histograms_of_observable(
         # TODO different binning at reco and truth level
         bins_det = util.get_bins(observable, binning_config)
 
-        hists_ibu_alliters, h_ibu_corr, response = get_ibu_unfolded_histogram_from_unfolder(
+        hists_ibu_alliters, h_ibu_correlation, response = get_ibu_unfolded_histogram_from_unfolder(
             unfolder,
             varname_reco, varname_truth,
             bins_det, bins_mc,
             all_iterations = True,
             norm = norm_uf,
-            density = density,
-            absoluteValue = absValue
+            absoluteValue = absValue,
+            acceptance = acceptance,
+            efficiency = efficiency
         )
 
         # take the ones at the same iteration as OmniFold
         h_ibu = hists_ibu_alliters[iteration]
-        h_ibu_corr = h_ibu_corr[iteration]
+        h_ibu_correlation = h_ibu_correlation[iteration]
 
         hists_v_d['ibu'] = h_ibu
         hists_v_d['ibu_alliters'] = hists_ibu_alliters
-        hists_v_d['ibu_corr'] = h_ibu_corr
+        hists_v_d['ibu_correlation'] = h_ibu_correlation
+        hists_v_d['response'] = response
+
+        if acceptance and efficiency:
+            hists_v_d['relativeDiffXs_ibu'] = h_ibu / myhu.get_hist_widths(h_ibu)
+            myhu.renormalize_hist(hists_v_d['relativeDiffXs_ibu'], density=True)
 
     ###
     # Reco level
@@ -231,7 +262,7 @@ def make_histograms_of_observable(
         h_data = unfolder.handle_obs.get_histogram(
             varname_reco,
             bins_det,
-            density = density,
+            density = False,
             absoluteValue = absValue
             )
 
@@ -239,7 +270,7 @@ def make_histograms_of_observable(
             h_data += unfolder.handle_obsbkg.get_histogram(
                 varname_reco,
                 bins_det,
-                density = density,
+                density = False,
                 absoluteValue = absValue)
 
         hists_v_d['reco_data'] = h_data
@@ -248,7 +279,7 @@ def make_histograms_of_observable(
         hists_v_d['reco_sig'] = unfolder.handle_sig.get_histogram(
             varname_reco,
             bins_det,
-            density = density,
+            density = False,
             absoluteValue = absValue
             )
 
@@ -257,9 +288,15 @@ def make_histograms_of_observable(
             hists_v_d['reco_bkg'] = unfolder.handle_bkg.get_histogram(
                 varname_reco,
                 bins_det,
-                density = density,
+                density = False,
                 absoluteValue = absValue
                 )
+
+    # acceptance and efficiency corrections if available
+    if acceptance is not None:
+        hists_v_d['acceptance'] = acceptance
+    if efficiency is not None:
+        hists_v_d['efficiency'] = efficiency
 
     return hists_v_d
 
@@ -367,17 +404,17 @@ def plot_histograms(
 
     ###
     # bin correlations
-    h_uf_corr = hists_dict.get('unfolded_corr')
+    h_uf_corr = hists_dict.get('unfolded_correlation')
     if h_uf_corr is not None:
         figname_uf_corr = os.path.join(outdir, f"BinCorr_{observable}_OmniFold")
         logger.info(f" Plot bin correlations: {figname_uf_corr}")
-        plotter.plot_correlations(figname_uf_corr, h_uf_corr, bins_mc)
+        plotter.plot_correlations(figname_uf_corr, h_uf_corr.values(), bins_mc)
 
-    h_ibu_corr = hists_dict.get('ibu_corr')
+    h_ibu_corr = hists_dict.get('ibu_correlation')
     if h_ibu_corr is not None:
         figname_ibu_corr = os.path.join(outdir, f"BinCorr_{observable}_IBU")
         logger.info(f" Plot bin correlations: {figname_ibu_corr}")
-        plotter.plot_correlations(figname_ibu_corr, h_ibu_corr, bins_mc)
+        plotter.plot_correlations(figname_ibu_corr, h_ibu_corr.values(), bins_mc)
 
     ###
     # Reco level distributions
@@ -471,26 +508,40 @@ def make_histograms_from_unfolder(
     include_ibu = False, # If True, include also IBU for comparison
     compute_metrics = False, # If True, compute metrics
     plot_verbosity = 0, # int, control how many plots to make
-    density = False # bool, if True, normalize histograms by bin widths
+    binned_correction_dir = None # str, directory to read binned corrections from
     ):
 
     # output directory
     if not outputdir:
         outputdir = unfolder.outdir
-    elif not os.path.isdir(outputdir):
+
+    # in case it is not the last iteration that is used
+    if iteration != -1:
+        outputdir = os.path.join(outputdir, f"iter{iteration+1}")
+        # +1 because the index 0 of the weights array is for iteration 1
+
+    if not os.path.isdir(outputdir):
         logger.info(f"Create directory {outputdir}")
         os.makedirs(outputdir)
 
     # control flags
     all_runs = True
+    include_reco = True
     all_iterations = compute_metrics or plot_verbosity >= 2
     all_histograms = compute_metrics or plot_verbosity >= 2
-    include_reco = plot_verbosity >= 1
 
     histograms_dict = {}
 
     for ob in observables:
         logger.info(f"Make histograms for {ob}")
+
+        # read binned corrections if available
+        if binned_correction_dir:
+            acceptance = get_acceptance_correction(ob, binned_correction_dir)
+            efficiency = get_efficiency_correction(ob, binned_correction_dir)
+        else:
+            acceptance = None
+            efficiency = None
 
         histograms_dict[ob] = make_histograms_of_observable(
             unfolder,
@@ -505,7 +556,8 @@ def make_histograms_from_unfolder(
             all_histograms = all_histograms,
             include_ibu = include_ibu,
             include_reco = include_reco,
-            density = density
+            acceptance = acceptance,
+            efficiency = efficiency
             )
 
         # compute metrics
@@ -525,7 +577,7 @@ def make_histograms_from_unfolder(
             plot_verbosity,
             outdir = outputdir,
             xlabel = obsConfig_d[ob]['xlabel'],
-            ylabel = obsConfig_d[ob]['ylabel'] if not density else obsConfig_d[ob]['ylabel_density'],
+            ylabel = obsConfig_d[ob]['ylabel'],
             legend_loc = obsConfig_d[ob]['legend_loc'],
             legend_ncol = obsConfig_d[ob]['legend_ncol'],
             stamp_loc =  obsConfig_d[ob]['stamp_xy']
@@ -536,7 +588,15 @@ def make_histograms_from_unfolder(
         outname_hist = os.path.join(outputdir, outfilename)
         logger.info(f" Write histograms to file: {outname_hist}")
         # hard code here for now
-        keys_to_save = ['unfolded', 'unfolded_allruns', 'prior', 'truth', 'ibu']
+        keys_to_save = [
+            'unfolded', 'unfolded_allruns', 'unfolded_correlation',
+            'unfolded_effcor', 'relativeDiffXs', 'absoluteDiffXs',
+            'prior', 'truth',
+            'reco_data', 'reco_sig', 'reco_bkg',
+            'ibu', 'ibu_correlation', 'response',
+            'relativeDiffXs_ibu', 'absoluteDiffXs_ibu',
+            'acceptance', 'efficiency'
+            ]
 
         hists_to_write = {}
         for ob in histograms_dict:
@@ -554,7 +614,7 @@ def make_histograms(
     binning_config,
     observables = [],
     observable_config = '',
-    iteration = -1,
+    iterations = [-1],
     nruns = None,
     normalize = True,
     outputdir = None,
@@ -563,7 +623,7 @@ def make_histograms(
     compute_metrics = False,
     plot_verbosity = 0,
     verbose = False,
-    density = False
+    binned_correction_dir = None
     ):
 
     logger.setLevel(logging.DEBUG if verbose else logging.INFO)
@@ -592,7 +652,12 @@ def make_histograms(
     logger.info(f"Load unfolder from {result_dir} ... ")
     t_load_start = time.time()
 
-    ufdr = load_unfolder(fpath_args_config, observables, obsConfig_d)
+    ufdr = load_unfolder(
+        fpath_args_config,
+        observables,
+        obsConfig_d,
+        normalize_to_data=False
+        )
 
     t_load_stop = time.time()
     logger.info(f"Done")
@@ -604,21 +669,24 @@ def make_histograms(
     logger.info("Start histogramming")
     t_hist_start = time.time()
 
-    make_histograms_from_unfolder(
-        ufdr,
-        binning_config,
-        observables,
-        obsConfig_d,
-        iteration = iteration,
-        nruns = nruns,
-        normalize = normalize,
-        outputdir = outputdir,
-        outfilename = outfilename,
-        include_ibu = include_ibu,
-        compute_metrics = compute_metrics,
-        plot_verbosity = plot_verbosity,
-        density = density
-        )
+    for it in iterations:
+        logger.info(f"iteration: {it}")
+
+        make_histograms_from_unfolder(
+            ufdr,
+            binning_config,
+            observables,
+            obsConfig_d,
+            iteration = it,
+            nruns = nruns,
+            normalize = normalize,
+            outputdir = outputdir,
+            outfilename = outfilename,
+            include_ibu = include_ibu,
+            compute_metrics = compute_metrics,
+            plot_verbosity = plot_verbosity,
+            binned_correction_dir = binned_correction_dir
+            )
 
     t_hist_stop = time.time()
     logger.debug(f"Histogramming time: {(t_hist_stop-t_hist_start):.2f} seconds")
@@ -645,7 +713,7 @@ if __name__ == "__main__":
                         help="List of observables to make histograms. If not provided, use the same ones from the unfolding results")
     parser.add_argument("--observable_config", type=str,
                         help="Path to the observable config file. If not provided, use the same one from the unfolding results")
-    parser.add_argument("-i", "--iteration", type=int, default=-1,
+    parser.add_argument("-i", "--iterations", type=int, nargs='+', default=[-1],
                         help="Use the results at the specified iteration")
     parser.add_argument("-n", "--nruns", type=int,
                         help="Number of runs for making unfolded distributions. If not specified, use all that are available")
@@ -654,15 +722,16 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--outfilename", type=str, default="histograms.root",
                         help="Output file name")
     parser.add_argument('--include-ibu', action='store_true',
-                        help="If True, run unfolding also with IBU as well")
+                        help="If True, run unfolding also with IBU")
     parser.add_argument('--compute-metrics', action='store_true',
                         help="If True, compute metrics of unfolding performance")
     parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
                         help="Plot verbose level. '-ppp' to make all plots.")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="If True, set logging level to DEBUG, otherwise INFO")
-    parser.add_argument('--density', action='store_true',
-                        help="If True, normalize histograms by bin widths")
+    parser.add_argument('--correction-dir', dest="binned_correction_dir",
+                        type=str,
+                        help="Directory to read binned correction from")
 
     args = parser.parse_args()
 

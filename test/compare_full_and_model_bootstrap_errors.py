@@ -160,7 +160,7 @@ def compare_full_and_model_bootstrap_errors(
         val_m, err_m = myhu.get_values_and_errors(hist_nominal_merr)
         relerr_m = err_m / val_m
 
-        color_f, color_m = plotter.set_default_colors(2)
+        color_f, color_m = plotter.get_default_colors(2)
 
         plotter.plot_uncertainties(
             figname = os.path.join(outdir, f"relerr_{ob}"),

@@ -132,15 +132,15 @@ def getSamples_detNP(
     for e in subcampaigns:
         for c in channels:
             s = glob.glob(os.path.join(sample_dir, f"detNP/ttbar_{systematics}/{e}/ttbar_*_pseudotop_parton_{c}.root"))
-        s.sort()
-        signal += s
+            s.sort()
+            signal += s
 
     assert(data)
     assert(signal)
     assert(backgrounds)
 
     return data, signal, backgrounds
-    
+
 def createRun2Config(
         sample_local_dir,
         category, # "ejets" or "mjets" or "ljets"
@@ -172,8 +172,8 @@ def createRun2Config(
         "signal": sig_nominal,
         "background": bkg_nominal,
         "outputdir": outdir_nominal,
-        "plot_verbosity": 3,
-        "run_ibu": True
+        "plot_verbosity": 2,
+        "run_ibu": False
         })
 
     # write nominal run configuration
@@ -275,11 +275,14 @@ if __name__ == "__main__":
     # hard code common config here for now
     common_cfg = {
         "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
-        "iterations" : 5,
+        "binning_config" : "configs/binning/bins_ttdiffxs.json",
+        "iterations" : 4,
         "batch_size" : 20000,
-        "normalize" : True,
-        "nruns" : 10,
-        "resample_data" : False
+        "normalize" : False,
+        "nruns" : 7,
+        "parallel_models" : 3,
+        "resample_data" : False,
+        "dummy_value" : -99.
     }
 
     createRun2Config(

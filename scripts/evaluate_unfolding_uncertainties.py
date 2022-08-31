@@ -6,7 +6,6 @@ import util
 import histogramming as myhu
 
 import plotter
-from plotter import set_default_colors
 
 import logging
 logger = logging.getLogger('EvalUnfoldError')
@@ -83,13 +82,23 @@ def plot_hists_resample(
         colors = None
     ):
 
-    plotter.plot_multiple_histograms(
+    if colors is None:
+        colors = plotter.get_random_colors(len(histograms_resample))
+
+    draw_options = []
+    for hrs, c in zip(histograms_resample, colors):
+        draw_options.append({
+            'histtype':'errorbar', 'xerr':True,
+            'color':c, 'alpha':0.8,
+            'marker':'.', 'markersize':1
+            })
+
+    plotter.plot_histograms_and_ratios(
         figname,
-        histograms_resample,
+        hists_numerator = histograms_resample,
+        draw_options_numerator = draw_options,
         xlabel = xlabel,
-        log_scale = False,
-        colors = colors,
-        alpha = 0.8, marker='.', markersize=1,
+        legend_loc = None # do not draw legends
         )
 
 def plot_bin_errors(
@@ -116,7 +125,7 @@ def plot_bin_errors(
 
     if plot_allruns:
         if colors is None:
-            colors = set_default_colors( len(errors_dict["model"]) )
+            colors = plotter.get_random_colors( len(errors_dict["model"]) )
         else:
             assert(len(colors) == len(errors_dict["model"]))
 
@@ -209,7 +218,7 @@ def evaluate_unfolding_stats_uncertainty(
 
         logger.info(f"Plot bin errors for {ob}")
 
-        colors = set_default_colors( len(hs_resample) )
+        colors = plotter.get_random_colors( len(hs_resample) )
 
         plot_bin_errors(
             os.path.join(outdir, f"errors_{ob}"),
@@ -240,7 +249,7 @@ def evaluate_unfolding_model_uncertainty(
          os.path.join(nominal_dir, histograms_name))
 
     # default list of colors
-    colors = set_default_colors(len(nensembles_model))
+    colors = plotter.get_random_colors(len(nensembles_model))
 
     # loop over observables
     for ob in hists_dict_nominal:

@@ -1,7 +1,7 @@
 import os
 
 import util
-from plotter import plot_uncertainties, set_default_colors
+import plotter
 
 # plot bin errors of unfolded distributions based on metrics json files
 def plot_unfolding_uncertainty(
@@ -62,7 +62,7 @@ def plot_unfolding_uncertainty(
                 errors_d[varname]["labels"].append(label.format(iteration))
 
     # make plots
-    colors = set_default_colors(len(result_labels)*len(iterations))
+    colors = plotter.get_random_colors(len(result_labels)*len(iterations))
 
     for vname in errors_d:
         print(f"Plot {vname}")
@@ -71,7 +71,7 @@ def plot_unfolding_uncertainty(
         for l, c in zip(errors_d[vname]["labels"], colors):
             draw_options.append({'label':l, 'edgecolor': c, 'facecolor': 'none'})
 
-        plot_uncertainties(
+        plotter.plot_uncertainties(
             figname = os.path.join(plot_dir, f"relerr_{vname}"),
             bins = errors_d[vname]["bins"],
             uncertainties = errors_d[vname]["errors"],
