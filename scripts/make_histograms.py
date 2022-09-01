@@ -438,6 +438,14 @@ def plot_histograms(
     # -pp
 
     ###
+    # Response
+    resp = hists_dict.get("response")
+    if resp is not None:
+        figname_resp = os.path.join(outdir, f"Response_{observable}")
+        logger.info(f" Plot response: {figname_resp}")
+        plotter.plot_response(figname_resp, resp, observable)
+
+    ###
     # Iteration history
     hists_uf_alliters = hists_dict.get('unfolded_alliters')
     if hists_uf_alliters:
@@ -586,7 +594,7 @@ def make_histograms_from_unfolder(
     # save histograms to file
     if outputdir:
         outname_hist = os.path.join(outputdir, outfilename)
-        logger.info(f" Write histograms to file: {outname_hist}")
+        logger.info(f"Write histograms to file: {outname_hist}")
         # hard code here for now
         keys_to_save = [
             'unfolded', 'unfolded_allruns', 'unfolded_correlation',
