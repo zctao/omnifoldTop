@@ -327,7 +327,8 @@ def write_dict_uproot(file_to_write, obj_dict, top_dir=''):
                 for iv, vv in enumerate(v):
                     file_to_write[os.path.join(top_dir, f"{k}-list-{iv}")] = vv
             else:
-                file_to_write[os.path.join(top_dir, k)] = v
+                if v is not None:
+                    file_to_write[os.path.join(top_dir, k)] = v
 
 def write_histograms_dict_to_file(hists_dict, file_name):
     with uproot.recreate(file_name) as f:
