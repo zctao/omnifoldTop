@@ -221,12 +221,14 @@ def omnifold(
                         model_filepath=file_path_save("model_step1", i, save_models_to)
                         )
             logger.info("Training done")
+            gc.collect()
 
         # reweight
         logger.info("Reweight")
         fname_rdistr = save_models_to + f"/rdistr_step1_{i}" if save_models_to and plot else ''
         weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr)
         gc.collect()
+
         #####
         # step 1b: deal with events that do not pass reco cuts
         if np.any(~passcut_sim):
@@ -250,16 +252,18 @@ def omnifold(
                             callbacks = cb_step1b, batch_size=batch_size,
                             epochs=epochs, verbose=verbose, model_filepath=file_path_save("model_step1b", i, save_models_to))
                 logger.info("Training done")
+                gc.collect()
 
             # reweight
             logger.info("Reweight")
             fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
             weights_pull[:, ~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], batch_size, fname_rdistr)
+            gc.collect()
 
         # TODO: check this
         weights_pull /= np.mean(weights_pull, axis=1)[:,None]
-        gc.collect()
         reportGPUMemUsage(logger)
+        gc.collect()
 
         #####
         # step 2
@@ -286,6 +290,7 @@ def omnifold(
                         batch_size=batch_size, epochs=epochs, verbose=verbose,
                         model_filepath=file_path_save("model_step2", i, save_models_to))
             logger.info("Training done")
+            gc.collect()
 
         # reweight
         logger.info("Reweight")
@@ -317,19 +322,21 @@ def omnifold(
                             epochs=epochs, verbose=verbose,
                             model_filepath=file_path_save("model_step2b", i, save_models_to))
                 logger.info("Training done")
+                gc.collect()
 
             # reweight
             logger.info("Reweight")
             fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
             weights_push[:, ~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], batch_size, fname_rdistr)
+            gc.collect()
 
         # TODO: check this
         weights_push /= np.mean(weights_push, axis=1)[:,None]
 
         # # save truth level weights of this iteration
         weights_unfold[:,i,:] = weights_push[:, passcut_gen]
-        gc.collect()
         reportGPUMemUsage(logger)
+        gc.collect()
 
     # end of iteration loop
 
