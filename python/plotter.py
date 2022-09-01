@@ -177,7 +177,10 @@ def plot_graphs(
         ax.set_yscale('log', basey=2)
 
     if colors is None:
-        colors = get_random_colors(len(data_arrays))
+        if len(data_arrays) <=10:
+            colors = get_default_colors(len(data_arrays))
+        else:
+            colors = get_random_colors(len(data_arrays))
     else:
         assert(len(data_arrays)==len(colors))
 
