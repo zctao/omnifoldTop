@@ -22,7 +22,7 @@ omnifold_style = {'color': 'tab:red', 'label':'MultiFold', 'histtype': 'errorbar
 ibu_style = {'color': 'gray', 'label':'IBU', 'histtype': 'errorbar', 'marker': 'o', 'markersize': 2}
 error_style = {'lw': 1, 'capsize': 1.5, 'capthick': 1, 'markersize': 1.5}
 
-def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer):
+def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer, label_denom=None, labels_numer=[]):
     """
     Plot ratios of several numerator histograms to a denominator histogram.
 
@@ -53,9 +53,20 @@ def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer):
         relerrs_denom = np.divide(errors_denom, values_denom, out=np.zeros_like(values_denom), where=(values_denom!=0))
         relerrs_denom = np.append(relerrs_denom, relerrs_denom[-1])
 
-        ax.fill_between(bin_edges, 1-relerrs_denom, 1+relerrs_denom, step='post', facecolor=color_denom, alpha=0.3)
+        ax.fill_between(bin_edges, 1-relerrs_denom, 1+relerrs_denom, step='post', facecolor=color_denom, alpha=0.3, label=label_denom)
 
-    for hnum, cnum in zip(hists_numer, colors_numer):
+    # in case hists_numer and colors_numer are not lists
+    if not isinstance(hists_numer, list):
+        hists_numer = [hists_numer]
+    if not isinstance(colors_numer, list):
+        colors_numer = [colors_numer]
+
+    if not labels_numer:
+        labels_numer = [None] * len(hists_numer)
+    elif not isinstance(labels_numer, list):
+        labels_numer = [labels_numer]
+
+    for hnum, cnum, lnum in zip(hists_numer, colors_numer, labels_numer):
         if hnum is None:
             continue
 
@@ -67,7 +78,7 @@ def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer):
         else:
             ratio_errs = None
 
-        hep.histplot(ratio, bin_edges, yerr=ratio_errs, histtype='errorbar', xerr=True, color=cnum, ax=ax, **error_style)
+        hep.histplot(ratio, bin_edges, yerr=ratio_errs, histtype='errorbar', xerr=True, color=cnum, ax=ax, label=lnum, **error_style)
 
 def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045):
     """
