@@ -171,7 +171,11 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
 
     return model
 
-def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1, model_filepath=None):
+def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1, model_filepath=None, ax=None):
+
+    if ax is not None:
+        plotter.draw_training_inputs_ratio(ax, X, Y, w[0])
+        # [0]: only plot the first parallel run
 
     # initalize empty dictionaries
     train_dictionary, val_dictionary = {}, {}

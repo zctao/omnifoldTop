@@ -908,6 +908,59 @@ def plot_train_log(csv_file, plot_name=None):
     plt.savefig(plot_name+'.png', dpi=300, bbox_inches='tight')
     plt.close(fig)
 
+def init_training_input_ratio_plot(niterations, feature_names):
+    nfeatures = len(feature_names)
+
+    fig, ax = plt.subplots(
+        nrows = niterations,
+        ncols = nfeatures,
+        sharex = 'col',
+        figsize = (nfeatures*5.5, niterations*3.5),
+        constrained_layout = True
+        )
+
+    ax = ax.reshape(niterations, nfeatures)
+
+    # margin
+    mg_l = 0.17/nfeatures
+    mg_r = 1 - 0.05/nfeatures
+    mg_t = 1 - 0.15/niterations
+    mg_b = 0.15/niterations
+    fig.subplots_adjust(left=mg_l, right=mg_r, top=mg_t, bottom=mg_b)
+
+    # x label
+    for f, vname in enumerate(feature_names):
+        ax[0][f].set_xlabel(vname)
+        ax[0][f].xaxis.set_label_position('top')
+
+    # y label
+    for i in range(niterations):
+        ax[i][0].set_ylabel(f"Iteration {i+1}")
+
+    fig.text(0.02/nfeatures, 0.5, "Ratio", va='center', rotation='vertical')
+
+    return fig, ax
+
+def draw_training_inputs_ratio(axes, features_array, label_array, weights):
+    # axes: list of axes from plt.subplots(); len(axes) = nfeatures
+    # features_array: ndarray of shape (nevents, nfeatures)
+    # label_array: ndarray of shape (nevents,)
+    # weights: ndarray of shape (nevents,)
+
+    # number of bins
+    nbins=20
+
+    for ax, feature_arr in zip(axes, features_array.T):
+        # bin edges
+        xmin = feature_arr.min()
+        xmax = feature_arr.max()
+        bin_edges = np.linspace(xmin, xmax, nbins+1)
+
+        hist_label1 = myhu.calc_hist(feature_arr[label_array==1], bins=bin_edges, weights=weights[label_array==1], norm=1.)
+        hist_label0 = myhu.calc_hist(feature_arr[label_array==0], bins=bin_edges, weights=weights[label_array==0], norm=1.)
+
+        draw_ratio(ax, hist_label1, hist_label0, *get_default_colors(2), label_denom='label 1', labels_numer='label 0')
+
 def plot_training_inputs_step1(
         figname_prefix,
         variable_names,

@@ -114,6 +114,8 @@ def omnifold(
     load_models_from='', # directory to load trained models if provided
     start_from_previous_iter=False, # If True, initialize model with the previous iteration
     plot=False, # If True, plot training history and make other status plots
+    ax_step1=None,
+    ax_step2=None,
     # Model training parameters
     batch_size=256,
     epochs=100,
@@ -218,8 +220,8 @@ def omnifold(
                         callbacks = cb_step1,
                         #figname = fname_preds,
                         batch_size=batch_size, epochs=epochs, verbose=verbose,
-                        model_filepath=file_path_save("model_step1", i, save_models_to)
-                        )
+                        model_filepath=file_path_save("model_step1", i, save_models_to),
+                        ax = ax_step1[i])
             logger.info("Training done")
             gc.collect()
 
@@ -288,7 +290,8 @@ def omnifold(
                         callbacks = cb_step2,
                         #figname = fname_preds,
                         batch_size=batch_size, epochs=epochs, verbose=verbose,
-                        model_filepath=file_path_save("model_step2", i, save_models_to))
+                        model_filepath=file_path_save("model_step2", i, save_models_to),
+                        ax = ax_step2[i])
             logger.info("Training done")
             gc.collect()
 
