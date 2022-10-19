@@ -1,0 +1,9 @@
+{
+    "feature":
+    {
+    },
+    "normalization": {
+        "standardize": ["all"]
+    },
+    "weight": []
+}
