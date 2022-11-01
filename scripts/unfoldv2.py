@@ -10,10 +10,8 @@ from copy import copy
 import util
 import plotter
 import reweight
-import metrics
 from OmniFoldTTbar import OmniFoldTTbar
 from make_histograms import make_histograms_from_unfolder
-from ibuv2 import run_ibu
 import preprocessor
 import modelUtils
 import lrscheduler

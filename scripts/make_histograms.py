@@ -338,7 +338,7 @@ def evaluate_metrics(
 
     # unbinned
     if unbinned_metrics:
-        if unfolder is None or not vaarname_truth:
+        if unfolder is None or not varname_truth:
             logger.error(f"Cannot compute unbinned metrics for {observable}")
         else:
             mdict_unbinned = metrics.evaluate_unbinned_metrics(

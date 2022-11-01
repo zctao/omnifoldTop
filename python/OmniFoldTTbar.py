@@ -41,7 +41,7 @@ def getDataHandler(
     else:
         # for limited backward compatibility to deal with npz file
         wname = 'totalWeight_nominal'
-        dh = DataHandler(filepaths, varnames_reco, varnames_truth, wname)
+        dh = DataHandler(filepaths, variables_reco, variables_truth, wname)
 
     if reweighter is not None:
         # TODO: check if variables required by reweighter are included
