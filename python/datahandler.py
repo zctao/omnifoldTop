@@ -579,24 +579,111 @@ class DataToy(DataHandler):
         Mean of the truth distribution.
     sigma : positive float, default: 1
         Standard deviation of the truth distribution.
+    epsilon : positive float, default: 1
+        Standard deviation for detector smearing
+    eff : positive float, default: 1
+        Reconstruction efficiency. Fraction of events in truth that are also in reco
+    acc : positivee float, default: 1
+        Acceptance. Fraction of the events in reco that also in truth
+    dummy_value : float, default -10.
+        Value assigned to events that are in reco but not truth or in truth but not reco
     """
-    def __init__(self, nevents, mu=0., sigma=1.):
+    def __init__(self):
+        self.data_reco = None
+        self.data_truth = None
+        self.pass_reco = None
+        self.pass_truth = None
+        self.weights = None
+        self.weights_mc = None
+
+    def generate(
+        self,
+        nevents,
+        mu = 0.,
+        sigma = 1.,
+        epsilon = 1.,
+        eff = 1.,
+        acc = 1.,
+        dummy_value = -10.
+        ):
         # generate toy data
         # truth level
-        var_truth = np.random.normal(mu, sigma,nevents)
+        array_truth = np.random.normal(mu, sigma, nevents)
 
         # detector smearing
-        epsilon = 1. # smearing width
-        var_reco = np.array([(x + np.random.normal(0, epsilon)) for x in var_truth])
+        array_reco = np.array([(x + np.random.normal(0, epsilon)) for x in array_truth])
 
-        self.data_reco = np.array(var_reco, dtype=[('x_reco','float')])
-        self.data_truth = np.array(var_truth, dtype=[('x_truth', 'float')])
+        # efficiency
+        if eff < 1:
+            self.pass_reco = np.random.binomial(1, eff, nevents).astype(bool)
+            array_reco[~self.pass_reco] = dummy_value
+        else:
+            self.pass_reco = np.full(nevents, True)
 
-        #self.data = np.array([(x,y) for x,y in zip(var_reco, var_truth)],
-        #                     dtype=[('x_reco','float'), ('x_truth','float')])
+        # acceptance
+        if acc < 1:
+            self.pass_truth = np.random.binomial(1, acc, nevents).astype(bool)
+            array_truth[~self.pass_truth] = dummy_value
+        else:
+            self.pass_truth = np.full(nevents, True)
 
+        # convert to recarray
+        self.data_truth = np.array(array_truth, dtype=[('x_truth', 'float')])
+        self.data_reco = np.array(array_reco, dtype=[('x_reco','float')])
+
+        # all event weights are one for now
         self.weights = np.ones(nevents)
         self.weights_mc = np.ones(nevents)
 
-        self.pass_reco = np.full(nevents, True)
-        self.pass_truth = np.full(nevents, True)
+    def save_data(self, filepath, save_weights=True, save_pass=True):
+        d = {'reco' :  self.data_reco, 'truth' : self.data_truth}
+
+        if save_weights:
+            d['weights'] = self.weights
+            d['weights_mc'] = self.weights_mc
+
+        if save_pass:
+            d['pass_reco'] = self.pass_reco
+            d['pass_truth'] = self.pass_truth
+
+        np.savez(filepath, **d)
+
+    def load_data(self, filepaths):
+        if isinstance(filepaths, str):
+            filepaths = [filepaths]
+
+        for fpath in filepaths:
+            with np.load(fpath) as f:
+                if self.data_reco is None:
+                    self.data_reco = f['reco']
+                else:
+                    self.data_reco = np.concatenate((self.data_reco, f['reco']))
+
+                if self.data_truth is None:
+                    self.data_truth = f['truth']
+                else:
+                    self.data_truth = np.concatenate((self.data_truth, f['truth']))
+
+                wtmp = f['weights'] if 'weights' in f else np.ones(len(self.data_reco))
+                if self.weights is None:
+                    self.weights = wtmp
+                else:
+                    self.weights = np.concatenate((self.weights, wtmp))
+
+                wmctmp = f['weights_mc'] if 'weights_mc' in f else np.ones(len(self.data_truth))
+                if self.weights_mc is None:
+                    self.weights_mc = wmctmp
+                else:
+                    self.weights_mc = np.concatenate((self.weights_mc, wmctmp))
+
+                preco = f['pass_reco'] if 'pass_reco' in f else np.full(len(self.data_reco), True)
+                if self.pass_reco is None:
+                    self.pass_reco = preco
+                else:
+                    self.pass_reco = np.concatenate((self.pass_reco, preco))
+
+                ptruth = f['pass_truth'] if 'pass_truth' in f else np.full(len(self.data_truth), True)
+                if self.pass_truth is None:
+                    self.pass_truth = ptruth
+                else:
+                    self.pass_truth = np.concatenate((self.pass_truth, ptruth))

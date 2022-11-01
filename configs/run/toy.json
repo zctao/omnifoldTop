@@ -1,0 +1,17 @@
+{
+  "data" : ["/mnt/xrootdg/ztao/OmniFoldOutputs/ToyData/toy_obs_1e6.npz"],
+  "signal" : ["/mnt/xrootdg/ztao/OmniFoldOutputs/ToyData/toy_sim_1e6.npz"],
+  "observable_config" : "configs/observables/vars_toy.json",
+  "binning_config" : "configs/binning/bins_toy.json",
+  "observables" : ["x"],
+  "iterations" : 20,
+  "truth_known" : true,
+  "normalize" : true,
+  "batch_size" : 20000,
+  "plot_verbosity" : 2,
+  "outputdir" : "output_toy",
+  "run_ibu" : true,
+  "preprocessor_config" : "configs/preprocessor/none.json",
+  "toydata" : true,
+  "lrscheduler_config": {"lr1em2": "configs/lrs/constant_1em2.json", "lr1em3": "configs/lrs/constant_1em3.json", "lr1em4": "configs/lrs/constant_1em4.json", "lr1em5": "configs/lrs/constant_1em5.json"}
+}

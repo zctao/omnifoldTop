@@ -8,7 +8,7 @@ import util
 import plotter
 import reweight
 import histogramming as myhu
-from datahandler import DataHandler
+from datahandler import DataHandler, DataToy
 from datahandler_root import DataHandlerROOT
 from omnifold import omnifold
 import modelUtils
@@ -25,7 +25,8 @@ def getDataHandler(
     variables_truth = [], # list of str
     dummy_value = None, # float
     reweighter = None,
-    weight_type = 'nominal'
+    weight_type = 'nominal',
+    use_toydata = False
 ):    
     if util.getFilesExtension(filepaths) == ".root":
         # ROOT files
@@ -38,6 +39,9 @@ def getDataHandler(
             treename_reco=tree_reco, treename_truth=tree_truth,
             weight_type=weight_type,
             dummy_value=dummy_value)
+    elif use_toydata:
+        dh = DataToy()
+        dh.load_data(filepaths)
     else:
         # for limited backward compatibility to deal with npz file
         wname = 'totalWeight_nominal'
@@ -116,7 +120,9 @@ class OmniFoldTTbar():
         # data reweighting for stress test
         data_reweighter=None,
         # type of event weights
-        weight_type='nominal'
+        weight_type='nominal',
+        # If or not use toy data handler
+        use_toydata=False
     ):
         # unfolded weights
         self.unfolded_weights = None
@@ -156,7 +162,8 @@ class OmniFoldTTbar():
             truth_known = truth_known,
             dummy_value = dummy_value,
             data_reweighter = data_reweighter,
-            weight_type = weight_type
+            weight_type = weight_type,
+            use_toydata = use_toydata
         )
 
     def _prepare_inputs(
@@ -171,7 +178,8 @@ class OmniFoldTTbar():
         truth_known = False, # bool
         dummy_value = -99., # float
         data_reweighter = None, # reweight.Reweighter
-        weight_type = 'nominal' # str, optional
+        weight_type = 'nominal', # str, optional
+        use_toydata = False, # bool, optional
         ):
         """
         Load input files into data handlers: self.handle_obs, self.handle_sig, 
@@ -186,7 +194,8 @@ class OmniFoldTTbar():
             vars_reco,
             vars_truth if truth_known else [],
             dummy_value,
-            reweighter = data_reweighter
+            reweighter = data_reweighter,
+            use_toydata = use_toydata
             )
         logger.info(f"Total number of observed events: {len(self.handle_obs)}")
 
@@ -194,7 +203,8 @@ class OmniFoldTTbar():
         logger.info(f"Load signal simulation files: {' '.join(filepaths_sig)}")
         self.handle_sig = getDataHandler(
             filepaths_sig, vars_reco, vars_truth, dummy_value,
-            weight_type = weight_type
+            weight_type = weight_type,
+            use_toydata = use_toydata
             )
         logger.info(f"Total number of signal events: {len(self.handle_sig)}")
 
@@ -204,7 +214,8 @@ class OmniFoldTTbar():
             # only reco level events are needed
             self.handle_bkg = getDataHandler(
                 filepaths_bkg, vars_reco, [], dummy_value,
-                weight_type = weight_type
+                weight_type = weight_type,
+                use_toydata = use_toydata
                 )
             logger.info(f"Total number of background events: {len(self.handle_bkg)}")
 
@@ -214,7 +225,8 @@ class OmniFoldTTbar():
             # only reco level events are needed
             self.handle_obsbkg = getDataHandler(
                 filepaths_obsbkg, vars_reco, [], dummy_value,
-                weight_type = weight_type
+                weight_type = weight_type,
+                use_toydata = use_toydata
                 )
             logger.info(f"Total number of background events mixed with data: {len(self.handle_obsbkg)}")
 
