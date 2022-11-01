@@ -597,11 +597,11 @@ def make_histograms_from_unfolder(
         logger.info(f"Write histograms to file: {outname_hist}")
         # hard code here for now
         keys_to_save = [
-            'unfolded', 'unfolded_allruns', 'unfolded_correlation',
+            'unfolded', 'unfolded_alliters', 'unfolded_allruns', 'unfolded_correlation',
             'unfolded_effcor', 'relativeDiffXs', 'absoluteDiffXs',
             'prior', 'truth',
             'reco_data', 'reco_sig', 'reco_bkg',
-            'ibu', 'ibu_correlation', 'response',
+            'ibu', 'ibu_alliters', 'ibu_correlation', 'response',
             'relativeDiffXs_ibu', 'absoluteDiffXs_ibu',
             'acceptance', 'efficiency'
             ]
