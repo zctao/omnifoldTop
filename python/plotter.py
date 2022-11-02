@@ -908,34 +908,56 @@ def plot_train_log(csv_file, plot_name=None):
     plt.savefig(plot_name+'.png', dpi=300, bbox_inches='tight')
     plt.close(fig)
 
+def init_subplots_grid(
+    nrows,
+    ncols,
+    figsize_per_grid = (5.5,3.5),
+    xlabels = None,
+    ylabels = None,
+    **subplots_args
+    ):
+
+    fig, ax = plt.subplots(
+        nrows = nrows,
+        ncols = ncols,
+        figsize = (ncols*figsize_per_grid[0], nrows*figsize_per_grid[1]),
+        **subplots_args
+        )
+
+    ax = ax.reshape(nrows, ncols)
+
+    # margin
+    mg_l = 0.17/ncols
+    mg_r = 1 - 0.05/ncols
+    mg_t = 1 - 0.15/nrows
+    mg_b = 0.15/nrows
+    fig.subplots_adjust(left=mg_l, right=mg_r, top=mg_t, bottom=mg_b)
+
+    if xlabels is not None:
+        assert(len(xlabels)==ncols)
+        for c, xl in enumerate(xlabels):
+            ax[0][c].set_xlabel(xl)
+            ax[0][c].xaxis.set_label_position('top')
+
+    if ylabels is not None:
+        assert(len(ylabels)==nrows)
+        for r, yl in enumerate(ylabels):
+            ax[r][0].set_ylabel(yl)
+
+    return fig, ax
+
 def init_training_input_ratio_plot(niterations, feature_names):
     nfeatures = len(feature_names)
 
-    fig, ax = plt.subplots(
+    fig, ax = init_subplots_grid(
         nrows = niterations,
         ncols = nfeatures,
+        figsize_per_grid = (5.5,3.5),
+        xlabels = feature_names,
+        ylabels = [f"Iteration {i+1}" for i in range(niterations)],
         sharex = 'col',
-        figsize = (nfeatures*5.5, niterations*3.5),
         constrained_layout = True
         )
-
-    ax = ax.reshape(niterations, nfeatures)
-
-    # margin
-    mg_l = 0.17/nfeatures
-    mg_r = 1 - 0.05/nfeatures
-    mg_t = 1 - 0.15/niterations
-    mg_b = 0.15/niterations
-    fig.subplots_adjust(left=mg_l, right=mg_r, top=mg_t, bottom=mg_b)
-
-    # x label
-    for f, vname in enumerate(feature_names):
-        ax[0][f].set_xlabel(vname)
-        ax[0][f].xaxis.set_label_position('top')
-
-    # y label
-    for i in range(niterations):
-        ax[i][0].set_ylabel(f"Iteration {i+1}")
 
     fig.text(0.02/nfeatures, 0.5, "Ratio", va='center', rotation='vertical')
 
