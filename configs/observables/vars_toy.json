@@ -4,6 +4,16 @@
     "branch_mc": "x_truth",
     "xlabel": "x",
     "ylabel": "Events",
+    "ylabel_density": "Events/$\\Delta x$",
+    "stamp_xy": [0.32, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true
+  },
+  "y": {
+    "branch_det": "y_reco",
+    "branch_mc": "y_truth",
+    "xlabel": "y",
+    "ylabel": "Events",
     "ylabel_density": "Events/$\\Delta y$",
     "stamp_xy": [0.32, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,

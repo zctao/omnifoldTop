@@ -570,24 +570,8 @@ class DataToy(DataHandler):
     The truth distribution is sampled from a normal distribution specified
     by `mu` and `sigma`. The reconstructed distribution is obtained by adding
     Gaussian noise with standard deviation 1 to the truth distribution.
-
-    Parameters
-    ----------
-    nevents : positive int
-        Number of events in the dataset
-    mu : float, default: 0
-        Mean of the truth distribution.
-    sigma : positive float, default: 1
-        Standard deviation of the truth distribution.
-    epsilon : positive float, default: 1
-        Standard deviation for detector smearing
-    eff : positive float, default: 1
-        Reconstruction efficiency. Fraction of events in truth that are also in reco
-    acc : positivee float, default: 1
-        Acceptance. Fraction of the events in reco that also in truth
-    dummy_value : float, default -10.
-        Value assigned to events that are in reco but not truth or in truth but not reco
     """
+
     def __init__(self):
         self.data_reco = None
         self.data_truth = None
@@ -599,37 +583,86 @@ class DataToy(DataHandler):
     def generate(
         self,
         nevents,
+        varnames = ['x'],
         mu = 0.,
         sigma = 1.,
-        epsilon = 1.,
+        covariance = 1.,
         eff = 1.,
         acc = 1.,
         dummy_value = -10.
         ):
+        """
+        Parameters
+        ----------
+        nevents : positive int
+            Number of events in the dataset
+        varname :  list of str, default: ['x']
+            List of variable names
+        mu : float or sequence of float, default: 0
+            Mean of the truth distribution.
+        sigma : positive float or list of float, default: 1
+            Standard deviation of the truth distribution.
+        covariance : float or 1D array of float or 2D array of float, default: 1
+            Covariance for detector smearing
+        eff : positive float, default: 1
+            Reconstruction efficiency. Fraction of events in truth that are also in reco
+        acc : positivee float, default: 1
+            Acceptance. Fraction of the events in reco that also in truth
+        dummy_value : float, default -10.
+            Value assigned to events that are in reco but not truth or in truth but not reco
+        """
+
+        if np.asarray(mu).ndim == 0: # a float
+            mu_arr = np.asarray([mu]) # change to a 1D array
+        else:
+            mu_arr = np.asarray(mu)
+
+        if np.asarray(sigma).ndim == 0: # a float
+            sigma_arr = np.asarray([sigma]) # change to a 1D array
+        else:
+            sigma_arr = np.asarray(sigma)
+
+        if np.asarray(covariance).ndim == 0:
+            cov = np.diag([covariance]*len(varnames))
+        elif np.asarray(covariance).ndim == 1:
+            cov = np.diag(covariance)
+        elif np.asarray(covariance).ndim == 2:
+            cov = covariance
+        else:
+            print(f"ERROR: covariance has to be a float, 1D array of float, or 2D array of float")
+            return
+
         # generate toy data
         # truth level
-        array_truth = np.random.normal(mu, sigma, nevents)
+        dtype_truth = [(v+'_truth', 'float') for v in varnames]
+        self.data_truth = np.full(nevents, dummy_value, dtype=dtype_truth)
+        for m, s, v in zip(mu_arr, sigma_arr , varnames):
+            self.data_truth[v+'_truth'] = np.random.normal(m, s, nevents)
 
-        # detector smearing
-        array_reco = np.array([(x + np.random.normal(0, epsilon)) for x in array_truth])
+        # detector level
+        # define detector smearing
+        def measure(*data):
+            d = np.asarray(data)
+            s = np.random.multivariate_normal([0.]*len(data), cov=cov)
+            return tuple(d+s)
+
+        #after smearing
+        dtype_reco = [(v+'_reco', 'float') for v in varnames]
+        self.data_reco = np.array([measure(*data) for data in self.data_truth], dtype=dtype_reco)
 
         # efficiency
         if eff < 1:
             self.pass_reco = np.random.binomial(1, eff, nevents).astype(bool)
-            array_reco[~self.pass_reco] = dummy_value
+            self.data_reco[~self.pass_reco] = dummy_value
         else:
             self.pass_reco = np.full(nevents, True)
 
         # acceptance
         if acc < 1:
             self.pass_truth = np.random.binomial(1, acc, nevents).astype(bool)
-            array_truth[~self.pass_truth] = dummy_value
+            self.data_truth[~self.pass_truth] = dummy_value
         else:
             self.pass_truth = np.full(nevents, True)
-
-        # convert to recarray
-        self.data_truth = np.array(array_truth, dtype=[('x_truth', 'float')])
-        self.data_reco = np.array(array_reco, dtype=[('x_reco','float')])
 
         # all event weights are one for now
         self.weights = np.ones(nevents)

@@ -7,11 +7,13 @@
   "iterations" : 20,
   "truth_known" : true,
   "normalize" : true,
-  "batch_size" : 20000,
+  "batch_size" : 50000,
   "plot_verbosity" : 2,
-  "outputdir" : "output_toy",
+  "outputdir" : "output_toy_rs15",
   "run_ibu" : true,
   "preprocessor_config" : "configs/preprocessor/none.json",
+  "nruns": 15,
+  "parallel_models": 1,
   "toydata" : true,
   "lrscheduler_config": {"lr1em2": "configs/lrs/constant_1em2.json", "lr1em3": "configs/lrs/constant_1em3.json", "lr1em4": "configs/lrs/constant_1em4.json", "lr1em5": "configs/lrs/constant_1em5.json"}
 }
