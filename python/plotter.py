@@ -104,6 +104,58 @@ def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045):
         if txt is not None:
             ax.text(x, y-i*dy, txt, **textopts)
 
+def draw_histograms(
+    ax,
+    histograms, # list of Hist
+    draw_options, # list of dict
+    xlabel = '',
+    ylabel = '',
+    log_scale = False,
+    legend_loc="best",
+    legend_ncol=1,
+    stamp_texts=[],
+    stamp_loc=(0.75, 0.75),
+    title = '',
+    stack = False
+    ):
+
+    if not histograms:
+        logger.warn("No histograms to plot")
+        return
+
+    # x-axis limits and labels
+    bin_edges = histograms[0].axes[0].edges
+    ax.set_xlim(bin_edges[0], bin_edges[-1])
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    if log_scale:
+        ax.set_yscale('log')
+
+    if title:
+        ax.set_title(title)
+
+    if stack:
+        style_keys = list(draw_options[-1].keys())
+        style_stack = {k: [dopt[k] for dopt in draw_options] for k in style_keys}
+        # histtype does not allow a list of styles for the stacked histograms
+        style_stack['histtype'] = 'fill'
+
+        hep.histplot(histograms, yerr=False, stack=True, ax=ax, **style_stack)
+    else:
+        for h, opt in zip(histograms, draw_options):
+            yerr_n = myhu.get_values_and_errors(h)[1]
+            hep.histplot(h, yerr=yerr_n, ax=ax, **opt)
+
+    # legend
+    if legend_loc is not None:
+        ax.legend(loc=legend_loc, ncol=legend_ncol, frameon=False)
+
+    # stamp
+    if stamp_texts:
+        draw_stamp(ax, stamp_texts, *stamp_loc)
+
 def get_default_colors(ncolors):
     """
     Get up to the first `ncolors` of the default colour cycle.
