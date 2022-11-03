@@ -398,29 +398,6 @@ def plot_histograms_and_ratios(
         ax = axes
         ax_ratio = None
 
-    # labels and x-axis limits
-    bin_edges = hists_numerator[0].axes[0].edges
-
-    ax.set_ylabel(ylabel)
-    ax.set_xlim(bin_edges[0], bin_edges[-1])
-
-    if ax_ratio:
-        ax_ratio.set_ylabel(ylabel_ratio)
-        ax_ratio.set_xlabel(xlabel)
-        ax_ratio.set_xlim(bin_edges[0], bin_edges[-1])
-
-        if ratio_lim:
-            ax_ratio.set_ylim(*sorted(ratio_lim))
-
-    else:
-        ax.set_xlabel(xlabel)
-
-    if log_scale:
-        ax.set_yscale('log')
-
-    if title:
-        ax.set_title(title)
-
     # draw histograms
     if hist_denominator and not denominator_ratio_only:
         yerr_d = myhu.get_values_and_errors(hist_denominator)[1]
@@ -431,22 +408,30 @@ def plot_histograms_and_ratios(
     else:
         assert(len(hists_numerator) == len(draw_options_numerator))
 
-    if stack_numerators:
-        style_keys = list(draw_options_numerator[-1].keys())
-        style_stack = {
-            k: [dopt[k] for dopt in draw_options_numerator] for k in style_keys
-            }
-        # histtype does not allow a list of styles for the stacked histograms
-        style_stack['histtype'] = 'fill'
-
-        hep.histplot(hists_numerator, yerr=False, stack=True, ax=ax, **style_stack)
-    else:
-        for hist_num, draw_opt in zip(hists_numerator, draw_options_numerator):
-            yerr_n = myhu.get_values_and_errors(hist_num)[1]
-            hep.histplot(hist_num, yerr=yerr_n, ax=ax, **draw_opt)
+    draw_histograms(
+        ax,
+        histograms = hists_numerator,
+        draw_options = draw_options_numerator,
+        xlabel = xlabel if ax_ratio is None else '',
+        ylabel = ylabel,
+        log_scale = log_scale,
+        legend_loc = legend_loc,
+        legend_ncol = legend_ncol,
+        stamp_texts = stamp_texts,
+        stamp_loc = stamp_loc,
+        title = title,
+        stack = stack_numerators
+    )
 
     # draw_ratios
     if hist_denominator:
+
+        assert(ax_ratio is not None)
+        ax_ratio.set_ylabel(ylabel_ratio)
+        ax_ratio.set_xlabel(xlabel)
+        ax_ratio.set_xlim(*ax.get_xlim())
+        if ratio_lim:
+            ax_ratio.set_ylim(*sorted(ratio_lim))
 
         hists_num_ratio = [functools.reduce(lambda x,y: x+y, hists_numerator)] if stack_numerators else hists_numerator
 
@@ -461,14 +446,6 @@ def plot_histograms_and_ratios(
             get_color_from_draw_options(draw_option_denominator),
             colors_num_ratio
             )
-
-    # legend
-    if legend_loc is not None:
-        ax.legend(loc=legend_loc, ncol=legend_ncol, frameon=False)
-
-    # stamp
-    if stamp_texts:
-        draw_stamp(ax, stamp_texts, *stamp_loc)
 
     # save plot
     fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
