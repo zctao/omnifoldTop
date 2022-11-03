@@ -106,7 +106,7 @@ def plot_unfold_iterations(fname_histograms, observables, figname, plot_ratio=Fa
                     axes[r][c],
                     histograms = [hist_ref] + hists_toplot,
                     draw_options = [style_ref] + hists_styles,
-                    xlabel = ' ',
+                    xlabel = ob,
                     legend_loc = None
                 )
 
