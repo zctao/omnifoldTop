@@ -66,7 +66,7 @@ def plot_unfold_iterations(fname_histograms, observables, figname, plot_ratio=Fa
             hist_ref = h_prior
             if plot_ratio:
                 ytitle = "Ratio to Gen"
-            style_ref = plotter.truth_style
+            style_ref = plotter.gen_style
 
         for r in range(niterations):
 
@@ -106,7 +106,7 @@ def plot_unfold_iterations(fname_histograms, observables, figname, plot_ratio=Fa
                     axes[r][c],
                     histograms = [hist_ref] + hists_toplot,
                     draw_options = [style_ref] + hists_styles,
-                    xlabel = ' ',
+                    xlabel = ob,
                     legend_loc = None
                 )
 
