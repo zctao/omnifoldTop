@@ -1,0 +1,4 @@
+{
+  "x": {"nbins":25, "xmin":-5, "xmax":5},
+  "y": {"nbins":25, "xmin":-5, "xmax":5}
+}

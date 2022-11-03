@@ -97,7 +97,8 @@ def unfold(**parsed_args):
         dummy_value = parsed_args['dummy_value'],
         outputdir = parsed_args["outputdir"],
         data_reweighter = rw,
-        weight_type = parsed_args["weight_type"]
+        weight_type = parsed_args["weight_type"],
+        use_toydata = parsed_args["toydata"]
         )
 
     t_init_done = time.time()
@@ -275,6 +276,7 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument("--preprocessor-config", type=str, default='configs/preprocessor/angle_to_cos.json', help="location of the preprocessor config file")
     parser.add_argument('--parallel-models', type=int, default=1, help="Number of parallel models, default ot 1")
     parser.add_argument('--lrscheduler-config', type=str, default="configs/lrs/constant_warm_up.json", help="config file for learning rate scheduler")
+    parser.add_argument('--toydata', action='store_true', help="If True, use toy data")
 
     if print_help:
         parser.print_help()
