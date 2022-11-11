@@ -27,6 +27,10 @@ if not isinstance(run_cfgs, list):
 # loop over the list of dict objects
 for run_cfg_d in run_cfgs:
 
+    # If there is a entry: "skip": true, skip this one
+    if run_cfg_d.pop("skip", None):
+        continue
+
     # get the default argument dictionary from getArgsParser
     # -d and -s are the only two required arguments without defaults
     data_samples = run_cfg_d["data"]
