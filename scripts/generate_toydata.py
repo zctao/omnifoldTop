@@ -8,9 +8,9 @@ def generate_toydata(
     filepath_obs,
     varnames,
     mu_sim,
-    sigma_sim,
+    cov_sim,
     mu_obs,
-    sigma_obs,
+    cov_obs,
     cov_meas,
     eff,
     acc
@@ -18,9 +18,9 @@ def generate_toydata(
 
     # Gen and Sim
     toy_sim = DataToy()
-    print(f"Generating toy data sim: mu={mu_sim}, sigma={sigma_sim}, cov_meas={cov_meas}, eff={eff}, acc={acc}")
+    print(f"Generating toy data sim: mu={mu_sim}, cov={cov_sim}, cov_meas={cov_meas}, eff={eff}, acc={acc}")
     t_sim_start = time.time()
-    toy_sim.generate(nevents=nevents, varnames=varnames, mu=mu_sim, sigma=sigma_sim, covariance=cov_meas, eff=eff, acc=acc)
+    toy_sim.generate(nevents=nevents, varnames=varnames, mean=mu_sim, covariance=cov_sim, covariance_meas=cov_meas, eff=eff, acc=acc)
     t_sim_done = time.time()
     print(f"Done. {(t_sim_done-t_sim_start):.3f} seconds")
 
@@ -28,10 +28,10 @@ def generate_toydata(
     toy_sim.save_data(filepath_sim)
 
     # Data and Truth
+    print(f"Generating toy data obs: mu={mu_obs}, cov={cov_obs}, cov_meas={cov_meas}, eff={eff}, acc={acc}")
     toy_obs = DataToy()
-    print(f"Generating toy data obs: mu={mu_obs}, sigma={sigma_obs}, cov_meas={cov_meas}, eff={eff}, acc={acc}")
     t_obs_start = time.time()
-    toy_obs.generate(nevents=nevents, varnames=varnames, mu=mu_obs, sigma=sigma_obs, covariance=cov_meas, eff=eff, acc=acc)
+    toy_obs.generate(nevents=nevents, varnames=varnames, mean=mu_obs, covariance=cov_obs, covariance_meas=cov_meas, eff=eff, acc=acc)
     t_obs_done = time.time()
     print(f"Done. {(t_obs_done-t_obs_start):.3f} seconds")
 
@@ -54,49 +54,57 @@ if __name__ == "__main__":
                         help="Efficiency")
     parser.add_argument('-a', '--acc', type=float, default=1., 
                         help="Acceptance")
-    parser.add_argument('-p', '--preset', choices=['1d', '2d_ind', '2d_cor'], default='1d')
+    parser.add_argument('-p', '--preset', choices=['1d', '2d_ind', '2d_cor', '2d_meas_cor', '2d_true_cor'], default='1d')
 
     args = parser.parse_args()
 
+    # set parameters
     if args.preset == '1d':
-        generate_toydata(
-            nevents = args.nevents,
-            filepath_sim = args.filepath_sim,
-            filepath_obs = args.filepath_obs,
-            eff = args.eff,
-            acc = args.acc,
-            varnames = ['x'],
-            mu_sim = 0.,
-            sigma_sim = 1.,
-            mu_obs = 0.2,
-            sigma_obs = 0.8,
-            cov_meas = 1.
-        )
+        varnames = ['x']
+        mu_sim = 0.
+        cov_sim = 1.
+        mu_obs = 0.2
+        cov_obs = 0.64
+        cov_meas = 1.
     elif args.preset == '2d_ind':
-        generate_toydata(
-            nevents = args.nevents,
-            filepath_sim = args.filepath_sim,
-            filepath_obs = args.filepath_obs,
-            eff = args.eff,
-            acc = args.acc,
-            varnames = ['x', 'y'],
-            mu_sim = [0., 0.],
-            sigma_sim = [1., 1.],
-            mu_obs = [0.2, -0.3],
-            sigma_obs = [0.8, 0.9],
-            cov_meas = [[1.,0.],[0.,1.]]
-        )
+        varnames = ['x', 'y']
+        mu_sim = [0., 0.]
+        cov_sim = [[1.,0.], [0.,1.]]
+        mu_obs = [0.2, -0.3]
+        cov_obs = [[0.64,0.], [0.,0.81]]
+        cov_meas = [[1.,0.],[0.,1.]]
+    elif args.preset == '2d_meas_cor':
+        varnames = ['x', 'y']
+        mu_sim = [0., 0.]
+        cov_sim = [[1.,0.], [0.,1.]]
+        mu_obs = [0.2, -0.3]
+        cov_obs = [[0.64,0.], [0.,0.81]]
+        cov_meas = [[1.,-0.5],[-0.5,1.]]
+    elif args.preset == '2d_true_cor':
+        varnames = ['x', 'y']
+        mu_sim = [0., 0.]
+        cov_sim = [[1.,-0.5], [-0.5,1.]]
+        mu_obs = [0.2, -0.3]
+        cov_obs = [[0.64,-0.36], [-0.36,0.81]] # same correlation as sim. Use a slightly different correlation instead?
+        cov_meas = [[1.,0.],[0.,1.]]
     elif args.preset == '2d_cor':
-        generate_toydata(
-            nevents = args.nevents,
-            filepath_sim = args.filepath_sim,
-            filepath_obs = args.filepath_obs,
-            eff = args.eff,
-            acc = args.acc,
-            varnames = ['x', 'y'],
-            mu_sim = [0., 0.],
-            sigma_sim = [1., 1.],
-            mu_obs = [0.2, -0.3],
-            sigma_obs = [0.8, 0.9],
-            cov_meas = [[1.,-0.5],[-0.5,1.]]
-        )
+        varnames = ['x', 'y']
+        mu_sim = [0., 0.]
+        cov_sim = [[1.,-0.5], [-0.5,1.]]
+        mu_obs = [0.2, -0.3]
+        cov_obs = [[0.64,-0.36], [-0.36,0.81]] # same correlation as sim. Use a slightly different correlation instead?
+        cov_meas = [[1.,0.5],[0.5,1.]]
+
+    generate_toydata(
+        nevents = args.nevents,
+        filepath_sim = args.filepath_sim,
+        filepath_obs = args.filepath_obs,
+        eff = args.eff,
+        acc = args.acc,
+        varnames = varnames,
+        mu_sim = mu_sim,
+        cov_sim = cov_sim,
+        mu_obs = mu_obs,
+        cov_obs = cov_obs,
+        cov_meas = cov_meas
+    )

@@ -584,9 +584,9 @@ class DataToy(DataHandler):
         self,
         nevents,
         varnames = ['x'],
-        mu = 0.,
-        sigma = 1.,
+        mean = 0.,
         covariance = 1.,
+        covariance_meas = 1.,
         eff = 1.,
         acc = 1.,
         dummy_value = -10.
@@ -598,11 +598,11 @@ class DataToy(DataHandler):
             Number of events in the dataset
         varname :  list of str, default: ['x']
             List of variable names
-        mu : float or sequence of float, default: 0
+        mean : float or sequence of float, default: 0
             Mean of the truth distribution.
-        sigma : positive float or list of float, default: 1
-            Standard deviation of the truth distribution.
         covariance : float or 1D array of float or 2D array of float, default: 1
+            Covariance for generating toy data
+        covariance_meas : float or 1D array of float or 2D array of float, default: 1
             Covariance for detector smearing
         eff : positive float, default: 1
             Reconstruction efficiency. Fraction of events in truth that are also in reco
@@ -612,38 +612,42 @@ class DataToy(DataHandler):
             Value assigned to events that are in reco but not truth or in truth but not reco
         """
 
-        if np.asarray(mu).ndim == 0: # a float
-            mu_arr = np.asarray([mu]) # change to a 1D array
+        if np.asarray(mean).ndim == 0: # a float
+            mean = np.asarray([mean]) # change to a 1D array
         else:
-            mu_arr = np.asarray(mu)
-
-        if np.asarray(sigma).ndim == 0: # a float
-            sigma_arr = np.asarray([sigma]) # change to a 1D array
-        else:
-            sigma_arr = np.asarray(sigma)
+            mean = np.asarray(mean)
 
         if np.asarray(covariance).ndim == 0:
-            cov = np.diag([covariance]*len(varnames))
+            cov_t = np.diag([covariance]*len(varnames))
         elif np.asarray(covariance).ndim == 1:
-            cov = np.diag(covariance)
+            cov_t = np.diag(covariance)
         elif np.asarray(covariance).ndim == 2:
-            cov = covariance
+            cov_t = covariance
         else:
-            print(f"ERROR: covariance has to be a float, 1D array of float, or 2D array of float")
+            print(f"ERROR: covariance_true has to be a float, 1D array of float, or 2D array of float")
+            return
+
+        if np.asarray(covariance_meas).ndim == 0:
+            cov_m = np.diag([covariance_meas]*len(varnames))
+        elif np.asarray(covariance_meas).ndim == 1:
+            cov_m = np.diag(covariance_meas)
+        elif np.asarray(covariance_meas).ndim == 2:
+            cov_m = covariance_meas
+        else:
+            print(f"ERROR: covariance_meas has to be a float, 1D array of float, or 2D array of float")
             return
 
         # generate toy data
         # truth level
         dtype_truth = [(v+'_truth', 'float') for v in varnames]
-        self.data_truth = np.full(nevents, dummy_value, dtype=dtype_truth)
-        for m, s, v in zip(mu_arr, sigma_arr , varnames):
-            self.data_truth[v+'_truth'] = np.random.normal(m, s, nevents)
+        arr_truth = np.random.multivariate_normal(mean, cov=cov_t, size=nevents)
+        self.data_truth = np.rec.fromarrays(arr_truth.T, dtype=dtype_truth)
 
         # detector level
         # define detector smearing
         def measure(*data):
             d = np.asarray(data)
-            s = np.random.multivariate_normal([0.]*len(data), cov=cov)
+            s = np.random.multivariate_normal([0.]*len(data), cov=cov_m)
             return tuple(d+s)
 
         #after smearing
