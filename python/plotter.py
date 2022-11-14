@@ -802,7 +802,7 @@ def plot_LR_distr(figname, ratios, labels=None):
     labels : sequence of str, optional
         Labels for each set of likelihood ratios in `ratios`.
     """
-    bins_r = np.linspace(min(r.min() for r in ratios)*0.9, max(r.max() for r in ratios)*1.1, 50)
+    bins_r = 25 #np.linspace(min(r.min() for r in ratios)*0.9, max(r.max() for r in ratios)*1.1, 50)
 
     fig, ax = plt.subplots()
     ax.set_xlabel("Likelihood ratio")
