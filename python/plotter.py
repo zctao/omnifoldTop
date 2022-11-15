@@ -686,9 +686,8 @@ def plot_distributions_iteration(
     draw_options_num = []
     for i, h, c in zip(selected_i, hists_toplot, colors):
         draw_options_num.append({
-            'histtype':'errorbar', 'xerr':True,
+            'histtype':'step',
             'color':c, 'alpha':0.8,
-            'marker':'o', 'markersize':2,
             'label':f'iteration {i}'
             })
 

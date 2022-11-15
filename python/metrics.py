@@ -516,7 +516,7 @@ def plot_metrics_vs_iterations(
         figname
     ):
 
-    dataarr, labels = [], []
+    dataarr, labels, colors = [], [], []
 
     for (k, l) in [('nominal', 'MultiFold'), ('IBU', 'IBU')]:
         if not k in metrics_d:
@@ -528,13 +528,19 @@ def plot_metrics_vs_iterations(
         dataarr.append( (mvalue['iterations'], mvalue[value_str]) )
         labels.append(l)
 
+        if l=='MultiFold':
+            colors.append(plotter.omnifold_style['color'])
+        elif l=='IBU':
+            colors.append(plotter.ibu_style['color'])
+
     if not dataarr:
         return
 
     plotter.plot_graphs(
         figname, dataarr,
         labels = labels, xlabel = 'Iteration', ylabel = ylabel,
-        markers = [marker]*len(dataarr)
+        markers = [marker]*len(dataarr),
+        colors = colors
     )
 
 def plot_metrics_vs_iterations_allresamples(
@@ -601,16 +607,25 @@ def plot_all_metrics(metrics_dict, figname_prefix):
     plot_metrics_vs_iterations(
         metrics_dict,
         metrics_str = 'Delta', value_str = 'delta',
-        ylabel = 'Triangular discriminator w.r.t. truth',
+        ylabel = '\u0394 w.r.t. truth',
         marker = 'o',
         figname = figname_prefix+'_Delta_wrt_Truth'
+        )
+
+    # With respect to previous iteration
+    plot_metrics_vs_iterations(
+        metrics_dict,
+        metrics_str = 'Delta_wrt_prev', value_str = 'delta',
+        ylabel = '\u0394 w.r.t. previous iteration',
+        marker = '*',
+        figname = figname_prefix+'_Delta_wrt_Prev'
         )
 
     # All resamples
     plot_metrics_vs_iterations_allresamples(
         metrics_dict,
         metrics_str='Delta', value_str='delta',
-        ylabel = 'Triangular discriminator w.r.t. truth',
+        ylabel = '\u0394 w.r.t. truth',
         marker = 'o',
         figname = figname_prefix+'_AllResamples_Delta_wrt_Truth'
         )
