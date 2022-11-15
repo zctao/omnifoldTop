@@ -460,7 +460,8 @@ def plot_distributions_reco(
     ylabel='Events',
     ylabel_ratio='Ratio to\nData',
     legend_loc="best",
-    legend_ncol=1
+    legend_ncol=1,
+    ratio_lim = None,
     ):
     """
     Plot detector-level variable distributions.
@@ -507,7 +508,8 @@ def plot_distributions_reco(
         log_scale = False,
         legend_loc = legend_loc,
         legend_ncol = legend_ncol,
-        stack_numerators = True
+        stack_numerators = True,
+        ratio_lim = ratio_lim
         )
 
 def plot_distributions_unfold(
@@ -523,6 +525,7 @@ def plot_distributions_unfold(
     legend_ncol=1,
     stamp_texts=[],
     stamp_loc=(0.75, 0.75),
+    ratio_lim = None,
     ):
     """
     Plot and compare the unfolded distributions.
@@ -549,6 +552,8 @@ def plot_distributions_unfold(
         Additional text to draw on the axes.
     stamp_loc : tuple of (float, float)
         Position of the additional text in data coordinates.
+    ratio_lim : tuple of (float, float)
+        Y-axis limit of the ratio plot
     """
 
     hists_toplot = []
@@ -583,6 +588,7 @@ def plot_distributions_unfold(
         legend_ncol = legend_ncol,
         stamp_texts = stamp_texts,
         stamp_loc = stamp_loc,
+        ratio_lim = ratio_lim
         )
 
 def plot_correlations(figname, correlations, bins=None):

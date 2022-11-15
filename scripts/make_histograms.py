@@ -372,7 +372,8 @@ def plot_histograms(
     ylabel = '',
     legend_loc = 'best',
     legend_ncol = 1,
-    stamp_loc=(0.75, 0.75)
+    stamp_loc=(0.75, 0.75),
+    ratio_lim = None
     ):
 
     if plot_verbosity < 1 or not outdir:
@@ -399,7 +400,8 @@ def plot_histograms(
         h_uf, h_gen, h_truth, h_ibu,
         xlabel = xlabel, ylabel = ylabel,
         legend_loc = legend_loc, legend_ncol = legend_ncol,
-        stamp_loc = stamp_loc, stamp_texts = texts_chi2
+        stamp_loc = stamp_loc, stamp_texts = texts_chi2,
+        ratio_lim = ratio_lim
         )
 
     ###
@@ -588,7 +590,8 @@ def make_histograms_from_unfolder(
             ylabel = obsConfig_d[ob]['ylabel'],
             legend_loc = obsConfig_d[ob]['legend_loc'],
             legend_ncol = obsConfig_d[ob]['legend_ncol'],
-            stamp_loc =  obsConfig_d[ob]['stamp_xy']
+            stamp_loc =  obsConfig_d[ob]['stamp_xy'],
+            ratio_lim = obsConfig_d[ob].get('ratio_lim')
             )
 
     # save histograms to file
