@@ -419,7 +419,7 @@ class DataHandler(Mapping):
 
         return weights
 
-    def get_correlations(self, variables, reco_weights=True):
+    def get_correlations(self, variables, weights=None):
         """
         Calculate the correlation matrix between several variables.
 
@@ -427,15 +427,30 @@ class DataHandler(Mapping):
         ----------
         variables : sequence of str
             Names of the variables to include in the correlation matrix.
-        reco_weights : bool
-            If True, use reco level event weights, otherwise use MC truth weights
+        weights : array-like of shape (nevents,), default None
+            Event weigts for computing correlation. If None, the internal reco-level or truth-level weights are used depending on the variables
 
         Returns
         -------
         pandas.DataFrame
+
+        Raises
+        ------
+        ValueError
+            If the variables are not all of reco level or truth level
         """
 
-        w = self.weights if reco_weights else self.weights_mc
+        if weights is None:
+            isReco = np.all([self._in_data_reco(var) for var in variables])
+            isTrue = np.all([self._in_data_truth(var) for var in variables])
+            if isReco:
+                w = self.weights
+            elif isTrue:
+                w = self.weights_mc
+            else:
+                raise ValueError(f"Variables are unknown or are a mixture of reco- and truth-level variables: {variables}")
+        else:
+            w = weights
 
         cor_df = pd.DataFrame(np.eye(len(variables)), index=variables, columns=variables)
 

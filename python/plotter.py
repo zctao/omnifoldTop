@@ -591,7 +591,7 @@ def plot_distributions_unfold(
         ratio_lim = ratio_lim
         )
 
-def plot_correlations(figname, correlations, bins=None):
+def plot_correlations(figname, correlations, bins=None, print_bincontents=False):
     fig, ax = plt.subplots()
 
     if bins is None:
@@ -608,6 +608,20 @@ def plot_correlations(figname, correlations, bins=None):
         correlations, xbins=bins, ybins=bins, vmin=-1, vmax=1,
         cbar=True, cmin=-1, cmax=1, cmap='coolwarm',
         ax=ax)
+
+    if print_bincontents:
+        if isinstance(correlations, pd.DataFrame):
+            indices = correlations.columns
+        else:
+            indices = list(range(len(correlations)))
+
+        fontsize = min(10, 40/(len(bins)-1))
+
+        centers = (bins[:-1]+bins[1:])/2
+        for ix, xc in zip(indices, centers):
+            for iy, yc in zip(indices, centers):
+                bin_content = f"{correlations[ix][iy]:.2f}"
+                ax.text(xc, yc, bin_content, ha='center', va='center', fontsize=fontsize)
 
     fig.savefig(figname+'.png', dpi=200)
     plt.close(fig)

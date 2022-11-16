@@ -586,6 +586,15 @@ class OmniFoldTTbar():
 
         return h_uf, bin_corr
 
+    def get_correlations_unfolded(self, varnames, irun=0, iteration=-1):
+        # truth-level prior weights
+        w_prior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
+
+        # weights after unfolding
+        w_unf = w_prior * self.unfolded_weights[irun][iteration]
+
+        return self.handle_sig.get_correlations(varnames, weights=w_unf)
+
     def plot_more(self):
         # Event weights
         logger.info("Plot event weights")

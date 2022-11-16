@@ -158,22 +158,42 @@ def unfold(**parsed_args):
     # Make histograms and plots
     #################
 
-    # Input variable correlations
+    # Variable correlations
     if parsed_args['plot_verbosity'] >= 2: # '-pp'
+        # Before unfolding
         logger.info(f"Plot input variable correlations")
+
         corr_data = unfolder.handle_obs.get_correlations(varnames_train_reco)
         plotter.plot_correlations(
-            os.path.join(unfolder.outdir, "InputCorr_data"), corr_data
+            os.path.join(unfolder.outdir, "InputCorr_data"), corr_data,
+            print_bincontents=True
         )
+
+        if parsed_args['truth_known']:
+            corr_truth = unfolder.handle_obs.get_correlations(varnames_train_truth)
+            plotter.plot_correlations(
+                os.path.join(unfolder.outdir, "InputCorr_truth"), corr_truth,
+                print_bincontents=True
+            )
 
         corr_sim = unfolder.handle_sig.get_correlations(varnames_train_reco)
         plotter.plot_correlations(
-            os.path.join(unfolder.outdir, "InputCorr_sim"), corr_sim
+            os.path.join(unfolder.outdir, "InputCorr_sim"), corr_sim,
+            print_bincontents=True
         )
 
         corr_gen = unfolder.handle_sig.get_correlations(varnames_train_truth)
         plotter.plot_correlations(
-            os.path.join(unfolder.outdir, "InputCorr_gen"), corr_gen
+            os.path.join(unfolder.outdir, "InputCorr_gen"), corr_gen,
+            print_bincontents=True
+        )
+
+        # After unfolding
+        logger.info(f"Plot variable correlations after unfolding")
+        corr_unf = unfolder.get_correlations_unfolded(varnames_train_truth)
+        plotter.plot_correlations(
+            os.path.join(unfolder.outdir, "OutputCorr_unf"), corr_unf,
+            print_bincontents=True
         )
 
     ###
