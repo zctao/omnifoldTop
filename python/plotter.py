@@ -597,7 +597,7 @@ def plot_correlations(figname, correlations, bins=None):
     if bins is None:
         bins = np.linspace(0, len(correlations), len(correlations)+1)
         ax.tick_params(axis='both', labelsize='small')
-        ax.tick_params(axis='x', top=True, labeltop=True, bottom=False, labelbottom=False, labelrotation=30)
+        ax.tick_params(axis='x', top=False, labeltop=False, bottom=True, labelbottom=True, labelrotation=30)
         ticks = np.arange(0.5, len(correlations)+0.5, 1)
         ax.set_xticks(ticks)
         ax.set_yticks(ticks)

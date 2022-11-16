@@ -5,6 +5,7 @@ from scipy.optimize import curve_fit
 from packaging import version
 import tensorflow as tf
 import logging
+import itertools
 
 def parse_input_name(fname):
     fname_list = fname.split('*')
@@ -220,3 +221,14 @@ def prepend_arrays(element, input_array):
     element_arr = np.full(shape, element)
 
     return np.concatenate([element_arr, input_array], axis=-1)
+
+def pairwise(iterable):
+    a, b = itertools.tee(iterable)
+    next(b, None)
+    return zip(a, b)
+
+def cov_w(x, y, w):
+    return np.average( (x - np.average(x, weights=w)) * (y - np.average(y, weights=w)), weights=w)
+
+def cor_w(x,y,w):
+    return cov_w(x, y, w) / np.sqrt( cov_w( x, x, w) * cov_w( y, y, w) )

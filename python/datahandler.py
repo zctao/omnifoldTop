@@ -6,7 +6,7 @@ from collections.abc import Mapping
 
 import numpy as np
 import pandas as pd
-from util import parse_input_name
+import util
 from histogramming import calc_hist
 
 def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes', weight_columns=[]):
@@ -57,7 +57,7 @@ def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='by
         weight_columns = [weight_columns]
 
     for fname in file_names:
-        fn, rwfactor = parse_input_name(fname)
+        fn, rwfactor = util.parse_input_name(fname)
 
         npzfile = np.load(fn, allow_pickle=allow_pickle, encoding=encoding)
         di = npzfile[array_name]
@@ -419,7 +419,7 @@ class DataHandler(Mapping):
 
         return weights
 
-    def get_correlations(self, variables):
+    def get_correlations(self, variables, reco_weights=True):
         """
         Calculate the correlation matrix between several variables.
 
@@ -427,14 +427,24 @@ class DataHandler(Mapping):
         ----------
         variables : sequence of str
             Names of the variables to include in the correlation matrix.
+        reco_weights : bool
+            If True, use reco level event weights, otherwise use MC truth weights
 
         Returns
         -------
         pandas.DataFrame
         """
-        df = pd.DataFrame({var: self[var] for var in variables}, columns=variables)
-        correlations = df.corr()
-        return correlations
+
+        w = self.weights if reco_weights else self.weights_mc
+
+        cor_df = pd.DataFrame(np.eye(len(variables)), index=variables, columns=variables)
+
+        for var1, var2 in util.pairwise(variables):
+            cor12 = util.cor_w(self[var1], self[var2], w)
+            cor_df[var1][var2] = cor12
+            cor_df[var2][var1] = cor12
+
+        return cor_df
 
     def get_histogram(self, variable, bin_edges, weights=None, density=False, norm=None, absoluteValue=False):
         """
