@@ -54,7 +54,7 @@ if __name__ == "__main__":
                         help="Efficiency")
     parser.add_argument('-a', '--acc', type=float, default=1., 
                         help="Acceptance")
-    parser.add_argument('-p', '--preset', choices=['1d', '2d_ind', '2d_cor', '2d_meas_cor', '2d_true_cor'], default='1d')
+    parser.add_argument('-p', '--preset', choices=['1d', '2d_ind', '2d_cor', '2d_meas_cor', '2d_true_cor', '4d_ind', '4d_cor', '4d_meas_cor', '4d_true_cor', '2d_true_cor_diff', '2d_cor_diff'], default='1d')
 
     args = parser.parse_args()
 
@@ -85,7 +85,14 @@ if __name__ == "__main__":
         mu_sim = [0., 0.]
         cov_sim = [[1.,-0.5], [-0.5,1.]]
         mu_obs = [0.2, -0.3]
-        cov_obs = [[0.64,-0.36], [-0.36,0.81]] # same correlation as sim. Use a slightly different correlation instead?
+        cov_obs = [[0.64,-0.36], [-0.36,0.81]] # same correlation as sim.
+        cov_meas = [[1.,0.],[0.,1.]]
+    elif args.preset == '2d_true_cor_diff':
+        varnames = ['x', 'y']
+        mu_sim = [0., 0.]
+        cov_sim = [[1.,-0.1], [-0.1,1.]]
+        mu_obs = [0.2, -0.3]
+        cov_obs = [[0.64,-0.36], [-0.36,0.81]] # different correlation as sim.
         cov_meas = [[1.,0.],[0.,1.]]
     elif args.preset == '2d_cor':
         varnames = ['x', 'y']
@@ -94,6 +101,41 @@ if __name__ == "__main__":
         mu_obs = [0.2, -0.3]
         cov_obs = [[0.64,-0.36], [-0.36,0.81]] # same correlation as sim. Use a slightly different correlation instead?
         cov_meas = [[1.,0.5],[0.5,1.]]
+    elif args.preset == '2d_cor_diff':
+        varnames = ['x', 'y']
+        mu_sim = [0., 0.]
+        cov_sim = [[1.,-0.1], [-0.1,1.]]
+        mu_obs = [0.2, -0.3]
+        cov_obs = [[0.64,-0.36], [-0.36,0.81]] # same correlation as sim. Use a slightly different correlation instead?
+        cov_meas = [[1.,0.5],[0.5,1.]]
+    elif args.preset == '4d_ind':
+        varnames = ['x', 'y', 'z', 'v']
+        mu_sim = [0., 0., 0., 0.]
+        cov_sim = [[1.,0.,0.,0.], [0.,1.,0.,0.], [0.,0.,1.,0.], [0.,0.,0.,1.]]
+        mu_obs = [0.2, -0.3, -0.5, 1.0]
+        cov_obs = [[0.64,0.,0.,0.], [0.,0.81,0.,0.], [0.,0.,1.21,0.], [0.,0.,0.,2.25]]
+        cov_meas = [[1.,0.,0.,0.], [0.,1.,0.,0.], [0.,0.,1.,0.], [0.,0.,0.,1.]]
+    elif args.preset == '4d_meas_cor':
+        varnames = ['x', 'y', 'z', 'v']
+        mu_sim = [0., 0., 0., 0.]
+        cov_sim = [[1.,0.,0.,0.], [0.,1.,0.,0.], [0.,0.,1.,0.], [0.,0.,0.,1.]]
+        mu_obs = [0.2, -0.3, -0.5, 1.0]
+        cov_obs = [[0.64,0.,0.,0.], [0.,0.81,0.,0.], [0.,0.,1.21,0.], [0.,0.,0.,2.25]]
+        cov_meas = [[1.,-0.5,0.5,0.], [-0.5,1.,0.,0.], [0.5,0.,1.,0.], [0.,0.,0.,1.]]
+    elif args.preset == '4d_true_cor':
+        varnames = ['x', 'y', 'z', 'v']
+        mu_sim = [0., 0., 0., 0.]
+        cov_sim = [[1.,-0.5,0.5,0.], [-0.5,1.,0.,0.], [0.5,0.,1.,0.], [0.,0.,0.,1.]]
+        mu_obs = [0.2, -0.3, -0.5, 1.0]
+        cov_obs = [[0.64,-0.36,0.44,0.], [-0.36,0.81,0.,0.], [0.44,0.,1.21,0.], [0.,0.,0.,2.25]]
+        cov_meas = [[1.,0.,0.,0.], [0.,1.,0.,0.], [0.,0.,1.,0.], [0.,0.,0.,1.]]
+    elif args.preset == '4d_cor':
+        varnames = ['x', 'y', 'z', 'v']
+        mu_sim = [0., 0., 0., 0.]
+        cov_sim = [[1.,-0.5,0.5,0.], [-0.5,1.,0.,0.], [0.5,0.,1.,0.], [0.,0.,0.,1.]]
+        mu_obs = [0.2, -0.3, -0.5, 1.0]
+        cov_obs = [[0.64,-0.36,0.44,0.], [-0.36,0.81,0.,0.], [0.44,0.,1.21,0.], [0.,0.,0.,2.25]]
+        cov_meas = [[1.,0.5,-0.5,0.], [0.5,1.,0.,0.], [-0.5,0.,1.,0.], [0.,0.,0.,1.]]
 
     generate_toydata(
         nevents = args.nevents,

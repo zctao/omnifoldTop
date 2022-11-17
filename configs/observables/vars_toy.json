@@ -20,5 +20,27 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "ratio_lim": [0.0, 10.0]
+  },
+  "z": {
+    "branch_det": "z_reco",
+    "branch_mc": "z_truth",
+    "xlabel": "z",
+    "ylabel": "Events",
+    "ylabel_density": "Events/$\\Delta z$",
+    "stamp_xy": [0.32, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true,
+    "ratio_lim": [0.0, 10.0]
+  },
+  "v": {
+    "branch_det": "v_reco",
+    "branch_mc": "v_truth",
+    "xlabel": "v",
+    "ylabel": "Events",
+    "ylabel_density": "Events/$\\Delta v$",
+    "stamp_xy": [0.32, 0.25],
+    "legend_loc": "upper right", "legend_ncol": 1,
+    "draw_prior_ratio": true,
+    "ratio_lim": [0.0, 10.0]
   }
 }

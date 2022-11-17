@@ -1,4 +1,6 @@
 {
   "x": {"nbins":25, "xmin":-5, "xmax":5},
-  "y": {"nbins":25, "xmin":-5, "xmax":5}
+  "y": {"nbins":25, "xmin":-5, "xmax":5},
+  "z": {"nbins":25, "xmin":-5, "xmax":5},
+  "v": {"nbins":30, "xmin":-5, "xmax":7}
 }
