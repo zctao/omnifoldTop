@@ -390,8 +390,11 @@ def plot_histograms(
 
     ###
     # print metrics on the plot
-    texts_chi2 = metrics.write_texts_Chi2(
-        h_truth, [h_uf, h_ibu, h_gen], labels = ['MultiFold', 'IBU', 'Prior'])
+    if plot_verbosity > 2:
+        texts_chi2 = metrics.write_texts_Chi2(
+            h_truth, [h_uf, h_ibu, h_gen], labels = ['MultiFold', 'IBU', 'Prior'])
+    else:
+        texts_chi2 = []
 
     figname_uf = os.path.join(outdir, f"Unfold_{observable}")
     logger.info(f" Plot unfolded distribution: {figname_uf}")
@@ -485,11 +488,11 @@ def plot_histograms(
                 )
 
     ######
-    if plot_verbosity < 3:
+    if plot_verbosity < 5:
         return
 
     # Usually skip plotting these unless really necessary
-    # -ppp
+    # -ppppp
     ###
     # Distributions of bin entries
     hists_uf_all =  hists_dict.get('unfolded_all')
