@@ -152,6 +152,10 @@ def createRun2Config(
         common_cfg = {}
     ):
 
+    # get the real paths of the sample directory and output directory
+    sample_local_dir = os.path.realpath(sample_local_dir)
+    output_top_dir = os.path.realpath(output_top_dir)
+
     # in case outname_config comes with an extension
     outname_config = os.path.splitext(outname_config)[0]
 
