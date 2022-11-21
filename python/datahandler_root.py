@@ -248,9 +248,10 @@ class DataHandlerROOT(DataHandler):
                 filepaths, treename_truth, variable_names_mc)
 
             # event weights
-            self.weights_mc = load_weights_root(
-                filepaths, treename_truth, weight_name = 'normalized_weight_mc'
-                )
+            #self.weights_mc = load_weights_root(
+            #    filepaths, treename_truth, weight_name = 'normalized_weight_mc'
+            #    )
+            self.weights_mc = self.weights.copy()
         else:
             self.data_truth = None
             self.pass_truth = None

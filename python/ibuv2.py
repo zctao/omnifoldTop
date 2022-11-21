@@ -114,7 +114,8 @@ def run_ibu(
     )
 
     # signal MC truth level prior
-    h_prior = myhu.calc_hist(array_gen, bins_truth, weights=weights_gen, density=False)
+    #h_prior = myhu.calc_hist(array_gen, bins_truth, weights=weights_gen, density=False)
+    h_prior = myhu.calc_hist(array_gen, bins_truth, weights=weights_sim, density=False)
 
     # unfolded distribution
     hists_ibu = _unfold(r, h_obs, h_prior, niterations,
