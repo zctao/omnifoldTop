@@ -669,8 +669,7 @@ def make_histograms(
     ufdr = load_unfolder(
         fpath_args_config,
         observables,
-        obsConfig_d,
-        normalize_to_data=False
+        obsConfig_d
         )
 
     t_load_stop = time.time()
