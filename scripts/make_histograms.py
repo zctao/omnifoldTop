@@ -122,9 +122,12 @@ def make_histograms_of_observable(
 
     hists_v_d = {}
 
+    varname_reco = obsConfig_d[observable]['branch_det']
     varname_truth = obsConfig_d[observable]['branch_mc']
 
     # get bin edges
+    # TODO different binning at reco and truth level
+    bins_det = util.get_bins(observable, binning_config)
     bins_mc = util.get_bins(observable, binning_config)
 
     absValue = "_abs" in observable
@@ -194,14 +197,41 @@ def make_histograms_of_observable(
     # Other truth-level distributions
     ##
     # Prior
+    # For now TODO fix norm
     logger.debug(f" Prior distribution")
     hists_v_d['prior'] = unfolder.handle_sig.get_histogram(
         varname_truth,
         bins_mc,
+        #weights = unfolder.handle_sig.get_weights(reco_level=True),
         density = False,
         norm = norm_uf,
         absoluteValue = absValue
         )
+
+    hists_v_d['prior_orig'] = unfolder.handle_sig.get_histogram(
+        varname_truth,
+        bins_mc,
+        #weights = unfolder.handle_sig.get_weights(reco_level=True),
+        density = False,
+        norm = None,
+        absoluteValue = absValue
+        )
+
+    hist2d_sig = unfolder.handle_sig.get_histogram2d(
+        varname_reco,
+        varname_truth,
+        bins_x = bins_det,
+        bins_y = bins_mc,
+        absoluteValue_x = absValue,
+        absoluteValue_y = absValue
+        )
+
+    htemp_prior = hist2d_sig.project(1) # this includes underflow/overflow bins in axis 0
+    # Use the binning from the projected histogram but overwrite its content
+    # Exclude underflow and overflow bins
+    htemp_prior.view()['value'] = hist2d_sig.values().sum(axis=0)
+    htemp_prior.view()['variance'] = hist2d_sig.variances().sum(axis=0)
+    hists_v_d['prior_noflow'] = htemp_prior
 
     ##
     # truth distribution if using pseudo data
@@ -210,10 +240,25 @@ def make_histograms_of_observable(
         hists_v_d['truth'] = unfolder.handle_obs.get_histogram(
             varname_truth,
             bins_mc,
+            #weights = unfolder.handle_obs.get_weights(reco_level=True),
             density = False,
             norm = norm_uf,
             absoluteValue = absValue
             )
+
+        hist2d_obs = unfolder.handle_obs.get_histogram2d(
+            varname_reco,
+            varname_truth,
+            bins_x = bins_det,
+            bins_y = bins_mc,
+            absoluteValue_x = absValue,
+            absoluteValue_y = absValue
+        )
+
+        htemp_truth = hist2d_obs.project(1)
+        htemp_truth.view()['value'] = hist2d_obs.values().sum(axis=0)
+        htemp_truth.view()['variance'] = hist2d_obs.variances().sum(axis=0)
+        hists_v_d['truth_noflow'] = htemp_truth
 
     ##
     # IBU
@@ -221,9 +266,6 @@ def make_histograms_of_observable(
         logger.info(f" Run IBU for {observable}")
 
         varname_reco = obsConfig_d[observable]['branch_det']
-
-        # TODO different binning at reco and truth level
-        bins_det = util.get_bins(observable, binning_config)
 
         hists_ibu_alliters, h_ibu_correlation, response = get_ibu_unfolded_histogram_from_unfolder(
             unfolder,
@@ -253,10 +295,6 @@ def make_histograms_of_observable(
     # Reco level
     if include_reco:
         logger.debug(f" Reco-level distributions")
-        varname_reco = obsConfig_d[observable]['branch_det']
-
-        # TODO different binning at reco and truth level
-        bins_det = util.get_bins(observable, binning_config)
 
         # observed data
         h_data = unfolder.handle_obs.get_histogram(
@@ -605,7 +643,7 @@ def make_histograms_from_unfolder(
         keys_to_save = [
             'unfolded', 'unfolded_alliters', 'unfolded_allruns', 'unfolded_correlation',
             'unfolded_effcor', 'relativeDiffXs', 'absoluteDiffXs',
-            'prior', 'truth',
+            'prior', 'prior_orig', 'prior_noflow', 'truth', 'truth_noflow',
             'reco_data', 'reco_sig', 'reco_bkg',
             'ibu', 'ibu_alliters', 'ibu_correlation', 'response',
             'relativeDiffXs_ibu', 'absoluteDiffXs_ibu',

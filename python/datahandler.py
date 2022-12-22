@@ -7,7 +7,7 @@ from collections.abc import Mapping
 import numpy as np
 import pandas as pd
 import util
-from histogramming import calc_hist
+from histogramming import calc_hist, calc_hist2d
 
 def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes', weight_columns=[]):
     """
@@ -511,6 +511,47 @@ class DataHandler(Mapping):
             return hists
         else:
             raise RuntimeError("Unknown type of weights: {}".format(type(weights)))
+
+    def get_histogram2d(
+        self,
+        variable_x,
+        variable_y,
+        bins_x,
+        bins_y,
+        weights=None,
+        absoluteValue_x=False,
+        absoluteValue_y=False,
+        density=False
+        ):
+        """
+
+        """
+        varr_x = self.get_arrays(variable_x, valid_only=False)
+        sel_x = self.pass_truth if self._in_data_truth(variable_x) else self.pass_reco
+
+        varr_y = self.get_arrays(variable_y, valid_only=False)
+        sel_y = self.pass_truth if self._in_data_truth(variable_y) else self.pass_reco
+
+        sel = sel_x & sel_y
+        varr_x = varr_x[sel]
+        varr_y = varr_y[sel]
+
+        if absoluteValue_x:
+            varr_x = np.abs(varr_x)
+
+        if absoluteValue_y:
+            varr_y = np.abs(varr_y)
+
+        if weights is None:
+            w = self.get_weights(reco_level=True, valid_only=False)
+            w = w[sel]
+        elif len(weights) == len(sel):
+            w = weights[sel]
+
+        assert(len(varr_x) == len(w))
+        assert(len(varr_y) == len(w))
+
+        return calc_hist2d(varr_x, varr_y, bins=(bins_x, bins_y), weights=w, density=density)
 
 def _filter_variable_names(variable_names):
     """
