@@ -141,7 +141,7 @@ def unfold(**parsed_args):
             resample_everyrun = parsed_args['resample_everyrun'],
             model_type = parsed_args['model_name'],
             save_models = True,
-            load_previous_iteration = True, # TODO check here
+            load_previous_iteration = False, # TODO check here
             load_models_from = parsed_args['load_models'],
             batch_size = parsed_args['batch_size'],
             plot_status = parsed_args['plot_verbosity'] >= 2
