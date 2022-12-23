@@ -757,8 +757,7 @@ if __name__ == "__main__":
     parser.add_argument('result_dir', type=str,
                         help="Directory of the unfolding results")
     parser.add_argument("--binning-config", type=str,
-                        default='configs/binning/bins_10equal.json',
-                        #default='configs/binning/bins_ttdiffxs.json',
+                        default='configs/binning/bins_ttdiffxs.json',
                         help="Path to the binning config file for variables.")
     parser.add_argument("--observables", nargs='+', default=[],
                         help="List of observables to make histograms. If not provided, use the same ones from the unfolding results")
