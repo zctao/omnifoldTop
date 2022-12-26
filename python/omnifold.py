@@ -262,7 +262,6 @@ def omnifold(
             weights_pull[:, ~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], batch_size, fname_rdistr)
             gc.collect()
 
-        # TODO: check this
         weights_pull /= np.mean(weights_pull, axis=1)[:,None]
         reportGPUMemUsage(logger)
         gc.collect()
@@ -333,7 +332,6 @@ def omnifold(
             weights_push[:, ~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], batch_size, fname_rdistr)
             gc.collect()
 
-        # TODO: check this
         weights_push /= np.mean(weights_push, axis=1)[:,None]
 
         # # save truth level weights of this iteration

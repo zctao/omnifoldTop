@@ -76,6 +76,9 @@ def renormalize_hist(h, norm=1., density=False, flow=True):
     h *= norm / old_norm
     return h
 
+def read_histogram_at_locations(locations, hist_to_read):
+    return np.array([ hist_to_read[hist.loc(x)].value for x in locations ])
+
 def calc_hist(data, bins=10, weights=None, density=False, norm=None, check_flow=True):
     if np.ndim(bins) == 1: # an array
         bin_edges = np.asarray(bins)

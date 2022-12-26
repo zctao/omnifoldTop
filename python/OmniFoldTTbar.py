@@ -303,6 +303,7 @@ class OmniFoldTTbar():
         if self.handle_bkg is not None:
             wbkg = self.handle_bkg.get_weights(valid_only=False)
             if standardize:
+                # rescale by the same factor as data
                 wbkg /= wmean_obs
 
             wdata = np.concatenate([wdata, -1*wbkg])
@@ -311,7 +312,9 @@ class OmniFoldTTbar():
         # reco level
         wsim = self.handle_sig.get_weights(valid_only=False)
         if standardize:
+            # rescale by the same factor as data
             wsim /= wmean_obs
+
             #TODO check alternative: divide by its own mean
             #wmean_sim = np.mean(wsim[self.handle_sig.pass_reco])
             #wsim /= wmean_sim
@@ -320,11 +323,11 @@ class OmniFoldTTbar():
         wgen = self.handle_sig.get_weights(valid_only=False, reco_level=False)
 
         if standardize:
-            # CHECK HERE!!
-            #wgen /= wmean_obs
+            # rescale by the same factor as data
+            wgen /= wmean_obs
             # this is what's been done previously
-            wmean_gen = np.mean(wgen[self.handle_sig.pass_truth])
-            wgen /= wmean_gen
+            #wmean_gen = np.mean(wgen[self.handle_sig.pass_truth])
+            #wgen /= wmean_gen
 
         return wdata, wsim, wgen
 
@@ -363,6 +366,13 @@ class OmniFoldTTbar():
         X_data, X_sim, X_gen = self._get_input_arrays()
         w_data, w_sim, w_gen = self._get_event_weights(resample=resample_data)
         passcut_data, passcut_sim, passcut_gen = self._get_event_flags()
+
+        # total weights for rescaling the unfolded weights
+        sumw_data = w_data[passcut_data].sum()
+        sumw_sim_valid = w_sim[passcut_sim].sum()
+        sumw_sim_matched = w_sim[passcut_sim & passcut_gen].sum()
+        sumw_gen_matched = w_gen[passcut_sim & passcut_gen].sum()
+        fscale_unfolded = sumw_data * sumw_sim_matched / sumw_sim_valid / sumw_gen_matched
 
         # preprocessing
         p = preprocessor.get()
@@ -477,6 +487,10 @@ class OmniFoldTTbar():
                 # save
                 fig2.savefig(fname_in_ratio2)
                 plt.close(fig2)
+
+        # scale the unfolded weights so they are consistent with what is measured in data
+        self.unfolded_weights *= fscale_unfolded
+        # TODO: scale all weights to a fixed norm as the data?
 
         # save weights to disk
         wfile = os.path.join(self.outdir, "weights_unfolded.npz")

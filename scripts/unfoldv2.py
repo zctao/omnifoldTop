@@ -208,7 +208,6 @@ def unfold(**parsed_args):
             parsed_args['binning_config'],
             observables = all_observables,
             obsConfig_d = observable_dict,
-            normalize = True,
             include_ibu = parsed_args['run_ibu'],
             compute_metrics = True,
             plot_verbosity = parsed_args['plot_verbosity']

@@ -10,7 +10,6 @@ import plotter
 import histogramming as myhu
 from OmniFoldTTbar import load_unfolder
 from ibuv2 import run_ibu
-import hist
 
 from ttbarDiffXsRun2.helpers import get_acceptance_correction, get_efficiency_correction
 
@@ -94,14 +93,23 @@ def get_ibu_unfolded_histogram_from_unfolder(
 
     return hists_ibu, h_ibu_corr, reponse
 
+def apply_acceptance_correction(histogram, h_acc_corr):
+    if isinstance(histogram, list):
+        return [ apply_acceptance_correction(hh, h_acc_corr) for hh in histogram ]
+    else:
+        # In case the correction histogram has a different binning
+        # Get the correction factors using the histogram's bin centers
+        f_acc = myhu.read_histogram_at_locations(histogram.axes[0].centers, h_acc_corr)
+        return histogram * f_acc
+
 def apply_efficiency_correction(histogram, h_eff_corr):
     if isinstance(histogram, list):
         return [ apply_efficiency_correction(hh, h_eff_corr) for hh in histogram ]
     else:
-        # in case the efficiency correction histogram has a different binning
-        # get the correction factors using histogram's bin center
-        f_eff = np.array([ 1. / h_eff_corr[hist.loc(bc)].value for bc in histogram.axes[0].centers ])
-        return histogram * f_eff
+        # In case the correction histogram has a different binning
+        # Get the correction factors using the histogram's bin centers
+        f_eff = myhu.read_histogram_at_locations(histogram.axes[0].centers, h_eff_corr)
+        return histogram * (1./f_eff)
 
 def make_histograms_of_observable(
     unfolder,
@@ -110,7 +118,6 @@ def make_histograms_of_observable(
     binning_config, # str, path to binning config file
     iteration = -1, # int, which iteration to use as the nominal. Default is the last one
     nruns = None, # int, number of runs. Default is to take all that are available
-    normalize = True, # If True, rescale all truth-level histograms to the same normalization
     all_runs = True, # If True, include unfolded histograms of all runs at specified iteration
     all_iterations = False, # If True, include nominal unfolded histograms at all iterations
     all_histograms = False, # If True, include also histograms of every run and every iteration
@@ -144,8 +151,6 @@ def make_histograms_of_observable(
         absoluteValue = absValue
         )
 
-    norm_uf = myhu.get_hist_norm(h_uf, density=False, flow=True) if normalize else None
-
     # set x-axis label
     h_uf.axes[0].label = obsConfig_d[observable]['xlabel']
 
@@ -154,11 +159,13 @@ def make_histograms_of_observable(
 
     if efficiency:
         h_uf_corrected = apply_efficiency_correction(h_uf, efficiency)
-        hists_v_d['unfolded_effcor'] = h_uf_corrected
+        hists_v_d['unfolded_corrected'] = h_uf_corrected
 
-        # FIXME: scale properly and separate into absolute and relative diffXs
-        # For now
-        hists_v_d['relativeDiffXs'] = h_uf_corrected / myhu.get_hist_widths(h_uf_corrected)
+        # Acceptance corrections have already been accounted for during iterations
+
+        hists_v_d['absoluteDiffXs'] = h_uf_corrected / myhu.get_hist_widths(h_uf_corrected)
+
+        hists_v_d['relativeDiffXs'] = hists_v_d['absoluteDiffXs'].copy()
         myhu.renormalize_hist(hists_v_d['relativeDiffXs'], density=True)
 
     if all_runs:
@@ -204,16 +211,6 @@ def make_histograms_of_observable(
         bins_mc,
         #weights = unfolder.handle_sig.get_weights(reco_level=True),
         density = False,
-        norm = norm_uf,
-        absoluteValue = absValue
-        )
-
-    hists_v_d['prior_orig'] = unfolder.handle_sig.get_histogram(
-        varname_truth,
-        bins_mc,
-        #weights = unfolder.handle_sig.get_weights(reco_level=True),
-        density = False,
-        norm = None,
         absoluteValue = absValue
         )
 
@@ -242,7 +239,6 @@ def make_histograms_of_observable(
             bins_mc,
             #weights = unfolder.handle_obs.get_weights(reco_level=True),
             density = False,
-            norm = norm_uf,
             absoluteValue = absValue
             )
 
@@ -272,7 +268,6 @@ def make_histograms_of_observable(
             varname_reco, varname_truth,
             bins_det, bins_mc,
             all_iterations = True,
-            norm = norm_uf,
             absoluteValue = absValue,
             acceptance = acceptance,
             efficiency = efficiency
@@ -288,7 +283,8 @@ def make_histograms_of_observable(
         hists_v_d['response'] = response
 
         if acceptance and efficiency:
-            hists_v_d['relativeDiffXs_ibu'] = h_ibu / myhu.get_hist_widths(h_ibu)
+            hists_v_d['absoluteDiffXs_ibu'] = h_ibu / myhu.get_hist_widths(h_ibu)
+            hists_v_d['relativeDiffXs_ibu'] = hists_v_d['absoluteDiffXs_ibu'].copy()
             myhu.renormalize_hist(hists_v_d['relativeDiffXs_ibu'], density=True)
 
     ###
@@ -553,7 +549,6 @@ def make_histograms_from_unfolder(
     obsConfig_d, # dict for observable configurations
     iteration = -1, # by default take the last iteration
     nruns = None, # by default take all that are available
-    normalize = True, # If True, rescale all truth-level histograms to the same normalization
     outputdir = None, # str, output directory
     outfilename = "histograms.root", # str, output file name
     include_ibu = False, # If True, include also IBU for comparison
@@ -601,7 +596,6 @@ def make_histograms_from_unfolder(
             binning_config,
             iteration = iteration,
             nruns = nruns,
-            normalize = normalize,
             all_runs = all_runs,
             all_iterations = all_iterations,
             all_histograms = all_histograms,
@@ -642,8 +636,8 @@ def make_histograms_from_unfolder(
         # hard code here for now
         keys_to_save = [
             'unfolded', 'unfolded_alliters', 'unfolded_allruns', 'unfolded_correlation',
-            'unfolded_effcor', 'relativeDiffXs', 'absoluteDiffXs',
-            'prior', 'prior_orig', 'prior_noflow', 'truth', 'truth_noflow',
+            'unfolded_corrected', 'relativeDiffXs', 'absoluteDiffXs',
+            'prior', 'prior_noflow', 'truth', 'truth_noflow',
             'reco_data', 'reco_sig', 'reco_bkg',
             'ibu', 'ibu_alliters', 'ibu_correlation', 'response',
             'relativeDiffXs_ibu', 'absoluteDiffXs_ibu',
@@ -668,7 +662,6 @@ def make_histograms(
     observable_config = '',
     iterations = [-1],
     nruns = None,
-    normalize = True,
     outputdir = None,
     outfilename = 'histograms.root',
     include_ibu = False,
@@ -730,7 +723,6 @@ def make_histograms(
             obsConfig_d,
             iteration = it,
             nruns = nruns,
-            normalize = normalize,
             outputdir = outputdir,
             outfilename = outfilename,
             include_ibu = include_ibu,
