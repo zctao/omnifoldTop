@@ -8,7 +8,7 @@ for ch in ljets; do  # or: ejets mjets
            -d ${samples_dir} \
            -c ${ch} \
            -r ${result_top_dir} \
-           -n configs/run/runCfg_run2_${ch} \
+           -n configs/run/ttbarDiffXsRun2/runCfg_run2_${ch} \
            -e mc16a mc16d mc16e \
            -b \
            -s all

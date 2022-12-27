@@ -101,7 +101,7 @@ def getSamples_detNP(
             raise RuntimeError(f"Unknown MC subcampaign {e}")
 
     if category == "ljets":
-        channels = ["ejets", "mjets"]
+        channels = ["ljets"] #["ejets", "mjets"]
     elif category == "ejets" or category == "mjets":
         channels = [category]
 
@@ -153,11 +153,20 @@ def createRun2Config(
     ):
 
     # get the real paths of the sample directory and output directory
+    sample_local_dir = os.path.expanduser(sample_local_dir)
     sample_local_dir = os.path.realpath(sample_local_dir)
+
+    output_top_dir = os.path.expanduser(output_top_dir)
     output_top_dir = os.path.realpath(output_top_dir)
 
     # in case outname_config comes with an extension
     outname_config = os.path.splitext(outname_config)[0]
+
+    # create the output directory in case it does not exist
+    outputdir = os.path.dirname(outname_config)
+    if not os.path.isdir(outputdir):
+        print(f"Create directory {outputdir}")
+        os.makedirs(outputdir)
 
     # nominal input files
     print("nominal")
@@ -259,14 +268,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-d", "--sample-dir", type=str,
-                        default=os.path.join(os.getenv("HOME"),"data/ttbarDiffXs13TeV/latest"),
+                        default="~/atlasserv/NtupleTT/latest",
                         help="Sample directory")
     parser.add_argument("-n", "--config-name", type=str,
                         default="runConfig")
     parser.add_argument("-c", "--category", choices=["ejets", "mjets", "ljets"],
-                        default="ejets")
+                        default="ljets")
     parser.add_argument("-r", "--result-dir", type=str,
-                        default=os.path.join(os.getenv("HOME"),"data/OmniFoldOutputs/Run2wSyst"),
+                        default="~/data/OmniFoldOutputs/Run2",
                         help="Output directory of unfolding runs")
     parser.add_argument("-e", "--subcampaigns", nargs='+', choices=["mc16a", "mc16d", "mc16e"], default=["mc16a", "mc16d", "mc16e"])
     parser.add_argument("-s", "--systematics", type=str, nargs="*", default=[],
@@ -286,7 +295,7 @@ if __name__ == "__main__":
         "nruns" : 7,
         "parallel_models" : 3,
         "resample_data" : False,
-        "dummy_value" : -99.
+        "correct_acceptance" : True
     }
 
     createRun2Config(

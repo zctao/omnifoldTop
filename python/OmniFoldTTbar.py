@@ -113,8 +113,8 @@ class OmniFoldTTbar():
         # extra variables to unfold but not used in training, list of str
         variables_reco_extra = [],
         variables_truth_extra = [],
-        # dummy value to assign for events fail selections
-        dummy_value = -99.,
+        # Flag to determine if dummy events are used to account for acceptance effect
+        correct_acceptance = False,
         # output directory
         outputdir = None,
         # data reweighting for stress test
@@ -146,7 +146,10 @@ class OmniFoldTTbar():
         vars_reco_all = list(set().union(variables_reco, variables_reco_extra)) if variables_reco_extra else variables_reco
         vars_truth_all = list(set().union(variables_truth, variables_truth_extra)) if variables_truth_extra else variables_truth
 
-        self.dummy_value = dummy_value
+        if correct_acceptance:
+            self.dummy_value = -99.
+        else:
+            self.dummy_value = None
 
         # data handlers
         self.handle_obs = None
@@ -160,7 +163,6 @@ class OmniFoldTTbar():
             filepaths_obs, filepaths_sig, filepaths_bkg, filepaths_obsbkg,
             normalize = normalize_to_data,
             truth_known = truth_known,
-            dummy_value = dummy_value,
             data_reweighter = data_reweighter,
             weight_type = weight_type,
             use_toydata = use_toydata
@@ -176,7 +178,6 @@ class OmniFoldTTbar():
         filepaths_obsbkg, # list of str, optional
         normalize = False, # bool
         truth_known = False, # bool
-        dummy_value = -99., # float
         data_reweighter = None, # reweight.Reweighter
         weight_type = 'nominal', # str, optional
         use_toydata = False, # bool, optional
@@ -193,7 +194,7 @@ class OmniFoldTTbar():
             filepaths_obs,
             vars_reco,
             vars_truth if truth_known else [],
-            dummy_value,
+            self.dummy_value,
             reweighter = data_reweighter,
             use_toydata = use_toydata
             )
@@ -202,7 +203,7 @@ class OmniFoldTTbar():
         # Signal MC simulation
         logger.info(f"Load signal simulation files: {' '.join(filepaths_sig)}")
         self.handle_sig = getDataHandler(
-            filepaths_sig, vars_reco, vars_truth, dummy_value,
+            filepaths_sig, vars_reco, vars_truth, self.dummy_value,
             weight_type = weight_type,
             use_toydata = use_toydata
             )
@@ -213,7 +214,7 @@ class OmniFoldTTbar():
             logger.info(f"Load background simulation files: {' '.join(filepaths_bkg)}")
             # only reco level events are needed
             self.handle_bkg = getDataHandler(
-                filepaths_bkg, vars_reco, [], dummy_value,
+                filepaths_bkg, vars_reco, [], self.dummy_value,
                 weight_type = weight_type,
                 use_toydata = use_toydata
                 )
@@ -224,7 +225,7 @@ class OmniFoldTTbar():
             logger.info(f"Load background simulation files to be mixed with data: {' '.join(filepaths_obsbkg)}")
             # only reco level events are needed
             self.handle_obsbkg = getDataHandler(
-                filepaths_obsbkg, vars_reco, [], dummy_value,
+                filepaths_obsbkg, vars_reco, [], self.dummy_value,
                 weight_type = weight_type,
                 use_toydata = use_toydata
                 )
@@ -670,6 +671,10 @@ def load_unfolder(
     if normalize_to_data is None:
         normalize_to_data = args_d['normalize']
 
+    # for backward compatibility
+    if args_d['dummy_value'] is not None:
+        args_d['correct_acceptance'] = True
+
     logger.info("Construct unfolder")
     unfolder = OmniFoldTTbar(
         varnames_reco,
@@ -678,7 +683,7 @@ def load_unfolder(
         filepaths_sig = args_d['signal'],
         filepaths_bkg = args_d['background'],
         normalize_to_data = normalize_to_data,
-        dummy_value = args_d['dummy_value'],
+        correct_acceptance = args_d['correct_acceptance'],
         weight_type = args_d['weight_type'],
         truth_known = args_d['truth_known'],
         outputdir = args_d['outputdir'],

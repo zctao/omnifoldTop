@@ -94,7 +94,7 @@ def unfold(**parsed_args):
         normalize_to_data = parsed_args['normalize'],
         variables_reco_extra = varnames_extra_reco,
         variables_truth_extra = varnames_extra_truth,
-        dummy_value = parsed_args['dummy_value'],
+        correct_acceptance = parsed_args['correct_acceptance'],
         outputdir = parsed_args["outputdir"],
         data_reweighter = rw,
         weight_type = parsed_args["weight_type"],
@@ -281,8 +281,8 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="Batch size for training")
     parser.add_argument('-l', '--load-models', type=str,
                         help="Directory from where to load trained models. If provided, training will be skipped.")
-    parser.add_argument('--dummy-value', type=float,
-                        help="Dummy value to fill events that failed selecton. If None (default), only events that pass reco and truth (if apply) level selections are used for unfolding")
+    parser.add_argument('-c', '--correct-acceptance', action='store_true',
+                        help="If True, use dummy value for events that are not truth matched to account for acceptance effects")
     parser.add_argument('--binning-config', type=str,
                         default="configs/binning/bins_10equal.json",
                         help="Binning config file for variables")
@@ -306,6 +306,8 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument('-e', '--error-type',
                         choices=['sumw2','bootstrap_full','bootstrap_model'],
                         default=None, help="Method to evaluate uncertainties")
+    parser.add_argument('--dummy-value', type=float,
+                        help="Dummy value to fill events that failed selecton. If None (default), only events that pass reco and truth (if apply) level selections are used for unfolding")
     #
 
     args = parser.parse_args(arguments_list)
@@ -339,6 +341,10 @@ def getArgsParser(arguments_list=None, print_help=False):
             args.resample_everyrun = True
         else:
             args.resample_data = False
+
+    if args.dummy_value is not None:
+        logger.warn("The argument '--dummy-value <xx>' is superceded by '--correct-acceptance'")
+        args.correct_acceptance = True
 
     return args
 
