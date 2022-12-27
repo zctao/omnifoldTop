@@ -101,7 +101,7 @@ def getSamples_detNP(
             raise RuntimeError(f"Unknown MC subcampaign {e}")
 
     if category == "ljets":
-        channels = ["ejets", "mjets"]
+        channels = ["ljets"] #["ejets", "mjets"]
     elif category == "ejets" or category == "mjets":
         channels = [category]
 
