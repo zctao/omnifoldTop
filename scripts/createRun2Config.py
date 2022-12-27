@@ -286,7 +286,7 @@ if __name__ == "__main__":
         "nruns" : 7,
         "parallel_models" : 3,
         "resample_data" : False,
-        "dummy_value" : -99.
+        "correct_acceptance" : True
     }
 
     createRun2Config(
