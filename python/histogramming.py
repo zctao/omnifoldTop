@@ -316,6 +316,26 @@ def divide(h1, h2):
 
     return hr
 
+def projectToXaxis(hist2d, flow=True):
+    hprojx = hist2d.project(0) # Underflow/overflow bins in axis 1 are included
+
+    if not flow:
+        # Use the binning from hprojx but re-calculate its content excluding the underflow and overflow bins
+        hprojx.view()['value'] = hist2d.values().sum(axis=1)
+        hprojx.view()['variance'] = hist2d.variances().sum(axis=1)
+
+    return hprojx
+
+def projectToYaxis(hist2d, flow=True):
+    hprojy = hist2d.project(1) # Underflow/overflow bins in axis 0 are included
+
+    if not flow:
+        # Use the binning from hproj but re-calculate its content excluding the underflow and overflow bins
+        hprojy.view()['value'] = hist2d.values().sum(axis=0)
+        hprojy.view()['variance'] = hist2d.variances().sum(axis=0)
+
+    return hprojy
+
 ##
 # utilities to write/read histograms to/from files
 # Write
