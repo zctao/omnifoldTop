@@ -11,7 +11,7 @@ import histogramming as myhu
 from OmniFoldTTbar import load_unfolder
 from ibuv2 import run_ibu
 
-from ttbarDiffXsRun2.helpers import get_acceptance_correction, get_efficiency_correction
+from ttbarDiffXsRun2.binnedCorrections import compute_binned_corrections
 
 import logging
 logger = logging.getLogger("make_histograms")
@@ -583,11 +583,14 @@ def make_histograms_from_unfolder(
 
         # read binned corrections if available
         if binned_correction_dir:
-            acceptance = get_acceptance_correction(ob, binned_correction_dir)
-            efficiency = get_efficiency_correction(ob, binned_correction_dir)
+            acceptance, efficiency = compute_binned_corrections(
+                ob,
+                obsConfig_d,
+                flow = True,
+                search_dir = binned_correction_dir
+                )
         else:
-            acceptance = None
-            efficiency = None
+            acceptance, efficiency = None, None
 
         histograms_dict[ob] = make_histograms_of_observable(
             unfolder,
