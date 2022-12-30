@@ -461,7 +461,7 @@ class DataHandler(Mapping):
 
         return cor_df
 
-    def get_histogram(self, variable, bin_edges, weights=None, density=False, norm=None, absoluteValue=False):
+    def get_histogram(self, variable, bin_edges, weights=None, density=False, norm=None, absoluteValue=False, extra_cuts=None):
         """
         Retrieve the histogram of a weighted variable in the dataset.
 
@@ -478,6 +478,10 @@ class DataHandler(Mapping):
             If True, normalize the histogram by bin widths
         norm : float, default None
             If not None, rescale the histogram to norm
+        absoluteValue : bool
+            If True, fill the histogram with the absolute value
+        extra_cuts : array-like of shape (nevents,) of bool, default None
+            An array of flags to select events that are included in filling the histogram
 
         Returns
         -------
@@ -498,15 +502,20 @@ class DataHandler(Mapping):
                     varr = np.abs(varr)
                 assert(len(varr) == len(weights))
 
-                return calc_hist(varr, weights=weights, bins=bin_edges, density=density, norm=norm)
+                if extra_cuts is not None: # filter events
+                    assert(len(varr) == len(extra_cuts))
+                    return calc_hist(varr[extra_cuts], weights=weights[extra_cuts], bins=bin_edges, density=density, norm=norm)
+                else:
+                    return calc_hist(varr, weights=weights, bins=bin_edges, density=density, norm=norm)
+
             elif weights.ndim == 2: # make the 2D array into a list of 1D array
-                return self.get_histogram(variable, bin_edges=bin_edges, weights=list(weights), density=density, norm=norm, absoluteValue=absoluteValue)
+                return self.get_histogram(variable, bin_edges=bin_edges, weights=list(weights), density=density, norm=norm, absoluteValue=absoluteValue, extra_cuts=extra_cuts)
             else:
                 raise RuntimeError("Only 1D or 2D array or a list of 1D array of weights can be processed.")
         elif isinstance(weights, list): # if weights is a list of 1D array
             hists = []
             for w in weights:
-                h = self.get_histogram(variable, bin_edges=bin_edges, weights=w, density=density, norm=norm, absoluteValue=absoluteValue)
+                h = self.get_histogram(variable, bin_edges=bin_edges, weights=w, density=density, norm=norm, absoluteValue=absoluteValue, extra_cuts=extra_cuts)
                 hists.append(h)
             return hists
         else:

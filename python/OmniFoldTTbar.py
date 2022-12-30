@@ -39,6 +39,7 @@ def getDataHandler(
             treename_reco=tree_reco, treename_truth=tree_truth,
             weight_type=weight_type,
             dummy_value=dummy_value)
+
     elif use_toydata:
         dh = DataToy()
         dh.load_data(filepaths)
@@ -522,7 +523,8 @@ class OmniFoldTTbar():
         iteration=-1, # default: the last iteration
         nresamples=None, # default: take all that are available
         density=False,
-        absoluteValue=False
+        absoluteValue=False,
+        extra_cuts=None
         ):
 
         hists_resample = []
@@ -553,7 +555,7 @@ class OmniFoldTTbar():
 
             # truth-level prior weights
             wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
-            h = self.handle_sig.get_histogram(varname, bins, wprior*rw, density=density, norm=norm, absoluteValue=absoluteValue)
+            h = self.handle_sig.get_histogram(varname, bins, wprior*rw, density=density, norm=norm, absoluteValue=absoluteValue, extra_cuts=extra_cuts)
 
             hists_resample.append(h)
 
@@ -568,7 +570,8 @@ class OmniFoldTTbar():
         iteration=-1, # default: the last iteration
         nresamples=None, # default, take all that are avaiable
         density=False,
-        absoluteValue=False
+        absoluteValue=False,
+        extra_cuts=None
         ):
 
         hists_uf = self.get_unfolded_hists_resamples(
@@ -579,7 +582,8 @@ class OmniFoldTTbar():
             iteration=iteration,
             nresamples=nresamples,
             density=density,
-            absoluteValue=absoluteValue
+            absoluteValue=absoluteValue,
+            extra_cuts=extra_cuts
             )
         # hists_uf is a list of hist objects or a list of a list of hist objects
 
