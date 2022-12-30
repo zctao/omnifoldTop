@@ -123,8 +123,8 @@ def make_histograms_of_observable(
     all_histograms = False, # If True, include also histograms of every run and every iteration
     include_reco = False, # If True, include also reco level histograms
     include_ibu = False, # If True, include also IBU for comparison
-    acceptance = None, # histogram for acceptance correction
-    efficiency = None # histogram for efficiency correction
+    binned_correction_dir = None, # str, directory to read binned corrections
+    binned_correction_flow = True # bool, if False, exclude overflow/underflow bins when compute binned corrections
     ):
 
     hists_v_d = {}
@@ -138,6 +138,21 @@ def make_histograms_of_observable(
     bins_mc = util.get_bins(observable, binning_config)
 
     absValue = "_abs" in observable
+
+    ###
+    # Get binned corrections if available
+    acceptance, efficiency = None, None
+    if binned_correction_dir is not None:
+        acceptance, efficiency = compute_binned_corrections(
+            observable,
+            obsConfig_d,
+            flow = binned_correction_flow,
+            search_dir = binned_correction_dir
+            )
+
+        # Add to the histogram dict
+        hists_v_d['acceptance'] = acceptance
+        hists_v_d['efficiency'] = efficiency
 
     ###
     # The unfolded distributions
@@ -325,12 +340,6 @@ def make_histograms_of_observable(
                 density = False,
                 absoluteValue = absValue
                 )
-
-    # acceptance and efficiency corrections if available
-    if acceptance is not None:
-        hists_v_d['acceptance'] = acceptance
-    if efficiency is not None:
-        hists_v_d['efficiency'] = efficiency
 
     return hists_v_d
 
@@ -554,7 +563,8 @@ def make_histograms_from_unfolder(
     include_ibu = False, # If True, include also IBU for comparison
     compute_metrics = False, # If True, compute metrics
     plot_verbosity = 0, # int, control how many plots to make
-    binned_correction_dir = None # str, directory to read binned corrections from
+    binned_correction_dir = None, # str, directory to read binned corrections
+    binned_correction_flow = True # bool, if False, exclude overflow/underflow bins when compute binned corrections
     ):
 
     # output directory
@@ -581,17 +591,6 @@ def make_histograms_from_unfolder(
     for ob in observables:
         logger.info(f"Make histograms for {ob}")
 
-        # read binned corrections if available
-        if binned_correction_dir:
-            acceptance, efficiency = compute_binned_corrections(
-                ob,
-                obsConfig_d,
-                flow = True,
-                search_dir = binned_correction_dir
-                )
-        else:
-            acceptance, efficiency = None, None
-
         histograms_dict[ob] = make_histograms_of_observable(
             unfolder,
             ob,
@@ -604,8 +603,8 @@ def make_histograms_from_unfolder(
             all_histograms = all_histograms,
             include_ibu = include_ibu,
             include_reco = include_reco,
-            acceptance = acceptance,
-            efficiency = efficiency
+            binned_correction_dir = binned_correction_dir,
+            binned_correction_flow = binned_correction_flow
             )
 
         # compute metrics
@@ -671,7 +670,8 @@ def make_histograms(
     compute_metrics = False,
     plot_verbosity = 0,
     verbose = False,
-    binned_correction_dir = None
+    binned_correction_dir = None,
+    binned_correction_noflow = False
     ):
 
     logger.setLevel(logging.DEBUG if verbose else logging.INFO)
@@ -731,7 +731,8 @@ def make_histograms(
             include_ibu = include_ibu,
             compute_metrics = compute_metrics,
             plot_verbosity = plot_verbosity,
-            binned_correction_dir = binned_correction_dir
+            binned_correction_dir = binned_correction_dir,
+            binned_correction_flow = not binned_correction_noflow
             )
 
     t_hist_stop = time.time()
@@ -777,6 +778,9 @@ if __name__ == "__main__":
     parser.add_argument('--correction-dir', dest="binned_correction_dir",
                         type=str,
                         help="Directory to read binned correction from")
+    parser.add_argument("--correction-noflow", dest="binned_correction_noflow",
+                        action='store_true',
+                        help="If True, exclude underflow and overflow bins when computing binned corrections")
 
     args = parser.parse_args()
 
