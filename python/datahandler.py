@@ -169,6 +169,10 @@ class DataHandler(Mapping):
         else:
             self.pass_truth = None
 
+        # overflow/underflow flags to be set later
+        self.underflow_overflow_reco = False
+        self.underflow_overflow_truth = False
+
     def __len__(self):
         """
         Get the number of events in the dataset.
@@ -561,6 +565,41 @@ class DataHandler(Mapping):
         assert(len(varr_y) == len(w))
 
         return calc_hist2d(varr_x, varr_y, bins=(bins_x, bins_y), weights=w, density=density)
+
+    def reset_underflow_overflow_flags(self):
+        self.underflow_overflow_reco = False
+        self.underflow_overflow_truth = False
+
+    def update_underflow_overflow_flags(self, varname, bins):
+        try:
+            varr = self.get_arrays(varname, valid_only=False)
+
+            isflow = (varr < bins[0]) | (varr > bins[-1])
+            #TODO: update this for higher dimensions
+        except KeyError:
+            isflow = False
+
+        if self._in_data_reco(varname):
+            self.underflow_overflow_reco |= isflow
+        elif self._in_data_truth(varname):
+            self.underflow_overflow_truth |= isflow
+
+    def is_underflow_or_overflow(self):
+        return self.underflow_overflow_reco | self.underflow_overflow_truth
+
+    def clear_underflow_overflow_events(self):
+        notflow = ~self.is_underflow_or_overflow()
+
+        self.data_reco = self.data_reco[notflow]
+        self.pass_reco = self.pass_reco[notflow]
+        self.weights = self.weights[notflow]
+
+        if self.data_truth is not None:
+            self.data_truth = self.data_truth[notflow]
+            self.pass_truth = self.pass_truth[notflow]
+            self.weights_mc = self.weights_mc[notflow]
+
+        self.reset_underflow_overflow_flags()
 
 def _filter_variable_names(variable_names):
     """

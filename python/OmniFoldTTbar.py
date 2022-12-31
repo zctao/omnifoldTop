@@ -624,6 +624,37 @@ class OmniFoldTTbar():
             title = "Event weights",
             xlabel = 'w')
 
+    # methods for setting underflow overflow flags
+    def reset_underflow_overflow_flags(self):
+        self.handle_obs.reset_underflow_overflow_flags()
+        self.handle_sig.reset_underflow_overflow_flags()
+
+        if self.handle_bkg is not None:
+            self.handle_bkg.reset_underflow_overflow_flags()
+
+        if self.handle_obsbkg is not None:
+            self.handle_obsbkg.reset_underflow_overflow_flags()
+
+    def update_underflow_overflow_flags(self, vname, bins):
+        self.handle_obs.update_underflow_overflow_flags(vname, bins)
+        self.handle_sig.update_underflow_overflow_flags(vname, bins)
+
+        if self.handle_bkg is not None:
+            self.handle_bkg.update_underflow_overflow_flags(vname, bins)
+
+        if self.handle_obsbkg is not None:
+            self.handle_obsbkg.update_underflow_overflow_flags(vname, bins)
+
+    def clear_underflow_overflow_events(self):
+        self.handle_obs.clear_underflow_overflow_events()
+        self.handle_sig.clear_underflow_overflow_events()
+
+        if self.handle_bkg is not None:
+            self.handle_bkg.clear_underflow_overflow_events()
+
+        if self.handle_obsbkg is not None:
+            self.handle_obsbkg.clear_underflow_overflow_events()
+
 #####
 # helper function to instantiate an unfolder from a previous result directory
 def load_unfolder(

@@ -304,3 +304,7 @@ class DataHandlerROOT(DataHandler):
             assert(len(self.data_reco)==len(self.data_truth))
             assert(len(self.data_truth)==len(self.weights_mc))
             assert(len(self.data_truth)==len(self.pass_truth))
+
+        # overflow/underflow flags to be set later
+        self.underflow_overflow_reco = False
+        self.underflow_overflow_truth = False
