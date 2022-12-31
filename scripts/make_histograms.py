@@ -27,7 +27,8 @@ def get_ibu_unfolded_histogram_from_unfolder(
     norm = None,
     absoluteValue = False,
     acceptance = None,
-    efficiency = None
+    efficiency = None,
+    correction_flow = True
     ):
 
     # Prepare inputs
@@ -88,7 +89,8 @@ def get_ibu_unfolded_histogram_from_unfolder(
         density = False,
         norm = norm,
         acceptance_correction = acceptance,
-        efficiency_correction = efficiency
+        efficiency_correction = efficiency,
+        flow = correction_flow
         )
 
     return hists_ibu, h_ibu_corr, reponse
@@ -139,6 +141,21 @@ def make_histograms_of_observable(
 
     absValue = "_abs" in observable
 
+    # flags to filter out underflow/overflow events
+    if not binned_correction_flow:
+        unfolder.reset_underflow_overflow_flags()
+        unfolder.update_underflow_overflow_flags(varname_reco, bins_det)
+        unfolder.update_underflow_overflow_flags(varname_truth, bins_mc)
+
+        inbins_sig = ~unfolder.handle_sig.is_underflow_or_overflow()
+        inbins_sig_truth = inbins_sig[unfolder.handle_sig.pass_truth]
+
+        inbins_obs = ~unfolder.handle_obs.is_underflow_or_overflow()
+        inbins_obs_truth = inbins_obs[unfolder.handle_obs.pass_truth]
+    else:
+        inbins_sig_truth = None
+        inbins_obs_truth = None
+
     ###
     # Get binned corrections if available
     acceptance, efficiency = None, None
@@ -163,7 +180,8 @@ def make_histograms_of_observable(
         iteration = iteration,
         nresamples = nruns,
         density = False,
-        absoluteValue = absValue
+        absoluteValue = absValue,
+        extra_cuts=inbins_sig_truth
         )
 
     # set x-axis label
@@ -191,7 +209,8 @@ def make_histograms_of_observable(
             iteration = iteration,
             nresamples = nruns,
             density = False,
-            absoluteValue = absValue
+            absoluteValue = absValue,
+            extra_cuts=inbins_sig_truth
             )
 
     if all_iterations:
@@ -202,7 +221,8 @@ def make_histograms_of_observable(
             nresamples = nruns,
             all_iterations = True,
             density = False,
-            absoluteValue = absValue
+            absoluteValue = absValue,
+            extra_cuts=inbins_sig_truth
             )[0]
 
     if all_histograms:
@@ -212,7 +232,8 @@ def make_histograms_of_observable(
             nresamples = nruns,
             density = False,
             all_iterations=True,
-            absoluteValue = absValue
+            absoluteValue = absValue,
+            extra_cuts=inbins_sig_truth
             )
 
     ###
@@ -226,7 +247,8 @@ def make_histograms_of_observable(
         bins_mc,
         #weights = unfolder.handle_sig.get_weights(reco_level=True),
         density = False,
-        absoluteValue = absValue
+        absoluteValue = absValue,
+        extra_cuts=inbins_sig_truth
         )
 
     hist2d_sig = unfolder.handle_sig.get_histogram2d(
@@ -254,7 +276,8 @@ def make_histograms_of_observable(
             bins_mc,
             #weights = unfolder.handle_obs.get_weights(reco_level=True),
             density = False,
-            absoluteValue = absValue
+            absoluteValue = absValue,
+            extra_cuts=inbins_obs_truth
             )
 
         hist2d_obs = unfolder.handle_obs.get_histogram2d(
@@ -285,7 +308,8 @@ def make_histograms_of_observable(
             all_iterations = True,
             absoluteValue = absValue,
             acceptance = acceptance,
-            efficiency = efficiency
+            efficiency = efficiency,
+            correction_flow = binned_correction_flow
         )
 
         # take the ones at the same iteration as OmniFold
