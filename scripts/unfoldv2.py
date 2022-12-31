@@ -106,6 +106,14 @@ def unfold(**parsed_args):
     mcurrent, mpeak = tracemalloc.get_traced_memory()
     logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
 
+    # If required, exclude events in the overflow and underflow bins to match what is done in the case of binned unfolding
+    if parsed_args["exclude_flow"] and parsed_args['binning_config']:
+        clearUnderflowOverflow(
+            unfolder,
+            parsed_args['observables'],
+            fpath_binning = parsed_args['binning_config'],
+            obs_config = observable_dict
+            )
 
     #################
     # Set up parallelization
@@ -221,6 +229,24 @@ def unfold(**parsed_args):
 
     tracemalloc.stop()
 
+def clearUnderflowOverflow(ufdr, observables, fpath_binning, obs_config):
+    assert(os.path.isfile(fpath_binning))
+
+    ufdr.reset_underflow_overflow_flags()
+
+    for ob in observables:
+        # Same binning at reco and truth level for now
+        bins_reco = util.get_bins(ob, fpath_binning)
+        bins_truth = util.get_bins(ob, fpath_binning)
+
+        vname_reco = obs_config[ob]['branch_det']
+        vname_truth = obs_config[ob]['branch_mc']
+
+        ufdr.update_underflow_overflow_flags(vname_reco, bins_reco)
+        ufdr.update_underflow_overflow_flags(vname_truth, bins_truth)
+
+    ufdr.clear_underflow_overflow_events()
+
 def getArgsParser(arguments_list=None, print_help=False):
     import argparse
 
@@ -296,6 +322,8 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument('--parallel-models', type=int, default=1, help="Number of parallel models, default ot 1")
     parser.add_argument('--lrscheduler-config', type=str, default="configs/lrs/constant_warm_up.json", help="config file for learning rate scheduler")
     parser.add_argument('--toydata', action='store_true', help="If True, use toy data")
+    parser.add_argument('--exclude-flow', action='store_true',
+                        help="If True, exclude events in overflow and underflow bins given a binning configuration")
 
     if print_help:
         parser.print_help()
