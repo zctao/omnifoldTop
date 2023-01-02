@@ -10,7 +10,7 @@ from copy import copy
 import util
 import plotter
 import reweight
-from OmniFoldTTbar import OmniFoldTTbar
+from OmniFoldTTbar import OmniFoldTTbar, clearAllUnderflowOverflow
 from make_histograms import make_histograms_from_unfolder
 import preprocessor
 import modelUtils
@@ -107,8 +107,8 @@ def unfold(**parsed_args):
     logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
 
     # If required, exclude events in the overflow and underflow bins to match what is done in the case of binned unfolding
-    if parsed_args["exclude_flow"] and parsed_args['binning_config']:
-        clearUnderflowOverflow(
+    if parsed_args["exclude_flow"]:
+        clearAllUnderflowOverflow(
             unfolder,
             parsed_args['observables'],
             fpath_binning = parsed_args['binning_config'],
@@ -228,24 +228,6 @@ def unfold(**parsed_args):
     logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
 
     tracemalloc.stop()
-
-def clearUnderflowOverflow(ufdr, observables, fpath_binning, obs_config):
-    assert(os.path.isfile(fpath_binning))
-
-    ufdr.reset_underflow_overflow_flags()
-
-    for ob in observables:
-        # Same binning at reco and truth level for now
-        bins_reco = util.get_bins(ob, fpath_binning)
-        bins_truth = util.get_bins(ob, fpath_binning)
-
-        vname_reco = obs_config[ob]['branch_det']
-        vname_truth = obs_config[ob]['branch_mc']
-
-        ufdr.update_underflow_overflow_flags(vname_reco, bins_reco)
-        ufdr.update_underflow_overflow_flags(vname_truth, bins_truth)
-
-    ufdr.clear_underflow_overflow_events()
 
 def getArgsParser(arguments_list=None, print_help=False):
     import argparse

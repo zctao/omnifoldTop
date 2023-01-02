@@ -560,7 +560,7 @@ class OmniFoldTTbar():
             hists_resample.append(h)
 
         return hists_resample
-            
+
     def get_unfolded_distribution(
         self,
         varname,
@@ -656,6 +656,27 @@ class OmniFoldTTbar():
             self.handle_obsbkg.clear_underflow_overflow_events()
 
 #####
+# helper function to clear all events in underflow and overflow bins
+def clearAllUnderflowOverflow(ufdr, observables, fpath_binning, obs_config):
+    if not os.path.isfile(fpath_binning):
+        logger.error(f"Cannot access binning config file: {fpath_binning}")
+        raise RuntimeError("Fail to clear events in underflow/oveflow bins")
+
+    ufdr.reset_underflow_overflow_flags()
+
+    for ob in observables:
+        # Same binning at reco and truth level for now
+        bins_reco = util.get_bins(ob, fpath_binning)
+        bins_truth = util.get_bins(ob, fpath_binning)
+
+        vname_reco = obs_config[ob]['branch_det']
+        vname_truth = obs_config[ob]['branch_mc']
+
+        ufdr.update_underflow_overflow_flags(vname_reco, bins_reco)
+        ufdr.update_underflow_overflow_flags(vname_truth, bins_truth)
+
+    ufdr.clear_underflow_overflow_events()
+
 # helper function to instantiate an unfolder from a previous result directory
 def load_unfolder(
     # Path to the arguments json config
@@ -664,10 +685,11 @@ def load_unfolder(
     observables=[], # list of str
     # Observable configuration. If empty, use the config from arguments
     obsConfig={}, # dict
-    # Binning configuration. If empty, use the config from arguments
+    # File path to binning configuration. If None, use the config from arguments if available
+    fpath_binning=None,
+    # Flag for renormalizing sample. If True, normalize simulation weights to data.
+    # If None, set the flag according to the run arguments
     normalize_to_data = None, # bool
-    # If True, normalize simulation weights to data. If None, set the flag
-    # according to the run arguments
     ):
 
     logger.info(f"Read arguments from {fpath_arguments}")
@@ -688,6 +710,10 @@ def load_unfolder(
         if not obsConfig:
             logger.error("Failed to load observable config. Abort...")
             return None
+
+    # binning configuration
+    if fpath_binning is None:
+        fpath_binning = args_d['binning_config']
 
     # reco level variable names
     varnames_reco = [obsConfig[k]['branch_det'] for k in observables]
@@ -724,6 +750,12 @@ def load_unfolder(
         outputdir = args_d['outputdir'],
         data_reweighter = rw
     )
+
+    if args_d['exclude_flow']:
+        try:
+            clearAllUnderflowOverflow(unfolder, observables, fpath_binning, obsConfig)
+        except:
+            return None
 
     # read unfolded event weights
     fnames_uw = os.path.join(args_d['outputdir'], "weights_unfolded.npz")
