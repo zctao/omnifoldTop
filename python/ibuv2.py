@@ -97,6 +97,7 @@ def run_ibu(
     nresamples = 25, # number of resamples for uncertainty estimation
     acceptance_correction = None, # histogram for acceptance correction
     efficiency_correction = None, # histogram for efficiency correction
+    flow = True, # If False, exclude underflow/overflow bins
     all_iterations = False, # if True, return results at every iteration
     density = False, # if True, normalize the final histograms by its bin widths
     norm = None
@@ -114,8 +115,16 @@ def run_ibu(
     )
 
     # signal MC truth level prior
-    #h_prior = myhu.calc_hist(array_gen, bins_truth, weights=weights_gen, density=False)
-    h_prior = myhu.calc_hist(array_gen, bins_truth, weights=weights_sim, density=False)
+    r2d = myhu.calc_hist2d(
+        array_sim, array_gen, bins=(bins_reco, bins_truth), weights=weights_sim,
+        density=False
+    )
+    h_prior = myhu.projectToYaxis(r2d, flow=flow)
+
+    # In case flow=True, the following (what was done previously) is equivalent
+    #h_prior = myhu.calc_hist(array_gen, bins_truth, weights=weights_sim, density=False)
+
+    #[h_prior = myhu.calc_hist(array_gen, bins_truth, weights=weights_gen, density=False)]
 
     # unfolded distribution
     hists_ibu = _unfold(r, h_obs, h_prior, niterations,
