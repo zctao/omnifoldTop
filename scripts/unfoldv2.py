@@ -270,7 +270,7 @@ def getArgsParser(arguments_list=None, print_help=False):
                         #default=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_eta', 'th_m', 'th_pout', 'tl_eta', 'tl_m', 'tl_pout'],
                         help="List of extra observables to unfold.")
     parser.add_argument('--observable-config',
-                        default='configs/observables/vars_ttbardiffXs.json',
+                        default='configs/observables/vars_ttbardiffXs_pseudotop.json',
                         help="JSON configurations for observables")
     parser.add_argument('-o', '--outputdir', type=str, default='.',
                         help="Directory for storing outputs")
@@ -310,7 +310,7 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument('-c', '--correct-acceptance', action='store_true',
                         help="If True, use dummy value for events that are not truth matched to account for acceptance effects")
     parser.add_argument('--binning-config', type=str,
-                        default="configs/binning/bins_10equal.json",
+                        default="configs/binning/bins_ttdiffxs.json",
                         help="Binning config file for variables")
     parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
                         help="Plot verbose level. '-ppp' to make all plots.")
