@@ -197,6 +197,7 @@ class OmniFoldTTbar():
             vars_truth if truth_known else [],
             self.dummy_value,
             reweighter = data_reweighter,
+            weight_type = 'nominal',
             use_toydata = use_toydata
             )
         logger.info(f"Total number of observed events: {len(self.handle_obs)}")
@@ -227,7 +228,7 @@ class OmniFoldTTbar():
             # only reco level events are needed
             self.handle_obsbkg = getDataHandler(
                 filepaths_obsbkg, vars_reco, [], self.dummy_value,
-                weight_type = weight_type,
+                weight_type = 'nominal',
                 use_toydata = use_toydata
                 )
             logger.info(f"Total number of background events mixed with data: {len(self.handle_obsbkg)}")

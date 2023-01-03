@@ -135,7 +135,7 @@ def load_weights_root(
         file_names,
         tree_name,
         weight_name,
-        normalize_to_weight=''
+        weight_type = 'nominal'
     ):
     """
     Load event weights from ROOT files
@@ -147,10 +147,9 @@ def load_weights_root(
     tree_name : str
         Name of the tree in root files
     weight_name : str
-        Name of the event weight
-    normalize_to_weight : str, default ''
-        Name of the nominal weights to normalize to.
-        Only needed when converting weights for systematic uncertainty variations
+        Name of the TTree branch that stores the nominal event weights
+    weight_type : str
+        Type of the event weights variations. Default: nominal
 
     Returns
     -------
@@ -161,38 +160,70 @@ def load_weights_root(
 
     intrees = [fname + ':' + tree_name for fname in file_names]
 
+    # nominal weight s
     branches_w = [weight_name]
 
-    # hard code the names here for now
-    # components of the nominal weights
-    weight_names_part = ["weight_bTagSF_DL1r_70", "weight_jvt", "weight_leptonSF", "weight_pileup", "weight_mc"]
+    # weights variation
+    if weight_type != 'nominal':
+        # Examples of expected 'weight_type'
+        # 'weight_pileup_UP' or 'weight_bTagSF_DL1r_70_eigenvars_B_up:5'
+        if len(weight_type.split(':')) > 1:
+            # The weight variation branch is a vector of float
+            weight_syst, index_w = weight_type.split(':')
+        else:
+            weight_syst = weight_type
+            index_w = None
 
-    if normalize_to_weight:
-        branches_w.append(normalize_to_weight)
+        branches_w.append(weight_syst)
 
-        for wname in weight_names_part:
-            if weight_name.startswith(wname):
-                branches_w.append(wname)
+        # component of the nominal weights corresponding to the weight variation
+        # All components of the nominal weights (hard code here for now)
+        weight_comp = None
+        all_weight_components = ["weight_bTagSF_DL1r_70", "weight_jvt", "weight_leptonSF", "weight_pileup", "weight_mc"]
+        for wname in all_weight_components:
+            if weight_syst.startswith(wname):
+                weight_comp = wname
                 break
 
-        # a special case
-        if weight_name == "mc_generator_weights":
-            branches_w.append("weight_mc")
+        # A special case for the MC generator weight variations
+        if weight_syst == 'mc_generator_weights':
+            weight_comp = 'weight_mc'
 
+        if weight_comp is None: # something's wrong
+            raise RuntimeError(f"Unknown base component for event weight {weight_type}")
+
+        branches_w.append(weight_comp)
+
+    # load event weight arrays
     weights_array = uproot.lazy(intrees, filter_name = branches_w)
 
-    warr = weights_array[weight_name].to_numpy().T
+    # nominal weights
+    try:
+        warr =  weights_array[weight_name].to_numpy()
+    except ValueError as ve:
+        raise RuntimeError(f"Fail to load weights {weight_name}: {ve}")
 
-    if normalize_to_weight:
-        warr_norm = weights_array[normalize_to_weight].to_numpy()
+    if weight_type != 'nominal':
+        try:
+            warr_comp = weights_array[weight_comp].to_numpy()
+        except ValueError as ve:
+            raise RuntimeError(f"Fail to load weights {weight_comp}: {ve}")
 
-        wname_part = branches_w[-1]
-        warr_part = weights_array[wname_part].to_numpy()
+        try:
+            if index_w is None:
+                warr_syst = weights_array[weight_syst].to_numpy()
+            else:
+                warr_syst = weights_array[weight_syst][:,index_w].to_numpy()
+        except ValueError as ve:
+            raise RuntimeError(f"Fail to load weights {weight_syst}: {ve}")
 
-        sf = np.ones_like(warr_norm, float)
-        np.divide(warr_norm, warr_part, out=sf, where = warr_part!=0)
-        # e.g. w_pileup_DOWN * (w_normalized / w_pileup)
-        warr = warr * sf
+        assert(warr.shape == warr_comp.shape)
+        assert(warr.shape == warr_syst.shape)
+
+        #warr *= warr_syst / warr_comp
+        sf = np.zeros_like(warr, float)
+        np.divide(warr_syst, warr_comp, out = sf, where = warr_comp!=0)
+        warr *= sf
 
     return warr
 
