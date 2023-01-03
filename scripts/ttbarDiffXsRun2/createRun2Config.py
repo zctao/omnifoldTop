@@ -3,84 +3,8 @@ import os
 import glob
 import util
 
-# systematics
-# based on https://github.com/zctao/ntuplerTT/blob/master/configs/datasets/systematics.yaml
-syst_dict = {
-    "jet" : {
-        "prefix" : "CategoryReduction_JET",
-        "uncertainties" : [
-            "BJES_Response",
-            "EffectiveNP_Detector1",
-            "EffectiveNP_Detector2",
-            "EffectiveNP_Mixed1",
-            "EffectiveNP_Mixed2",
-            "EffectiveNP_Mixed3",
-            "EffectiveNP_Modelling1",
-            "EffectiveNP_Modelling2",
-            "EffectiveNP_Modelling3",
-            "EffectiveNP_Modelling4",
-            "EffectiveNP_Statistical1",
-            "EffectiveNP_Statistical2",
-            "EffectiveNP_Statistical3",
-            "EffectiveNP_Statistical4",
-            "EffectiveNP_Statistical5",
-            "EffectiveNP_Statistical6",
-            "EtaIntercalibration_Modelling",
-            "EtaIntercalibration_NonClosure_2018data",
-            "EtaIntercalibration_NonClosure_highE",
-            "EtaIntercalibration_NonClosure_negEta",
-            "EtaIntercalibration_NonClosure_posEta",
-            "EtaIntercalibration_TotalStat",
-            "Flavor_Composition",
-            "Flavor_Response",
-            "JER_DataVsMC_MC16",
-            "JER_EffectiveNP_1",
-            "JER_EffectiveNP_2",
-            "JER_EffectiveNP_3",
-            "JER_EffectiveNP_4",
-            "JER_EffectiveNP_5",
-            "JER_EffectiveNP_6",
-            "JER_EffectiveNP_7restTerm",
-            "Pileup_OffsetMu",
-            "Pileup_OffsetNPV",
-            "Pileup_PtTerm",
-            "Pileup_RhoTopology",
-            "PunchThrough_MC16",
-            "SingleParticle_HighPt"
-        ],
-        "variations" : ["_1down", "_1up"]
-    },
-    "egamma" : {
-        "prefix" : "EG",
-        "uncertainties" : [
-            "RESOLUTION_ALL",
-            "SCALE_AF2",
-            "SCALE_ALL"
-        ],
-        "variations" : ["_1down", "_1up"]
-    },
-    "muon" : {
-        "prefix" : "MUON",
-        "uncertainties" : [
-            "ID",
-            "MS",
-            "SAGITTA_RESBIAS",
-            "SAGITTA_RHO",
-            "SCALE"
-        ],
-        "variations" : ["_1down", "_1up"]
-    },
-    "met" : {
-        "prefix" : "MET",
-        "uncertainties" : ["SoftTrk_Scale"],
-        "variations" : ["_1down", "_1up"]
-    },
-    "met_res" : {
-        "prefix" : "MET",
-        "uncertainties" : ["SoftTrk"],
-        "variations" : ["ResoPara", "ResoPerp"]
-    }
-}
+# systematics dictionary
+from ttbarDiffXsRun2.systematics import syst_dict
 
 def getSamples_detNP(
     sample_dir, # top directory to read sample files
@@ -225,11 +149,12 @@ def createRun2Config(
 
     for k in syst_dict:
         prefix = syst_dict[k]["prefix"]
-        for s in syst_dict[k]["uncertainties"]:
+        uncertainties = syst_dict[k].get("uncertainties", [])
+        for s in uncertainties:
 
             if not include_all_syst and not f"{prefix}_{s}" in systematics:
-                    # skip this one
-                    continue
+                # skip this one
+                continue
 
             for v in syst_dict[k]["variations"]:
                 syst = f"{prefix}_{s}_{v}"
