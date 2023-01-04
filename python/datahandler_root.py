@@ -170,6 +170,8 @@ def load_weights_root(
         if len(weight_type.split(':')) > 1:
             # The weight variation branch is a vector of float
             weight_syst, index_w = weight_type.split(':')
+            weight_syst = weight_syst.strip()
+            index_w = int(index_w.strip())
         else:
             weight_syst = weight_type
             index_w = None
