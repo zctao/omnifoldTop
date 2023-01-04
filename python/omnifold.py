@@ -221,7 +221,8 @@ def omnifold(
                         #figname = fname_preds,
                         batch_size=batch_size, epochs=epochs, verbose=verbose,
                         model_filepath=file_path_save("model_step1", i, save_models_to),
-                        ax = ax_step1[i])
+                        ax = ax_step1[i] if ax_step1 is not None else None
+                        )
             logger.info("Training done")
             gc.collect()
 
@@ -290,7 +291,8 @@ def omnifold(
                         #figname = fname_preds,
                         batch_size=batch_size, epochs=epochs, verbose=verbose,
                         model_filepath=file_path_save("model_step2", i, save_models_to),
-                        ax = ax_step2[i])
+                        ax = ax_step2[i] if ax_step2 is not None else None
+                        )
             logger.info("Training done")
             gc.collect()
 
