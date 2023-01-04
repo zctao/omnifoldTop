@@ -6,10 +6,11 @@ import util
 # systematics dictionary
 from ttbarDiffXsRun2.systematics import syst_dict
 
-def getSamples_detNP(
+def getSamples(
     sample_dir, # top directory to read sample files
-    category, # "ejets" or "mjets" or "ljets"
+    category = 'ljets', # "ejets" or "mjets" or "ljets"
     systematics = 'nominal', # type of systematics
+    alternative_sample = '', # str, alternative sample to replace the nominal e.g. ttbar_hw_nominal
     subcampaigns = ["mc16a", "mc16d", "mc16e"]
     ):
 
@@ -41,21 +42,38 @@ def getSamples_detNP(
     backgrounds += [os.path.join(sample_dir, f"fakes/{y}/data_0_pseudotop_{c}.root") for c in channels for y in years]
 
     # W+jets
-    backgrounds += [os.path.join(sample_dir, f"systCRL/Wjets_nominal/{e}/Wjets_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
+    sample_type_Wjets = "systCRL/Wjets_nominal" # only one that is available
+    backgrounds += [os.path.join(sample_dir, f"{sample_type_Wjets}/{e}/Wjets_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
 
     # Z+jets
-    backgrounds += [os.path.join(sample_dir, f"systCRL/Zjets_nominal/{e}/Zjets_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
+    sample_type_Zjets = "systCRL/Zjets_nominal" # only one that is available
+    backgrounds += [os.path.join(sample_dir, f"{sample_type_Zjets}/{e}/Zjets_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
 
     # other samples
     for bkg in ['singleTop', 'ttH', 'ttV', 'VV']:
-        backgrounds += [os.path.join(sample_dir, f"detNP/{bkg}_{systematics}/{e}/{bkg}_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
+        if systematics != 'nominal':
+            sample_type_bkg = f"detNP/{bkg}_{systematics}"
+        elif alternative_sample.startswith(f"{bkg}_"):
+            sample_type_bkg = f"mcWAlt/{alternative_sample}"
+        else:
+            sample_type_bkg = f"systCRL/{bkg}_nominal"
+
+        backgrounds += [os.path.join(sample_dir, f"{sample_type_bkg}/{e}/{bkg}_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
 
     ###
     # signal
     signal = []
+
+    if systematics != 'nominal':
+        sample_type_sig = f"detNP/ttbar_{systematics}"
+    elif alternative_sample.startswith("ttbar_"):
+        sample_type_sig = f"mcWAlt/{alternative_sample}"
+    else:
+        sample_type_sig = "systCRL/ttbar_nominal"
+
     for e in subcampaigns:
         for c in channels:
-            s = glob.glob(os.path.join(sample_dir, f"detNP/ttbar_{systematics}/{e}/ttbar_*_pseudotop_parton_{c}.root"))
+            s = glob.glob(os.path.join(sample_dir, f"{sample_type_sig}/{e}/ttbar_*_pseudotop_parton_{c}.root"))
             s.sort()
             signal += s
 
@@ -64,6 +82,39 @@ def getSamples_detNP(
     assert(backgrounds)
 
     return data, signal, backgrounds
+
+def writeConfig_branch(
+    base_config, sample_obs, sample_sig, sample_bkg, outdir, load_model_dir=''
+    ):
+
+    syst_config = base_config.copy()
+    syst_config.update({
+        "data": sample_obs,
+        "signal": sample_sig,
+        "background": sample_bkg,
+        "outputdir": outdir,
+        "load_models": load_model_dir,
+        #"nruns": 10 # TODO: 1?
+        })
+
+    return syst_config
+
+def writeConfig_scalefactor(
+    base_config, sample_obs, sample_sig, sample_bkg, outdir, weight_type, load_model_dir=''
+    ):
+
+    syst_config = base_config.copy()
+    syst_config.update({
+        "data": sample_obs,
+        "signal": sample_sig,
+        "background": sample_bkg,
+        "outputdir": outdir,
+        "weight_type": weight_type,
+        #"load_models": load_model_dir,
+        #"nruns": 10 # TODO: 1?
+        })
+
+    return syst_config
 
 def createRun2Config(
         sample_local_dir,
@@ -94,7 +145,7 @@ def createRun2Config(
 
     # nominal input files
     print("nominal")
-    obs_nominal, sig_nominal, bkg_nominal = getSamples_detNP(
+    obs_nominal, sig_nominal, bkg_nominal = getSamples(
         sample_local_dir,
         category = category,
         systematics = 'nominal',
@@ -149,38 +200,98 @@ def createRun2Config(
 
     for k in syst_dict:
         prefix = syst_dict[k]["prefix"]
-        uncertainties = syst_dict[k].get("uncertainties", [])
+        uncertainties = syst_dict[k].get("uncertainties", [""])
         for s in uncertainties:
 
-            if not include_all_syst and not f"{prefix}_{s}" in systematics:
-                # skip this one
-                continue
+            if syst_dict[k]["type"] == "Branch":
 
-            for v in syst_dict[k]["variations"]:
-                syst = f"{prefix}_{s}_{v}"
+                syst_name = f"{prefix}_{s}" if s else f"{prefix}"
 
-                print(syst)
+                if not include_all_syst and not syst_name in systematics:
+                    # skip this one
+                    continue
 
-                obs_syst, sig_syst, bkg_syst = getSamples_detNP(
-                    sample_local_dir,
-                    category = category,
-                    systematics = syst,
-                    subcampaigns = subcampaigns
-                )
+                for v in syst_dict[k]["variations"]:
 
-                outdir_syst = os.path.join(output_top_dir, syst, f"output_run2_{category}")
+                    syst = f"{syst_name}_{v}"
+                    print(syst)
 
-                syst_cfg = common_cfg.copy()
-                syst_cfg.update({
-                    "data": obs_syst,
-                    "signal": sig_syst,
-                    "background": bkg_syst,
-                    "outputdir": outdir_syst,
-                    "load_models": outdir_nominal,
-                    "nruns": 10 # TODO: 1?
-                    })
+                    obs_syst, sig_syst, bkg_syst = getSamples(
+                        sample_local_dir,
+                        category = category,
+                        systematics = syst,
+                        subcampaigns = subcampaigns
+                    )
 
-                cfg_dict_list.append(syst_cfg)
+                    outdir_syst = os.path.join(output_top_dir, syst, f"output_run2_{category}")
+
+                    syst_cfg = writeConfig_branch(
+                        common_cfg,
+                        obs_syst, sig_syst, bkg_syst,
+                        outdir = outdir_syst,
+                        load_model_dir = outdir_nominal
+                    )
+
+                    cfg_dict_list.append(syst_cfg)
+
+            elif syst_dict[k]["type"] == "ScaleFactor":
+
+                if isinstance(s, dict):
+                    # e.g. {'eigenvars_B': 9}
+                    assert(len(s)==1)
+                    sname, vector_length = list(s.items())[0]
+                    syst_name = f"{prefix}_{sname}"
+                else:
+                    syst_name = f"{prefix}_{s}" if s else f"{prefix}"
+                    vector_length = None
+
+                if not include_all_syst and not syst_name in systematics:
+                    # skip this one
+                    continue
+
+                for v in syst_dict[k]["variations"]:
+                    if vector_length is not None:
+                        for i in range(vector_length):
+                            syst = f"{syst_name}{i+1}_{v}"
+                            print(syst)
+
+                            # use the nominal samples but with different event weights
+                            weight_syst = f"weight_{syst_name}_{v}:{i}"
+
+                            outdir_syst = os.path.join(output_top_dir, syst, f"output_run2_{category}")
+
+                            syst_cfg = writeConfig_scalefactor(
+                                common_cfg,
+                                obs_nominal, sig_nominal, bkg_nominal,
+                                outdir = outdir_syst,
+                                weight_type = weight_syst,
+                                #load_model_dir =
+                            )
+
+                            cfg_dict_list.append(syst_cfg)
+
+                    else:
+                        syst = f"{syst_name}_{v}"
+                        print(syst)
+
+                        # use the nominal samples but with different event weights
+                        weight_syst = f"weight_{syst}"
+
+                        outdir_syst = os.path.join(output_top_dir, syst, f"output_run2_{category}")
+
+                        syst_cfg = writeConfig_scalefactor(
+                            common_cfg,
+                            obs_nominal, sig_nominal, bkg_nominal,
+                            outdir = outdir_syst,
+                            weight_type = weight_syst,
+                            #load_model_dir =
+                        )
+
+                        cfg_dict_list.append(syst_cfg)
+
+    # TODO add modelling uncertainties
+
+    print(f"Number of run configs for systematics: {len(cfg_dict_list)}")
 
     # write systematic run config to file
     outname_config_syst = f"{outname_config}_syst.json"
@@ -193,14 +304,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-d", "--sample-dir", type=str,
-                        default="~/atlasserv/NtupleTT/latest",
+                        default="/mnt/xrootdg/ztao/NtupleTT/latest",
                         help="Sample directory")
     parser.add_argument("-n", "--config-name", type=str,
-                        default="runConfig")
+                        default="configs/run/ttbarDiffXsRun2/runCfg_run2_ljets")
     parser.add_argument("-c", "--category", choices=["ejets", "mjets", "ljets"],
                         default="ljets")
     parser.add_argument("-r", "--result-dir", type=str,
-                        default="~/data/OmniFoldOutputs/Run2",
+                        default="/mnt/xrootdg/ztao/OmniFoldOutputs/Run2",
                         help="Output directory of unfolding runs")
     parser.add_argument("-e", "--subcampaigns", nargs='+', choices=["mc16a", "mc16d", "mc16e"], default=["mc16a", "mc16d", "mc16e"])
     parser.add_argument("-s", "--systematics", type=str, nargs="*", default=[],
