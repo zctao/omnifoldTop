@@ -13,6 +13,7 @@ from lrscheduler import get_lr_scheduler
 from layer_namer import _layer_name
 from callbacks import EarlyLocking
 import plotter
+from customModel import LossTrackerModel
 
 n_models_in_parallel = 1
 
@@ -244,8 +245,9 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
 
         inputs += [input_layer]
         outputs += [output_layer]
-
-    return keras.models.Model(inputs=inputs, outputs=outputs)
+    
+    # return keras.models.Model(inputs=inputs, outputs=outputs)
+    return LossTrackerModel(inputs=inputs, outputs=outputs)
 
 def pfn(input_shape, nclass=2, nlatent=8):
     """

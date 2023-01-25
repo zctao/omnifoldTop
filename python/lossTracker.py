@@ -6,7 +6,7 @@ The aim is to keep the modifications to other parts minimal.
 
 lossTracker = None
 
-def getTrackerInstance(session_name, refresh):
+def getTrackerInstance(session_name, refresh)->LossTracker:
 	"""
 	Arguments
 	---------
@@ -23,6 +23,15 @@ def getTrackerInstance(session_name, refresh):
 	tracker: LossTracker
 		whether the returned tracker instance is a new instance depends on refresh flag
 	"""
+	if refresh:
+		lossTracker = LossTracker(session_name)
+	else:
+		lossTracker.updateSession(session_name)
+	return lossTracker
 
 class LossTracker():
-	
+	def __init__(self, session_name)->None:
+		self.session_name = session_name
+		pass
+	def updateSession(self, session_name)->None:
+		pass
