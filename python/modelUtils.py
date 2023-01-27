@@ -14,6 +14,7 @@ from layer_namer import _layer_name
 from callbacks import EarlyLocking
 import plotter
 from customModel import LossTrackerModel
+import lossTracker
 
 n_models_in_parallel = 1
 
@@ -203,7 +204,9 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
     fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
 
     model.fit(train_dictionary, train_y_dictionary, sample_weight=train_w, validation_data=(val_dictionary, val_y_dictionary, val_w), **fitargs)
-    
+    if lossTracker.trackingStep():
+        lossTracker.getTrackerInstance().evaluateLoss(model, (train_dictionary, train_y_dictionary, train_w))
+
     if model_filepath:
         model.save_weights(model_filepath)
 
