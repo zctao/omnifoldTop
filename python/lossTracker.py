@@ -7,6 +7,7 @@ import tensorflow as tf
 from tensorflow import keras
 import modelUtils
 from layer_namer import _layer_name
+import numpy as np
 
 lossTracker = None
 trackMode = "STEP"
@@ -47,8 +48,23 @@ class InterEpochLossTracker(LossTracker):
 
 class StepLossTracker(LossTracker):
 	def evaluateLoss(self, model, data):
-		return super().evaluateLoss(model, data)
+		inputs, outputs, weights = data[0], data[1], data[2]
+		
+		# generate key names for simple access
+		input_keys = [_layer_name(i, "input") for i in range(modelUtils.n_models_in_parallel)]
+		output_keys = [_layer_name(i, "output") for i in range(modelUtils.n_models_in_parallel)]
+		event_count = len(inputs[input_keys[0]])
 
+		loss = np.zeros((modelUtils.n_models_in_parallel, event_count))
+
+		print(np.shape(weights))
+		for i in range(event_count): # how many events we have
+			input_frame = tuple(inputs[_layer_name(n, "input")][i] for n in range(modelUtils.n_models_in_parallel))
+			output_frame = tuple(outputs[_layer_name(n, "output")][i] for n in range(modelUtils.n_models_in_parallel))
+			weight_frame = tuple(weights[n][i] for n in range(modelUtils.n_models_in_parallel))
+			print(model.evaluate(input_frame, output_frame, sample_weight = weight_frame))
+
+		
 
 def getTrackerInstance(session_name, refresh)->LossTracker:
 	"""
@@ -68,7 +84,7 @@ def getTrackerInstance(session_name, refresh)->LossTracker:
 		whether the returned tracker instance is a new instance depends on refresh flag
 	"""
 	if refresh:
-		lossTracker = LossTracker(session_name)
+		lossTracker = StepLossTracker(session_name) if trackingStep() else InterEpochLossTracker(session_name);
 	else:
 		lossTracker.updateSession(session_name)
 	return lossTracker
@@ -81,7 +97,7 @@ def getTrackerInstance()->LossTracker:
 		the current tracker instance. A new default tracker will be initiated if None.
 	"""
 	global lossTracker
-	if lossTracker == None: lossTracker = LossTracker("Default Session Name");
+	if lossTracker == None: lossTracker = StepLossTracker("Default Session Name") if trackingStep() else InterEpochLossTracker("Default Session Name");
 	return lossTracker
 
 def getTrackMode()->str:
