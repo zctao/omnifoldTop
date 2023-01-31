@@ -51,9 +51,9 @@ class StepLossTracker(LossTracker):
 		inputs, outputs, weights = data[0], data[1], np.array(data[2])
 		
 		# generate key names for simple access
-		event_count = len(weights)
+		event_count = (np.shape(weights))[1]
 
-		loss = np.zeros((modelUtils.n_models_in_parallel, event_count))
+		loss = np.zeros((event_count, modelUtils.n_models_in_parallel * 2))
 
 		input_frame, output_frame, weight_frame = {}, {}, []
 		print(np.shape(weights))
@@ -64,7 +64,8 @@ class StepLossTracker(LossTracker):
 				column = outputs[_layer_name(n, "output")][i]
 				output_frame[_layer_name(n, "output")] = np.reshape(column, (1,) + np.shape(column))
 				weight_frame = weights[:,i]
-			loss[i] = (model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame))[0]
+			print(model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame))
+			loss[i] = model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame)
 		print(loss)
 
 		
