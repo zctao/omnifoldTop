@@ -64,10 +64,8 @@ class StepLossTracker(LossTracker):
 				column = outputs[_layer_name(n, "output")][i]
 				output_frame[_layer_name(n, "output")] = np.reshape(column, (1,) + np.shape(column))
 				weight_frame = weights[:,i]
-				print(input_frame)
-				print(output_frame)
-				print(weight_frame)
-			print(model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame))
+			loss[i] = (model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame))[0]
+		print(loss)
 
 		
 
