@@ -205,7 +205,7 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
 
     model.fit(train_dictionary, train_y_dictionary, sample_weight=train_w, validation_data=(val_dictionary, val_y_dictionary, val_w), **fitargs)
     if lossTracker.trackingStep():
-        lossTracker.getTrackerInstance().evaluateLoss(model, (X_train, Y_train, train_w))
+        lossTracker.getTrackerInstance().evaluateLoss(model, (train_dictionary, train_y_dictionary, train_w))
 
     if model_filepath:
         model.save_weights(model_filepath)

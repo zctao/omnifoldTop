@@ -48,21 +48,26 @@ class InterEpochLossTracker(LossTracker):
 
 class StepLossTracker(LossTracker):
 	def evaluateLoss(self, model, data):
-		inputs, outputs, weights = data[0], data[1], data[2]
+		inputs, outputs, weights = data[0], data[1], np.array(data[2])
 		
 		# generate key names for simple access
-		input_keys = [_layer_name(i, "input") for i in range(modelUtils.n_models_in_parallel)]
-		output_keys = [_layer_name(i, "output") for i in range(modelUtils.n_models_in_parallel)]
-		event_count = len(inputs[input_keys[0]])
+		event_count = len(weights)
 
 		loss = np.zeros((modelUtils.n_models_in_parallel, event_count))
 
+		input_frame, output_frame, weight_frame = {}, {}, []
 		print(np.shape(weights))
 		for i in range(event_count): # how many events we have
-			input_frame = tuple(inputs[_layer_name(n, "input")][i] for n in range(modelUtils.n_models_in_parallel))
-			output_frame = tuple(outputs[_layer_name(n, "output")][i] for n in range(modelUtils.n_models_in_parallel))
-			weight_frame = tuple(weights[n][i] for n in range(modelUtils.n_models_in_parallel))
-			print(model.evaluate(input_frame, output_frame, sample_weight = weight_frame))
+			for n in range(modelUtils.n_models_in_parallel):
+				column = inputs[_layer_name(n, "input")][i]
+				input_frame[_layer_name(n, "input")] = np.reshape(column, (1,) + np.shape(column))
+				column = outputs[_layer_name(n, "output")][i]
+				output_frame[_layer_name(n, "output")] = np.reshape(column, (1,) + np.shape(column))
+				weight_frame = weights[:,i]
+				print(input_frame)
+				print(output_frame)
+				print(weight_frame)
+			print(model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame))
 
 		
 
