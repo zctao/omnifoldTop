@@ -12,9 +12,14 @@ import numpy as np
 lossTracker = None
 trackMode = "STEP"
 
+EVENT_ELEMENT_LABELS = []
+
 class LossTracker():
 	def __init__(self, session_name)->None:
 		self.session_name = session_name
+		self.data = []
+		self.loss = []
+		self.order = []
 		pass
 	def updateSession(self, session_name)->None:
 		pass
@@ -25,6 +30,22 @@ class LossTracker():
 		"""
 	def get():
 		return [], []
+	def setOrder(self, order):
+		"""
+		Strictly speaking, this functionality is not entirely necessary. It is for labelling what each
+		element of the event means physically.
+		"""
+		self.order = order
+	def getObservableLoss(self, elementName):
+		"""
+		Returns the 1d list of observable value and the corresponding 1d list of loss.
+		"""
+		idx = 0
+		for i, ob in enumerate(self.order):
+			if ob == elementName:
+				idx = i
+		
+		return self.data[:, i], self.loss
 
 class InterEpochLossTracker(LossTracker):
 	def evaluateLoss(self, model, data):
