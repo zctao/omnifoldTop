@@ -23,6 +23,8 @@ class LossTracker():
 		This function is designed to be invoked by the model during train step.
 		It will forward itself and the current batch of data here for evaluating the loss values.
 		"""
+	def get():
+		return [], []
 
 class InterEpochLossTracker(LossTracker):
 	def evaluateLoss(self, model, data):
@@ -47,6 +49,14 @@ class InterEpochLossTracker(LossTracker):
 			print(weight)
 
 class StepLossTracker(LossTracker):
+	def __init__(self):
+		self.loss = []
+		self.data = []
+	
+	def appendLoss(self, data, loss):
+		self.loss = np.concatenate(self.loss, loss)
+		self.data = np.concatenate(self.data, data)
+
 	def evaluateLoss(self, model, data):
 		inputs, outputs, weights = data[0], data[1], np.array(data[2])
 		
@@ -66,7 +76,10 @@ class StepLossTracker(LossTracker):
 				weight_frame = weights[:,i]
 			print(model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame))
 			loss[i] = model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame)
-		print(loss)
+		self.appendLoss(data[0][_layer_name(0, "input")], loss)
+
+	def get(self):
+		return self.data, self.loss
 
 		
 
