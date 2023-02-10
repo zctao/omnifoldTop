@@ -268,10 +268,9 @@ class DataHandlerROOT(DataHandler):
             filepaths, treename_reco, variable_names)
 
         # event weights
-        # TODO?: weight_type
-        # all nominal for now
         self.weights = load_weights_root(
-            filepaths, treename_reco, weight_name = 'normalized_weight'
+            filepaths, treename_reco, weight_name = 'normalized_weight',
+            weight_type = weight_type
             )
 
         # truth variables if available
@@ -282,7 +281,8 @@ class DataHandlerROOT(DataHandler):
 
             # event weights
             #self.weights_mc = load_weights_root(
-            #    filepaths, treename_truth, weight_name = 'normalized_weight_mc'
+            #    filepaths, treename_truth, weight_name = 'normalized_weight_mc',
+            #    weight_type = weight_type
             #    )
             self.weights_mc = self.weights.copy()
         else:
