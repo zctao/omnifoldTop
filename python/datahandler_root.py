@@ -4,6 +4,9 @@ import numpy as np
 import datahandler as dh
 from datahandler import DataHandler
 
+import logging
+logger = logging.getLogger('datahandler_root')
+
 def MeVtoGeV(array):
     """
     Convert unit from MeV to GeV
@@ -131,6 +134,52 @@ def load_dataset_root(
     # TODO: return a masked array?
     return data_array, pass_sel
 
+def read_weight_array(
+        filename, # str, name of the root file to read
+        tree_name, # str, name of TTree to read
+        weight_nominal, # str, name of the nominal weight
+        weight_component = None, # str, name of the weight component for normalization
+        weight_variation = None, # str, name of the weight from systematic uncertainty variation
+        weight_index = None, # int, index of the weight variation in case it is a vector  
+    ):
+
+    with uproot.open(filename) as f:
+        events = f[tree_name]
+
+        # nominal event weights
+        if not weight_nominal in events:
+            logger.error(f"Unkown branch {weight_nominal} in {filename}")
+            return None
+
+        warr = events[weight_nominal].array().to_numpy()
+
+        warr_comp = None
+        if weight_component is not None:
+            if not weight_component in events:
+                logger.warn(f"No branch {weight_component} in {filename}. Will use nominal event weights.")
+            else:
+                warr_comp = events[weight_component].array().to_numpy()
+                assert(warr.shape == warr_comp.shape)
+
+        warr_syst = None
+        if weight_variation is not None:
+            if not weight_variation in events:
+                logger.warn(f"No branch {weight_variation} in {filename}. Will use nominal event weights.")
+            else:
+                if weight_index is None:
+                    warr_syst = events[weight_variation].array().to_numpy()
+                else:
+                    warr_syst = events[weight_variation].array().to_numpy()[:,weight_index]
+                assert(warr.shape == warr_syst.shape)
+
+    #warr *= warr_syst / warr_comp
+    if warr_comp is not None and warr_syst is not None:
+        sf = np.zeros_like(warr, float)
+        np.divide(warr_syst, warr_comp, out = sf, where = warr_comp!=0)
+        warr *= sf
+
+    return warr
+
 def load_weights_root(
         file_names,
         tree_name,
@@ -155,17 +204,10 @@ def load_weights_root(
     -------
     A numpy ndarray of event weights
     """
-    if isinstance(file_names, str):
-        file_names = [file_names]
 
-    intrees = [fname + ':' + tree_name for fname in file_names]
-
-    # nominal weight s
-    branches_w = [weight_name]
-
-    # weights variation
+    # parse weight_type
     if weight_type != 'nominal':
-        # Examples of expected 'weight_type'
+        # Examples of expected 'weight_type':
         # 'weight_pileup_UP' or 'weight_bTagSF_DL1r_70_eigenvars_B_up:5'
         if len(weight_type.split(':')) > 1:
             # The weight variation branch is a vector of float
@@ -175,8 +217,6 @@ def load_weights_root(
         else:
             weight_syst = weight_type
             index_w = None
-
-        branches_w.append(weight_syst)
 
         # component of the nominal weights corresponding to the weight variation
         # All components of the nominal weights (hard code here for now)
@@ -194,40 +234,32 @@ def load_weights_root(
         if weight_comp is None: # something's wrong
             raise RuntimeError(f"Unknown base component for event weight {weight_type}")
 
-        branches_w.append(weight_comp)
+    else:
+        weight_syst = None
+        weight_comp = None
+        index_w = None
 
-    # load event weight arrays
-    weights_array = uproot.lazy(intrees, filter_name = branches_w)
+    # loop over input files
+    if isinstance(file_names, str):
+        file_names = [file_names]
 
-    # nominal weights
-    try:
-        warr =  weights_array[weight_name].to_numpy()
-    except ValueError as ve:
-        raise RuntimeError(f"Fail to load weights {weight_name}: {ve}")
+    weights_arr = np.empty(shape=(0,))
 
-    if weight_type != 'nominal':
-        try:
-            warr_comp = weights_array[weight_comp].to_numpy()
-        except ValueError as ve:
-            raise RuntimeError(f"Fail to load weights {weight_comp}: {ve}")
+    for fname in file_names:
 
-        try:
-            if index_w is None:
-                warr_syst = weights_array[weight_syst].to_numpy()
-            else:
-                warr_syst = weights_array[weight_syst][:,index_w].to_numpy()
-        except ValueError as ve:
-            raise RuntimeError(f"Fail to load weights {weight_syst}: {ve}")
+        weights_arr = np.concatenate([
+            weights_arr,
+            read_weight_array(
+                fname,
+                tree_name,
+                weight_nominal = weight_name,
+                weight_component = weight_comp,
+                weight_variation = weight_syst,
+                weight_index = index_w
+            )
+            ])
 
-        assert(warr.shape == warr_comp.shape)
-        assert(warr.shape == warr_syst.shape)
-
-        #warr *= warr_syst / warr_comp
-        sf = np.zeros_like(warr, float)
-        np.divide(warr_syst, warr_comp, out = sf, where = warr_comp!=0)
-        warr *= sf
-
-    return warr
+    return weights_arr
 
 class DataHandlerROOT(DataHandler):
     """
