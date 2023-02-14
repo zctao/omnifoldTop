@@ -8,19 +8,28 @@ from tensorflow import keras
 import modelUtils
 from layer_namer import _layer_name
 import numpy as np
+import preprocessor
 
 lossTracker = None
 trackMode = "STEP"
 
 EVENT_ELEMENT_LABELS = []
 
+# Unfortunately the process of evaluating the model against each individual event is really slow.
+# It is however necesssary since we need to infer each individual loss here.
+# Thus the compromise is to sample a set amount of events.
+# The events are already randomly arranged, so taking the first N events should suffice.
+TRACKING_SAMPLING_N = 100 # currently set to 100 for debugging purposes.
+
 class LossTracker():
 	def __init__(self, session_name)->None:
 		self.session_name = session_name
 		self.data = []
 		self.loss = []
-		self.order = ['th_pt' 'th_y_abs' 'th_phi' 'th_e' 'tl_pt' 'tl_y_abs' 'tl_phi' 'tl_e']
-		pass
+
+		# safe to call getObservables here with the assumption that lossTracker is intialized
+		# in modelUtils.train_model, which is long after preprocessing has finished.
+		self.order = preprocessor.get().getObservables()
 	def updateSession(self, session_name)->None:
 		pass
 	def evaluateLoss(self, model, data):
@@ -89,15 +98,15 @@ class StepLossTracker(LossTracker):
 
 		input_frame, output_frame, weight_frame = {}, {}, []
 		print(np.shape(weights))
-		for i in range(1000): # how many events we have
+		for i in range(TRACKING_SAMPLING_N): # how many events we have
 			for n in range(modelUtils.n_models_in_parallel):
 				column = inputs[_layer_name(n, "input")][i]
 				input_frame[_layer_name(n, "input")] = np.reshape(column, (1,) + np.shape(column))
 				column = outputs[_layer_name(n, "output")][i]
 				output_frame[_layer_name(n, "output")] = np.reshape(column, (1,) + np.shape(column))
 				weight_frame = weights[:,i]
-			loss[i] = model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame, verbose=1)
-			if (i % 100 / 100 == 0):
+			loss[i] = model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame, verbose=0)
+			if (i % (TRACKING_SAMPLING_N / 100) == 0):
 				print(i, "/", 100, " done\n")
 		self.appendLoss(data[0][_layer_name(0, "input")], loss)
 
