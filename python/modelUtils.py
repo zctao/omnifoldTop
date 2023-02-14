@@ -16,6 +16,8 @@ import plotter
 from customModel import LossTrackerModel
 import lossTracker
 
+import matplotlib.pyplot as plt
+
 n_models_in_parallel = 1
 
 import logging
@@ -206,6 +208,13 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
     model.fit(train_dictionary, train_y_dictionary, sample_weight=train_w, validation_data=(val_dictionary, val_y_dictionary, val_w), **fitargs)
     if lossTracker.trackingStep():
         lossTracker.getTrackerInstance().evaluateLoss(model, (train_dictionary, train_y_dictionary, train_w))
+    data, loss = lossTracker.getTrackerInstance().getObservableLoss("th_pt")
+    loss = np.sum(loss, axis=1)
+    print(data)
+    print(loss)
+    plt.clf()
+    plt.hist(data, weights = loss)
+    plt.savefig("testLossTrack.png")
 
     if model_filepath:
         model.save_weights(model_filepath)

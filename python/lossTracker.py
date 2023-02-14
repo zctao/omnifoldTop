@@ -19,7 +19,7 @@ class LossTracker():
 		self.session_name = session_name
 		self.data = []
 		self.loss = []
-		self.order = []
+		self.order = ['th_pt' 'th_y_abs' 'th_phi' 'th_e' 'tl_pt' 'tl_y_abs' 'tl_phi' 'tl_e']
 		pass
 	def updateSession(self, session_name)->None:
 		pass
@@ -70,13 +70,14 @@ class InterEpochLossTracker(LossTracker):
 			print(weight)
 
 class StepLossTracker(LossTracker):
-	def __init__(self):
-		self.loss = []
-		self.data = []
-	
 	def appendLoss(self, data, loss):
-		self.loss = np.concatenate(self.loss, loss)
-		self.data = np.concatenate(self.data, data)
+		if len(self.loss) != 0 and len(self.data) != 0:
+			self.loss = np.concatenate((self.loss, loss))
+			self.data = np.concatenate((self.data, data))
+		else:
+			self.loss = loss
+			self.data = data
+
 
 	def evaluateLoss(self, model, data):
 		inputs, outputs, weights = data[0], data[1], np.array(data[2])
@@ -88,15 +89,16 @@ class StepLossTracker(LossTracker):
 
 		input_frame, output_frame, weight_frame = {}, {}, []
 		print(np.shape(weights))
-		for i in range(event_count): # how many events we have
+		for i in range(1000): # how many events we have
 			for n in range(modelUtils.n_models_in_parallel):
 				column = inputs[_layer_name(n, "input")][i]
 				input_frame[_layer_name(n, "input")] = np.reshape(column, (1,) + np.shape(column))
 				column = outputs[_layer_name(n, "output")][i]
 				output_frame[_layer_name(n, "output")] = np.reshape(column, (1,) + np.shape(column))
 				weight_frame = weights[:,i]
-			print(model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame))
-			loss[i] = model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame)
+			loss[i] = model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame, verbose=1)
+			if (i % 100 / 100 == 0):
+				print(i, "/", 100, " done\n")
 		self.appendLoss(data[0][_layer_name(0, "input")], loss)
 
 	def get(self):
