@@ -9,9 +9,15 @@ import modelUtils
 from layer_namer import _layer_name
 import numpy as np
 import preprocessor
+import matplotlib.pyplot as plt
+import os
 
 lossTracker = None
 trackMode = "STEP"
+
+# Currently supported: "AVG" or "SUM"
+# This defines what happend when plotting loss against observable values
+MODE = "AVG"
 
 EVENT_ELEMENT_LABELS = []
 
@@ -54,7 +60,13 @@ class LossTracker():
 			if ob == elementName:
 				idx = i
 		
-		return self.data[:, i], self.loss
+		return self.data[:, idx], self.loss
+	def plotLoss(self):
+		"""
+		Plotting the currently recorded loss to file. Implementation can differ depending
+		on what is really being tracked and how sessions are divided.
+		"""
+		pass
 
 class InterEpochLossTracker(LossTracker):
 	def evaluateLoss(self, model, data):
@@ -112,6 +124,21 @@ class StepLossTracker(LossTracker):
 
 	def get(self):
 		return self.data, self.loss
+	
+	def plotLoss(self):
+		for ob_name in self.order:
+			data, loss = self.getObservableLoss(ob_name)
+			loss = np.average(loss, axis=1) # Taking the average of parallel models
+			plt.clf() # Clear any previously plotted graph
+			plt.hist(data, weights = loss)
+			plt.title(ob_name + " loss distribution")
+			plt.xlabel(ob_name)
+			plt.ylabel("loss")
+
+			# saving figure
+			# TODO: Move this into output dir in the future
+			plt.savefig(os.path.join("trackerPlot", ob_name+".png"))
+		
 
 		
 
