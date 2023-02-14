@@ -99,6 +99,10 @@ class StepLossTracker(LossTracker):
 			self.loss = loss
 			self.data = data
 
+	def updateSession(self, session_name) -> None:
+		self.session_name = session_name
+		self.loss = []
+		self.data = []
 
 	def evaluateLoss(self, model, data):
 		inputs, outputs, weights = data[0], data[1], np.array(data[2])
@@ -137,7 +141,7 @@ class StepLossTracker(LossTracker):
 
 			# saving figure
 			# TODO: Move this into output dir in the future
-			plt.savefig(os.path.join("trackerPlot", ob_name+".png"))
+			plt.savefig(os.path.join("trackerPlot", ob_name+"_"+self.session_name+".png"))
 		
 
 		
