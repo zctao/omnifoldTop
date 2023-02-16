@@ -4,7 +4,7 @@ import glob
 import util
 
 # systematics dictionary
-from ttbarDiffXsRun2.systematics import syst_dict
+from ttbarDiffXsRun2.systematics import syst_dict, select_systematics
 
 def getSamples(
     sample_dir, # top directory to read sample files
@@ -123,7 +123,8 @@ def createRun2Config(
         output_top_dir = '.',
         subcampaigns = ["mc16a", "mc16d", "mc16e"],
         do_bootstrap = False,
-        systematics = [],
+        do_systematics = False,
+        systematics_keywords = [],
         common_cfg = {}
     ):
 
@@ -189,14 +190,11 @@ def createRun2Config(
         outname_config_bootstrap = f"{outname_config}_bootstrap.json"
         util.write_dict_to_json(resample_cfg, outname_config_bootstrap)
 
-    if not systematics: # no systematic uncertainties to evaluate
+    # for systematic uncertainties
+    if not do_systematics:
         return
 
-    # for systematic uncertainties
     cfg_dict_list = []
-
-    # A special case in which all available systematic uncertainties are included
-    include_all_syst = systematics == ["all"]
 
     for k in syst_dict:
         prefix = syst_dict[k]["prefix"]
@@ -207,13 +205,14 @@ def createRun2Config(
 
                 syst_name = f"{prefix}_{s}" if s else f"{prefix}"
 
-                if not include_all_syst and not syst_name in systematics:
-                    # skip this one
-                    continue
-
                 for v in syst_dict[k]["variations"]:
 
                     syst = f"{syst_name}_{v}"
+
+                    if not select_systematics(syst, systematics_keywords):
+                        # skip this one
+                        continue
+
                     print(syst)
 
                     obs_syst, sig_syst, bkg_syst = getSamples(
@@ -245,14 +244,13 @@ def createRun2Config(
                     syst_name = f"{prefix}_{s}" if s else f"{prefix}"
                     vector_length = None
 
-                if not include_all_syst and not syst_name in systematics:
-                    # skip this one
-                    continue
-
                 for v in syst_dict[k]["variations"]:
                     if vector_length is not None:
                         for i in range(vector_length):
                             syst = f"{syst_name}{i+1}_{v}"
+                            if not select_systematics(syst, systematics_keywords):
+                                continue
+
                             print(syst)
 
                             # use the nominal samples but with different event weights
@@ -272,6 +270,9 @@ def createRun2Config(
 
                     else:
                         syst = f"{syst_name}_{v}"
+                        if not select_systematics(syst, systematics_keywords):
+                            continue
+
                         print(syst)
 
                         # use the nominal samples but with different event weights
@@ -314,8 +315,10 @@ if __name__ == "__main__":
                         default="/mnt/xrootdg/ztao/OmniFoldOutputs/Run2",
                         help="Output directory of unfolding runs")
     parser.add_argument("-e", "--subcampaigns", nargs='+', choices=["mc16a", "mc16d", "mc16e"], default=["mc16a", "mc16d", "mc16e"])
-    parser.add_argument("-s", "--systematics", type=str, nargs="*", default=[],
-                        help="List of systematic uncertainties to evaluate. A special case: 'all' includes all systematics")
+    parser.add_argument("-s", "--do-systematics", action="store_true",
+                        help="If True, also generate run configs for evaluating systematics")
+    parser.add_argument("-k", "--systematics-keywords", type=str, nargs="*", default=[],
+                        help="List of keywords to filter systematic uncertainties to evaluate.If empty, include all available")
     parser.add_argument("-b", "--do-bootstrap", action="store_true",
                         help="If True, also generate run configs to do bootstrap")
 
@@ -341,6 +344,7 @@ if __name__ == "__main__":
         output_top_dir = args.result_dir,
         subcampaigns = args.subcampaigns,
         do_bootstrap = args.do_bootstrap,
-        systematics = args.systematics,
+        do_systematics = args.do_systematics,
+        systematics_keywords = args.systematics_keywords,
         common_cfg = common_cfg
         )

@@ -7,6 +7,15 @@ syst_dict = yaml.load(
     urlopen(url_syst), yaml.FullLoader
     )
 
+def select_systematics(name, keywords):
+    if keywords:
+        for kw in keywords:
+            if kw in name:
+                return True
+        return False
+    else:
+        return True
+
 # A helper function that returns a list of string tuple:
 # [(syst1_up,syst1_down), (syst2_up, syst2_down), ...]
 def get_systematics(
@@ -18,15 +27,6 @@ def get_systematics(
         name_filters = [name_filters]
 
     syst_list = []
-
-    def select_systematics(name, keywords):
-        if keywords:
-            for kw in keywords:
-                if kw in name:
-                    return True
-            return False
-        else:
-            return True
 
     # loop over syst_dict
     for k in syst_dict:
