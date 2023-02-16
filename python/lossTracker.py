@@ -142,13 +142,14 @@ class StepLossTracker(LossTracker):
 			loss = np.average(loss, axis=1) # Taking the average of parallel models
 			plt.clf() # Clear any previously plotted graph
 
+			fig, axs = plt.subplots(3)
+
 			# counting how many events are in each bin
-			event_cnt, bin_edges, patches = plt.hist(data)
+			event_cnt, bin_edges, patches = axs[2].hist(data)
+			axs[2].set_title(ob_name + " event count")
+			axs[2].set_xlabel(ob_name)
+			axs[2].set_ylabel("number of events")
 
-			plt.clf()
-
-
-			fig, axs = plt.subplots(2)
 			# loss against observable value
 			n, bin_edges, patches =  axs[0].hist(data, weights = loss)
 			axs[0].set_title(ob_name + " loss distribution")
