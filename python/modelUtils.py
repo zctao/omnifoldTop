@@ -253,8 +253,10 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
         inputs += [input_layer]
         outputs += [output_layer]
     
-    # return keras.models.Model(inputs=inputs, outputs=outputs)
-    return LossTrackerModel(inputs=inputs, outputs=outputs)
+    if lossTracker.interEpochTracking():
+        return LossTrackerModel(inputs=inputs, outputs=outputs)
+    else:
+        return keras.models.Model(inputs=inputs, outputs=outputs)
 
 def pfn(input_shape, nclass=2, nlatent=8):
     """

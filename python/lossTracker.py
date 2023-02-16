@@ -68,6 +68,13 @@ class LossTracker():
 		"""
 		pass
 
+"""
+Instead of puting "if enable" checks everywhere in code, the loss tracker can be instead
+disabled by creating a dummy instance that does not do any thing.
+"""
+class DisabledTracker(LossTracker):
+	pass
+
 class InterEpochLossTracker(LossTracker):
 	def evaluateLoss(self, model, data):
 		# unpack data
@@ -177,7 +184,14 @@ def getTrackerInstance()->LossTracker:
 		the current tracker instance. A new default tracker will be initiated if None.
 	"""
 	global lossTracker
-	if lossTracker == None: lossTracker = StepLossTracker("Default Session Name") if trackingStep() else InterEpochLossTracker("Default Session Name");
+	if lossTracker == None:
+		if trackingStep():
+			lossTracker = StepLossTracker("Default Session Name")
+		elif interEpochTracking():
+			lossTracker = InterEpochLossTracker("Default Session Name")
+		elif trackingDisabled():
+			lossTracker = DisabledTracker("Default Session Name")
+
 	return lossTracker
 
 def getTrackMode()->str:
@@ -194,3 +208,6 @@ def interEpochTracking()->bool:
 		return True
 	else:
 		return False
+
+def trackingDisabled()->bool:
+	return trackMode == "DISABLE"

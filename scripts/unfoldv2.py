@@ -15,6 +15,7 @@ from make_histograms import make_histograms_from_unfolder
 import preprocessor
 import modelUtils
 import lrscheduler
+import lossTracker
 
 def unfold(**parsed_args):
 
@@ -69,6 +70,12 @@ def unfold(**parsed_args):
     #################
 
     preprocessor.initialize(observable_dict, parsed_args['preprocessor_config'], varnames_train_truth)
+    
+    #################
+    # Configure Loss Tracker Mode
+    #################
+
+    lossTracker.trackMode = parsed_args["loss_track_mode"]
 
     #################
     # Initialize and load data
@@ -306,6 +313,7 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument('--toydata', action='store_true', help="If True, use toy data")
     parser.add_argument('--exclude-flow', action='store_true',
                         help="If True, exclude events in overflow and underflow bins given a binning configuration")
+    parser.add_argument("--loss-track-mode", type=str, default="DISABLE")
 
     if print_help:
         parser.print_help()
