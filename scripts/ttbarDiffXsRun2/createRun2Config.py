@@ -4,7 +4,8 @@ import glob
 import util
 
 # systematics dictionary
-from ttbarDiffXsRun2.systematics import syst_dict, select_systematics
+from ttbarDiffXsRun2.systematics import get_systematics
+#from ttbarDiffXsRun2.systematics import syst_dict, select_systematics
 
 def getSamples(
     sample_dir, # top directory to read sample files
@@ -196,99 +197,43 @@ def createRun2Config(
 
     cfg_dict_list = []
 
-    for k in syst_dict:
-        prefix = syst_dict[k]["prefix"]
-        uncertainties = syst_dict[k].get("uncertainties", [""])
-        for s in uncertainties:
+    # Systematics as separate TTrees
+    for syst in get_systematics(systematics_keywords, syst_type="Branch"):
+        print(syst)
 
-            if syst_dict[k]["type"] == "Branch":
+        obs_syst, sig_syst, bkg_syst = getSamples(
+            sample_local_dir,
+            category = category,
+            systematics = syst,
+            subcampaigns = subcampaigns
+            )
 
-                syst_name = f"{prefix}_{s}" if s else f"{prefix}"
+        outdir_syst = os.path.join(output_top_dir, syst)
 
-                for v in syst_dict[k]["variations"]:
+        syst_cfg = writeConfig_branch(
+            common_cfg,
+            obs_syst, sig_syst, bkg_syst,
+            outdir = outdir_syst,
+            load_model_dir = outdir_nominal
+            )
 
-                    syst = f"{syst_name}_{v}"
+        cfg_dict_list.append(syst_cfg)
 
-                    if not select_systematics(syst, systematics_keywords):
-                        # skip this one
-                        continue
+    # Systematics as scale factor variations
+    for syst, wtype in zip(*get_systematics(systematics_keywords, syst_type="ScaleFactor", get_weight_types=True)):
+        print(syst)
 
-                    print(syst)
+        outdir_syst = os.path.join(output_top_dir, syst)
 
-                    obs_syst, sig_syst, bkg_syst = getSamples(
-                        sample_local_dir,
-                        category = category,
-                        systematics = syst,
-                        subcampaigns = subcampaigns
-                    )
+        syst_cfg = writeConfig_scalefactor(
+            common_cfg,
+            obs_nominal, sig_nominal, bkg_nominal,
+            outdir = outdir_syst,
+            weight_type = wtype,
+            #load_model_dir =
+            )
 
-                    outdir_syst = os.path.join(output_top_dir, syst)
-
-                    syst_cfg = writeConfig_branch(
-                        common_cfg,
-                        obs_syst, sig_syst, bkg_syst,
-                        outdir = outdir_syst,
-                        load_model_dir = outdir_nominal
-                    )
-
-                    cfg_dict_list.append(syst_cfg)
-
-            elif syst_dict[k]["type"] == "ScaleFactor":
-
-                if isinstance(s, dict):
-                    # e.g. {'eigenvars_B': 9}
-                    assert(len(s)==1)
-                    sname, vector_length = list(s.items())[0]
-                    syst_name = f"{prefix}_{sname}"
-                else:
-                    syst_name = f"{prefix}_{s}" if s else f"{prefix}"
-                    vector_length = None
-
-                for v in syst_dict[k]["variations"]:
-                    if vector_length is not None:
-                        for i in range(vector_length):
-                            syst = f"{syst_name}{i+1}_{v}"
-                            if not select_systematics(syst, systematics_keywords):
-                                continue
-
-                            print(syst)
-
-                            # use the nominal samples but with different event weights
-                            weight_syst = f"weight_{syst_name}_{v}:{i}"
-
-                            outdir_syst = os.path.join(output_top_dir, syst)
-
-                            syst_cfg = writeConfig_scalefactor(
-                                common_cfg,
-                                obs_nominal, sig_nominal, bkg_nominal,
-                                outdir = outdir_syst,
-                                weight_type = weight_syst,
-                                #load_model_dir =
-                            )
-
-                            cfg_dict_list.append(syst_cfg)
-
-                    else:
-                        syst = f"{syst_name}_{v}"
-                        if not select_systematics(syst, systematics_keywords):
-                            continue
-
-                        print(syst)
-
-                        # use the nominal samples but with different event weights
-                        weight_syst = f"weight_{syst}"
-
-                        outdir_syst = os.path.join(output_top_dir, syst)
-
-                        syst_cfg = writeConfig_scalefactor(
-                            common_cfg,
-                            obs_nominal, sig_nominal, bkg_nominal,
-                            outdir = outdir_syst,
-                            weight_type = weight_syst,
-                            #load_model_dir =
-                        )
-
-                        cfg_dict_list.append(syst_cfg)
+        cfg_dict_list.append(syst_cfg)
 
     # TODO add modelling uncertainties
 
