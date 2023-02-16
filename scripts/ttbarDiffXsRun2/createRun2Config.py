@@ -152,7 +152,7 @@ def createRun2Config(
         subcampaigns = subcampaigns
     )
 
-    outdir_nominal = os.path.join(output_top_dir, "nominal", f"output_run2_{category}")
+    outdir_nominal = os.path.join(output_top_dir, "nominal")
 
     nominal_cfg = common_cfg.copy()
     nominal_cfg.update({
@@ -171,7 +171,7 @@ def createRun2Config(
     # bootstrap for statistical uncertainties
     if do_bootstrap:
         nresamples = 10
-        outdir_resample = os.path.join(output_top_dir, "nominal", f"output_run2_bootstrap_{category}")
+        outdir_resample = os.path.join(output_top_dir, "bootstrap")
         outdir_resample_dict = {
             f"resample{n}" : outdir_resample for n in range(nresamples)
             }
@@ -223,7 +223,7 @@ def createRun2Config(
                         subcampaigns = subcampaigns
                     )
 
-                    outdir_syst = os.path.join(output_top_dir, syst, f"output_run2_{category}")
+                    outdir_syst = os.path.join(output_top_dir, syst)
 
                     syst_cfg = writeConfig_branch(
                         common_cfg,
@@ -258,7 +258,7 @@ def createRun2Config(
                             # use the nominal samples but with different event weights
                             weight_syst = f"weight_{syst_name}_{v}:{i}"
 
-                            outdir_syst = os.path.join(output_top_dir, syst, f"output_run2_{category}")
+                            outdir_syst = os.path.join(output_top_dir, syst)
 
                             syst_cfg = writeConfig_scalefactor(
                                 common_cfg,
@@ -277,7 +277,7 @@ def createRun2Config(
                         # use the nominal samples but with different event weights
                         weight_syst = f"weight_{syst}"
 
-                        outdir_syst = os.path.join(output_top_dir, syst, f"output_run2_{category}")
+                        outdir_syst = os.path.join(output_top_dir, syst)
 
                         syst_cfg = writeConfig_scalefactor(
                             common_cfg,
