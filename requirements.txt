@@ -60,6 +60,6 @@ typing_extensions==4.0.1
 uhi==0.3.1
 uproot==4.1.9
 urllib3==1.26.8
-Werkzeug==2.0.2
+Werkzeug==2.2.3
 wrapt==1.13.3
 zipp==3.7.0
