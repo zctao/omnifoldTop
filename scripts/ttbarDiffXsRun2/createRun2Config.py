@@ -101,7 +101,7 @@ def writeConfig_branch(
     return syst_config
 
 def writeConfig_scalefactor(
-    base_config, sample_obs, sample_sig, sample_bkg, outdir, weight_type, load_model_dir=''
+    base_config, sample_obs, sample_sig, sample_bkg, outdir, weight_type, unfolded_weights_dir=''
     ):
 
     syst_config = base_config.copy()
@@ -110,10 +110,13 @@ def writeConfig_scalefactor(
         "signal": sample_sig,
         "background": sample_bkg,
         "outputdir": outdir,
-        "weight_type": weight_type,
-        #"load_models": load_model_dir,
-        #"nruns": 10 # TODO: 1?
+        "weight_type": weight_type
         })
+
+    if unfolded_weights_dir:
+        syst_config.update({
+            "unfolded_weights": os.path.join(unfolded_weights_dir, "weights_unfolded.npz")
+            })
 
     return syst_config
 
@@ -230,7 +233,7 @@ def createRun2Config(
             obs_nominal, sig_nominal, bkg_nominal,
             outdir = outdir_syst,
             weight_type = wtype,
-            #load_model_dir =
+            unfolded_weights_dir = outdir_nominal
             )
 
         cfg_dict_list.append(syst_cfg)
