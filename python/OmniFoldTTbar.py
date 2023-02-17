@@ -691,10 +691,14 @@ def load_unfolder(
     # Flag for renormalizing sample. If True, normalize simulation weights to data.
     # If None, set the flag according to the run arguments
     normalize_to_data = None, # bool
+    args_update = {}, # dict, new arguments to overwrite the ones read from fpath_arguments if any
     ):
 
     logger.info(f"Read arguments from {fpath_arguments}")
     args_d = util.read_dict_from_json(fpath_arguments)
+
+    if args_update:
+        args_d.update(args_update)
 
     # observables
     if not observables:
