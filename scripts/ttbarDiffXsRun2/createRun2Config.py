@@ -269,6 +269,8 @@ if __name__ == "__main__":
                         help="List of keywords to filter systematic uncertainties to evaluate.If empty, include all available")
     parser.add_argument("-b", "--do-bootstrap", action="store_true",
                         help="If True, also generate run configs to do bootstrap")
+    parser.add_argument("--observables", nargs='+',
+                        help="List of observables to unfold")
 
     args = parser.parse_args()
 
@@ -284,6 +286,9 @@ if __name__ == "__main__":
         "resample_data" : False,
         "correct_acceptance" : True
     }
+
+    if args.observables:
+        common_cfg["observables"] = args.observables
 
     createRun2Config(
         args.sample_dir,
