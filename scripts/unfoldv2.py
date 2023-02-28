@@ -97,7 +97,8 @@ def unfold(**parsed_args):
         correct_acceptance = parsed_args['correct_acceptance'],
         outputdir = parsed_args["outputdir"],
         data_reweighter = rw,
-        weight_type = parsed_args["weight_type"],
+        weight_type_data = parsed_args["weight_data"],
+        weight_type_mc = parsed_args["weight_mc"],
         use_toydata = parsed_args["toydata"]
         )
 
@@ -298,8 +299,10 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="Plot verbose level. '-ppp' to make all plots.")
     parser.add_argument('--run-ibu', action='store_true',
                         help="If True, run unfolding also with IBU for comparison")
-    parser.add_argument('-w', '--weight-type', type=str, default='nominal',
-                        help="Type of event weights to retrieve from ntuples")
+    parser.add_argument('--weight-mc', type=str, default='nominal',
+                        help="Type of event weights to retrieve from MC ntuples")
+    parser.add_argument('--weight-data', type=str, default='nominal',
+                        help="Type of event weights to retrieve from data ntuples")
     parser.add_argument("--preprocessor-config", type=str, default='configs/preprocessor/angle_to_cos.json', help="location of the preprocessor config file")
     parser.add_argument('--parallel-models', type=int, default=1, help="Number of parallel models, default ot 1")
     parser.add_argument('--lrscheduler-config', type=str, default="configs/lrs/constant_warm_up.json", help="config file for learning rate scheduler")
