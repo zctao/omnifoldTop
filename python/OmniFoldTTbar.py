@@ -741,8 +741,13 @@ def load_unfolder(
         normalize_to_data = args_d['normalize']
 
     # for backward compatibility
-    if args_d['dummy_value'] is not None:
+    if args_d.get('dummy_value') is not None:
         args_d['correct_acceptance'] = True
+
+    if args_d.get('weight_type') is not None:
+        args_d['weight_mc'] = args_d['weight_type']
+        if args_d.get('weight_data') is None:
+            args_d['weight_data'] = 'nominal'
 
     logger.info("Construct unfolder")
     unfolder = OmniFoldTTbar(
