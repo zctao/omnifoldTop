@@ -321,6 +321,8 @@ def getArgsParser(arguments_list=None, print_help=False):
                         default=None, help="Method to evaluate uncertainties")
     parser.add_argument('--dummy-value', type=float,
                         help="Dummy value to fill events that failed selecton. If None (default), only events that pass reco and truth (if apply) level selections are used for unfolding")
+    parser.add_argument('--weight-type', type=str, default='nominal',
+                        help="Type of event weights to retrieve from MC ntuples. Same as '--weight-mc'")
     #
 
     args = parser.parse_args(arguments_list)
@@ -358,6 +360,9 @@ def getArgsParser(arguments_list=None, print_help=False):
     if args.dummy_value is not None:
         logger.warn("The argument '--dummy-value <xx>' is superceded by '--correct-acceptance'")
         args.correct_acceptance = True
+
+    if args.weight_type is not None and args.weight_mc is None:
+        args.weight_mc = args.weight_type
 
     return args
 
