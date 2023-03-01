@@ -2,12 +2,15 @@
 import os
 
 import histogramming as myhu
+import plotter
+import util
 
 # systematic uncertainties
 from ttbarDiffXsRun2.systematics import get_systematics
 
 import logging
 logger = logging.getLogger('EvaluateUncertainties')
+util.configRootLogger()
 
 def get_unfolded_histogram_from_dict(
     observable, # str, observable name
@@ -179,6 +182,90 @@ def compute_systematic_uncertainties(
 
     return syst_unc_d
 
+def plot_fractional_uncertainties(
+    bin_uncertainties_dict,
+    include_nn = False,
+    include_stat = False,
+    include_syst = False,
+    systematics_keywords = [],
+    outname_prefix = 'bin_uncertainties',
+    highlight = '' #TODO
+    ):
+
+    # list of uncertainties
+    uncertainties = []
+
+    # network initialization uncertainty
+    if include_nn:
+        uncertainties.append("network")
+
+    # data stat
+    if include_stat:
+        uncertainties.append("bootstrap")
+
+    if include_syst:
+        uncertainties += get_systematics(systematics_keywords, list_of_tuples=True)
+
+    # for plotting
+    colors = plotter.get_default_colors(len(uncertainties))
+
+    # loop over observables
+    for ob in bin_uncertainties_dict:
+        errors_toplot = []
+        draw_opts = []
+
+        # loop over uncertainties
+        for unc, color in zip(uncertainties, colors):
+            if isinstance(unc, tuple):
+                # down, up variations
+                unc_var1, unc_var2 = unc
+
+                hist_var1 = bin_uncertainties_dict[ob].get(unc_var1)
+                if hist_var1 is None:
+                    logger.error(f"No entry found for uncertainty {unc_var1}")
+                    continue
+
+                hist_var2 = bin_uncertainties_dict[ob].get(unc_var2)
+                if hist_var2 is None:
+                    logger.error(f"No entry found for uncertainty {unc_var2}")
+                    continue
+
+                component_name = os.path.commonprefix([unc_var1, unc_var2])
+            else:
+                # symmetric
+                hist_var1 = bin_uncertainties_dict[ob].get(unc)
+                if hist_var1 is None:
+                    logger.error(f"No entry found for uncertainty {unc}")
+                    continue
+
+                hist_var2 = hist_var1 * -1.
+
+                component_name = unc
+
+            component_name = component_name.strip('_')
+
+            relerr_var1 = myhu.get_values_and_errors(hist_var1)[0] * 100.
+            relerr_var2 = myhu.get_values_and_errors(hist_var2)[0] * 100.
+
+            errors_toplot.append((relerr_var1, relerr_var2))
+            draw_opts.append({'label': component_name, 'edgecolor': color, "facecolor": 'none'})
+
+        figname = f"{outname_prefix}_{ob}"
+        logger.info(f"Make uncertainty plot: {figname}")
+
+        plotter.plot_uncertainties(
+            figname = figname,
+            bins = hist_var1.axes[0].edges,
+            uncertainties = errors_toplot,
+            draw_options = draw_opts,
+            xlabel = hist_var1.axes[0].label,
+            ylabel = 'Uncertainty [%]'
+        )
+
+def plot_uncertainties_from_file(fpath):
+    unc_d = myhu.read_histograms_dict_from_file(fpath)
+    plot_fractional_uncertainties(unc_d)
+
 def evaluate_uncertainties(
     nominal_dir, # str, directory of the nominal unfolding results
     bootstrap_topdir = None, # str, top directory of the results for bootstraping
@@ -189,7 +276,8 @@ def evaluate_uncertainties(
     systematics_keywords = [], # list of str, keywords for selecting a subset of systematic uncertainties
     systematics_everyrun = False, # boolen
     hist_filename = "histograms.root", # str, name of the histogram root file
-    ibu = False
+    ibu = False,
+    plot = False
     ):
 
     bin_uncertainties_d = dict()
@@ -202,6 +290,11 @@ def evaluate_uncertainties(
     # model uncertainty
     bin_errors_model_d = compute_model_uncertainties(hists_nominal_d, nensembles_model)
     bin_uncertainties_d.update(bin_errors_model_d)
+
+    if ibu: # model uncertainties not applicable
+        # delete the histograms but keep the observable keys
+        for ob in bin_uncertainties_d:
+            bin_uncertainties_d[ob].pop('network')
 
     # statistical uncertainty from bootstraping
     if bootstrap_topdir:
@@ -239,6 +332,16 @@ def evaluate_uncertainties(
     logger.info(f"Write to output file {output_name}")
     myhu.write_histograms_dict_to_file(bin_uncertainties_d, output_name)
 
+    if plot:
+        plot_fractional_uncertainties(
+            bin_uncertainties_d,
+            include_nn = not ibu,
+            include_stat = bootstrap_topdir is not None,
+            include_syst = systematics_topdir is not None,
+            systematics_keywords = systematics_keywords,
+            outname_prefix = os.path.splitext(output_name)[0]
+        )
+
 if __name__ == "__main__":
 
     import argparse
@@ -264,8 +367,13 @@ if __name__ == "__main__":
     parser.add_argument("--hist-filename", type=str, default="histograms.root",
                         help="Name of the unfolding histogram file")
     parser.add_argument("--ibu", action='store_true',
-                        help="If True, use unfolded distributions from IBU for debugging")
+                        help="If True, use unfolded distributions from IBU for comparison")
+    parser.add_argument("-p", "--plot", action='store_true',
+                        help="If True, make plots")
+
 
     args = parser.parse_args()
 
     evaluate_uncertainties(**vars(args))
+
+    #TODO group and compute total
