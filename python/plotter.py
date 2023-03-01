@@ -172,8 +172,10 @@ def get_default_colors(ncolors):
          number of colours equal to the shorter of (`ncolors`, length of
          the cycle).
     """
-    assert(ncolors<=10)
-    return plt.rcParams['axes.prop_cycle'].by_key()['color'][:ncolors]
+    if ncolors <= 10:
+        return plt.rcParams['axes.prop_cycle'].by_key()['color'][:ncolors]
+    else:
+        return get_random_colors(ncolors)
 
 def get_random_colors(ncolors, alpha=1):
     colors = [ tuple(np.random.random(3)) + (alpha,) for i in range(ncolors)]
