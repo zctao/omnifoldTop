@@ -15,16 +15,16 @@ parser.add_argument("top_result_dir", type=str,
 parser.add_argument("--binning-config", type=str,
                     default='configs/binning/bins_ttdiffxs.json',
                     help="Path to the binning config file for variables.")
+parser.add_argument("--correction-dir", type=str,
+                    default="/mnt/xrootdg/ztao/NtupleTT/latest/systCRL/ttbar_nominal",
+                    help="Directory to read binned corrections")
 parser.add_argument("-f", "--outfilename", type=str, default="histograms.root",
                     help="Output file name")
 parser.add_argument("-i", "--iterations", type=int, nargs='+', default=[-1],
                     help="Use the result at the specified iterations")
-parser.add_argument("--correction-dir", type=str,
-                    help="Directory to read binned connections")
 parser.add_argument("--include-ibu", action='store_true',
                     help="If True, run unfolding with IBU too")
-parser.add_argument("-k", "--resdir-keywords", nargs='+',
-                    default=['output_run2'],
+parser.add_argument("-k", "--resdir-keywords", nargs='+', default=[],
                     help="Keywords to match the result directory names. If multiple keywords are provided, only directories containing all the keywords are selected.")
 parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
                     help="Plot verbose level. '-ppp' to make all plots.")
