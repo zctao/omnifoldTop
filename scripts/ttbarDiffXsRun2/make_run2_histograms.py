@@ -40,7 +40,7 @@ for cwd, subdirs, files in os.walk(args.top_result_dir):
     if not files:
         continue
 
-    if not 'arguments.json' in files or not 'weights_unfolded.npz' in files:
+    if not 'arguments.json' in files and not 'weights_unfolded.npz' in files and not 'arguments_rw.json' in files:
         # cwd is not a directory containing unfolding results
         continue
 

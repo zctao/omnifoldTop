@@ -710,8 +710,13 @@ def make_histograms(
     # path to argument json config
     fpath_args_config = os.path.join(result_dir, "arguments.json")
     if not os.path.isfile(fpath_args_config):
-        logger.critical(f"Cannot open argument config {fpath_args_config}")
-        return
+        # try an alternative config
+        fpath_args_config_rw = os.path.join(result_dir, "arguments_rw.json")
+        if os.path.isfile(fpath_args_config_rw):
+            fpath_args_config = fpath_args_config_rw
+        else:
+            logger.critical(f"Cannot find argument config {fpath_args_config}")
+            return
 
     # observable config
     # If None, use the same one as in the argument json config
