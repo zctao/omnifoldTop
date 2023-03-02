@@ -756,6 +756,7 @@ def load_unfolder(
         filepaths_obs = args_d['data'],
         filepaths_sig = args_d['signal'],
         filepaths_bkg = args_d['background'],
+        filepaths_obsbkg = args_d['bdata'],
         normalize_to_data = normalize_to_data,
         correct_acceptance = args_d['correct_acceptance'],
         weight_type_data = args_d['weight_data'],
