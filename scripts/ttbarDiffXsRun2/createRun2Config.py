@@ -187,7 +187,7 @@ def write_config_systematics(
 
     # nominal samples:
     sig_nom = get_samples_signal(sample_local_dir, category, subcampaigns)
-    bkg_nom = get_samples_signal(sample_local_dir, category, subcampaigns)
+    bkg_nom = get_samples_backgrounds(sample_local_dir, category, subcampaigns)
 
     # systematics as alternative sets of events in TTrees
     for syst in get_systematics(systematics_keywords, syst_type="Branch"):
