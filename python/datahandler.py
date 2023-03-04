@@ -9,6 +9,9 @@ import pandas as pd
 import util
 from histogramming import calc_hist, calc_hist2d
 
+from numpy.random import default_rng
+rng = default_rng()
+
 def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes', weight_columns=[]):
     """
     Load and return a structured numpy array from a list of npz files.
@@ -419,7 +422,7 @@ class DataHandler(Mapping):
 
         # bootstrap
         if bootstrap:
-            weights *= np.random.poisson(1, size=len(weights))
+            weights *= rng.poisson(1, size=len(weights))
 
         return weights
 
@@ -754,14 +757,14 @@ class DataToy(DataHandler):
         # generate toy data
         # truth level
         dtype_truth = [(v+'_truth', 'float') for v in varnames]
-        arr_truth = np.random.multivariate_normal(mean, cov=cov_t, size=nevents)
+        arr_truth = rng.multivariate_normal(mean, cov=cov_t, size=nevents)
         self.data_truth = np.rec.fromarrays(arr_truth.T, dtype=dtype_truth)
 
         # detector level
         # define detector smearing
         def measure(*data):
             d = np.asarray(data)
-            s = np.random.multivariate_normal([0.]*len(data), cov=cov_m)
+            s = rng.multivariate_normal([0.]*len(data), cov=cov_m)
             return tuple(d+s)
 
         #after smearing
@@ -770,14 +773,14 @@ class DataToy(DataHandler):
 
         # efficiency
         if eff < 1:
-            self.pass_reco = np.random.binomial(1, eff, nevents).astype(bool)
+            self.pass_reco = rng.binomial(1, eff, nevents).astype(bool)
             self.data_reco[~self.pass_reco] = dummy_value
         else:
             self.pass_reco = np.full(nevents, True)
 
         # acceptance
         if acc < 1:
-            self.pass_truth = np.random.binomial(1, acc, nevents).astype(bool)
+            self.pass_truth = rng.binomial(1, acc, nevents).astype(bool)
             self.data_truth[~self.pass_truth] = dummy_value
         else:
             self.pass_truth = np.full(nevents, True)

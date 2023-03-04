@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import mplhep as hep
 import functools
 
+from numpy.random import default_rng
+rng = default_rng()
+
 import util
 import histogramming as myhu
 
@@ -178,7 +181,7 @@ def get_default_colors(ncolors):
         return get_random_colors(ncolors)
 
 def get_random_colors(ncolors, alpha=1):
-    colors = [ tuple(np.random.random(3)) + (alpha,) for i in range(ncolors)]
+    colors = [ tuple(rng.random(3)) + (alpha,) for i in range(ncolors)]
     return colors
 
 def plot_graphs(

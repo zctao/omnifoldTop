@@ -18,6 +18,9 @@ import logging
 logger = logging.getLogger('OmniFoldTTbar')
 logger.setLevel(logging.DEBUG)
 
+from numpy.random import default_rng
+rng = default_rng()
+
 # maybe put the following in datahandler.py
 def getDataHandler(
     filepaths, # list of str
@@ -319,7 +322,7 @@ class OmniFoldTTbar():
         wsim = self.handle_sig.get_weights(valid_only=False)
 
         if resample_mc:
-            w_bsmc = np.random.poisson(1, size=len(wsim))
+            w_bsmc = rng.poisson(1, size=len(wsim))
             wsim *= w_bsmc
 
         if standardize:

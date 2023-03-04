@@ -1,7 +1,8 @@
-import os
 import numpy as np
-import pandas as pd
 import hist
+
+from numpy.random import default_rng
+rng = default_rng()
 
 import histogramming as myhu
 
@@ -28,7 +29,7 @@ def _get_obs_distribution(
     bootstrap=False
     ):
     if bootstrap:
-        weights_obs = weights_obs * np.random.poisson(1, size=len(weights_obs))
+        weights_obs = weights_obs * rng.poisson(1, size=len(weights_obs))
 
     h_obs = myhu.calc_hist(array_obs, bins, weights=weights_obs, density=False)
 
