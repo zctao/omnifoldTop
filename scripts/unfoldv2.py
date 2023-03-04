@@ -146,6 +146,7 @@ def unfold(**parsed_args):
         unfolder.run(
             niterations = parsed_args['iterations'],
             resample_data = parsed_args['resample_data'],
+            resample_mc = parsed_args['resample_mc'],
             nruns = parsed_args['nruns'],
             resample_everyrun = parsed_args['resample_everyrun'],
             model_type = parsed_args['model_name'],
@@ -278,8 +279,10 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="Number of times to run unfolding")
     parser.add_argument("--resample-data", action='store_true',
                         help="If True, fluctuate data weights")
+    parser.add_argument("--resample-mc", action='store_true',
+                        help="If True, fluctuate MC weights")
     parser.add_argument("--resample-everyrun", action='store_true',
-                        help="If True, resample data weights every run. Ignored if 'resample_data' is False.")
+                        help="If True, resample data or MC weights every run. Ignored if neither 'resample_data' nor 'resample_mc' is True.")
     parser.add_argument('-m', '--model-name',
                         type=str, default='dense_100x3',
                         help="Name of the model for unfolding")

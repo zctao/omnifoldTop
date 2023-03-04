@@ -287,10 +287,10 @@ class OmniFoldTTbar():
 
         return arr_data, arr_sim, arr_gen
 
-    def _get_event_weights(self, resample=False, standardize=True):
+    def _get_event_weights(self, resample_data=False, resample_mc=False, standardize=True):
         logger.debug("Prepare event weights")
 
-        wdata = self.handle_obs.get_weights(bootstrap=resample, valid_only=False)
+        wdata = self.handle_obs.get_weights(bootstrap=resample_data, valid_only=False)
 
         if standardize:
             logger.debug("Standardize data weights to mean of one for training")
@@ -299,7 +299,7 @@ class OmniFoldTTbar():
             wdata /= wmean_obs
 
         if self.handle_obsbkg is not None:
-            wobsbkg = self.handle_obsbkg.get_weights(bootstrap=resample, valid_only=False)
+            wobsbkg = self.handle_obsbkg.get_weights(bootstrap=resample_data, valid_only=False)
             if standardize: # rescale by the same factor as data
                 wobsbkg /= wmean_obs
 
@@ -307,7 +307,7 @@ class OmniFoldTTbar():
 
         # add background simulation as observed data but with negative weights
         if self.handle_bkg is not None:
-            wbkg = self.handle_bkg.get_weights(valid_only=False)
+            wbkg = self.handle_bkg.get_weights(bootstrap=resample_mc, valid_only=False)
             if standardize:
                 # rescale by the same factor as data
                 wbkg /= wmean_obs
@@ -317,6 +317,11 @@ class OmniFoldTTbar():
         # signal simulation
         # reco level
         wsim = self.handle_sig.get_weights(valid_only=False)
+
+        if resample_mc:
+            w_bsmc = np.random.poisson(1, size=len(wsim))
+            wsim *= w_bsmc
+
         if standardize:
             # rescale by the same factor as data
             wsim /= wmean_obs
@@ -327,6 +332,10 @@ class OmniFoldTTbar():
 
         # truth level
         wgen = self.handle_sig.get_weights(valid_only=False, reco_level=False)
+
+        if resample_mc:
+            # use the same resampling weights
+            wgen *= w_bsmc
 
         if standardize:
             # rescale by the same factor as data
@@ -355,6 +364,7 @@ class OmniFoldTTbar():
         self,
         niterations, # number of iterations
         resample_data=False,
+        resample_mc=False,
         nruns=1,
         resample_everyrun=False,
         model_type='dense_100x3',
@@ -370,7 +380,7 @@ class OmniFoldTTbar():
 
         # preprocess data and weights
         X_data, X_sim, X_gen = self._get_input_arrays()
-        w_data, w_sim, w_gen = self._get_event_weights(resample=resample_data)
+        w_data, w_sim, w_gen = self._get_event_weights(resample_data=resample_data, resample_mc=resample_mc)
         passcut_data, passcut_sim, passcut_gen = self._get_event_flags()
 
         # total weights for rescaling the unfolded weights
@@ -449,9 +459,9 @@ class OmniFoldTTbar():
                 else:
                     save_model_dir = ''
 
-            if resample_data and resample_everyrun:
+            if (resample_data or resample_mc) and resample_everyrun:
                 # fluctuate data weights
-                w_data, w_sim, w_gen = self._get_event_weights(resample=True)
+                w_data, w_sim, w_gen = self._get_event_weights(resample_data=resample_data, resample_mc=resample_mc)
 
             # omnifold
             self.unfolded_weights[ir*modelUtils.n_models_in_parallel:(ir+1)*modelUtils.n_models_in_parallel,:,:] = omnifold(
