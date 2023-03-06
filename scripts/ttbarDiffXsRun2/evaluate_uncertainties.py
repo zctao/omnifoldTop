@@ -68,7 +68,8 @@ def compute_bootstrap_uncertainties(
     histograms_nominal_d, # dict, nominal unfolded histograms of all observables
     nensembles_model = None, # int, number of runs to compute bin uncertainties. If None, use all available
     hist_filename = "histograms.root",
-    nresamples = None # int
+    nresamples = None, # int
+    syst_label = "stat"
     ):
 
     logger.debug("Compute statistical bin uncertainties from bootstraping")
@@ -116,9 +117,9 @@ def compute_bootstrap_uncertainties(
         relerr_stat = sigmas_stat / h_norminal.values()
 
         # store as a histogram
-        stat_unc_d[ob]['bootstrap'] = h_norminal.copy()
-        myhu.set_hist_contents(stat_unc_d[ob]['bootstrap'], relerr_stat)
-        stat_unc_d[ob]['bootstrap'].view()['variance'] = 0.
+        stat_unc_d[ob][syst_label] = h_norminal.copy()
+        myhu.set_hist_contents(stat_unc_d[ob][syst_label], relerr_stat)
+        stat_unc_d[ob][syst_label].view()['variance'] = 0.
         # set name?
 
     return stat_unc_d
@@ -184,27 +185,10 @@ def compute_systematic_uncertainties(
 
 def plot_fractional_uncertainties(
     bin_uncertainties_dict,
-    include_nn = False,
-    include_stat = False,
-    include_syst = False,
-    systematics_keywords = [],
+    uncertainties = [], # list of uncertainty labels to plot
     outname_prefix = 'bin_uncertainties',
     highlight = '' #TODO
     ):
-
-    # list of uncertainties
-    uncertainties = []
-
-    # network initialization uncertainty
-    if include_nn:
-        uncertainties.append("network")
-
-    # data stat
-    if include_stat:
-        uncertainties.append("bootstrap")
-
-    if include_syst:
-        uncertainties += get_systematics(systematics_keywords, list_of_tuples=True)
 
     # for plotting
     colors = plotter.get_default_colors(len(uncertainties))
@@ -269,6 +253,7 @@ def plot_uncertainties_from_file(fpath):
 def evaluate_uncertainties(
     nominal_dir, # str, directory of the nominal unfolding results
     bootstrap_topdir = None, # str, top directory of the results for bootstraping
+    bootstrap_mc_topdir = None, # str, top directory of MC bootstraping results
     systematics_topdir = None, # str, top directory of the results for systemaic uncertainties
     output_name = 'bin_uncertainties.root', # str, output file name
     nensembles_model = None, # int, number of runs to compute bin uncertainties. If None, use all available
@@ -281,6 +266,7 @@ def evaluate_uncertainties(
     ):
 
     bin_uncertainties_d = dict()
+    uncertainties_toplot = list()
 
     # Read nominal results
     fpath_histograms_nominal = os.path.join(nominal_dir, hist_filename)
@@ -295,6 +281,8 @@ def evaluate_uncertainties(
         # delete the histograms but keep the observable keys
         for ob in bin_uncertainties_d:
             bin_uncertainties_d[ob].pop('network')
+    else:
+        uncertainties_toplot.append('network')
 
     # statistical uncertainty from bootstraping
     if bootstrap_topdir:
@@ -305,11 +293,31 @@ def evaluate_uncertainties(
             hists_nominal_d,
             nensembles_model = nensembles_model,
             nresamples = nresamples_bootstrap,
-            hist_filename = hist_filename
+            hist_filename = hist_filename,
+            syst_label = "data stat."
             )
 
         for ob in bin_uncertainties_d:
             bin_uncertainties_d[ob].update(bin_errors_stat_d[ob])
+
+        uncertainties_toplot.append("data stat.")
+
+    if bootstrap_mc_topdir:
+        logger.info(f"Read MC bootstrap results from {bootstrap_mc_topdir}")
+
+        binn_error_mc_stat_d = compute_bootstrap_uncertainties(
+            bootstrap_mc_topdir,
+            hists_nominal_d,
+            nensembles_model = nensembles_model,
+            nresamples = nresamples_bootstrap,
+            hist_filename = hist_filename,
+            syst_label = "MC stat."
+            )
+
+        for ob in bin_uncertainties_d:
+            bin_uncertainties_d[ob].update(binn_error_mc_stat_d[ob])
+
+        uncertainties_toplot.append("MC stat.")
 
     # systematic uncertainties
     if systematics_topdir:
@@ -328,6 +336,8 @@ def evaluate_uncertainties(
         for ob in bin_uncertainties_d:
             bin_uncertainties_d[ob].update(bin_errors_syst_d[ob])
 
+        uncertainties_toplot += get_systematics(systematics_keywords, list_of_tuples=True)
+
     # save to file
     logger.info(f"Write to output file {output_name}")
     myhu.write_histograms_dict_to_file(bin_uncertainties_d, output_name)
@@ -335,10 +345,7 @@ def evaluate_uncertainties(
     if plot:
         plot_fractional_uncertainties(
             bin_uncertainties_d,
-            include_nn = not ibu,
-            include_stat = bootstrap_topdir is not None,
-            include_syst = systematics_topdir is not None,
-            systematics_keywords = systematics_keywords,
+            uncertainties = uncertainties_toplot,
             outname_prefix = os.path.splitext(output_name)[0]
         )
 
@@ -352,6 +359,8 @@ if __name__ == "__main__":
                         help="Directory of the nominal unfolding results")
     parser.add_argument("-b", "--bootstrap-topdir", type=str,
                         help="Top directory of the unfolding results for bootstraping")
+    parser.add_argument("-m", "--bootstrap-mc-topdir", type=str,
+                        help="Top directory of the unfolding outputs for MC bootstraping")
     parser.add_argument("-s", "--systematics-topdir", type=str,
                         help="Top directory of the unfolding results for systematic uncertainty variations")
     parser.add_argument("-o", "--output-name", type=str, default="bin_uncertainties.root",
