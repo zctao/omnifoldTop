@@ -11,7 +11,6 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("top_result_dir", type=str,
                     help="Top directory that contains the unfolding results")
-
 parser.add_argument("--binning-config", type=str,
                     default='configs/binning/bins_ttdiffxs.json',
                     help="Path to the binning config file for variables.")
@@ -26,6 +25,8 @@ parser.add_argument("--include-ibu", action='store_true',
                     help="If True, run unfolding with IBU too")
 parser.add_argument("-k", "--resdir-keywords", nargs='+', default=[],
                     help="Keywords to match the result directory names. If multiple keywords are provided, only directories containing all the keywords are selected.")
+parser.add_argument("--no-override", action='store_true',
+                    help="If True, skip making histograms for a directory if one already exists")
 parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
                     help="Plot verbose level. '-ppp' to make all plots.")
 parser.add_argument("--dryrun", action="store_true",
@@ -57,10 +58,16 @@ for cwd, subdirs, files in os.walk(args.top_result_dir):
     if not matched:
         continue
 
+    if args.no_override:
+        fname_hists = os.path.join(cwd, args.outfilename)
+        if os.path.isfile(fname_hists):
+            logger.debug(f"Skip {cwd}. {fname_hists} already exists.")
+            continue
+
     logger.info(f"Make histograms for {cwd}")
 
     if args.dryrun:
-        logger.info("skip...")
+        logger.info(" skip...")
         continue
 
     make_histograms(
