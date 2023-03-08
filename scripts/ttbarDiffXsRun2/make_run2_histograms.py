@@ -2,7 +2,7 @@ import os
 import logging
 
 import util
-from make_histograms import make_histograms
+from make_histograms import make_histograms, make_histograms_bootstrap
 
 import argparse
 
@@ -29,6 +29,8 @@ parser.add_argument("--no-override", action='store_true',
                     help="If True, skip making histograms for a directory if one already exists")
 parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
                     help="Plot verbose level. '-ppp' to make all plots.")
+parser.add_argument("-b", "--bootstrap-dirs", nargs='+', type=str, default=[],
+                    help="List of top directories to make histograms from bootstraping")
 parser.add_argument("--dryrun", action="store_true",
                     help="If True, print the directory to make histograms without actually running make_histograms")
 
@@ -80,3 +82,22 @@ for cwd, subdirs, files in os.walk(args.top_result_dir):
         binned_correction_dir = args.correction_dir,
         plot_verbosity = args.plot_verbosity
         )
+
+# Collect and make histograms for bootstrap results
+for topdir_bs in args.bootstrap_dirs:
+    fname_hist_bs = os.path.join(topdir_bs, args.outfilename)
+    if args.no_override and os.path.isfile(fname_hist_bs):
+        logger.debug(f"Skip {topdir_bs}. {fname_hist_bs} already exists.")
+        continue
+
+    logger.info(f"Make histograms from bootstrap {topdir_bs}")
+
+    if args.dryrun:
+        logger.info(" skip...")
+        continue
+
+    make_histograms_bootstrap(
+        topdir_bs,
+        histname = args.outfilename,
+        outfilename = fname_hist_bs
+    )

@@ -772,6 +772,72 @@ def make_histograms(
 
     tracemalloc.stop()
 
+def make_histograms_bootstrap(
+    bootstrap_topdir, # str, top directory of the bootstrap results
+    nresamples = None, # int, number of resamples for bootstraping
+    histname = "histograms.root", # common name of the histogram root file
+    outfilename = None, # str, output file name. If None, use histname
+    ):
+
+    logger.debug(f"Collect bootstrap results from {bootstrap_topdir}")
+
+    # file paths to bootstraping histograms
+    fpaths_hists_bootstrap = [os.path.join(bootstrap_topdir, d, histname) for d in os.listdir(bootstrap_topdir)]
+
+    if nresamples is not None:
+        if nresamples > len(fpaths_hists_bootstrap):
+            logger.error(f"Require {nresamples} resamples but only {len(fpaths_hists_bootstrap)} available")
+            nresamples = len(fpaths_hists_bootstrap)
+
+        fpaths_hists_bootstrap = fpaths_hists_bootstrap[:nresamples]
+
+    # check if all histogram files in the list exist
+    for fpath in fpaths_hists_bootstrap:
+        if not os.path.isfile(fpath):
+            logger.error(f"Cannot find histogram file {fpath}. Need to run make_histograms.py first")
+            # TODO: run make_histogram here?
+            return
+
+    #fpaths_hists_bootstrap[:] = [fp for fp in fpaths_hists_bootstrap if os.path.isfile(fp)]
+
+    # Read all histograms
+    resample_histograms_l = [myhu.read_histograms_dict_from_file(fpath) for fpath in fpaths_hists_bootstrap]
+    if len(resample_histograms_l) < 2:
+        logger.error(f"Not enough resampling results")
+        return
+
+    histograms_bs_d = {}
+
+    # loop over observables
+    for ob in resample_histograms_l[0]:
+        histograms_bs_d[ob] = {}
+
+        # loop over histograms
+        for hname in resample_histograms_l[0][ob]:
+
+            h0 = resample_histograms_l[0][ob][hname]
+            # skip if a list of histograms (from individual runs) to keep things simple
+            if isinstance(h0, list):
+                continue
+            else:
+                histograms_bs_d[ob][hname] = h0.copy()
+
+            hists_l = [ hists_d[ob][hname] for hists_d in resample_histograms_l ]
+
+            # Compute bin entry means and standard deviations
+            means = myhu.get_mean_from_hists(hists_l)
+            sigmas = myhu.get_sigma_from_hists(hists_l)
+
+            myhu.set_hist_contents(histograms_bs_d[ob][hname], means)
+            myhu.set_hist_errors(histograms_bs_d[ob][hname], sigmas)
+
+    # Save to file
+    if outfilename is None:
+        outfilename = histname
+    outfpath = os.path.join(bootstrap_topdir, outfilename)
+    logger.info(f"Write histograms to file: {outfpath}")
+    myhu.write_histograms_dict_to_file(histograms_bs_d, outfpath)
+
 if __name__ == "__main__":
 
     import argparse
