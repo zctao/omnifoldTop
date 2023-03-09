@@ -37,92 +37,45 @@ def get_unfolded_histogram_from_dict(
 
         return h_unfolded
 
-def compute_model_uncertainties(
-    histograms_nominal_d, # dict, nominal unfolded histograms of all observables
-    nensembles_model = None, # int, number of runs to compute bin uncertainties. If None, use all available
-    ):
-
-    logger.debug("Compute model bin uncertainties")
-
-    model_unc_d = dict()
-
-    for ob in histograms_nominal_d:
-        logger.debug(ob)
-        model_unc_d[ob] = dict()
-
-        h_unfolded = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, nensembles_model)
-
-        # relative bin errors
-        vals, sigmas = myhu.get_values_and_errors(h_unfolded)
-
-        # store it as a histogram
-        model_unc_d[ob]['network'] = h_unfolded.copy()
-        myhu.set_hist_contents(model_unc_d[ob]['network'], sigmas / vals)
-        model_unc_d[ob]['network'].view()['variance'] = 0.
-        # set name?
-
-    return model_unc_d
-
-def compute_bootstrap_uncertainties(
-    bootstrap_topdir, # str, top directory of the results for bootstraping
-    histograms_nominal_d, # dict, nominal unfolded histograms of all observables
+def extract_bin_uncertainties_from_histograms(
+    result_dir, # str, directory of unfolding results
+    uncertainty_label, # str, label assigned to this uncertainty
+    histograms_nominal_d = None, # dict, nominal unfolded histograms. If None, use the ones from result_dir,
     nensembles_model = None, # int, number of runs to compute bin uncertainties. If None, use all available
     hist_filename = "histograms.root",
-    nresamples = None, # int
-    syst_label = "stat"
+    ibu = False, # bool, if True, read IBU unfolded distribution
     ):
 
-    logger.debug("Compute statistical bin uncertainties from bootstraping")
+    fpath_hists = os.path.join(result_dir, hist_filename)
+    logger.info(f" Read histograms from {fpath_hists}")
+    hists_d = myhu.read_histograms_dict_from_file(fpath_hists)
 
-    # file paths to bootstraping histograms
-    fpaths_hists_bootstrap = [os.path.join(bootstrap_topdir, d, hist_filename) for d in os.listdir(bootstrap_topdir)]
+    # bin uncertainties
+    unc_d = dict()
 
-    if nresamples is not None: #
-        if nresamples > len(fpaths_hists_bootstrap):
-            logger.warn(f"Required {nresamples} resamples but only {len(fpaths_hists_bootstrap)} available")
-            nresamples = len(fpaths_hists_bootstrap)
-
-        fpaths_hists_bootstrap = fpaths_hists_bootstrap[:nresamples]
-
-    logger.debug("Collect unfolded distributions from bootstraping")
-    hists_resample_d = dict() # key: observable; value: a list of histograms
-
-    for fpath in fpaths_hists_bootstrap:
-        # read histograms into dict
-        hists_d = myhu.read_histograms_dict_from_file(fpath)
-
-        # loop over all observables
-        for ob in hists_d:
-            # get the unfolded distribution from every resample
-            if not ob in hists_resample_d:
-                hists_resample_d[ob] = list()
-
-            hists_resample_d[ob].append(
-                get_unfolded_histogram_from_dict(ob, hists_d, nensembles_model)
-                )
-
-    # compute bin uncertainties
-    stat_unc_d = dict()
-
-    for ob, hists_rs in hists_resample_d.items():
+    # loop over observables
+    for ob in hists_d:
         logger.debug(ob)
-        stat_unc_d[ob] = dict()
+        unc_d[ob] = dict()
 
-        sigmas_stat = myhu.get_sigma_from_hists(hists_rs)
+        h_uf = get_unfolded_histogram_from_dict(ob, hists_d, nensembles_model, ibu)
 
-        # get the nominal bin entries
-        h_norminal = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, nensembles_model)
+        values, sigmas = myhu.get_values_and_errors(h_uf)
+
+        if histograms_nominal_d is not None:
+            # get the nominal histogram values
+            h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, nensembles_model, ibu)
+            values = h_nominal.values()
 
         # relative errors
-        relerr_stat = sigmas_stat / h_norminal.values()
+        relerrs = sigmas / values
 
         # store as a histogram
-        stat_unc_d[ob][syst_label] = h_norminal.copy()
-        myhu.set_hist_contents(stat_unc_d[ob][syst_label], relerr_stat)
-        stat_unc_d[ob][syst_label].view()['variance'] = 0.
-        # set name?
+        unc_d[ob][uncertainty_label] = h_uf.copy()
+        myhu.set_hist_contents(unc_d[ob][uncertainty_label], relerrs)
+        unc_d[ob][uncertainty_label].view()['variance'] = 0.
 
-    return stat_unc_d
+    return unc_d
 
 def compute_systematic_uncertainties(
     systematics_topdir,
@@ -131,7 +84,7 @@ def compute_systematic_uncertainties(
     systematics_keywords = [],
     hist_filename = "histograms.root",
     every_run = False,
-    ibu = False,
+    ibu = False
     ):
 
     logger.debug("Compute systematic bin uncertainties")
@@ -255,9 +208,9 @@ def evaluate_uncertainties(
     bootstrap_topdir = None, # str, top directory of the results for bootstraping
     bootstrap_mc_topdir = None, # str, top directory of MC bootstraping results
     systematics_topdir = None, # str, top directory of the results for systemaic uncertainties
+    network_error_dir = None, # str, directory to extract network uncertainty
     output_name = 'bin_uncertainties.root', # str, output file name
     nensembles_model = None, # int, number of runs to compute bin uncertainties. If None, use all available
-    nresamples_bootstrap = None, # int, number of resamples for bootstrap. If None, use all available
     systematics_keywords = [], # list of str, keywords for selecting a subset of systematic uncertainties
     systematics_everyrun = False, # boolen
     hist_filename = "histograms.root", # str, name of the histogram root file
@@ -273,51 +226,9 @@ def evaluate_uncertainties(
     logger.info(f"Read nominal histograms from {fpath_histograms_nominal}")
     hists_nominal_d = myhu.read_histograms_dict_from_file(fpath_histograms_nominal)
 
-    # model uncertainty
-    bin_errors_model_d = compute_model_uncertainties(hists_nominal_d, nensembles_model)
-    bin_uncertainties_d.update(bin_errors_model_d)
-
-    if ibu: # model uncertainties not applicable
-        # delete the histograms but keep the observable keys
-        for ob in bin_uncertainties_d:
-            bin_uncertainties_d[ob].pop('network')
-    else:
-        uncertainties_toplot.append('network')
-
-    # statistical uncertainty from bootstraping
-    if bootstrap_topdir:
-        logger.info(f"Read bootstrap results from {bootstrap_topdir}")
-
-        bin_errors_stat_d = compute_bootstrap_uncertainties(
-            bootstrap_topdir,
-            hists_nominal_d,
-            nensembles_model = nensembles_model,
-            nresamples = nresamples_bootstrap,
-            hist_filename = hist_filename,
-            syst_label = "data stat."
-            )
-
-        for ob in bin_uncertainties_d:
-            bin_uncertainties_d[ob].update(bin_errors_stat_d[ob])
-
-        uncertainties_toplot.append("data stat.")
-
-    if bootstrap_mc_topdir:
-        logger.info(f"Read MC bootstrap results from {bootstrap_mc_topdir}")
-
-        binn_error_mc_stat_d = compute_bootstrap_uncertainties(
-            bootstrap_mc_topdir,
-            hists_nominal_d,
-            nensembles_model = nensembles_model,
-            nresamples = nresamples_bootstrap,
-            hist_filename = hist_filename,
-            syst_label = "MC stat."
-            )
-
-        for ob in bin_uncertainties_d:
-            bin_uncertainties_d[ob].update(binn_error_mc_stat_d[ob])
-
-        uncertainties_toplot.append("MC stat.")
+    # prepare uncertainty dictionary
+    for ob in hists_nominal_d:
+        bin_uncertainties_d[ob] = {}
 
     # systematic uncertainties
     if systematics_topdir:
@@ -337,6 +248,59 @@ def evaluate_uncertainties(
             bin_uncertainties_d[ob].update(bin_errors_syst_d[ob])
 
         uncertainties_toplot += get_systematics(systematics_keywords, list_of_tuples=True)
+
+    # statistical uncertainty from bootstraping
+    if bootstrap_topdir:
+        logger.info(f"Data stat.")
+
+        bin_errors_Dstat_d = extract_bin_uncertainties_from_histograms(
+            bootstrap_topdir,
+            uncertainty_label = "Data stat.",
+            histograms_nominal_d = None,
+            nensembles_model = nensembles_model,
+            hist_filename = hist_filename,
+            ibu = ibu
+            )
+
+        for ob in bin_uncertainties_d:
+            bin_uncertainties_d[ob].update(bin_errors_Dstat_d[ob])
+
+        uncertainties_toplot.append("Data stat.")
+
+    if bootstrap_mc_topdir:
+        logger.info(f"MC stat.")
+
+        bin_errors_MCstat_d = extract_bin_uncertainties_from_histograms(
+            bootstrap_mc_topdir,
+            uncertainty_label = "MC stat.",
+            histograms_nominal_d = None,
+            nensembles_model = nensembles_model,
+            hist_filename = hist_filename,
+            ibu = ibu
+            )
+
+        for ob in bin_uncertainties_d:
+            bin_uncertainties_d[ob].update(bin_errors_MCstat_d[ob])
+
+        uncertainties_toplot.append("MC stat.")
+
+    # model uncertainty
+    if not ibu and network_error_dir is not None:
+
+        logger.info("network")
+
+        bin_errors_network_d = extract_bin_uncertainties_from_histograms(
+            network_error_dir,
+            uncertainty_label = "network",
+            histograms_nominal_d = None,
+            nensembles_model = nensembles_model,
+            hist_filename = hist_filename
+            )
+
+        for ob in bin_uncertainties_d:
+            bin_uncertainties_d[ob].update(bin_errors_network_d[ob])
+
+        uncertainties_toplot.append('network')
 
     # save to file
     logger.info(f"Write to output file {output_name}")
@@ -363,12 +327,12 @@ if __name__ == "__main__":
                         help="Top directory of the unfolding outputs for MC bootstraping")
     parser.add_argument("-s", "--systematics-topdir", type=str,
                         help="Top directory of the unfolding results for systematic uncertainty variations")
+    parser.add_argument("-t", "--network-error-dir", type=str,
+                        help="Directory of unfolding results to extract uncertainty from network initialization and training. If None, use nominal_dir")
     parser.add_argument("-o", "--output-name", type=str, default="bin_uncertainties.root",
                         help="Output file name")
     parser.add_argument("-n", "--nensembles-model", type=int,
                         help="Number of runs for evaluating model uncertainty. If None, use all available runs")
-    parser.add_argument("-r", "--nresamples-bootstrap", type=int,
-                        help="Number of resamples for boostrap. If None, use all available")
     parser.add_argument("-k", "--systematics-keywords", nargs='*', type=str,
                         help="Keywords for selecting a subset of systematic uncertainties")
     parser.add_argument("--systematics-everyrun", action='store_true',
