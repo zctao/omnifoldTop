@@ -203,6 +203,7 @@ def omnifold(
 
     for i in range(niterations):
         logger.info(f"Iteration {i}")
+        lossTracker.getTrackerInstance().newIteration(i)
         #####
         # step 1: reweight to sim to data
         logger.info("Step 1")

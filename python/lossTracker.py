@@ -17,6 +17,7 @@ logger = logging.getLogger('lossTracker')
 
 lossTracker = None
 trackMode = "STEP"
+SAVE_DIR = "trackerPlot"
 
 # Currently supported: "AVG" or "SUM"
 # This defines what happend when plotting loss against observable values
@@ -28,17 +29,20 @@ EVENT_ELEMENT_LABELS = []
 # It is however necesssary since we need to infer each individual loss here.
 # Thus the compromise is to sample a set amount of events.
 # The events are already randomly arranged, so taking the first N events should suffice.
-TRACKING_SAMPLING_N = 10000 # currently set to 100 for debugging purposes.
+TRACKING_SAMPLING_N = 10 # currently set to 100 for debugging purposes.
 
 class LossTracker():
 	def __init__(self, session_name)->None:
 		self.session_name = session_name
 		self.data = []
 		self.loss = []
+		self.iteration = 0
 
 		# safe to call getObservables here with the assumption that lossTracker is intialized
 		# in modelUtils.train_model, which is long after preprocessing has finished.
 		self.order = preprocessor.get().getObservables()
+	def newIteration(self, iteration)->None:
+		self.iteration = iteration
 	def updateSession(self, session_name)->None:
 		pass
 	def evaluateLoss(self, model, data):
@@ -127,7 +131,7 @@ class StepLossTracker(LossTracker):
 				weight_frame = weights[:,i]
 			loss[i] = model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame, verbose=0)
 			if (i % (TRACKING_SAMPLING_N / 100) == 0):
-				msg = str(i / (TRACKING_SAMPLING_N / 100)) + "\% done\n"
+				msg = str(i / (TRACKING_SAMPLING_N / 100)) + "% done\n"
 				logger.info(msg)
 		self.appendLoss(data[0][_layer_name(0, "input")], loss)
 
@@ -169,7 +173,12 @@ class StepLossTracker(LossTracker):
 
 			# saving figure
 			# TODO: Move this into output dir in the future
-			plt.savefig(os.path.join("trackerPlot", ob_name+"_"+self.session_name+".png"))
+			if not os.path.isdir(SAVE_DIR):
+				os.makedirs(SAVE_DIR)
+			current_iter_name = "iteration_" + str(self.iteration)
+			if not os.path.isdir(os.path.join(SAVE_DIR, current_iter_name)):
+				os.makedirs(os.path.join(SAVE_DIR, current_iter_name))
+			plt.savefig(os.path.join(SAVE_DIR, current_iter_name, ob_name+"_"+self.session_name+".png"))
 		
 
 		
