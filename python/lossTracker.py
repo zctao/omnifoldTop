@@ -25,7 +25,7 @@ EVENT_ELEMENT_LABELS = []
 # It is however necesssary since we need to infer each individual loss here.
 # Thus the compromise is to sample a set amount of events.
 # The events are already randomly arranged, so taking the first N events should suffice.
-TRACKING_SAMPLING_N = 100 # currently set to 100 for debugging purposes.
+TRACKING_SAMPLING_N = 100000 # currently set to 100 for debugging purposes.
 
 class LossTracker():
 	def __init__(self, session_name)->None:
