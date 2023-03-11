@@ -437,6 +437,7 @@ class OmniFoldTTbar():
 
         for ir in range(nruns):
             logger.info(f"Run #{ir}")
+            lossTracker.getTrackerInstance().newRun(ir)
 
             # model directory
             if load_models_from:

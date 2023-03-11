@@ -37,12 +37,15 @@ class LossTracker():
 		self.data = []
 		self.loss = []
 		self.iteration = 0
+		self.run = 0
 
 		# safe to call getObservables here with the assumption that lossTracker is intialized
 		# in modelUtils.train_model, which is long after preprocessing has finished.
 		self.order = preprocessor.get().getObservables()
 	def newIteration(self, iteration)->None:
 		self.iteration = iteration
+	def newRun(self, run)->None:
+		self.run = run
 	def updateSession(self, session_name)->None:
 		pass
 	def evaluateLoss(self, model, data):
@@ -114,6 +117,7 @@ class StepLossTracker(LossTracker):
 		self.data = []
 
 	def evaluateLoss(self, model, data):
+		logger.info("Beginning loss evaluation")
 		inputs, outputs, weights = data[0], data[1], np.array(data[2])
 		
 		# generate key names for simple access
@@ -173,12 +177,18 @@ class StepLossTracker(LossTracker):
 
 			# saving figure
 			# TODO: Move this into output dir in the future
-			if not os.path.isdir(SAVE_DIR):
-				os.makedirs(SAVE_DIR)
+
+			try_create = lambda path: os.makedirs(path) if not os.path.isdir(path) else None
+
+			save_path = SAVE_DIR
+			try_create(save_path)
+			current_run_name = "run_" + str(self.run)
+			save_path = os.path.join(save_path, current_run_name)
+			try_create(save_path)
 			current_iter_name = "iteration_" + str(self.iteration)
-			if not os.path.isdir(os.path.join(SAVE_DIR, current_iter_name)):
-				os.makedirs(os.path.join(SAVE_DIR, current_iter_name))
-			plt.savefig(os.path.join(SAVE_DIR, current_iter_name, ob_name+"_"+self.session_name+".png"))
+			save_path = os.path.join(save_path, current_iter_name)
+			try_create(save_path)
+			plt.savefig(os.path.join(save_path, ob_name+"_"+self.session_name+".png"))
 		
 
 		
