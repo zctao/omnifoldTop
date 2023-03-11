@@ -12,6 +12,9 @@ import preprocessor
 import matplotlib.pyplot as plt
 import os
 
+import logging
+logger = logging.getLogger('lossTracker')
+
 lossTracker = None
 trackMode = "STEP"
 
@@ -25,7 +28,7 @@ EVENT_ELEMENT_LABELS = []
 # It is however necesssary since we need to infer each individual loss here.
 # Thus the compromise is to sample a set amount of events.
 # The events are already randomly arranged, so taking the first N events should suffice.
-TRACKING_SAMPLING_N = 100000 # currently set to 100 for debugging purposes.
+TRACKING_SAMPLING_N = 10000 # currently set to 100 for debugging purposes.
 
 class LossTracker():
 	def __init__(self, session_name)->None:
@@ -85,17 +88,12 @@ class InterEpochLossTracker(LossTracker):
 		output_keys = [_layer_name(i, "output") for i in range(modelUtils.n_models_in_parallel)]
 
 		input_frame, output_frame, weight = {}, {}, 0
-		print(inputs[input_keys[0]].shape)
 
 		for i in range((inputs[input_keys[0]].shape)): # how many events we have
 			for n in modelUtils.n_models_in_parallel:
 				input_frame[_layer_name(n, "input")] = inputs[_layer_name(n, "input")][i]
 				output_frame[_layer_name(n, "output")] = outputs[_layer_name(n, "output")][i]
 				weight = weights[i]
-			print(i)
-			print(input_frame)
-			print(output_frame)
-			print(weight)
 
 class StepLossTracker(LossTracker):
 	def appendLoss(self, data, loss):
@@ -120,7 +118,6 @@ class StepLossTracker(LossTracker):
 		loss = np.zeros((event_count, modelUtils.n_models_in_parallel * 2))
 
 		input_frame, output_frame, weight_frame = {}, {}, []
-		print(np.shape(weights))
 		for i in range(TRACKING_SAMPLING_N): # how many events we have
 			for n in range(modelUtils.n_models_in_parallel):
 				column = inputs[_layer_name(n, "input")][i]
@@ -130,7 +127,8 @@ class StepLossTracker(LossTracker):
 				weight_frame = weights[:,i]
 			loss[i] = model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame, verbose=0)
 			if (i % (TRACKING_SAMPLING_N / 100) == 0):
-				print(i, "/", 100, " done\n")
+				msg = str(i / (TRACKING_SAMPLING_N / 100)) + "\% done\n"
+				logger.info(msg)
 		self.appendLoss(data[0][_layer_name(0, "input")], loss)
 
 	def get(self):
