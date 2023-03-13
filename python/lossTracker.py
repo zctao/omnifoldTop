@@ -36,6 +36,7 @@ class LossTracker():
 		self.session_name = session_name
 		self.data = []
 		self.loss = []
+		self.weight = []
 		self.iteration = 0
 		self.run = 0
 
@@ -85,36 +86,39 @@ disabled by creating a dummy instance that does not do any thing.
 class DisabledTracker(LossTracker):
 	pass
 
-class InterEpochLossTracker(LossTracker):
-	def evaluateLoss(self, model, data):
-		# unpack data
-		inputs, outputs, weights = data[0], data[1], data[2]
+# class InterEpochLossTracker(LossTracker):
+# 	def evaluateLoss(self, model, data):
+# 		# unpack data
+# 		inputs, outputs, weights = data[0], data[1], data[2]
 
-		# generate key names for simple access
-		input_keys = [_layer_name(i, "input") for i in range(modelUtils.n_models_in_parallel)]
-		output_keys = [_layer_name(i, "output") for i in range(modelUtils.n_models_in_parallel)]
+# 		# generate key names for simple access
+# 		input_keys = [_layer_name(i, "input") for i in range(modelUtils.n_models_in_parallel)]
+# 		output_keys = [_layer_name(i, "output") for i in range(modelUtils.n_models_in_parallel)]
 
-		input_frame, output_frame, weight = {}, {}, 0
+# 		input_frame, output_frame, weight = {}, {}, 0
 
-		for i in range((inputs[input_keys[0]].shape)): # how many events we have
-			for n in modelUtils.n_models_in_parallel:
-				input_frame[_layer_name(n, "input")] = inputs[_layer_name(n, "input")][i]
-				output_frame[_layer_name(n, "output")] = outputs[_layer_name(n, "output")][i]
-				weight = weights[i]
+# 		for i in range((inputs[input_keys[0]].shape)): # how many events we have
+# 			for n in modelUtils.n_models_in_parallel:
+# 				input_frame[_layer_name(n, "input")] = inputs[_layer_name(n, "input")][i]
+# 				output_frame[_layer_name(n, "output")] = outputs[_layer_name(n, "output")][i]
+# 				weight = weights[i]
 
 class StepLossTracker(LossTracker):
-	def appendLoss(self, data, loss):
+	def appendLoss(self, data, loss, weight):
 		if len(self.loss) != 0 and len(self.data) != 0:
 			self.loss = np.concatenate((self.loss, loss))
 			self.data = np.concatenate((self.data, data))
+			self.weight = np.concatenate((self.weight, weight))
 		else:
 			self.loss = loss
 			self.data = data
+			self.weight = weight
 
 	def updateSession(self, session_name) -> None:
 		self.session_name = session_name
 		self.loss = []
 		self.data = []
+		self.weight = []
 
 	def evaluateLoss(self, model, data):
 		logger.info("Beginning loss evaluation")
@@ -123,7 +127,7 @@ class StepLossTracker(LossTracker):
 		# generate key names for simple access
 		event_count = (np.shape(weights))[1]
 
-		loss = np.zeros((event_count, modelUtils.n_models_in_parallel * 2))
+		loss = np.zeros((modelUtils.n_models_in_parallel, event_count))
 
 		input_frame, output_frame, weight_frame = {}, {}, []
 		for i in range(TRACKING_SAMPLING_N): # how many events we have
@@ -132,20 +136,26 @@ class StepLossTracker(LossTracker):
 				input_frame[_layer_name(n, "input")] = np.reshape(column, (1,) + np.shape(column))
 				column = outputs[_layer_name(n, "output")][i]
 				output_frame[_layer_name(n, "output")] = np.reshape(column, (1,) + np.shape(column))
-				weight_frame = weights[:,i]
-			loss[i] = model.evaluate(x = input_frame, y = output_frame, sample_weight = weight_frame, verbose=0)
+
+			# case 1 model: model.evaluate returns single loss scalar
+			# case multilpe models: model.evaluate returns array of [total loss, model 1 loss, ..., model n loss, model 1 accuracy, ..., model n accuracy]
+			# check model.metrics_names for details
+			if modelUtils.n_models_in_parallel == 1:
+				loss[:, i] = (model.evaluate(x = input_frame, y = output_frame, verbose = 0))[0]
+			else:
+				loss[:, i] = (model.evaluate(x = input_frame, y = output_frame, verbose = 0))[1 : 1 + modelUtils.n_models_in_parallel]
 			if (i % (TRACKING_SAMPLING_N / 100) == 0):
 				msg = str(i / (TRACKING_SAMPLING_N / 100)) + "% done\n"
 				logger.info(msg)
-		self.appendLoss(data[0][_layer_name(0, "input")], loss)
+		self.appendLoss(data[0][_layer_name(0, "input")], loss, weights)
 
 	def get(self):
-		return self.data, self.loss
+		return self.data, self.loss, self.weight
 	
 	def plotLoss(self):
 		for ob_name in self.order:
 			data, loss = self.getObservableLoss(ob_name)
-			loss = np.average(loss, axis=1) # Taking the average of parallel models
+			loss = np.average(loss, weights = self.weight, axis=0) # Taking the weighted average of parallel models
 			plt.clf() # Clear any previously plotted graph
 
 			fig, axs = plt.subplots(3)
@@ -190,9 +200,6 @@ class StepLossTracker(LossTracker):
 			try_create(save_path)
 			plt.savefig(os.path.join(save_path, ob_name+"_"+self.session_name+".png"))
 		
-
-		
-
 def getTrackerInstance(session_name, refresh)->LossTracker:
 	"""
 	Arguments
@@ -227,8 +234,8 @@ def getTrackerInstance()->LossTracker:
 	if lossTracker == None:
 		if trackingStep():
 			lossTracker = StepLossTracker("Default Session Name")
-		elif interEpochTracking():
-			lossTracker = InterEpochLossTracker("Default Session Name")
+		# elif interEpochTracking():
+		# 	lossTracker = InterEpochLossTracker("Default Session Name")
 		elif trackingDisabled():
 			lossTracker = DisabledTracker("Default Session Name")
 
