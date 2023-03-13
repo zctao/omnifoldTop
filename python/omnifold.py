@@ -10,6 +10,8 @@ from util import reportGPUMemUsage
 import tensorflow as tf
 import gc
 
+import lossTracker
+
 import logging
 logger = logging.getLogger('omnifold')
 logger.setLevel(logging.DEBUG)
@@ -196,9 +198,12 @@ def omnifold(
     # shape: (modelUtils.n_models_in_parallel, n_iterations, n_events[passcut_gen])
 
     reportGPUMemUsage(logger)
+    
+    tracker = lossTracker.getTrackerInstance()
 
     for i in range(niterations):
         logger.info(f"Iteration {i}")
+        lossTracker.getTrackerInstance().newIteration(i)
         #####
         # step 1: reweight to sim to data
         logger.info("Step 1")
@@ -216,6 +221,7 @@ def omnifold(
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
+            tracker.updateSession("iteration_"+str(i)+"step1")
             train_model(model_step1, X_step1, Y_step1, w_step1,
                         callbacks = cb_step1,
                         #figname = fname_preds,
@@ -251,6 +257,7 @@ def omnifold(
                     ]) for j in range(modelUtils.n_models_in_parallel)]
 
                 logger.info("Start training")
+                tracker.updateSession("iteration_"+str(i)+"step1b")
                 train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
                             callbacks = cb_step1b, batch_size=batch_size,
                             epochs=epochs, verbose=verbose, model_filepath=file_path_save("model_step1b", i, save_models_to))
@@ -286,6 +293,7 @@ def omnifold(
 
             logger.info("Start training")
             fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
+            tracker.updateSession("iteration_"+str(i)+"step2")
             train_model(model_step2, X_step2, Y_step2, w_step2,
                         callbacks = cb_step2,
                         #figname = fname_preds,
@@ -321,6 +329,7 @@ def omnifold(
                     ]) for j in range(modelUtils.n_models_in_parallel)]
 
                 logger.info("Start training")
+                tracker.updateSession("iteration_"+str(i)+"step2b")
                 train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
                             callbacks = cb_step2b, batch_size=batch_size,
                             epochs=epochs, verbose=verbose,

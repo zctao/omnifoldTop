@@ -13,6 +13,10 @@ from lrscheduler import get_lr_scheduler
 from layer_namer import _layer_name
 from callbacks import EarlyLocking
 import plotter
+from customModel import LossTrackerModel
+import lossTracker
+
+import matplotlib.pyplot as plt
 
 n_models_in_parallel = 1
 
@@ -202,7 +206,11 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
     fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
 
     model.fit(train_dictionary, train_y_dictionary, sample_weight=train_w, validation_data=(val_dictionary, val_y_dictionary, val_w), **fitargs)
-    
+    if lossTracker.trackingStep():
+        tracker = lossTracker.getTrackerInstance()
+        tracker.evaluateLoss(model, (train_dictionary, train_y_dictionary, train_w))
+        tracker.plotLoss()
+
     if model_filepath:
         model.save_weights(model_filepath)
 
@@ -244,8 +252,11 @@ def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
 
         inputs += [input_layer]
         outputs += [output_layer]
-
-    return keras.models.Model(inputs=inputs, outputs=outputs)
+    
+    if lossTracker.interEpochTracking():
+        return LossTrackerModel(inputs=inputs, outputs=outputs)
+    else:
+        return keras.models.Model(inputs=inputs, outputs=outputs)
 
 def pfn(input_shape, nclass=2, nlatent=8):
     """

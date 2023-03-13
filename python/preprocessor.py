@@ -84,6 +84,8 @@ class Preprocessor():
         self.weight_preprocessing_functions = [weight_preprocessing_function_map[name] for name in self.config[WEIGHT]]
 
         self.default_observable_names = np.array([self.observable_name_dict[observable] for observable in default_observable_names])
+        
+        self.observables = self.default_observable_names
 
         logger.debug("Initializing Preprocessor: Done")
 
@@ -248,11 +250,21 @@ class Preprocessor():
             gc.collect()
 
             logger.debug("Observable order after preprocessing round: "+str(observables))
+        
+        self.observables = observables
 
         gc.collect()
         
         # return the feature array after preprocessing
         return feature_array, observables
+    
+    def getObservables(self):
+        """
+        returns the names and current positions of the observables.
+        Note that this function is safe to call after preprocessing finishes, otherwise 
+        observables is set to default observable names in __init__.
+        """
+        return self.observables
     
     def apply_normalizer(self, arr_data, arr_sim, arr_gen, observables, **args):
         """

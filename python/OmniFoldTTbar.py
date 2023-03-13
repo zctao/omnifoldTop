@@ -13,6 +13,7 @@ from datahandler_root import DataHandlerROOT
 from omnifold import omnifold
 import modelUtils
 import preprocessor
+import lossTracker
 
 import logging
 logger = logging.getLogger('OmniFoldTTbar')
@@ -384,6 +385,8 @@ class OmniFoldTTbar():
         X_data, X_data_order = p.feature_preprocess(X_data)
         X_sim, X_sim_order = p.feature_preprocess(X_sim)
         X_gen, X_gen_order = p.feature_preprocess(X_gen)
+        
+        lossTracker.getTrackerInstance().setOrder(X_data_order)
 
         # step 2: reset dummy values
 
@@ -434,6 +437,7 @@ class OmniFoldTTbar():
 
         for ir in range(nruns):
             logger.info(f"Run #{ir}")
+            lossTracker.getTrackerInstance().newRun(ir)
 
             # model directory
             if load_models_from:
