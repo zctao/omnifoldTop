@@ -113,6 +113,7 @@ def omnifold(
     save_models_to='', # directory to save models to if provided
     load_models_from='', # directory to load trained models if provided
     start_from_previous_iter=False, # If True, initialize model with the previous iteration
+    fast_correction=False, # If True, assign weights of 1 to events
     plot=False, # If True, plot training history and make other status plots
     ax_step1=None,
     ax_step2=None,
@@ -236,32 +237,35 @@ def omnifold(
         # step 1b: deal with events that do not pass reco cuts
         if np.any(~passcut_sim):
             logger.info("Step 1b")
-            # weights_pull[~passcut_sim] = 1.
-            # Or alternatively, estimate the average weights: <w|x_true>
-            model_step1b, cb_step1b = set_up_model(
-                model_type, X_step1b.shape[1:], i, "model_step1b",
-                save_models_to, load_models_from, start_from_previous_iter)
+            if fast_correction:
+                logger.info("Assign an average weight of one")
+                weights_pull[:, ~passcut_sim] = 1.
+            else:
+                # Estimate the average weights: <w|x_true>
+                model_step1b, cb_step1b = set_up_model(
+                    model_type, X_step1b.shape[1:], i, "model_step1b",
+                    save_models_to, load_models_from, start_from_previous_iter)
 
-            if load_models_from:
-                logger.info("Use trained model for reweighting")
-            else: # train model
-                w_step1b = [np.concatenate([
-                    (weights_pull[j]*w_gen[j])[passcut_sim & passcut_gen],
-                    w_gen[j][passcut_sim & passcut_gen]
-                    ]) for j in range(modelUtils.n_models_in_parallel)]
+                if load_models_from:
+                    logger.info("Use trained model for reweighting")
+                else: # train model
+                    w_step1b = [np.concatenate([
+                        (weights_pull[j]*w_gen[j])[passcut_sim & passcut_gen],
+                        w_gen[j][passcut_sim & passcut_gen]
+                        ]) for j in range(modelUtils.n_models_in_parallel)]
 
-                logger.info("Start training")
-                train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
-                            callbacks = cb_step1b, batch_size=batch_size,
-                            epochs=epochs, verbose=verbose, model_filepath=file_path_save("model_step1b", i, save_models_to))
-                logger.info("Training done")
+                    logger.info("Start training")
+                    train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
+                                callbacks = cb_step1b, batch_size=batch_size,
+                                epochs=epochs, verbose=verbose, model_filepath=file_path_save("model_step1b", i, save_models_to))
+                    logger.info("Training done")
+                    gc.collect()
+
+                # reweight
+                logger.info("Reweight")
+                fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
+                weights_pull[:, ~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], batch_size, fname_rdistr)
                 gc.collect()
-
-            # reweight
-            logger.info("Reweight")
-            fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
-            weights_pull[:, ~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], batch_size, fname_rdistr)
-            gc.collect()
 
         weights_pull /= np.mean(weights_pull, axis=1)[:,None]
         reportGPUMemUsage(logger)
@@ -306,33 +310,36 @@ def omnifold(
         # step 2b: deal with events that do not pass truth cuts
         if np.any(~passcut_gen):
             logger.info("Step 2b")
-            # weights_push[~passcut_gen] = 1.
-            # Or alternatively, estimate the average weights: <w|x_reco>
-            model_step2b, cb_step2b = set_up_model(
-                model_type, X_step2b.shape[1:], i, "model_step2b",
-                save_models_to, load_models_from, start_from_previous_iter)
+            if fast_correction:
+                logger.info("Assign an average weight of one")
+                weights_push[:, ~passcut_gen] = 1.
+            else:
+                # Estimate the average weights: <w|x_reco>
+                model_step2b, cb_step2b = set_up_model(
+                    model_type, X_step2b.shape[1:], i, "model_step2b",
+                    save_models_to, load_models_from, start_from_previous_iter)
 
-            if load_models_from:
-                logger.info("Use trained model for reweighting")
-            else: # train model
-                w_step2b = [np.concatenate([
-                    (weights_push[j]*w_sim[j])[passcut_sim & passcut_gen],
-                    w_sim[j][passcut_sim & passcut_gen]
-                    ]) for j in range(modelUtils.n_models_in_parallel)]
+                if load_models_from:
+                    logger.info("Use trained model for reweighting")
+                else: # train model
+                    w_step2b = [np.concatenate([
+                        (weights_push[j]*w_sim[j])[passcut_sim & passcut_gen],
+                        w_sim[j][passcut_sim & passcut_gen]
+                        ]) for j in range(modelUtils.n_models_in_parallel)]
 
-                logger.info("Start training")
-                train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
-                            callbacks = cb_step2b, batch_size=batch_size,
-                            epochs=epochs, verbose=verbose,
-                            model_filepath=file_path_save("model_step2b", i, save_models_to))
-                logger.info("Training done")
+                    logger.info("Start training")
+                    train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
+                                callbacks = cb_step2b, batch_size=batch_size,
+                                epochs=epochs, verbose=verbose,
+                                model_filepath=file_path_save("model_step2b", i, save_models_to))
+                    logger.info("Training done")
+                    gc.collect()
+
+                # reweight
+                logger.info("Reweight")
+                fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
+                weights_push[:, ~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], batch_size, fname_rdistr)
                 gc.collect()
-
-            # reweight
-            logger.info("Reweight")
-            fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
-            weights_push[:, ~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], batch_size, fname_rdistr)
-            gc.collect()
 
         weights_push /= np.mean(weights_push, axis=1)[:,None]
 

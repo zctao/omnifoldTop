@@ -151,6 +151,7 @@ def unfold(**parsed_args):
             save_models = True,
             load_previous_iteration = False, # TODO check here
             load_models_from = parsed_args['load_models'],
+            fast_correction = parsed_args['fast_correction'],
             batch_size = parsed_args['batch_size'],
             plot_status = parsed_args['plot_verbosity'] >= 2
         )
@@ -291,6 +292,8 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="Directory from where to load trained models. If provided, training will be skipped.")
     parser.add_argument('-c', '--correct-acceptance', action='store_true',
                         help="If True, use dummy value for events that are not truth matched to account for acceptance effects")
+    parser.add_argument('--fast-correction', action='store_true',
+                        help="If True, assign an average weight of one for events that are not truth matched for acceptance correction")
     parser.add_argument('--binning-config', type=str,
                         default="configs/binning/bins_ttdiffxs.json",
                         help="Binning config file for variables")
