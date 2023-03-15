@@ -173,6 +173,82 @@ def write_config_bootstrap(
     outname_config_bootstrap = f"{outname_config}_bootstrap.json"
     util.write_dict_to_json(bootstrap_cfg, outname_config_bootstrap)
 
+def write_config_bootstrap_mc(
+    sample_local_dir,
+    nresamples,
+    start_index = 0,
+    category = "ljets", # "ejets" or "mjets" or "ljets"
+    subcampaigns = ["mc16a", "mc16d", "mc16e"],
+    output_top_dir = '.',
+    outname_config =  'runConfig',
+    common_cfg = {}
+    ):
+
+    # list of samples
+    data_nominal = get_samples_data(sample_local_dir, category, subcampaigns)
+    sig_nominal = get_samples_signal(sample_local_dir, category, subcampaigns)
+    bkg_nominal = get_samples_backgrounds(sample_local_dir, category, subcampaigns)
+
+    # output directory
+    outdir_bs = os.path.join(output_top_dir, "bootstrap_mc")
+    outdir_bs_dict = {
+        f"resamples{n}": outdir_bs for n in range(start_index, start_index+nresamples)
+    }
+
+    # config
+    bootstrap_mc_cfg = common_cfg.copy()
+    bootstrap_mc_cfg.update({
+        "data": data_nominal,
+        "signal": sig_nominal,
+        "background": bkg_nominal,
+        "outputdir": outdir_bs_dict,
+        "resample_data": False,
+        "resample_mc": True,
+        "run_ibu": False
+        })
+
+    # write run configuration to file
+    outname_config_bootstrap_mc = f"{outname_config}_bootstrap_mc.json"
+    util.write_dict_to_json(bootstrap_mc_cfg, outname_config_bootstrap_mc)
+
+def write_config_bootstrap_mc_clos(
+    sample_local_dir,
+    nresamples,
+    start_index = 0,
+    category = "ljets", # "ejets" or "mjets" or "ljets"
+    subcampaigns = ["mc16a", "mc16d", "mc16e"],
+    output_top_dir = '.',
+    outname_config =  'runConfig',
+    common_cfg = {}
+    ):
+
+    # nominal samples:
+    sig_nominal = get_samples_signal(sample_local_dir, category, subcampaigns)
+    bkg_nominal = get_samples_backgrounds(sample_local_dir, category, subcampaigns)
+
+    # output directory
+    outdir_bs = os.path.join(output_top_dir, "bootstrap_mc_clos")
+    outdir_bs_dict = {
+        f"resamples{n}": outdir_bs for n in range(start_index, start_index+nresamples)
+    }
+
+    # config
+    bootstrap_mc_cfg = common_cfg.copy()
+    bootstrap_mc_cfg.update({
+        "data": sig_nominal,
+        "bdata": bkg_nominal,
+        "signal": sig_nominal,
+        "background": bkg_nominal,
+        "outputdir": outdir_bs_dict,
+        "resample_data": True,
+        "resample_mc": False,
+        "run_ibu": False
+        })
+
+    # write run configuration to file
+    outname_config_bootstrap_mc = f"{outname_config}_bootstrap_mc_clos.json"
+    util.write_dict_to_json(bootstrap_mc_cfg, outname_config_bootstrap_mc)
+
 def write_config_systematics(
     sample_local_dir,
     systematics_keywords = [],
@@ -336,42 +412,6 @@ def getSamples(
 
     return data, signal, backgrounds
 
-def writeConfig_branch(
-    base_config, sample_obs, sample_sig, sample_bkg, outdir, load_model_dir=''
-    ):
-
-    syst_config = base_config.copy()
-    syst_config.update({
-        "data": sample_obs,
-        "signal": sample_sig,
-        "background": sample_bkg,
-        "outputdir": outdir,
-        "load_models": load_model_dir,
-        #"nruns": 10 # TODO: 1?
-        })
-
-    return syst_config
-
-def writeConfig_scalefactor(
-    base_config, sample_obs, sample_sig, sample_bkg, outdir, weight_type, unfolded_weights_dir=''
-    ):
-
-    syst_config = base_config.copy()
-    syst_config.update({
-        "data": sample_obs,
-        "signal": sample_sig,
-        "background": sample_bkg,
-        "outputdir": outdir,
-        "weight_type": weight_type
-        })
-
-    if unfolded_weights_dir:
-        syst_config.update({
-            "unfolded_weights": os.path.join(unfolded_weights_dir, "weights_unfolded.npz")
-            })
-
-    return syst_config
-
 def createRun2Config(
         sample_local_dir,
         category, # "ejets" or "mjets" or "ljets"
@@ -414,6 +454,28 @@ def createRun2Config(
     # bootstrap for statistical uncertainties
     if do_bootstrap:
         write_config_bootstrap(
+            sample_local_dir,
+            nresamples = 10,
+            start_index = 0,
+            category = category,
+            subcampaigns = subcampaigns,
+            output_top_dir = output_top_dir,
+            outname_config = outname_config,
+            common_cfg = common_cfg
+            )
+
+        write_config_bootstrap_mc(
+            sample_local_dir,
+            nresamples = 10,
+            start_index = 0,
+            category = category,
+            subcampaigns = subcampaigns,
+            output_top_dir = output_top_dir,
+            outname_config = outname_config,
+            common_cfg = common_cfg
+            )
+
+        write_config_bootstrap_mc_clos(
             sample_local_dir,
             nresamples = 10,
             start_index = 0,
