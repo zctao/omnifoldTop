@@ -374,6 +374,7 @@ class OmniFoldTTbar():
         save_models=True,
         load_previous_iteration=True,
         load_models_from='',
+        fast_correction=False,
         batch_size=256,
         plot_status=False # if True, make extra plots for monitoring/debugging
     ):
@@ -476,6 +477,7 @@ class OmniFoldTTbar():
                 save_models_to = save_model_dir,
                 load_models_from = load_model_dir,
                 start_from_previous_iter=load_previous_iteration,
+                fast_correction = fast_correction,
                 plot = plot_status and ir==0, # only make plots for the first run
                 batch_size = batch_size,
                 ax_step1 = ax1,
