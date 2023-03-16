@@ -113,6 +113,7 @@ def write_config_nominal(
     outname_config =  'runConfig',
     common_cfg = {}
     ):
+    print("nominal")
 
     # list of samples
     data_nominal = get_samples_data(sample_local_dir, category, subcampaigns)
@@ -146,6 +147,7 @@ def write_config_bootstrap(
     outname_config =  'runConfig',
     common_cfg = {}
     ):
+    print("bootstrap data")
 
     # list of samples
     data_nominal = get_samples_data(sample_local_dir, category, subcampaigns)
@@ -183,6 +185,7 @@ def write_config_bootstrap_mc(
     outname_config =  'runConfig',
     common_cfg = {}
     ):
+    print("bootstrap mc")
 
     # list of samples
     data_nominal = get_samples_data(sample_local_dir, category, subcampaigns)
@@ -221,6 +224,7 @@ def write_config_bootstrap_mc_clos(
     outname_config =  'runConfig',
     common_cfg = {}
     ):
+    print("bootstrap mc closure")
 
     # nominal samples:
     sig_nominal = get_samples_signal(sample_local_dir, category, subcampaigns)
@@ -441,7 +445,6 @@ def createRun2Config(
         os.makedirs(outputdir)
 
     # nominal input files
-    print("nominal")
     write_config_nominal(
         sample_local_dir,
         category = category,
