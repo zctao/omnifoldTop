@@ -246,7 +246,9 @@ def write_config_bootstrap_mc_clos(
         "outputdir": outdir_bs_dict,
         "resample_data": True,
         "resample_mc": False,
-        "run_ibu": False
+        "run_ibu": False,
+        "correct_acceptance" : False,
+        #"resample_everyrun" : True
         })
 
     # write run configuration to file
@@ -300,6 +302,7 @@ def write_config_systematics(
             "signal": sig_nom,
             "background": bkg_nom,
             "outputdir": outdir_syst,
+            "correct_acceptance" : False,
             #"load_models": ?
             #"nruns": ?
             })
@@ -324,6 +327,7 @@ def write_config_systematics(
             "weight_data": wtype,
             "weight_mc": "nominal",
             "outputdir": outdir_syst,
+            "correct_acceptance" : False,
             #"load_models": ?
             #"nruns": ?
             #"unfolded_weights": ?
