@@ -529,6 +529,7 @@ if __name__ == "__main__":
     parser.add_argument("-b", "--do-bootstrap", action="store_true",
                         help="If True, also generate run configs to do bootstrap")
     parser.add_argument("--observables", nargs='+',
+                        default=['th_pt', 'th_y', 'tl_pt', 'tl_y', 'ptt', 'ytt', 'mtt'],
                         help="List of observables to unfold")
 
     args = parser.parse_args()
@@ -540,8 +541,8 @@ if __name__ == "__main__":
         "iterations" : 4,
         "batch_size" : 20000,
         "normalize" : False,
-        "nruns" : 7,
-        "parallel_models" : 3,
+        "nruns" : 5,
+        "parallel_models" : 4,
         "resample_data" : False,
         "correct_acceptance" : True,
         "run_ibu": True,
