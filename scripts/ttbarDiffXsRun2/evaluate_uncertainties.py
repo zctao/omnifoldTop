@@ -15,9 +15,9 @@ util.configRootLogger()
 def get_unfolded_histogram_from_dict(
     observable, # str, observable name
     histograms_dict, # dict, histograms dictionary
-    nensembles = None, # int, number of ensembles for stablizing unfolding
     ibu = False, # bool, if True, read IBU unfolded distribution
     hist_key = 'absoluteDiffXs', # str, unfolded histogram name. 'unfolded', "absoluteDiffXs", or "relativeDiffXs"
+    nensembles = None, # int, number of ensembles for stablizing unfolding
     ):
 
     if ibu:
@@ -59,7 +59,6 @@ def extract_bin_uncertainties_from_histograms(
     result_dir, # str, directory of unfolding results
     uncertainty_label, # str, label assigned to this uncertainty
     histograms_nominal_d = None, # dict, nominal unfolded histograms. If None, use the ones from result_dir,
-    nensembles_model = None, # int, number of runs to compute bin uncertainties. If None, use all available
     hist_filename = "histograms.root",
     ibu = False, # bool, if True, read IBU unfolded distribution
     hist_key = 'absoluteDiffXs'
@@ -77,13 +76,13 @@ def extract_bin_uncertainties_from_histograms(
         logger.debug(ob)
         unc_d[ob] = dict()
 
-        h_uf = get_unfolded_histogram_from_dict(ob, hists_d, nensembles_model, ibu, hist_key=hist_key)
+        h_uf = get_unfolded_histogram_from_dict(ob, hists_d, ibu, hist_key=hist_key)
 
         values, sigmas = myhu.get_values_and_errors(h_uf)
 
         if histograms_nominal_d is not None:
             # get the nominal histogram values
-            h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, nensembles_model, ibu, hist_key=hist_key)
+            h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, ibu, hist_key=hist_key)
             values = h_nominal.values()
 
         # relative errors
@@ -99,7 +98,6 @@ def extract_bin_uncertainties_from_histograms(
 def compute_systematic_uncertainties(
     systematics_topdir,
     histograms_nominal_d,
-    nensembles_model = None,
     systematics_keywords = [],
     hist_filename = "histograms.root",
     every_run = False,
@@ -127,7 +125,7 @@ def compute_systematic_uncertainties(
 
             # get the unfolded distributions
             h_syst = get_unfolded_histogram_from_dict(ob, hists_syst_d, ibu=ibu, hist_key=hist_key)
-            h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, nensembles_model, ibu=ibu, hist_key=hist_key)
+            h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, ibu=ibu, hist_key=hist_key)
 
             # compute relative bin errors
             relerr_syst = h_syst.values() / h_nominal.values() - 1.
@@ -242,6 +240,10 @@ def evaluate_uncertainties(
     bin_uncertainties_d = dict()
     uncertainties_toplot = list()
 
+    if nensembles_model is not None:
+        # use the histograms produced with the specified nensembles
+        hist_filename = os.path.join(f"nruns{nensembles_model}", hist_filename)
+
     # Read nominal results
     fpath_histograms_nominal = os.path.join(nominal_dir, hist_filename)
     logger.info(f"Read nominal histograms from {fpath_histograms_nominal}")
@@ -258,7 +260,6 @@ def evaluate_uncertainties(
         bin_errors_syst_d = compute_systematic_uncertainties(
             systematics_topdir,
             hists_nominal_d,
-            nensembles_model = nensembles_model,
             systematics_keywords = systematics_keywords,
             hist_filename = hist_filename,
             every_run = systematics_everyrun,
@@ -279,7 +280,6 @@ def evaluate_uncertainties(
             bootstrap_topdir,
             uncertainty_label = "Data stat.",
             histograms_nominal_d = None,
-            nensembles_model = nensembles_model,
             hist_filename = hist_filename,
             ibu = ibu,
             hist_key = hist_key
@@ -297,7 +297,6 @@ def evaluate_uncertainties(
             bootstrap_mc_topdir,
             uncertainty_label = "MC stat.",
             histograms_nominal_d = None,
-            nensembles_model = nensembles_model,
             hist_filename = hist_filename,
             ibu = ibu,
             hist_key = hist_key
@@ -317,7 +316,6 @@ def evaluate_uncertainties(
             network_error_dir,
             uncertainty_label = "network",
             histograms_nominal_d = None,
-            nensembles_model = nensembles_model,
             hist_filename = hist_filename,
             hist_key = hist_key
             )
@@ -354,7 +352,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--systematics-topdir", type=str,
                         help="Top directory of the unfolding results for systematic uncertainty variations")
     parser.add_argument("-t", "--network-error-dir", type=str,
-                        help="Directory of unfolding results to extract uncertainty from network initialization and training. If None, use nominal_dir")
+                        help="Directory of unfolding results to extract uncertainty from network initialization and training.")
     parser.add_argument("-o", "--output-dir", type=str, default=".",
                         help="Output directory")
     parser.add_argument("-n", "--nensembles-model", type=int,
