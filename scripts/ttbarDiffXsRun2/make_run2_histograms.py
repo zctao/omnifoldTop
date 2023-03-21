@@ -21,6 +21,8 @@ parser.add_argument("-f", "--outfilename", type=str, default="histograms.root",
                     help="Output file name")
 parser.add_argument("-i", "--iterations", type=int, nargs='+', default=[-1],
                     help="Use the result at the specified iterations")
+parser.add_argument("-n", "--nensembles", type=int, nargs='+', default=[None],
+                    help="List of number of runs for making histograms. If None, use all available")
 parser.add_argument("--include-ibu", action='store_true',
                     help="If True, run unfolding with IBU too")
 parser.add_argument("-k", "--resdir-keywords", nargs='+', default=[],
@@ -78,6 +80,7 @@ for cwd, subdirs, files in os.walk(args.top_result_dir):
         observables = [],
         outfilename = args.outfilename,
         iterations = args.iterations,
+        nruns = args.nensembles,
         include_ibu = args.include_ibu,
         binned_correction_dir = args.correction_dir,
         plot_verbosity = args.plot_verbosity

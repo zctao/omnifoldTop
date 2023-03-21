@@ -600,12 +600,16 @@ def make_histograms_from_unfolder(
         outputdir = os.path.join(outputdir, f"iter{iteration+1}")
         # +1 because the index 0 of the weights array is for iteration 1
 
+    # in case not all runs are used to make histograms
+    if nruns is not None:
+        outputdir = os.path.join(outputdir, f"nruns{nruns}")
+
     if not os.path.isdir(outputdir):
         logger.info(f"Create directory {outputdir}")
         os.makedirs(outputdir)
 
     # control flags
-    all_runs = True
+    all_runs = nruns is None # if number of runs is explicitly specified, no need to include all runs
     include_reco = True
     all_iterations = compute_metrics or plot_verbosity >= 2
     all_histograms = compute_metrics or plot_verbosity >= 2
@@ -687,7 +691,7 @@ def make_histograms(
     observables = [],
     observable_config = '',
     iterations = [-1],
-    nruns = None,
+    nruns = [None],
     outputdir = None,
     outfilename = 'histograms.root',
     include_ibu = False,
@@ -745,24 +749,35 @@ def make_histograms(
     logger.info("Start histogramming")
     t_hist_start = time.time()
 
+    # check if iterations is a list
+    if not isinstance(iterations, list):
+        iterations = [iterations]
+
+    # check if nruns is a list
+    if not isinstance(nruns, list):
+        nruns = [nruns]
+
     for it in iterations:
         logger.info(f"iteration: {it}")
 
-        make_histograms_from_unfolder(
-            ufdr,
-            binning_config,
-            observables,
-            obsConfig_d,
-            iteration = it,
-            nruns = nruns,
-            outputdir = outputdir,
-            outfilename = outfilename,
-            include_ibu = include_ibu,
-            compute_metrics = compute_metrics,
-            plot_verbosity = plot_verbosity,
-            binned_correction_dir = binned_correction_dir,
-            binned_correction_flow = not binned_correction_noflow
-            )
+        for n in nruns:
+            logger.info(f" nruns: {n}")
+
+            make_histograms_from_unfolder(
+                ufdr,
+                binning_config,
+                observables,
+                obsConfig_d,
+                iteration = it,
+                nruns = n,
+                outputdir = outputdir,
+                outfilename = outfilename,
+                include_ibu = include_ibu,
+                compute_metrics = compute_metrics,
+                plot_verbosity = plot_verbosity,
+                binned_correction_dir = binned_correction_dir,
+                binned_correction_flow = not binned_correction_noflow
+                )
 
     t_hist_stop = time.time()
     logger.debug(f"Histogramming time: {(t_hist_stop-t_hist_start):.2f} seconds")
@@ -856,8 +871,8 @@ if __name__ == "__main__":
                         help="Path to the observable config file. If not provided, use the same one from the unfolding results")
     parser.add_argument("-i", "--iterations", type=int, nargs='+', default=[-1],
                         help="Use the results at the specified iteration")
-    parser.add_argument("-n", "--nruns", type=int,
-                        help="Number of runs for making unfolded distributions. If not specified, use all that are available")
+    parser.add_argument("-n", "--nruns", type=int, nargs='+', default=[None],
+                        help="Number of runs for making unfolded distributions. If None, use all that are available")
     parser.add_argument("-o", "--outputdir", type=str,
                         help="Output directory. If not provided, use result_dir.")
     parser.add_argument("-f", "--outfilename", type=str, default="histograms.root",
