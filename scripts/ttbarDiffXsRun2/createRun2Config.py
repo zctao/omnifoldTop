@@ -529,6 +529,7 @@ if __name__ == "__main__":
     parser.add_argument("-b", "--do-bootstrap", action="store_true",
                         help="If True, also generate run configs to do bootstrap")
     parser.add_argument("--observables", nargs='+',
+                        default=['th_pt', 'th_y', 'tl_pt', 'tl_y', 'ptt', 'ytt', 'mtt'],
                         help="List of observables to unfold")
 
     args = parser.parse_args()
