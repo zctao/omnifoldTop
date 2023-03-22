@@ -255,6 +255,42 @@ def write_config_bootstrap_mc_clos(
     outname_config_bootstrap_mc = f"{outname_config}_bootstrap_mc_clos.json"
     util.write_dict_to_json(bootstrap_mc_cfg, outname_config_bootstrap_mc)
 
+def write_config_mc_clos(
+    sample_local_dir,
+    category = "ljets", # "ejets" or "mjets" or "ljets"
+    subcampaigns = ["mc16a", "mc16d", "mc16e"],
+    output_top_dir = '.',
+    outname_config =  'runConfig',
+    common_cfg = {}
+    ):
+    print("mc closure")
+
+    # nominal samples:
+    sig_nominal = get_samples_signal(sample_local_dir, category, subcampaigns)
+    bkg_nominal = get_samples_backgrounds(sample_local_dir, category, subcampaigns)
+
+    # output directory
+    outdir_clos = os.path.join(output_top_dir, "mc_clos")
+
+    # config
+    mc_clos_cfg = common_cfg.copy()
+    mc_clos_cfg.update({
+        "data": sig_nominal,
+        "bdata": bkg_nominal,
+        "signal": sig_nominal,
+        "background": bkg_nominal,
+        "outputdir": outdir_clos,
+        "resample_data": True,
+        "resample_mc": False,
+        "run_ibu": False,
+        "correct_acceptance" : False,
+        #"resample_everyrun" : True
+        })
+
+    # write run configuration to file
+    outname_config_mc_clos = f"{outname_config}_mc_clos.json"
+    util.write_dict_to_json(mc_clos_cfg, outname_config_mc_clos)
+
 def write_config_systematics(
     sample_local_dir,
     systematics_keywords = [],
@@ -495,6 +531,16 @@ def createRun2Config(
 
     # for systematic uncertainties
     if do_systematics:
+        # mc closure
+        write_config_mc_clos(
+            sample_local_dir,
+            category = category,
+            subcampaigns = subcampaigns,
+            output_top_dir = output_top_dir,
+            outname_config = outname_config,
+            common_cfg = common_cfg
+        )
+
         write_config_systematics(
             sample_local_dir,
             systematics_keywords = systematics_keywords,
