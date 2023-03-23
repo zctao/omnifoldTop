@@ -59,11 +59,16 @@ def set_up_model(
     callbacks = get_callbacks(filepath_save)
     
     # load trained model if needed
+    model_trained = False
     if load_models_from:
         mname = name_prefix + "_iter{}".format(iteration)
         filepath_load = os.path.join(load_models_from, mname)
-        model.load_weights(filepath_load).expect_partial()
-        logger.info(f"Load model from {filepath_load}")
+        try:
+            model.load_weights(filepath_load).expect_partial()
+            logger.info(f"Load model from {filepath_load}")
+            model_trained = True
+        except:
+            logger.debug(f"Failed to load model from {filepath_load}")
     else:
         if start_from_previous_iter and save_models_to and iteration > 0:
             # initialize model weights from the previous iteration
@@ -72,7 +77,7 @@ def set_up_model(
             model.load_weights(filepath_load)
             logger.debug(f"Initialize model from {filepath_load}")
 
-    return model, callbacks
+    return model, callbacks, model_trained
 
 def reweight(model, events, batch_size, figname=None):
     events_list = [events for i in range(modelUtils.n_models_in_parallel)]
@@ -112,6 +117,7 @@ def omnifold(
     model_type='dense_100x3', # name of the model type 
     save_models_to='', # directory to save models to if provided
     load_models_from='', # directory to load trained models if provided
+    continue_training=False, # If True, continue to train even if model loading from load_models_from fails
     start_from_previous_iter=False, # If True, initialize model with the previous iteration
     fast_correction=False, # If True, assign weights of 1 to events
     plot=False, # If True, plot training history and make other status plots
@@ -204,12 +210,15 @@ def omnifold(
         # step 1: reweight to sim to data
         logger.info("Step 1")
         # set up the model
-        model_step1, cb_step1 = set_up_model(
+        model_step1, cb_step1, trained_step1 = set_up_model(
             model_type, X_step1.shape[1:], i, "model_step1",
             save_models_to, load_models_from, start_from_previous_iter)
 
-        if load_models_from:
+        if trained_step1:
             logger.info("Use trained model for reweighting")
+        elif load_models_from and not continue_training:
+            logger.critical(f"Require to load trained model but no model is found in {load_models_from} for iteration {i} step 1")
+            raise RuntimeError("Fail to load model")
         else: # train model
             w_step1 = [np.concatenate([
                 w_data[passcut_data], (weights_push[j]*w_sim[j])[passcut_sim]
@@ -242,12 +251,15 @@ def omnifold(
                 weights_pull[:, ~passcut_sim] = 1.
             else:
                 # Estimate the average weights: <w|x_true>
-                model_step1b, cb_step1b = set_up_model(
+                model_step1b, cb_step1b, trained_step1b = set_up_model(
                     model_type, X_step1b.shape[1:], i, "model_step1b",
                     save_models_to, load_models_from, start_from_previous_iter)
 
-                if load_models_from:
+                if trained_step1b:
                     logger.info("Use trained model for reweighting")
+                elif load_models_from and not continue_training:
+                    logger.critical(f"Require to load trained model but no model is found in {load_models_from} for iteration {i} step 1b")
+                    raise RuntimeError("Fail to load model")
                 else: # train model
                     w_step1b = [np.concatenate([
                         (weights_pull[j]*w_gen[j])[passcut_sim & passcut_gen],
@@ -274,15 +286,18 @@ def omnifold(
         #####
         # step 2
         logger.info("Step 2")
-        model_step2, cb_step2 = set_up_model(
+        model_step2, cb_step2, trained_step2 = set_up_model(
             model_type, X_step2.shape[1:], i, "model_step2",
             save_models_to, load_models_from, start_from_previous_iter)
 
         rw_step2 = 1. # always reweight against the prior
 #        rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
 
-        if load_models_from:
+        if trained_step2:
             logger.info("Use trained model for reweighting")
+        elif load_models_from and not continue_training:
+            logger.critical(f"Require to load trained model but no model is found in {load_models_from} for iteration {i} step 2")
+            raise RuntimeError("Fail to load model")
         else: # train model
             w_step2 = [np.concatenate([
                 (weights_pull[j]*w_gen[j])[passcut_gen], w_gen[j][passcut_gen]*rw_step2
@@ -315,12 +330,15 @@ def omnifold(
                 weights_push[:, ~passcut_gen] = 1.
             else:
                 # Estimate the average weights: <w|x_reco>
-                model_step2b, cb_step2b = set_up_model(
+                model_step2b, cb_step2b, trained_step2b = set_up_model(
                     model_type, X_step2b.shape[1:], i, "model_step2b",
                     save_models_to, load_models_from, start_from_previous_iter)
 
-                if load_models_from:
+                if trained_step2b:
                     logger.info("Use trained model for reweighting")
+                elif load_models_from and not continue_training:
+                    logger.critical(f"Require to load trained model but no model is found in {load_models_from} for iteration {i} step 2b")
+                    raise RuntimeError("Fail to load model")
                 else: # train model
                     w_step2b = [np.concatenate([
                         (weights_push[j]*w_sim[j])[passcut_sim & passcut_gen],

@@ -360,7 +360,8 @@ class OmniFoldTTbar():
         load_models_from='',
         fast_correction=False,
         batch_size=256,
-        plot_status=False # if True, make extra plots for monitoring/debugging
+        plot_status=False, # If True, make extra plots for monitoring/debugging
+        resume_training=False, # If True, load trained models if available, continue to train for more runs/steps if needed
     ):
         """
         Run unfolding
@@ -437,15 +438,23 @@ class OmniFoldTTbar():
             logger.info(f"Run #{ir}")
 
             # model directory
-            if load_models_from:
+            model_dir = os.path.join(self.outdir, "Models", f"run{ir}")
+
+            if resume_training:
+                if os.path.isdir(model_dir):
+                    # load from trained models
+                    load_model_dir = model_dir
+                else:
+                    # continue training
+                    load_model_dir = ''
+            elif load_models_from:
                 load_model_dir = os.path.join(load_models_from, "Models", f"run{ir}")
-                save_model_dir = '' # no need too save the model again
             else:
                 load_model_dir = ''
-                if save_models and self.outdir:
-                    save_model_dir = os.path.join(self.outdir, "Models", f"run{ir}")
-                else:
-                    save_model_dir = ''
+
+            if save_models and self.outdir:
+                save_model_dir = model_dir
+                # save_model_dir is igored in omnifold() if models are loaded from load_model_dir
 
             if resample_data and resample_everyrun:
                 # fluctuate data weights
@@ -460,6 +469,7 @@ class OmniFoldTTbar():
                 model_type = model_type,
                 save_models_to = save_model_dir,
                 load_models_from = load_model_dir,
+                continue_training = resume_training,
                 start_from_previous_iter=load_previous_iteration,
                 fast_correction = fast_correction,
                 plot = plot_status and ir==0, # only make plots for the first run
