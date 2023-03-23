@@ -8,7 +8,7 @@ from layer_namer import _layer_name
 
 import logging
 logger = logging.getLogger('callbacks')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 class PrintLearningRate(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):

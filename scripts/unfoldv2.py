@@ -26,7 +26,12 @@ def unfold(**parsed_args):
             os.makedirs(parsed_args['outputdir'])
 
     # Prepare logger and log file
-    logname = 'log.txt' if parsed_args['unfolded_weights'] is None else 'log_rw.txt'
+    logname = 'log.txt'
+    if parsed_args['unfolded_weights'] is not None:
+        logname = 'log_rw.txt'
+    elif parsed_args['resume']:
+        logname = 'log_re.txt'
+
     logfile = os.path.join(parsed_args['outputdir'], logname)
     util.configRootLogger(filename=logfile)
     logger = logging.getLogger('Unfold')
@@ -41,7 +46,12 @@ def unfold(**parsed_args):
         logger.info(f"Argument {argkey}: {argvalue}")
 
     # store arguments to json file for more convenient access later
-    argname = 'arguments.json' if parsed_args['unfolded_weights'] is None else 'arguments_rw.json'
+    argname = 'arguments.json'
+    if parsed_args['unfolded_weights'] is not None:
+        argname = 'arguments_rw.json'
+    elif parsed_args['resume']:
+        argname = 'arguments_re.json'
+
     fname_args = os.path.join(parsed_args['outputdir'], argname)
     logger.info(f"Write arguments to file {fname_args}")
     util.write_dict_to_json(parsed_args, fname_args)
@@ -155,7 +165,8 @@ def unfold(**parsed_args):
             load_models_from = parsed_args['load_models'],
             fast_correction = parsed_args['fast_correction'],
             batch_size = parsed_args['batch_size'],
-            plot_status = parsed_args['plot_verbosity'] >= 2
+            plot_status = parsed_args['plot_verbosity'] >= 2,
+            resume_training = parsed_args['resume']
         )
 
     t_run_done = time.time()
@@ -315,6 +326,8 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument('--toydata', action='store_true', help="If True, use toy data")
     parser.add_argument('--exclude-flow', action='store_true',
                         help="If True, exclude events in overflow and underflow bins given a binning configuration")
+    parser.add_argument('--resume', action='store_true',
+                        help="If True, load previously trained models and continue to run more steps if needed")
 
     if print_help:
         parser.print_help()
