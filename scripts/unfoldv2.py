@@ -37,6 +37,9 @@ def unfold(**parsed_args):
     logger = logging.getLogger('Unfold')
     logger.setLevel(logging.DEBUG if parsed_args['verbose']>0 else logging.INFO)
 
+    # Host
+    logger.info(f"Hostname: {os.uname().nodename}")
+
     tracemalloc.start()
 
     # Print arguments to logger
