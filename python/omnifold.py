@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 
 import plotter
 from modelUtils import get_model, get_callbacks, train_model
@@ -121,8 +122,8 @@ def omnifold(
     start_from_previous_iter=False, # If True, initialize model with the previous iteration
     fast_correction=False, # If True, assign weights of 1 to events
     plot=False, # If True, plot training history and make other status plots
-    ax_step1=None,
-    ax_step2=None,
+    feature_names_sim=None,
+    feature_names_gen=None,
     # Model training parameters
     batch_size=256,
     epochs=100,
@@ -194,6 +195,20 @@ def omnifold(
         raise RuntimeError(f"Cannot load models from {load_models_from}: directory does not exist!")
 
     ################
+    # Plots
+    if plot:
+        # Initialize input ratio plots
+        if feature_names_sim is None:
+            feature_names_sim = [''] * X_step1.shape[1]
+        fig_step1, axes_step1 = plotter.init_training_input_ratio_plot(
+            niterations, feature_names_sim)
+
+        if feature_names_gen is None:
+            feature_names_gen = [''] * X_step2.shape[1]
+        fig_step2, axes_step2 = plotter.init_training_input_ratio_plot(
+            niterations, feature_names_gen)
+
+    ################
     # Start iterations
     # Weights
     weights_push = np.ones(shape=(modelUtils.n_models_in_parallel, len(X_sim)))
@@ -224,14 +239,18 @@ def omnifold(
                 w_data[passcut_data], (weights_push[j]*w_sim[j])[passcut_sim]
                 ]) for j in range(modelUtils.n_models_in_parallel)]
 
+            # plot input variable ratios
+            if plot:
+                logger.info("Plot input ratios")
+                plotter.draw_training_inputs_ratio(axes_step1[i], X_step1, Y_step1, w_step1[0]) # [0]: only plot the first parallel run
+
             logger.info("Start training")
-            fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
+            #fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
             train_model(model_step1, X_step1, Y_step1, w_step1,
                         callbacks = cb_step1,
                         #figname = fname_preds,
                         batch_size=batch_size, epochs=epochs, verbose=verbose,
-                        model_filepath=file_path_save("model_step1", i, save_models_to),
-                        ax = ax_step1[i] if ax_step1 is not None else None
+                        model_filepath=file_path_save("model_step1", i, save_models_to)
                         )
             logger.info("Training done")
             gc.collect()
@@ -303,14 +322,18 @@ def omnifold(
                 (weights_pull[j]*w_gen[j])[passcut_gen], w_gen[j][passcut_gen]*rw_step2
                 ]) for j in range(modelUtils.n_models_in_parallel)]
 
+            # plot input variable ratios
+            if plot:
+                logger.info("Plot input ratios")
+                plotter.draw_training_inputs_ratio(axes_step2[i], X_step2, Y_step2, w_step2[0]) # [0]: only plot the first parallel run
+
             logger.info("Start training")
-            fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
+            #fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
             train_model(model_step2, X_step2, Y_step2, w_step2,
                         callbacks = cb_step2,
                         #figname = fname_preds,
                         batch_size=batch_size, epochs=epochs, verbose=verbose,
-                        model_filepath=file_path_save("model_step2", i, save_models_to),
-                        ax = ax_step2[i] if ax_step2 is not None else None
+                        model_filepath=file_path_save("model_step2", i, save_models_to)
                         )
             logger.info("Training done")
             gc.collect()
@@ -367,5 +390,28 @@ def omnifold(
         gc.collect()
 
     # end of iteration loop
+
+    if plot:
+        figname_input1_ratio = os.path.join(save_models_to, "inputs_ratio_step1.png")
+        logger.info(f"Plot ratio of step 1 training inputs: {figname_input1_ratio}")
+
+        # legend
+        handles1, labels1 = axes_step1.flat[-1].get_legend_handles_labels()
+        fig_step1.legend(handles1, labels1, loc="upper right")
+
+        # save
+        fig_step1.savefig(figname_input1_ratio)
+        plt.close(fig_step1)
+
+        figname_input2_ratio = os.path.join(save_models_to, "inputs_ratio_step2.png")
+        logger.info(f"Plot ratio of step 2 training inputs: {figname_input2_ratio}")
+
+        # legend
+        handles2, labels2 = axes_step2.flat[-1].get_legend_handles_labels()
+        fig_step2.legend(handles2, labels2, loc="upper right")
+
+        # save
+        fig_step2.savefig(figname_input2_ratio)
+        plt.close(fig_step2)
 
     return weights_unfold
