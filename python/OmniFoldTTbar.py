@@ -2,7 +2,6 @@ import os
 import glob
 import numpy as np
 from copy import copy
-import matplotlib.pyplot as plt
 
 import util
 import plotter
@@ -435,15 +434,6 @@ class OmniFoldTTbar():
                 X_gen[passcut_gen],
                 w_gen[passcut_gen])
 
-            fig1, ax1 = plotter.init_training_input_ratio_plot(
-                niterations, X_sim_order
-                )
-            fig2, ax2 = plotter.init_training_input_ratio_plot(
-                niterations, X_gen_order
-                )
-        else:
-            ax1, ax2 = None, None
-
         # unfold
         assert(nruns>0)
         self.unfolded_weights = np.empty(
@@ -490,8 +480,8 @@ class OmniFoldTTbar():
                 fast_correction = fast_correction,
                 plot = plot_status and ir==0, # only make plots for the first run
                 batch_size = batch_size,
-                ax_step1 = ax1,
-                ax_step2 = ax2
+                feature_names_sim = X_sim_order,
+                feature_names_gen = X_gen_order,
             )
 
             if plot_status:
@@ -499,25 +489,6 @@ class OmniFoldTTbar():
                 for csvfile in glob.glob(os.path.join(save_model_dir, '*.csv')):
                     logger.info(f"  Plot training log {csvfile}")
                     plotter.plot_train_log(csvfile)
-
-            if plot_status and ir==0:
-                fname_in_ratio1= os.path.join(save_model_dir, "inputs_ratio_step1.png")
-                logger.info(f"Plot ratio of step 1 training inputs: {fname_in_ratio1}")
-                # legend
-                handles1, labels1 = ax1.flat[-1].get_legend_handles_labels()
-                fig1.legend(handles1, labels1, loc="upper right")
-                # save
-                fig1.savefig(fname_in_ratio1)
-                plt.close(fig1)
-
-                fname_in_ratio2= os.path.join(save_model_dir, "inputs_ratio_step2.png")
-                logger.info(f"Plot ratio of step 2 training inputs: {fname_in_ratio2}")
-                # legend
-                handles2, labels2 = ax2.flat[-1].get_legend_handles_labels()
-                fig2.legend(handles2, labels2, loc="upper right")
-                # save
-                fig2.savefig(fname_in_ratio2)
-                plt.close(fig2)
 
         # scale the unfolded weights so they are consistent with what is measured in data
         self.unfolded_weights *= fscale_unfolded
