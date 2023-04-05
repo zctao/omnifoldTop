@@ -12,3 +12,4 @@ __*__
 *.pdf
 *.log
 venv/
+*.sif
