@@ -8,20 +8,19 @@ See https://github.com/ericmetodiev/OmniFold.git for the original repo from the 
 
     git clone https://github.com/zctao/omnifoldTop.git
     
-To run in the tensorflow container:
+A singularity container to run the application can be made using the definition file provided in `image/`. The container is based on a tensorflow image. Sudo privilage is required.
 
-    singularity pull docker://tensorflow/tensorflow:2.7.0-gpu
-    singularity run --nv [--bind DATADIR] tensorflow_2.7.0-gpu.sif
+    sudo singularity build <some_image_name.sif> image/topOmniFold.def
 
-To set up virtual environment:
+To start running in the container
 
-    source scripts/setup_venv.sh venv requirements.txt
+    singularity run --nv --bind <directories_needed_for_inputs_and_outputs> <some_image_name.sif>
 
 ### Dependencies
 
-See
+See the singularity definition file
 
-    requirements.txt
+    image/topOmniFold.def
 
 ## Run
 
@@ -36,7 +35,6 @@ The main application to run is
                       [-i NUMBER_OF_ITERATIONS] \
                       [--observables LIST_OF_VARRIABLES_TO_UNFOLD]
                       
-                      
 To see all argument options:
 
     python scripts/unfoldv2.py -h
@@ -49,9 +47,19 @@ Or `--load-models MODELS_DIR` can be used to load the trained models for reweigh
 [NEW] Unfolding can also be run from
 
     ./run_unfold.py RUN_CONFIG
-    
+
 RUN_CONFIG is a JSON config file that are used to set the arguments for `scripts/unfoldv2.py`. If the value of an argument is a dictionary, the keys of the dictionary are used as labels to create sub-directory in OUTPUT_DIRECTORY, and unfoldings are run with all combinations of the arguments.
 See one example run config file in `configs/run/example.json`.
+
+To rerun plotting using the unfolded weights from previous result:
+
+    ./replot_unfold.py <path_to_result_dir> [<new_output_dir>]
+
+To resume unfolding previously interrupted or unfinished runs:
+
+    ./resume_unfold.py <path_to_result_dir>
+    
+This will load the trained models to reweight for the finished runs/iterations, and continue to train new models and run unfolding for more runs if needed.
 
 ### Other useful scripts
 
