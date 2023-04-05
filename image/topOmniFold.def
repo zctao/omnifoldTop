@@ -1,0 +1,11 @@
+bootstrap: docker
+from: tensorflow/tensorflow:2.7.0-gpu
+
+%post
+    pip install pandas~=1.3.5
+    pip install matplotlib~=3.5.1
+    pip install "hist[plot]"
+    pip install awkward~=1.7.0
+    pip install uproot~=4.1.9
+    pip install scikit-learn~=1.0.2
+    pip install PyYAML~=6.0
