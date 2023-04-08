@@ -232,3 +232,12 @@ def cov_w(x, y, w):
 
 def cor_w(x,y,w):
     return cov_w(x, y, w) / np.sqrt( cov_w( x, x, w) * cov_w( y, y, w) )
+
+import tracemalloc
+
+def reportMemUsage(logger):
+    mcurrent, mpeak = tracemalloc.get_traced_memory()
+    logger.debug(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
+
+    mtrace = tracemalloc.get_tracemalloc_memory()
+    logger.debug(f"Memory used by tracemalloc: {mtrace*10**-6:.1f} MB")

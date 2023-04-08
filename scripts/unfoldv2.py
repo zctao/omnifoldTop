@@ -117,8 +117,7 @@ def unfold(**parsed_args):
 
     t_init_done = time.time()
     logger.debug(f"Initializing unfolder and loading input data took {(t_init_done-t_init_start):.2f} seconds.")
-    mcurrent, mpeak = tracemalloc.get_traced_memory()
-    logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
+    util.reportMemUsage(logger)
 
     # If required, exclude events in the overflow and underflow bins to match what is done in the case of binned unfolding
     if parsed_args["exclude_flow"]:
@@ -176,8 +175,7 @@ def unfold(**parsed_args):
     logger.info("Done!")
     logger.info(f"Unfolding took {t_run_done-t_run_start:.2f} seconds")
 
-    mcurrent, mpeak = tracemalloc.get_traced_memory()
-    logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
+    util.reportMemUsage(logger)
 
     #################
     # Make histograms and plots
@@ -241,8 +239,7 @@ def unfold(**parsed_args):
     t_result_stop = time.time()
 
     logger.debug(f"Making histograms took {(t_result_stop-t_result_start):.2f} seconds.")
-    mcurrent, mpeak = tracemalloc.get_traced_memory()
-    logger.info(f"Current memory usage: {mcurrent*10**-6:.1f} MB; Peak usage: {mpeak*10**-6:.1f} MB")
+    util.reportMemUsage(logger)
 
     tracemalloc.stop()
 
