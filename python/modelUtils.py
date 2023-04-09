@@ -3,16 +3,13 @@ Define model architectures.
 """
 # FIXME: Fix support for other types of networks, currently only default dense network works
 
-import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
 import tensorflow.keras.backend as K
 from sklearn.model_selection import train_test_split
 from lrscheduler import get_lr_scheduler
 from layer_namer import _layer_name
 from callbacks import EarlyLocking
-import plotter
 
 n_models_in_parallel = 1
 
@@ -134,7 +131,7 @@ def parse_name_for_dense(model_name):
     else:
         return []
 
-def get_model(input_shape, nclass=2, model_name='dense_100x3'):
+def get_model(input_shape, nclass=2, model_type='dense_100x3'):
     """
     Build and compile the classifier for OmniFold.
 
@@ -142,7 +139,7 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
     ----------
     input_shape : sequence of positive int
         Shape of the input layer of the model.
-    model_name : str, default: "dense_3hl"
+    model_type : str, default: "dense_3hl"
         The name of a function in the `model` module that builds an
         architecture and returns a `tf.keras.models.Model`.
     nclass : positive int, default: 2
@@ -155,26 +152,27 @@ def get_model(input_shape, nclass=2, model_name='dense_100x3'):
         `model.weighted_categorical_crossentropy`, Adam optimizer and
         accuracy metrics.
     """
-    # parse model_name
-    nodes_list = parse_name_for_dense(model_name)
+    # parse model_type
+    nodes_list = parse_name_for_dense(model_type)
 
     if nodes_list:
         model = dense_net(input_shape, nodes_list, nclass)
     else:
-        model = eval(model_name+"(input_shape, nclass)")
+        model = eval(model_type+"(input_shape, nclass)")
         
     optimizer = keras.optimizers.Adam(learning_rate = get_lr_scheduler().get_schedule())
 
     model.compile(#loss=weighted_binary_crossentropy,
                   loss='binary_crossentropy',
                   optimizer=optimizer,
-                  metrics=['accuracy'])
+                  weighted_metrics=['accuracy'])
+                  #metrics=['accuracy'])
 
     model.summary()
 
     return model
 
-def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1, model_filepath=None):
+def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1):
 
     # initalize empty dictionaries
     train_dictionary, val_dictionary = {}, {}
@@ -201,9 +199,6 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
     fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
 
     model.fit(train_dictionary, train_y_dictionary, sample_weight=train_w, validation_data=(val_dictionary, val_y_dictionary, val_w), **fitargs)
-    
-    if model_filepath:
-        model.save_weights(model_filepath)
 
     # FIXME: Y and w are stacked together into Yw and requires separating for plotting
     # if figname:

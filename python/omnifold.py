@@ -8,7 +8,6 @@ import modelUtils
 
 from util import reportGPUMemUsage
 
-import tensorflow as tf
 import gc
 
 import logging
@@ -17,68 +16,76 @@ logger.setLevel(logging.DEBUG)
 
 B_TO_MB = 2**-20 # constant for converting size in bytes to MBs
 
-def file_path_save(name_prefix="model", iteration=0, save_models_to=""):
-    """
-    assemble the path to save model related files
-
-    arguments
-    ---------
-    name_prefix: str
-        prefix of the model name
-    iteratino: int
-        iteration index
-    save_model_to: str
-        directory to save the trained model to
-
-    returns
-    -------
-    filepath_save: str
-        path to save model files if save_model_to is specified, otherwise None
-    """
-    if save_models_to:
-        # name of the model checkpoint
-        mname = name_prefix + "_iter{}".format(iteration)
-        return os.path.join(save_models_to, mname)
-    else:
-        return None
-
 def set_up_model(
+    iteration, # int, iteration index
     model_type, # str, type of the network
-    input_shape, # tuple, shape of the input layer
-    iteration = 0, # int, iteration index
-    name_prefix = 'model', # str, prefix of the model name
+    input_shape,
+    model_name_prefix = 'model', # str, prefix of the model name
     save_models_to = '', # str, directory to save the trained model to
     load_models_from = '', # str, directory to load trained model weights
     start_from_previous_iter = False, # bool, if True, initialize model from previous iteration
+    resume_training = False, # bool
     ):
 
-    # get network
-    model = get_model(input_shape, nclass=2, model_name=model_type)
-    
-    filepath_save = file_path_save(name_prefix, iteration, save_models_to)
+    # model name
+    model_name = f"{model_name_prefix}_iter{iteration}"
 
-    callbacks = get_callbacks(filepath_save)
-    
-    # load trained model if needed
-    model_trained = False
+    model = get_model(input_shape=input_shape, nclass=2, model_type=model_type)
+
+    # load model weights
+    skip_training = False
     if load_models_from:
-        mname = name_prefix + "_iter{}".format(iteration)
-        filepath_load = os.path.join(load_models_from, mname)
-        try:
-            model.load_weights(filepath_load).expect_partial()
-            logger.info(f"Load model from {filepath_load}")
-            model_trained = True
-        except:
-            logger.debug(f"Failed to load model from {filepath_load}")
+        filepath_load = os.path.join(load_models_from, model_name)
+        skip_training = True
+    elif start_from_previous_iter and save_models_to and iteration > 0:
+        # initialize model weights from the previous iteration
+        model_name_prev = f"{model_name_prefix.rstrip('_')}_iter{iteration-1}"
+        filepath_load = os.path.join(save_models_to, model_name_prev)
     else:
-        if start_from_previous_iter and save_models_to and iteration > 0:
-            # initialize model weights from the previous iteration
-            mname_prev = name_prefix+"_iter{}".format(iteration-1)
-            filepath_load = os.path.join(save_models_to, mname_prev)
-            model.load_weights(filepath_load)
-            logger.debug(f"Initialize model from {filepath_load}")
+        filepath_load = ''
 
-    return model, callbacks, model_trained
+    if filepath_load:
+        try:
+            model.load_weights(filepath_load)
+            logger.info(f"Load model from {filepath_load}")
+        except:
+            if resume_training:
+                logger.debug(f"Cannot load model from {filepath_load}. Continue to train models from here.")
+                skip_training = False
+            else:
+                logger.critical(f"Cannot load model from {filepath_load}")
+                raise RuntimeError("Model loading failure")
+
+    return model, model_name, skip_training
+
+def train_step(
+    model,
+    X, Y, w,
+    filepath_save = '',
+    ax_ratio = None,
+    figname_preds = '',
+    batch_size = 256,
+    epochs = 100,
+    verbose = 1,
+    ):
+
+    if ax_ratio is not None:
+        logger.info("Plot input ratios")
+        plotter.draw_training_inputs_ratio(ax_ratio, X, Y, w[0]) # [0]: only plot the first parallel run
+
+    logger.info("Start training")
+
+    fitargs = {
+            'callbacks' : get_callbacks(filepath_save),
+            'batch_size' : batch_size, 'epochs' : epochs, 'verbose' : verbose
+        }
+
+    train_model(model, X, Y, w, **fitargs) #figname=figname_preds,
+
+    if filepath_save:
+        model.save_weights(filepath_save)
+
+    logger.info("Training done")
 
 def reweight(model, events, batch_size, figname=None):
     events_list = [events for i in range(modelUtils.n_models_in_parallel)]
@@ -221,44 +228,27 @@ def omnifold(
 
     for i in range(niterations):
         logger.info(f"Iteration {i}")
+
         #####
         # step 1: reweight to sim to data
         logger.info("Step 1")
-        # set up the model
-        model_step1, cb_step1, trained_step1 = set_up_model(
-            model_type, X_step1.shape[1:], i, "model_step1",
-            save_models_to, load_models_from, start_from_previous_iter)
+        weights_pull = run_step1(
+            i,
+            X_step1, Y_step1, X_sim,
+            w_data, w_sim, weights_push,
+            passcut_data, passcut_sim,
+            model_type = model_type,
+            save_models_to = save_models_to,
+            load_models_from = load_models_from,
+            continue_training = continue_training,
+            start_from_previous_iter = start_from_previous_iter,
+            do_plot = plot,
+            ax_input_ratio = axes_step1[i] if plot else None,
+            batch_size = batch_size,
+            epochs = epochs,
+            verbose = verbose
+            )
 
-        if trained_step1:
-            logger.info("Use trained model for reweighting")
-        elif load_models_from and not continue_training:
-            logger.critical(f"Require to load trained model but no model is found in {load_models_from} for iteration {i} step 1")
-            raise RuntimeError("Fail to load model")
-        else: # train model
-            w_step1 = [np.concatenate([
-                w_data[passcut_data], (weights_push[j]*w_sim[j])[passcut_sim]
-                ]) for j in range(modelUtils.n_models_in_parallel)]
-
-            # plot input variable ratios
-            if plot:
-                logger.info("Plot input ratios")
-                plotter.draw_training_inputs_ratio(axes_step1[i], X_step1, Y_step1, w_step1[0]) # [0]: only plot the first parallel run
-
-            logger.info("Start training")
-            #fname_preds = save_models_to + f"/preds_step1_{i}" if save_models_to and plot else ''
-            train_model(model_step1, X_step1, Y_step1, w_step1,
-                        callbacks = cb_step1,
-                        #figname = fname_preds,
-                        batch_size=batch_size, epochs=epochs, verbose=verbose,
-                        model_filepath=file_path_save("model_step1", i, save_models_to)
-                        )
-            logger.info("Training done")
-            gc.collect()
-
-        # reweight
-        logger.info("Reweight")
-        fname_rdistr = save_models_to + f"/rdistr_step1_{i}" if save_models_to and plot else ''
-        weights_pull = weights_push * reweight(model_step1, X_sim, batch_size, fname_rdistr)
         gc.collect()
 
         #####
@@ -270,33 +260,23 @@ def omnifold(
                 weights_pull[:, ~passcut_sim] = 1.
             else:
                 # Estimate the average weights: <w|x_true>
-                model_step1b, cb_step1b, trained_step1b = set_up_model(
-                    model_type, X_step1b.shape[1:], i, "model_step1b",
-                    save_models_to, load_models_from, start_from_previous_iter)
+                weights_pull[:, ~passcut_sim] = run_step1b(
+                    i,
+                    X_step1b, Y_step1b, X_gen,
+                    w_gen, weights_pull,
+                    passcut_sim, passcut_gen,
+                    model_type = model_type,
+                    save_models_to = save_models_to,
+                    load_models_from = load_models_from,
+                    continue_training = continue_training,
+                    start_from_previous_iter = start_from_previous_iter,
+                    do_plot = plot,
+                    batch_size = batch_size,
+                    epochs = epochs,
+                    verbose = verbose
+                    )
 
-                if trained_step1b:
-                    logger.info("Use trained model for reweighting")
-                elif load_models_from and not continue_training:
-                    logger.critical(f"Require to load trained model but no model is found in {load_models_from} for iteration {i} step 1b")
-                    raise RuntimeError("Fail to load model")
-                else: # train model
-                    w_step1b = [np.concatenate([
-                        (weights_pull[j]*w_gen[j])[passcut_sim & passcut_gen],
-                        w_gen[j][passcut_sim & passcut_gen]
-                        ]) for j in range(modelUtils.n_models_in_parallel)]
-
-                    logger.info("Start training")
-                    train_model(model_step1b, X_step1b, Y_step1b, w_step1b,
-                                callbacks = cb_step1b, batch_size=batch_size,
-                                epochs=epochs, verbose=verbose, model_filepath=file_path_save("model_step1b", i, save_models_to))
-                    logger.info("Training done")
-                    gc.collect()
-
-                # reweight
-                logger.info("Reweight")
-                fname_rdistr = save_models_to + f"/rdistr_step1b_{i}" if save_models_to and plot else ''
-                weights_pull[:, ~passcut_sim] = reweight(model_step1b, X_gen[~passcut_sim], batch_size, fname_rdistr)
-                gc.collect()
+            gc.collect()
 
         weights_pull /= np.mean(weights_pull, axis=1)[:,None]
         reportGPUMemUsage(logger)
@@ -305,43 +285,23 @@ def omnifold(
         #####
         # step 2
         logger.info("Step 2")
-        model_step2, cb_step2, trained_step2 = set_up_model(
-            model_type, X_step2.shape[1:], i, "model_step2",
-            save_models_to, load_models_from, start_from_previous_iter)
+        weights_push[:, passcut_gen] = run_step2(
+            i,
+            X_step2, Y_step2, X_gen,
+            w_gen, weights_pull,
+            passcut_gen,
+            model_type = model_type,
+            save_models_to = save_models_to,
+            load_models_from = load_models_from,
+            continue_training = continue_training,
+            start_from_previous_iter = start_from_previous_iter,
+            do_plot = plot,
+            ax_input_ratio = axes_step2[i] if plot else None,
+            batch_size = batch_size,
+            epochs = epochs,
+            verbose = verbose
+        )
 
-        rw_step2 = 1. # always reweight against the prior
-#        rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
-
-        if trained_step2:
-            logger.info("Use trained model for reweighting")
-        elif load_models_from and not continue_training:
-            logger.critical(f"Require to load trained model but no model is found in {load_models_from} for iteration {i} step 2")
-            raise RuntimeError("Fail to load model")
-        else: # train model
-            w_step2 = [np.concatenate([
-                (weights_pull[j]*w_gen[j])[passcut_gen], w_gen[j][passcut_gen]*rw_step2
-                ]) for j in range(modelUtils.n_models_in_parallel)]
-
-            # plot input variable ratios
-            if plot:
-                logger.info("Plot input ratios")
-                plotter.draw_training_inputs_ratio(axes_step2[i], X_step2, Y_step2, w_step2[0]) # [0]: only plot the first parallel run
-
-            logger.info("Start training")
-            #fname_preds = save_models_to + f"/preds_step2_{i}" if save_models_to and plot else ''
-            train_model(model_step2, X_step2, Y_step2, w_step2,
-                        callbacks = cb_step2,
-                        #figname = fname_preds,
-                        batch_size=batch_size, epochs=epochs, verbose=verbose,
-                        model_filepath=file_path_save("model_step2", i, save_models_to)
-                        )
-            logger.info("Training done")
-            gc.collect()
-
-        # reweight
-        logger.info("Reweight")
-        fname_rdistr = save_models_to + f"/rdistr_step2_{i}" if save_models_to and plot else ''
-        weights_push[:, passcut_gen] = rw_step2 * reweight(model_step2, X_gen[passcut_gen], batch_size, fname_rdistr)
         gc.collect()
 
         #####
@@ -353,38 +313,27 @@ def omnifold(
                 weights_push[:, ~passcut_gen] = 1.
             else:
                 # Estimate the average weights: <w|x_reco>
-                model_step2b, cb_step2b, trained_step2b = set_up_model(
-                    model_type, X_step2b.shape[1:], i, "model_step2b",
-                    save_models_to, load_models_from, start_from_previous_iter)
+                weights_push[:, ~passcut_gen] = run_step2b(
+                    i,
+                    X_step2b, Y_step2b, X_sim,
+                    w_sim, weights_push,
+                    passcut_sim, passcut_gen,
+                    model_type = model_type,
+                    save_models_to = save_models_to,
+                    load_models_from = load_models_from,
+                    continue_training = continue_training,
+                    start_from_previous_iter = start_from_previous_iter,
+                    do_plot = plot,
+                    batch_size = batch_size,
+                    epochs = epochs,
+                    verbose = verbose
+                    )
 
-                if trained_step2b:
-                    logger.info("Use trained model for reweighting")
-                elif load_models_from and not continue_training:
-                    logger.critical(f"Require to load trained model but no model is found in {load_models_from} for iteration {i} step 2b")
-                    raise RuntimeError("Fail to load model")
-                else: # train model
-                    w_step2b = [np.concatenate([
-                        (weights_push[j]*w_sim[j])[passcut_sim & passcut_gen],
-                        w_sim[j][passcut_sim & passcut_gen]
-                        ]) for j in range(modelUtils.n_models_in_parallel)]
-
-                    logger.info("Start training")
-                    train_model(model_step2b, X_step2b, Y_step2b, w_step2b,
-                                callbacks = cb_step2b, batch_size=batch_size,
-                                epochs=epochs, verbose=verbose,
-                                model_filepath=file_path_save("model_step2b", i, save_models_to))
-                    logger.info("Training done")
-                    gc.collect()
-
-                # reweight
-                logger.info("Reweight")
-                fname_rdistr = save_models_to + f"/rdistr_step2b_{i}" if save_models_to and plot else ''
-                weights_push[:, ~passcut_gen] = reweight(model_step2b, X_sim[~passcut_gen], batch_size, fname_rdistr)
-                gc.collect()
+            gc.collect()
 
         weights_push /= np.mean(weights_push, axis=1)[:,None]
 
-        # # save truth level weights of this iteration
+        # save truth level weights of this iteration
         weights_unfold[:,i,:] = weights_push[:, passcut_gen]
         reportGPUMemUsage(logger)
         gc.collect()
@@ -415,3 +364,271 @@ def omnifold(
         plt.close(fig_step2)
 
     return weights_unfold
+
+def run_step1(
+    iteration,
+    # data
+    X_step1, Y_step1,
+    X_sim,
+    w_data, w_sim, w_push,
+    passcut_data, passcut_sim,
+    # model
+    model_type,
+    save_models_to='',
+    load_models_from='',
+    continue_training=False,
+    start_from_previous_iter=False,
+    # plot
+    do_plot=False,
+    ax_input_ratio=None,
+    # fit args
+    batch_size = 256,
+    epochs = 100,
+    verbose = 1
+    ):
+    # step 1: reweight to sim to data
+    logger.info("Step 1")
+
+    # Set up the model
+    model_name_prefix = "model_step1"
+
+    model, model_name, skip_train = set_up_model(
+        iteration = iteration,
+        model_type = model_type,
+        input_shape = X_step1.shape[1:],
+        model_name_prefix = model_name_prefix,
+        save_models_to = save_models_to,
+        load_models_from = load_models_from,
+        start_from_previous_iter = start_from_previous_iter,
+        resume_training = continue_training
+    )
+
+    # train model
+    if skip_train:
+        logger.info("Use trained model for reweighting")
+    else:
+        w_step1 = [np.concatenate([
+            w_data[passcut_data], (w_push[j]*w_sim[j])[passcut_sim]
+            ]) for j in range(modelUtils.n_models_in_parallel)]
+
+        filepath_save = os.path.join(save_models_to, model_name) if save_models_to else None
+
+        train_step(
+            model,
+            X_step1, Y_step1, w_step1,
+            filepath_save = filepath_save,
+            ax_ratio = ax_input_ratio,
+            batch_size = batch_size,
+            epochs = epochs,
+            verbose = verbose,
+            #figname_preds = save_models_to + f"/preds_step1_{iteration}" if save_models_to and do_plot else ''
+        )
+
+    # reweight
+    logger.info("Reweight")
+    if do_plot and save_models_to:
+        fname_rdistr = os.path.join(save_models_to, f"rdistr_step1_{iteration}")
+    else:
+        fname_rdistr = ''
+
+    return w_push * reweight(model, X_sim, batch_size, figname=fname_rdistr)
+
+def run_step2(
+    iteration,
+    # data
+    X_step2, Y_step2,
+    X_gen,
+    w_gen, w_pull,
+    passcut_gen,
+    # model
+    model_type,
+    save_models_to='',
+    load_models_from='',
+    continue_training=False,
+    start_from_previous_iter=False,
+    # plot
+    do_plot=False,
+    ax_input_ratio=None,
+    # fit args
+    batch_size = 256,
+    epochs = 100,
+    verbose = 1
+    ):
+    logger.info("Step 2")
+
+    # Set up the model
+    model_name_prefix = "model_step2"
+
+    model, model_name, skip_train = set_up_model(
+        iteration = iteration,
+        model_type = model_type,
+        input_shape = X_step2.shape[1:],
+        model_name_prefix = model_name_prefix,
+        save_models_to = save_models_to,
+        load_models_from = load_models_from,
+        start_from_previous_iter = start_from_previous_iter,
+        resume_training = continue_training
+    )
+
+    rw_step2 = 1. # always reweight against the prior
+    #rw_step2 = 1. if i==0 else weights_unfold[i-1] # previous iteration
+
+    # train model
+    if skip_train:
+        logger.info("Use trained model for reweighting")
+    else:
+        w_step2 = [np.concatenate([
+            (w_pull[j]*w_gen[j])[passcut_gen], w_gen[j][passcut_gen]*rw_step2
+            ]) for j in range(modelUtils.n_models_in_parallel)]
+
+        filepath_save = os.path.join(save_models_to, model_name) if save_models_to else None
+
+        train_step(
+            model,
+            X_step2, Y_step2, w_step2,
+            filepath_save = filepath_save,
+            ax_ratio = ax_input_ratio,
+            batch_size = batch_size,
+            epochs = epochs,
+            verbose = verbose,
+            #figname_preds = save_models_to + f"/preds_step2_{iteration}" if save_models_to and do_plot else ''
+        )
+
+    # reweight
+    logger.info("Reweight")
+    if do_plot and save_models_to:
+        fname_rdistr = os.path.join(save_models_to, f"rdistr_step2_{iteration}")
+    else:
+        fname_rdistr = ''
+
+    return rw_step2 * reweight(model, X_gen[passcut_gen], batch_size, figname=fname_rdistr)
+
+def run_step1b(
+    iteration,
+    #
+    X_step1b, Y_step1b,
+    X_gen,
+    w_gen, w_pull,
+    passcut_sim, passcut_gen,
+    # model
+    model_type,
+    save_models_to='',
+    load_models_from='',
+    continue_training=False,
+    start_from_previous_iter=False,
+    # plot
+    do_plot = False,
+    # fit args
+    batch_size = 256,
+    epochs = 100,
+    verbose = 1
+    ):
+    logger.info("Step 1b")
+
+    # Set up the model
+    model_name_prefix = "model_step1b"
+
+    model, model_name, skip_train = set_up_model(
+        iteration = iteration,
+        model_type = model_type,
+        input_shape = X_step1b.shape[1:],
+        model_name_prefix = model_name_prefix,
+        save_models_to = save_models_to,
+        load_models_from = load_models_from,
+        start_from_previous_iter = start_from_previous_iter,
+        resume_training = continue_training
+    )
+
+    # train model
+    if skip_train:
+        logger.info("Use trained model for reweighting")
+    else:
+        w_step1b = [np.concatenate([
+            (w_pull[j]*w_gen[j])[passcut_sim & passcut_gen],
+            w_gen[j][passcut_sim & passcut_gen]
+            ]) for j in range(modelUtils.n_models_in_parallel)]
+
+        filepath_save = os.path.join(save_models_to, model_name) if save_models_to else None
+
+        train_step(
+            model,
+            X_step1b, Y_step1b, w_step1b,
+            filepath_save = filepath_save,
+            batch_size = batch_size,
+            epochs = epochs,
+            verbose = verbose
+        )
+
+    # reweight
+    logger.info("Reweight")
+    if do_plot and save_models_to:
+        fname_rdistr = os.path.join(save_models_to, f"rdistr_step1b_{iteration}")
+    else:
+        fname_rdistr = ''
+
+    return reweight(model, X_gen[~passcut_sim], batch_size, figname=fname_rdistr)
+
+def run_step2b(
+    iteration,
+    #
+    X_step2b, Y_step2b,
+    X_sim,
+    w_sim, w_push,
+    passcut_sim, passcut_gen,
+    # model
+    model_type,
+    save_models_to='',
+    load_models_from='',
+    continue_training=False,
+    start_from_previous_iter=False,
+    # plot
+    do_plot = False,
+    # fit args
+    batch_size = 256,
+    epochs = 100,
+    verbose = 1
+    ):
+    logger.info("Step 2b")
+
+    # Set up the model
+    model_name_prefix = "model_step2b"
+
+    model, model_name, skip_train = set_up_model(
+        iteration = iteration,
+        model_type = model_type,
+        input_shape = X_step2b.shape[1:],
+        model_name_prefix = model_name_prefix,
+        save_models_to = save_models_to,
+        load_models_from = load_models_from,
+        start_from_previous_iter = start_from_previous_iter,
+        resume_training = continue_training
+    )
+
+    # train model
+    if skip_train:
+        logger.info("Use trained model for reweighting")
+    else:
+        w_step2b = [np.concatenate([
+                    (w_push[j]*w_sim[j])[passcut_sim & passcut_gen],
+                    w_sim[j][passcut_sim & passcut_gen]
+                    ]) for j in range(modelUtils.n_models_in_parallel)]
+
+        filepath_save = os.path.join(save_models_to, model_name) if save_models_to else None
+
+        train_step(
+            model,
+            X_step2b, Y_step2b, w_step2b,
+            filepath_save = filepath_save,
+            batch_size = batch_size,
+            epochs = epochs,
+            verbose = verbose
+        )
+
+    # reweight
+    logger.info("Reweight")
+    if do_plot and save_models_to:
+        fname_rdistr = os.path.join(save_models_to, f"rdistr_step2b_{iteration}")
+    else:
+        fname_rdistr = ''
+
+    return reweight(model, X_sim[~passcut_gen], batch_size, figname=fname_rdistr)
