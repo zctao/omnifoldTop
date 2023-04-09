@@ -152,6 +152,10 @@ def get_model(input_shape, nclass=2, model_type='dense_100x3'):
         `model.weighted_categorical_crossentropy`, Adam optimizer and
         accuracy metrics.
     """
+    # Reset Keras states
+    keras.backend.clear_session()
+    logger.debug("Call Keras clear_session()")
+
     # parse model_type
     nodes_list = parse_name_for_dense(model_type)
 
