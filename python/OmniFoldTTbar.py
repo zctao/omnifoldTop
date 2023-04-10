@@ -1,6 +1,7 @@
 import os
 import glob
 import numpy as np
+import h5py
 from copy import copy
 
 import util
@@ -57,7 +58,7 @@ def getDataHandler(
     return dh
 ##
 
-def read_weights_from_file(filepaths_weights):
+def read_weights_from_npz(filepaths_weights):
 
     weights = None
 
@@ -128,8 +129,6 @@ class OmniFoldTTbar():
         # If or not use toy data handler
         use_toydata=False
     ):
-        # unfolded weights
-        self.unfolded_weights = None
 
         # output directory
         self.outdir = outputdir
@@ -172,6 +171,15 @@ class OmniFoldTTbar():
             weight_type_mc = weight_type_mc,
             use_toydata = use_toydata
         )
+
+        # unfolded weights
+        self.unfolded_weights = None
+        # h5py file
+        self.file_uw = None
+
+    def __del__(self):
+        if self.file_uw is not None:
+            self.file_uw.close()
 
     def _prepare_inputs(
         self,
@@ -436,9 +444,18 @@ class OmniFoldTTbar():
 
         # unfold
         assert(nruns>0)
-        self.unfolded_weights = np.empty(
-            shape=(nruns * modelUtils.n_models_in_parallel, niterations, np.count_nonzero(passcut_gen))
+
+        # open an h5py file
+        self.file_uw = h5py.File(
+            os.path.join(self.outdir, "weights_unfolded.h5"), 'w'
             )
+
+        uw_shape_per_run = (niterations, np.count_nonzero(passcut_gen))
+        uw_shape = (nruns * modelUtils.n_models_in_parallel,) + uw_shape_per_run
+
+        self.unfolded_weights = self.file_uw.create_dataset(
+            "unfolded_weights", shape=uw_shape, chunks = (1,)+uw_shape_per_run,
+            dtype=np.float)
 
         for ir in range(nruns):
             logger.info(f"Run #{ir}")
@@ -491,12 +508,8 @@ class OmniFoldTTbar():
                     plotter.plot_train_log(csvfile)
 
         # scale the unfolded weights so they are consistent with what is measured in data
-        self.unfolded_weights *= fscale_unfolded
+        self.unfolded_weights[:] *= fscale_unfolded
         # TODO: scale all weights to a fixed norm as the data?
-
-        # save weights to disk
-        wfile = os.path.join(self.outdir, "weights_unfolded.npz")
-        np.savez(wfile, unfolded_weights = self.unfolded_weights)
 
     def load(self, filepaths_unfolded_weights):
         """
@@ -511,8 +524,22 @@ class OmniFoldTTbar():
         wfilelist.sort()
         assert(len(wfilelist)>0)
 
-        self.unfolded_weights = read_weights_from_file(wfilelist)
+        try:
+            self.load_h5(wfilelist)
+        except:
+            try:
+                self.unfolded_weights = read_weights_from_npz(wfilelist)
+            except:
+                logger.critical(f"Cannot load weights from file: {wfilelist}")
+
         logger.debug(f"unfolded_weights.shape: {self.unfolded_weights.shape}")
+
+    def load_h5(self, filepaths_unfolded_weights):
+        if len(filepaths_unfolded_weights) == 1:
+            self.file_uw = h5py.File(filepaths_unfolded_weights[0], 'r')
+            self.unfolded_weights = self.file_uw["unfolded_weights"]
+        else:
+            raise NotImplementedError("TODO Virtual Datasets")
 
     def get_unfolded_hists_resamples(
         self,
@@ -771,7 +798,12 @@ def load_unfolder(
     # read unfolded event weights
     fnames_uw = args_d.get("unfolded_weights")
     if fnames_uw is None:
-        fnames_uw = os.path.join(args_d['outputdir'], "weights_unfolded.npz")
+        fnames_uw = os.path.join(args_d['outputdir'], "weights_unfolded")
+
+        if os.path.isfile(fnames_uw+'.h5'):
+            fnames_uw += '.h5'
+        elif os.path.isfile(fnames_uw+'.npz'):
+            fnames_uw += '.npz'
 
     unfolder.load(fnames_uw)
 

@@ -30,7 +30,15 @@ if not run_cfg:
     sys.exit(3)
 
 # use unfolded weights
-fpaths_uw = glob.glob(os.path.join(fpath_result_dir, "weights*.npz"))
+fpaths_uw = glob.glob(os.path.join(fpath_result_dir, "weights*.h5"))
+if not fpaths_uw:
+    # cannot find unfolded weights as .h5 files. Try loading .npz files
+    fpaths_uw = glob.glob(os.path.join(fpath_result_dir, "weights*.npz"))
+
+if not fpaths_uw:
+    print(f"ERROR: cannot find weight files in {fpath_result_dir}")
+    sys.exit(4)
+
 fpaths_uw.sort()
 
 run_cfg.update({"unfolded_weights": fpaths_uw})
