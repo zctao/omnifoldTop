@@ -149,6 +149,27 @@ def get_bins(varname, fname_bins):
     # if the binning file does not exist or no binning info for this variable is in the dictionary
     return None
 
+def get_bins_dict(fname_bins):
+    if not os.path.isfile(fname_bins):
+        raise RuntimeError(f"Cannot access binning config file {fname_bins}")
+
+    # read bin config file
+    bins_d_raw = read_dict_from_json(fname_bins)
+    bins_d = {}
+
+    for k, v in bins_d_raw.items():
+        if isinstance(v, list):
+            bins_d[k] = np.asarray(v)
+        elif isinstance(v, dict):
+            if 'nbins' in v and 'xmin' in v and 'xmax' in v:
+                # equal bins
+                bins_d[k] = np.linspace(v['xmin'], v['xmax'], v['nbins']+1)
+            else:
+                # just use the dictionary
+                bins_d[k] = v
+
+    return bins_d
+
 def gaus(x, a, mu, sigma):
     return a*np.exp(-(x-mu)**2/(2*sigma**2))
 

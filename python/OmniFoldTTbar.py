@@ -691,10 +691,13 @@ def clearAllUnderflowOverflow(ufdr, observables, fpath_binning, obs_config):
 
     ufdr.reset_underflow_overflow_flags()
 
+    bins_reco_d = util.get_bins_dict(fpath_binning)
+    bins_truth_d = util.get_bins_dict(fpath_binning)
+
     for ob in observables:
         # Same binning at reco and truth level for now
-        bins_reco = util.get_bins(ob, fpath_binning)
-        bins_truth = util.get_bins(ob, fpath_binning)
+        bins_reco = bins_reco_d[ob]
+        bins_truth = bins_truth_d[ob]
 
         vname_reco = obs_config[ob]['branch_det']
         vname_truth = obs_config[ob]['branch_mc']

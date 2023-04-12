@@ -117,7 +117,7 @@ def make_histograms_of_observable(
     unfolder,
     observable, # str, name of the observable
     obsConfig_d, # dict, observable configuration
-    binning_config, # str, path to binning config file
+    binning_d, # dict, binning config
     iteration = -1, # int, which iteration to use as the nominal. Default is the last one
     nruns = None, # int, number of runs. Default is to take all that are available
     all_runs = True, # If True, include unfolded histograms of all runs at specified iteration
@@ -136,8 +136,8 @@ def make_histograms_of_observable(
 
     # get bin edges
     # TODO different binning at reco and truth level
-    bins_det = util.get_bins(observable, binning_config)
-    bins_mc = util.get_bins(observable, binning_config)
+    bins_det = binning_d[observable]
+    bins_mc = binning_d[observable]
 
     absValue = "_abs" in observable
 
@@ -613,6 +613,9 @@ def make_histograms_from_unfolder(
     include_reco = True
     all_iterations = compute_metrics or plot_verbosity >= 2
     all_histograms = compute_metrics or plot_verbosity >= 2
+
+    # binning config
+    binning_d = util.get_bins_dict(binning_config)
 
     histograms_dict = {}
 
