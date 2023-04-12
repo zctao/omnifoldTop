@@ -574,12 +574,14 @@ class DataHandler(Mapping):
         self,
         variables, # list of str
         bins_dict,
-        weights,
+        weights = None,
         density=False,
         norm=None,
         absoluteValues=False,
         extra_cuts=None
         ):
+
+
 
         if not isinstance(absoluteValues, list):
             absoluteValues = [absoluteValues] * len(variables)
@@ -589,7 +591,14 @@ class DataHandler(Mapping):
               for vname, absolute in zip(variables, absoluteValues)
             ]
 
+        if weights is None:
+            if all([self._in_data_truth(v) for v in variables]): # mc truth level
+                weights = self.get_weights(reco_level=False)
+            else: # reco level
+                weights = self.get_weights(reco_level=True)
+
         weights = np.asarray(weights)
+
         if weights.ndim == 1: # 1D array
 
             for arr in data_arrs:
