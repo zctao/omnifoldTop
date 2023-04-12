@@ -51,6 +51,9 @@ class FlattenedHistogram2D():
             logger.error(f"{binning_d}")
             raise RuntimeError("Fail to initialize FlattenedHistogram2D")
 
+    def __len__(self):
+        return len(self._xhists)
+
     def fill(self, xarr, yarr, weight=1.):
         # first separate data arrays into y bins
         ybin_edges = self._yhist.axes[0].edges
@@ -219,6 +222,9 @@ class FlattenedHistogram3D():
             logger.error("Something is wrong with the binning config:")
             logger.error(f"{binning_d}")
             raise RuntimeError("Fail to initialize FlattenedHistogram3D")
+
+    def __len__(self):
+        return len(self._xyhists)
 
     def fill(self, xarr, yarr, zarr, weight=1.):
         # first separate data arrays into z bins
