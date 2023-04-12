@@ -595,7 +595,7 @@ class OmniFoldTTbar():
         norm=None,
         all_iterations=False,
         iteration=-1, # default: the last iteration
-        nresamples=None, # default, take all that are avaiable
+        nresamples=None, # default, take all that are available
         density=False,
         absoluteValue=False,
         extra_cuts=None
@@ -731,6 +731,9 @@ def load_unfolder(
         # if not specified, take the list of observabes from arguments config
         observables[:] = args_d['observables'] + args_d['observables_extra']
 
+    observable_all = set(args_d['observables']+args_d['observables_extra']+observables)
+    observable_extra = observable_all.difference(args_d['observables'])
+
     # configuration for observables
     if not obsConfig:
         # if not provided, use the one from the arguments config
@@ -747,10 +750,12 @@ def load_unfolder(
         fpath_binning = args_d['binning_config']
 
     # reco level variable names
-    varnames_reco = [obsConfig[k]['branch_det'] for k in observables]
+    varnames_reco = [obsConfig[k]['branch_det'] for k in args_d['observables']]
+    varnames_reco_extra = [obsConfig[k]['branch_det'] for k in observable_extra]
 
     # truth level variable names
-    varnames_truth = [obsConfig[k]["branch_mc"] for k in observables]
+    varnames_truth = [obsConfig[k]["branch_mc"] for k in args_d['observables']]
+    varnames_truth_extra = [obsConfig[k]["branch_mc"] for k in observable_extra]
 
     # reweighter
     rw = None
@@ -776,6 +781,8 @@ def load_unfolder(
     unfolder = OmniFoldTTbar(
         varnames_reco,
         varnames_truth,
+        variables_reco_extra = varnames_reco_extra,
+        variables_truth_extra = varnames_truth_extra,
         filepaths_obs = args_d['data'],
         filepaths_sig = args_d['signal'],
         filepaths_bkg = args_d['background'],
