@@ -129,6 +129,8 @@ def make_histograms_of_observable(
     binned_correction_flow = True # bool, if False, exclude overflow/underflow bins when compute binned corrections
     ):
 
+    logger.info(f"Make histograms for {observable}")
+
     hists_v_d = {}
 
     varname_reco = obsConfig_d[observable]['branch_det']
@@ -367,6 +369,72 @@ def make_histograms_of_observable(
 
     return hists_v_d
 
+def make_histograms_of_observables_multidim(
+    unfolder,
+    observables, # observable names in the format of "obs1_vs_obs2_vs_..."
+    obsConfig_d, # dict, observable configuration
+    binConfig_d, # dict, binning configuration
+    iteration = -1, # int, which iteration to use as the nominal. Default is the last one
+    nruns = None, # int, number of runs. Default is to take all that are available
+    binned_correction_dir = None, # str, directory to read binned corrections
+    binned_correction_flow = True # bool, if False, exclude overflow/underflow bins when compute binned corrections
+    ):
+
+    obs_list = observables.split("_vs_")
+    ndim = len(obs_list)
+    logger.info(f"Make {ndim}D histograms for {obs_list}")
+
+    hists_multidim_d = {}
+
+    varnames_reco = [obsConfig_d[ob]['branch_det'] for ob in obs_list]
+    varnames_truth = [obsConfig_d[ob]['branch_mc'] for ob in obs_list]
+
+    absValues = ["_abs" in ob for ob in obs_list]
+
+    # bins dict
+    bins_reco_d = binConfig_d[observables]
+    bins_truth_d = binConfig_d[observables]
+
+    # binned_correction_flow
+
+    # binned_correction_dir
+    acceptance, efficiency = None, None
+
+    ###
+    # The unfolded distributions
+    logger.debug(f" Unfolded distributions")
+    hists_multidim_d['unfolded'] = unfolder.get_unfolded_distribution_multidim(
+        varnames_truth,
+        bins_truth_d,
+        iteration = iteration,
+        nresamples = nruns, # default, take all that are available
+        density = False,
+        absoluteValues = absValues,
+        extra_cuts = None
+    )
+
+    # set axis labels
+    if len(obs_list) >= 2:
+        hists_multidim_d['unfolded'].set_xlabel(obsConfig_d[obs_list[0]]['xlabel'])
+        hists_multidim_d['unfolded'].set_ylabel(obsConfig_d[obs_list[1]]['xlabel'])
+    if len(obs_list) >= 3:
+        hists_multidim_d['unfolded'].set_zlabel(obsConfig_d[obs_list[2]]['xlabel'])
+
+    if True: # TODO efficiency:
+        # apply binned correction
+        #hists_multidim_d['unfolded_corrected'] = apply_efficiency_correction(hists_multidim_d['unfolded'], efficiency)
+        # WIP
+        hists_multidim_d['unfolded_corrected'] = hists_multidim_d['unfolded']
+
+        hists_multidim_d['absoluteDiffXs'] = hists_multidim_d['unfolded_corrected'].copy()
+        hists_multidim_d['absoluteDiffXs'].make_density()
+
+        hists_multidim_d['relativeDiffXs'] = hists_multidim_d['unfolded_corrected'].copy()
+        hists_multidim_d['relativeDiffXs'].rescale(norm=1., density=False, flow=True)
+        hists_multidim_d['relativeDiffXs'].make_density()
+
+    return hists_multidim_d
+
 def evaluate_metrics(
     observable,
     hists_dict,
@@ -588,7 +656,8 @@ def make_histograms_from_unfolder(
     compute_metrics = False, # If True, compute metrics
     plot_verbosity = 0, # int, control how many plots to make
     binned_correction_dir = None, # str, directory to read binned corrections
-    binned_correction_flow = True # bool, if False, exclude overflow/underflow bins when compute binned corrections
+    binned_correction_flow = True, # bool, if False, exclude overflow/underflow bins when compute binned corrections
+    observables_multidim = [], # list of observables in the "x_vs_y_vs_.." format for higher dimension distributions
     ):
 
     # output directory
@@ -620,7 +689,6 @@ def make_histograms_from_unfolder(
     histograms_dict = {}
 
     for ob in observables:
-        logger.info(f"Make histograms for {ob}")
 
         histograms_dict[ob] = make_histograms_of_observable(
             unfolder,
@@ -662,6 +730,19 @@ def make_histograms_from_unfolder(
             ratio_lim = obsConfig_d[ob].get('ratio_lim')
             )
 
+    for obs in observables_multidim:
+
+        histograms_dict[obs] = make_histograms_of_observables_multidim(
+            unfolder,
+            obs,
+            obsConfig_d,
+            binning_d,
+            iteration = iteration,
+            nruns = nruns,
+            binned_correction_dir = binned_correction_dir,
+            binned_correction_flow = binned_correction_flow
+        )
+
     # save histograms to file
     if outputdir:
         outname_hist = os.path.join(outputdir, outfilename)
@@ -692,6 +773,7 @@ def make_histograms(
     result_dir,
     binning_config,
     observables = [],
+    observables_multidim = [],
     observable_config = '',
     iterations = [-1],
     nruns = [None],
@@ -732,6 +814,11 @@ def make_histograms(
         obsConfig_d = util.read_dict_from_json(observable_config)
     # if empty, it will be filled by load_unfolder
 
+    observables_extra = []
+    for obs_md in observables_multidim:
+        observables_extra += obs_md.split("_vs_")
+    observables_extra = list(set(observables_extra))
+
     # unfolder
     logger.info(f"Load unfolder from {result_dir} ... ")
     t_load_start = time.time()
@@ -739,7 +826,8 @@ def make_histograms(
     ufdr = load_unfolder(
         fpath_args_config,
         observables,
-        obsConfig_d
+        obsConfig_d,
+        args_update = {'observables_extra': observables_extra}
         )
 
     t_load_stop = time.time()
@@ -779,7 +867,8 @@ def make_histograms(
                 compute_metrics = compute_metrics,
                 plot_verbosity = plot_verbosity,
                 binned_correction_dir = binned_correction_dir,
-                binned_correction_flow = not binned_correction_noflow
+                binned_correction_flow = not binned_correction_noflow,
+                observables_multidim = observables_multidim
                 )
 
     t_hist_stop = time.time()
@@ -866,6 +955,8 @@ if __name__ == "__main__":
                         help="Path to the binning config file for variables.")
     parser.add_argument("--observables", nargs='+', default=[],
                         help="List of observables to make histograms. If not provided, use the same ones from the unfolding results")
+    parser.add_argument("--observables-multidim", nargs='+', default=[],
+                        help="List of observables to make multi-dimension histograms.")
     parser.add_argument("--observable_config", type=str,
                         help="Path to the observable config file. If not provided, use the same one from the unfolding results")
     parser.add_argument("-i", "--iterations", type=int, nargs='+', default=[-1],

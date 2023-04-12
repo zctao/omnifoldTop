@@ -8,6 +8,7 @@ import util
 import plotter
 import reweight
 import histogramming as myhu
+import FlattenedHistogram as fh
 from datahandler import DataHandler, DataToy
 from datahandler_root import DataHandlerROOT
 from omnifold import omnifold
@@ -543,14 +544,14 @@ class OmniFoldTTbar():
 
     def get_unfolded_hists_resamples(
         self,
-        varname, # str, name of the variable
-        bins,
+        varnames, # str or list of str, name of the variable(s)
+        bins, # ndarray or dict
         norm=None,
         all_iterations=False,
         iteration=-1, # default: the last iteration
         nresamples=None, # default: take all that are available
         density=False,
-        absoluteValue=False,
+        absoluteValue=False, # bool or list of bool
         extra_cuts=None
         ):
 
@@ -574,6 +575,8 @@ class OmniFoldTTbar():
                 logger.warn(f"Requested number of runs {nresamples} is larger than what is available in the unfolded weights.")
             nresamples = min(nresamples, self.unfolded_weights.shape[0])
 
+        wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
+
         for iresample in range(nresamples):
             if all_iterations:
                 rw = self.unfolded_weights[iresample]
@@ -581,8 +584,11 @@ class OmniFoldTTbar():
                 rw = self.unfolded_weights[iresample][iteration]
 
             # truth-level prior weights
-            wprior = self.handle_sig.get_weights(valid_only=True, reco_level=False)
-            h = self.handle_sig.get_histogram(varname, bins, wprior*rw, density=density, norm=norm, absoluteValue=absoluteValue, extra_cuts=extra_cuts)
+            if isinstance(varnames, list):
+                assert(isinstance(bins, dict))
+                h = self.handle_sig.get_histograms_flattened(varnames, bins, wprior*rw, density=density, norm=norm, absoluteValues=absoluteValue, extra_cuts=extra_cuts)
+            else:
+                h = self.handle_sig.get_histogram(varnames, bins, wprior*rw, density=density, norm=norm, absoluteValue=absoluteValue, extra_cuts=extra_cuts)
 
             hists_resample.append(h)
 
@@ -631,6 +637,37 @@ class OmniFoldTTbar():
             bin_corr = myhu.get_bin_correlations_from_hists(hists_uf)
 
         return h_uf, bin_corr
+
+    def get_unfolded_distribution_multidim(
+        self,
+        varnames,
+        bins_d,
+        norm=None,
+        iteration=-1, # default: the last iteration
+        nresamples=None, # default, take all that are available
+        density=False,
+        absoluteValues=False,
+        extra_cuts=None
+        ):
+
+        hists_md_uf = self.get_unfolded_hists_resamples(
+            varnames,
+            bins_d,
+            norm=norm,
+            iteration = iteration,
+            nresamples=nresamples,
+            density=density,
+            absoluteValue=absoluteValues,
+            extra_cuts=extra_cuts
+            )
+
+        # compute the average of each bin
+        h_md_uf = fh.average_histograms(hists_md_uf)
+
+        if norm:
+            h_md_uf.rescale(norm, density=density, flow=True)
+
+        return h_md_uf
 
     def get_correlations_unfolded(self, varnames, irun=0, iteration=-1):
         # truth-level prior weights

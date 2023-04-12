@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import util
 from histogramming import calc_hist, calc_hist2d
+import FlattenedHistogram as fh
 
 from numpy.random import default_rng
 rng = default_rng()
@@ -568,6 +569,73 @@ class DataHandler(Mapping):
         assert(len(varr_y) == len(w))
 
         return calc_hist2d(varr_x, varr_y, bins=(bins_x, bins_y), weights=w, density=density)
+
+    def get_histograms_flattened(
+        self,
+        variables, # list of str
+        bins_dict,
+        weights,
+        density=False,
+        norm=None,
+        absoluteValues=False,
+        extra_cuts=None
+        ):
+
+        if not isinstance(absoluteValues, list):
+            absoluteValues = [absoluteValues] * len(variables)
+
+        data_arrs = [
+            np.abs(self[vname]) if absolute else self[vname]
+              for vname, absolute in zip(variables, absoluteValues)
+            ]
+
+        weights = np.asarray(weights)
+        if weights.ndim == 1: # 1D array
+
+            for arr in data_arrs:
+                assert(len(arr)==len(weights))
+
+            if extra_cuts is not None: # filter events
+                for arr in data_arrs:
+                    assert(len(arr)==len(extra_cuts))
+
+                data_arrs = [arr[extra_cuts] for arr in data_arrs]
+                weights = weights[extra_cuts]
+
+            if len(variables) == 2:
+                return fh.FlattenedHistogram2D.calc_hists(
+                    *data_arrs,
+                    binning_d = bins_dict,
+                    weights=weights,
+                    norm=norm,
+                    density=density
+                    )
+            elif len(variables) == 3:
+                return fh.FlattenedHistogram3D.calc_hists(
+                    *data_arrs,
+                    binning_d = bins_dict,
+                    weights=weights,
+                    norm=norm,
+                    density=density
+                    )
+            else:
+                raise RuntimeError(f"Dimension {len(variables)} flattened histograms currently not supported")
+        elif weights.ndim == 2: # 2D array
+            hists = []
+            for warr in weights:
+                hists.append(
+                    self.get_histograms_flattened(
+                        variables,
+                        bins_dict,
+                        warr,
+                        density=density,
+                        norm=norm,
+                        absoluteValues=absoluteValues,
+                        extra_cuts=extra_cuts
+                    )
+                )
+        else:
+            raise RuntimeError("Only 1D or 2D array or a list of 1D array of weights can be processed.")
 
     def reset_underflow_overflow_flags(self):
         self.underflow_overflow_reco = False

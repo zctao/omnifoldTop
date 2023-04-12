@@ -13,6 +13,8 @@ from hist import Hist
 import functools
 import operator
 
+import FlattenedHistogram as fh
+
 import logging
 logger = logging.getLogger('Histogramming')
 logger.setLevel(logging.DEBUG)
@@ -352,9 +354,10 @@ def write_dict_uproot(file_to_write, obj_dict, top_dir=''):
             if isinstance(v, list):
                 for iv, vv in enumerate(v):
                     file_to_write[os.path.join(top_dir, f"{k}-list-{iv}")] = vv
-            else:
-                if v is not None:
-                    file_to_write[os.path.join(top_dir, k)] = v
+            elif isinstance(v, fh.FlattenedHistogram2D) or isinstance(v, fh.FlattenedHistogram3D):
+                v.write(file_to_write, os.path.join(top_dir, k))
+            elif v is not None:
+                file_to_write[os.path.join(top_dir, k)] = v
 
 def write_histograms_dict_to_file(hists_dict, file_name):
     with uproot.recreate(file_name) as f:
@@ -394,5 +397,13 @@ def read_histograms_dict_from_file(file_name):
             # create nested dictionary based on directories
             paths = k.split(';')[0].split(os.sep)
             fill_dict_from_path(histograms_d, paths, f[k].to_hist())
+
+    # convert the histograms for multi-dimension variables FlattenedHistogram
+    # these variables are expected to be in the format "obs1_vs_obs2_vs_..."
+    for obs in histograms_d:
+        if len(obs.split('_vs_')) == 2:
+            histograms_d[obs] = fh.FlattenedHistogram2D.from_dict(histograms_d[obs])
+        elif len(obs.split('_vs_')) == 3:
+            histograms_d[obs] = fh.FlattenedHistogram3D.from_dict(histograms_d[obs])
 
     return histograms_d
