@@ -694,7 +694,7 @@ def make_histograms_from_unfolder(
             unfolder,
             ob,
             obsConfig_d,
-            binning_config,
+            binning_d,
             iteration = iteration,
             nruns = nruns,
             all_runs = all_runs,
