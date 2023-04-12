@@ -452,9 +452,9 @@ class DataHandler(Mapping):
             isReco = np.all([self._in_data_reco(var) for var in variables])
             isTrue = np.all([self._in_data_truth(var) for var in variables])
             if isReco:
-                w = self.weights
+                w = self.get_weights(reco_level=True)
             elif isTrue:
-                w = self.weights_mc
+                w = self.get_weights(reco_level=False)
             else:
                 raise ValueError(f"Variables are unknown or are a mixture of reco- and truth-level variables: {variables}")
         else:
