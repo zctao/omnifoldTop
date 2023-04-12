@@ -843,11 +843,7 @@ def make_histograms_bootstrap(
             hists_l = [ hists_d[ob][hname] for hists_d in resample_histograms_l ]
 
             # Compute bin entry means and standard deviations
-            means = myhu.get_mean_from_hists(hists_l)
-            sigmas = myhu.get_sigma_from_hists(hists_l)
-
-            myhu.set_hist_contents(histograms_bs_d[ob][hname], means)
-            myhu.set_hist_errors(histograms_bs_d[ob][hname], sigmas)
+            histograms_bs_d[ob][hname] = myhu.average_histograms(hists_l, False)
 
     # Save to file
     if outfilename is None:

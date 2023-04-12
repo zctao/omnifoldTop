@@ -211,7 +211,7 @@ def get_sigma_from_hists(histogram_list):
     else:
         return np.std(np.asarray(histogram_list)['value'], axis=0, ddof=1)
 
-def average_histograms(histograms_list):
+def average_histograms(histograms_list, standard_error_of_the_mean=True):
     if not histograms_list:
         return None
 
@@ -229,12 +229,15 @@ def average_histograms(histograms_list):
         # standard deviation of each bin
         hsigma = get_sigma_from_hists(histograms_list)
 
-        # standard error of the mean
-        hstderr = hsigma / np.sqrt( len(histograms_list) )
+        if standard_error_of_the_mean:
+            # standard error of the mean
+            herr = hsigma / np.sqrt( len(histograms_list) )
+        else:
+            herr = hsigma
 
         # set the result histogram
         set_hist_contents(h_result, hmean)
-        set_hist_errors(h_result, hstderr)
+        set_hist_errors(h_result, herr)
 
         return h_result
 
