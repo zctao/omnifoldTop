@@ -402,8 +402,8 @@ def read_histograms_dict_from_file(file_name):
     # these variables are expected to be in the format "obs1_vs_obs2_vs_..."
     for obs in histograms_d:
         if len(obs.split('_vs_')) == 2:
-            histograms_d[obs] = fh.FlattenedHistogram2D.from_dict(histograms_d[obs])
+            fh.FlattenedHistogram2D.convert_in_dict(histograms_d[obs])
         elif len(obs.split('_vs_')) == 3:
-            histograms_d[obs] = fh.FlattenedHistogram3D.from_dict(histograms_d[obs])
+            fh.FlattenedHistogram3D.convert_in_dict(histograms_d[obs])
 
     return histograms_d

@@ -166,6 +166,19 @@ class FlattenedHistogram2D():
 
             return h_average
 
+    @staticmethod
+    def convert_in_dict(hists_dict):
+        for k in hists_dict:
+            if not isinstance(hists_dict[k], dict):
+                continue
+
+            if '_yhist' in hists_dict[k]:
+                # convert to an FlattenedHistogram2D object
+                hists_dict[k] = FlattenedHistogram2D.from_dict(hists_dict[k])
+            else:
+                # keep looking
+                FlattenedHistogram2D.convert_in_dict(hists_dict[k])
+
 class FlattenedHistogram3D():
     def __init__(
         self,
@@ -330,6 +343,19 @@ class FlattenedHistogram3D():
                 h_average._xyhists[zbin_label] = FlattenedHistogram2D.average([h._xyhists[zbin_label] for h in histograms_list])
 
             return h_average
+
+    @staticmethod
+    def convert_in_dict(hists_dict):
+        for k in hists_dict:
+            if not isinstance(hists_dict[k], dict):
+                continue
+
+            if '_zhist' in hists_dict[k]:
+                # convert to an FlattenedHistogram3D object
+                hists_dict[k] = FlattenedHistogram3D.from_dict(hists_dict[k])
+            else:
+                # keep looking
+                FlattenedHistogram3D.convert_in_dict(hists_dict[k])
 
 def average_histograms(histograms_list):
     if not histograms_list:
