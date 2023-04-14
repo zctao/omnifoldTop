@@ -83,7 +83,7 @@ def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer, label_den
 
         hep.histplot(ratio, bin_edges, yerr=ratio_errs, histtype='errorbar', xerr=True, color=cnum, ax=ax, label=lnum, **error_style)
 
-def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045):
+def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045, **opts):
     """
     Add a series of text to the axis, one line per text.
 
@@ -103,6 +103,8 @@ def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045):
                 'fontsize': 5.,
                 'transform': ax.transAxes}
 
+    textopts.update(opts)
+
     for i, txt in enumerate(texts):
         if txt is not None:
             ax.text(x, y-i*dy, txt, **textopts)
@@ -118,6 +120,7 @@ def draw_histograms(
     legend_ncol=1,
     stamp_texts=[],
     stamp_loc=(0.75, 0.75),
+    stamp_opt={},
     title = '',
     stack = False
     ):
@@ -157,7 +160,7 @@ def draw_histograms(
 
     # stamp
     if stamp_texts:
-        draw_stamp(ax, stamp_texts, *stamp_loc)
+        draw_stamp(ax, stamp_texts, *stamp_loc, **stamp_opt)
 
 def get_default_colors(ncolors):
     """
@@ -377,6 +380,7 @@ def plot_histograms_and_ratios(
     legend_ncol=1,
     stamp_texts=[],
     stamp_loc=(0.75, 0.75),
+    stamp_opt={},
     denominator_ratio_only = False,
     ratio_lim = None,
     title = '',
@@ -424,6 +428,7 @@ def plot_histograms_and_ratios(
         legend_ncol = legend_ncol,
         stamp_texts = stamp_texts,
         stamp_loc = stamp_loc,
+        stamp_opt=stamp_opt,
         title = title,
         stack = stack_numerators
     )
