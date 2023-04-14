@@ -3,6 +3,7 @@ import copy
 import hist
 
 import histogramming as myhu
+import plotter
 
 import logging
 logger = logging.getLogger('FlattenedHistogram')
@@ -112,8 +113,59 @@ class FlattenedHistogram2D():
         else:
             self._yhist.axes[0].label = label
 
-    def plot(self):
-        raise NotImplementedError()
+    def plot(
+        self,
+        figname,
+        markers = None,
+        colors = None,
+        rescales_order_of_magnitude = None,
+        **plot_args
+        ):
+
+        hists_to_plot = [self._xhists[ybin] for ybin in self._xhists]
+
+        ybin_edges = self._yhist.axes[0].edges
+        yname = self._yhist.axes[0].label
+        legends = [f"{ylow}$\leq${yname}$<${yhigh}" for ylow, yhigh in zip(ybin_edges[:-1], ybin_edges[1:])]
+
+        if rescales_order_of_magnitude is not None:
+            assert(len(rescales_order_of_magnitude)==len(hists_to_plot))
+            for i, oom in enumerate(rescales_order_of_magnitude):
+                hists_to_plot[i] = hists_to_plot[i] * 10**oom
+                legends[i] = f"($\times 10^{{ {oom} }}$), " + legends[i]
+
+        if colors is None:
+            colors = plotter.get_default_colors(len(hists_to_plot))
+        else:
+            assert(len(colors)>=len(hists_to_plot))
+            colors = colors[:len(hists_to_plot)]
+
+        if markers is None:
+            markers = ['o'] * len(hists_to_plot)
+        else:
+            assert(len(markers)>=len(hists_to_plot))
+            markers = markers[:len(hists_to_plot)]
+
+        draw_options = []
+        for i in range(len(hists_to_plot)):
+            draw_options.append(
+                {'color': colors[i],
+                 'label': legends[i],
+                 'marker': markers[i],
+                 'markersize': 3,
+                 'histtype': 'errorbar',
+                 'xerr': True
+                }
+            )
+
+        plotter.plot_histograms_and_ratios(
+            figname,
+            hists_numerator = hists_to_plot,
+            draw_options_numerator = draw_options,
+            xlabel = hists_to_plot[0].axes[0].label,
+            stamp_opt = {'fontsize': 9.},
+            **plot_args
+        )
 
     @classmethod
     def from_dict(cls, hists_d):
@@ -291,8 +343,45 @@ class FlattenedHistogram3D():
     def copy(self):
         return copy.deepcopy(self)
 
-    def plot(self):
-        raise NotImplementedError()
+    def plot(
+        self,
+        figname_prefix,
+        markers = None,
+        colors = None,
+        rescales_order_of_magnitude = None,
+        **plot_args
+        ):
+
+        # z bin edges
+        zbin_edges = self._zhist.axes[0].edges
+        zname = self._zhist.axes[0].label
+
+        # stamps
+        stamps = [f"{zlow}$\leq${zname}$<${zhigh}" for zlow, zhigh in zip(zbin_edges[:-1], zbin_edges[1:])]
+
+        # rescale
+        if rescales_order_of_magnitude is None:
+            rescales_order_of_magnitude = [None] * len(self)
+        else:
+            assert(len(rescales_order_of_magnitude)==len(self))
+
+        for z, zbin in enumerate(self._xyhists):
+            figname = figname_prefix+'_'+zbin
+
+            # update stamp
+            plot_args_z = copy.deepcopy(plot_args)
+            if 'stamp_texts' in plot_args_z:
+                plot_args_z['stamp_texts'].append(stamps[z])
+            else:
+                plot_args_z['stamp_texts'] = [stamps[z]]
+
+            self._xyhists[zbin].plot(
+                figname,
+                markers = markers,
+                colors = colors,
+                rescales_order_of_magnitude = rescales_order_of_magnitude[z],
+                **plot_args_z
+            )
 
     @classmethod
     def from_dict(cls, hists_d):
