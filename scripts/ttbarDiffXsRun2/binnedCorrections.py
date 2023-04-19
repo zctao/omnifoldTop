@@ -16,8 +16,6 @@ logger = logging.getLogger("binnedCorrections")
 def compute_binned_corrections(
     # Name of the observable to compute corrections
     observable,
-    # Observable configuration
-    obsConfig_dict = None,
     # If True, include underflow/overflow bins.
     flow = True,
     # Directory in which to search and collect histograms from ntuplerTT
@@ -26,19 +24,6 @@ def compute_binned_corrections(
     # Cf. https://gitlab.cern.ch/ttbarDiffXs13TeV/ttbarunfold/-/blob/DM_ljets_resolved/src/Spectrum.cxx#L645
     branching_ratio = 0.438 # for ttbar l+jets
     ):
-
-    if obsConfig_dict is None:
-        # load the default config
-        fpath_obsConfig = os.path.join(os.environ["SOURCE_DIR"], "configs/observables/vars_ttbardiffXs_pseudotop.json")
-        logger.debug(f"Load observable config from {fpath_obsConfig}")
-        obsConfig_dict = util.read_dict_from_json(fpath_obsConfig)
-
-    if not observable in obsConfig_dict:
-        logger.error(f"Unknown observable {observable}")
-        raise RuntimeError("Fail to compute binned corrections")
-
-    varname_reco = obsConfig_dict[observable]['branch_det']
-    varname_truth = obsConfig_dict[observable]['branch_mc']
 
     logger.info("Collect histogram files")
     fpaths_histogram = []
@@ -53,10 +38,10 @@ def compute_binned_corrections(
         raise RuntimeError("Fail to compute binned corrections")
 
     # name of the histogram to read
-    hname_resp = f"h_{varname_truth}_vs_{varname_reco}"
-    hname_resp_mcw = f"h_{varname_truth}_vs_{varname_reco}_mcWeight"
-    hname_reco = f"h_{varname_reco}"
-    hname_truth = f"h_{varname_truth}"
+    hname_resp = f"h2d_{observable}_response"
+    hname_resp_mcw = f"h2d_{observable}_response_mcWeight"
+    hname_reco = f"h_{observable}_reco"
+    hname_truth = f"h_{observable}_truth"
 
     h_resp = None
     h_resp_mcw = None
