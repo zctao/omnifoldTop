@@ -665,7 +665,7 @@ class OmniFoldTTbar():
         h_md_uf = fh.average_histograms(hists_md_uf)
 
         if norm:
-            h_md_uf.rescale(norm, density=density, flow=True)
+            h_md_uf.renormalize(norm, density=density, flow=True)
 
         return h_md_uf
 

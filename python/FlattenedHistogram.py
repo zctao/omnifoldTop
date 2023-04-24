@@ -1,6 +1,7 @@
 import os
 import copy
 import hist
+import numpy as np
 
 import histogramming as myhu
 import plotter
@@ -55,6 +56,38 @@ class FlattenedHistogram2D():
     def __len__(self):
         return len(self._xhists)
 
+    def __iter__(self):
+        return iter(self._xhists)
+
+    def __getitem__(self, bin_label):
+        return self._xhists[bin_label]
+
+    def __setitem__(self, bin_label, newh1d):
+        self._xhists[bin_label] = newh1d
+
+    def __add__(self, other_fh2d):
+        new_fh2d = self.copy()
+        new_fh2d._yhist += other_fh2d._yhist
+
+        for ybin_label in self:
+            new_fh2d[ybin_label] += other_fh2d[ybin_label]
+
+        return new_fh2d
+
+    def __iadd__(self, other_fh2d):
+        self._yhist += other_fh2d._yhist
+
+        for ybin_label in self:
+            self[ybin_label] += other_fh2d[ybin_label]
+
+        return self
+
+    def reset(self):
+        self._yhist.reset()
+
+        for ybin_label in self:
+            self[ybin_label].reset()
+
     def fill(self, xarr, yarr, weight=1.):
         # first separate data arrays into y bins
         ybin_edges = self._yhist.axes[0].edges
@@ -65,10 +98,118 @@ class FlattenedHistogram2D():
             xarr_sel = xarr[ysel]
             warr_sel = weight[ysel] if not isinstance(weight, float) else weight
 
-            self._xhists[ybin_label].fill(xarr_sel, weight=warr_sel)
+            self[ybin_label].fill(xarr_sel, weight=warr_sel)
 
         # also fill y hist
         self._yhist.fill(yarr, weight=weight)
+
+    def is_underflow_or_overflow(self, xarr, yarr):
+        assert(len(xarr)==len(yarr))
+
+        ybin_edges = self._yhist.axes[0].edges
+        isflow = yarr < ybin_edges[0] | yarr >= ybin_edges[-1]
+
+        for ibin, (ylow, yhigh) in enumerate(zip(ybin_edges[:-1], ybin_edges[1:])):
+            ybin_label = f"y_bin{ibin+1}"
+            xbin_edges = self[ybin_label].axes[0].edges
+
+            ysel = (yarr >= ylow) & (yarr < yhigh)
+            isflow[ysel] |= (xarr[ysel] < xbin_edges[0] | xarr[ysel] >= xbin_edges[-1])
+
+        return isflow
+
+    def flatten(self):
+        hflat = None
+
+        if not self._yhist or not self._xhists:
+            return hflat
+
+        # bin edges, contents, errors
+        flat_bin_edges = []
+        flat_bin_values = []
+        flat_bin_variances = []
+
+        ybin_edges = self._yhist.axes[0].edges
+
+        for ibin, (ylow, yhigh) in enumerate(zip(ybin_edges[:-1], ybin_edges[1:])):
+            ybin_label = f"y_bin{ibin+1}"
+            xbin_edges = self[ybin_label].axes[0].edges
+
+            xbin_edges_new = (xbin_edges - xbin_edges[0]) / (xbin_edges[-1] - xbin_edges[0]) * (yhigh - ylow) + ylow
+
+            if ibin == 0:
+                # first y bin, include the first lower edge
+                flat_bin_edges.append(xbin_edges_new)
+            else:
+                # include only the upper edges
+                flat_bin_edges.append(xbin_edges_new[1:])
+
+            flat_bin_values.append(self[ybin_label].values())
+            flat_bin_variances.append(self[ybin_label].variances())
+
+        flat_bin_edges = np.concatenate(flat_bin_edges)
+        flat_bin_values = np.concatenate(flat_bin_values)
+        flat_bin_variances = np.concatenate(flat_bin_variances)
+
+        # make a 1D histogram
+        hflat = hist.Hist(hist.axis.Variable(flat_bin_edges), storage=hist.storage.Weight())
+        hflat.view()['value'] = flat_bin_values
+        hflat.view()['variance'] = flat_bin_variances
+
+        return hflat
+
+    def fromFlat(self, h_flat):
+        flat_bin_values = h_flat.values()
+        flat_bin_variances = h_flat.variances()
+
+        y_bin_values = []
+        y_bin_variances = []
+
+        bin_offset = 0
+
+        for ybin in range(1, len(self)+1):
+            ybin_label = f"y_bin{ybin}"
+
+            xbin_edges = self[ybin_label].axes[0].edges
+            nbins_x = len(xbin_edges) - 1
+
+            sub_values = flat_bin_values[bin_offset : bin_offset + nbins_x]
+            sub_variances = flat_bin_variances[bin_offset : bin_offset + nbins_x]
+
+            self[ybin_label].view()['value'] = sub_values
+            self[ybin_label].view()['variance'] = sub_variances
+
+            y_bin_values.append(np.sum(sub_values))
+            y_bin_variances.append(np.sum(sub_variances))
+
+            bin_offset += nbins_x
+
+        self._yhist.view()['value'] = y_bin_values
+        self._yhist.view()['variance'] = y_bin_variances
+
+    def scale(self, factor):
+        self._yhist *= factor
+
+        for ybin_label in self:
+            self[ybin_label] *= factor
+
+        return self
+
+    def multiply(self, other_fh2d):
+        self._yhist = myhu.multiply(self._yhist, other_fh2d._yhist)
+
+        for ybin_label in self:
+            self[ybin_label] = myhu.multiply(self[ybin_label], other_fh2d[ybin_label])
+
+        return self
+
+    def divide(self, other_fh2d):
+        self._yhist = myhu.divide(self._yhist, other_fh2d._yhist)
+
+        for ybin_label in self:
+            self[ybin_label] = myhu.divide(self[ybin_label], other_fh2d[ybin_label])
+
+        return self
 
     def norm(self, flow=True, density=False):
         if flow:
@@ -76,36 +217,38 @@ class FlattenedHistogram2D():
         else:
             # get sum from every y bin slice
             n = 0.
-            for ybin_label in self._xhists:
-                n += myhu.get_hist_norm(self._xhists[ybin_label], density=density, flow=False)
+            for ybin_label in self:
+                n += myhu.get_hist_norm(self[ybin_label], density=density, flow=False)
             return n
 
-    def rescale(self, norm=1., flow=True, density=False):
+    def renormalize(self, norm=1., flow=True, density=False):
         old_norm = self.norm(flow=flow, density=density)
 
         self._yhist *= norm / old_norm
 
-        for ybin_label in self._xhists:
-            self._xhists[ybin_label] *= norm / old_norm
+        for ybin_label in self:
+            self[ybin_label] *= norm / old_norm
+
+        return self
 
     def make_density(self):
         self._yhist /= myhu.get_hist_widths(self._yhist)
 
-        for ybin_label in self._xhists:
-            bwidths = myhu.get_hist_widths(self._xhists[ybin_label])
-            self._xhists[ybin_label] /= bwidths
+        for ybin_label in self:
+            bwidths = myhu.get_hist_widths(self[ybin_label])
+            self[ybin_label] /= bwidths
 
     def write(self, f_write, directory):
         f_write[os.path.join(directory, '_yhist')] = self._yhist
-        for ybin_label in self._xhists:
-            f_write[os.path.join(directory, ybin_label)] = self._xhists[ybin_label]
+        for ybin_label in self:
+            f_write[os.path.join(directory, ybin_label)] = self[ybin_label]
 
     def copy(self):
         return copy.deepcopy(self)
 
     def set_xlabel(self, label):
-        for ybin in self._xhists:
-            self._xhists[ybin].axes[0].label = label
+        for ybin in self:
+            self[ybin].axes[0].label = label
 
     def set_ylabel(self, label):
         if self._yhist is None:
@@ -122,7 +265,7 @@ class FlattenedHistogram2D():
         **plot_args
         ):
 
-        hists_to_plot = [self._xhists[ybin] for ybin in self._xhists]
+        hists_to_plot = [self[ybin] for ybin in self]
 
         ybin_edges = self._yhist.axes[0].edges
         yname = self._yhist.axes[0].label
@@ -196,7 +339,7 @@ class FlattenedHistogram2D():
         h_inst.fill(xarr, yarr, weight=weights)
 
         if norm is not None:
-            h_inst.rescale(norm, flow=True, density=False)
+            h_inst.renormalize(norm, flow=True, density=False)
 
         if density:
             h_inst.make_density()
@@ -278,6 +421,38 @@ class FlattenedHistogram3D():
     def __len__(self):
         return len(self._xyhists)
 
+    def __iter__(self):
+        return iter(self._xyhists)
+
+    def __getitem__(self, bin_label):
+        return self._xyhists[bin_label]
+
+    def __setitem__(self, bin_label, newfh2d):
+        self._xyhists[bin_label] = newfh2d
+
+    def __add__(self, other_fh3d):
+        new_fh3d = self.copy()
+        new_fh3d._zhist += other_fh3d._zhist
+
+        for zbin_label in new_fh3d:
+            new_fh3d[zbin_label] += other_fh3d[zbin_label]
+
+        return new_fh3d
+
+    def __iadd__(self, other_fh3d):
+        self._zhist += other_fh3d._zhist
+
+        for zbin_label in self:
+            self[zbin_label] += other_fh3d[zbin_label]
+
+        return self
+
+    def reset(self):
+        self._zhist.reset()
+
+        for zbin_label in self:
+            self[zbin_label].reset()
+
     def fill(self, xarr, yarr, zarr, weight=1.):
         # first separate data arrays into z bins
         zbin_edges = self._zhist.axes[0].edges
@@ -290,10 +465,134 @@ class FlattenedHistogram3D():
             yarr_sel = yarr[zsel]
             warr_sel = weight[zsel] if not isinstance(weight, float) else weight
 
-            self._xyhists[zbin_label].fill(xarr_sel, yarr_sel, weight=warr_sel)
+            self[zbin_label].fill(xarr_sel, yarr_sel, weight=warr_sel)
 
         # also fill z hist
         self._zhist.fill(zarr, weight=weight)
+
+    def is_underflow_or_overflow(self, xarr, yarr, zarr):
+        assert(len(xarr)==len(yarr))
+        assert(len(xarr)==len(zarr))
+
+        zbin_edges = self._zhist.axes[0].edges
+        isflow = zarr < zbin_edges[0] | zarr >= zbin_edges[-1]
+
+        for ibin, (zlow, zhigh) in enumerate(zip(zbin_edges[:-1], zbin_edges[1:])):
+            zbin_label = f"z_bin{ibin+1}"
+
+            zsel = (zarr >= zlow) & (zarr < zhigh)
+
+            isflow[zsel] |= self[zbin_label].is_underflow_or_overflow(xarr[zsel], yarr[zsel])
+
+        return isflow
+
+    def flatten(self):
+        hflat = None
+
+        if not self._zhist or not self._xyhists:
+            return hflat
+
+        # bin edges, contents, errors
+        flat_bin_edges = []
+        flat_bin_values = []
+        flat_bin_variances = []
+
+        zbin_edges = self._zhist.axes[0].edges
+
+        for ibin, (zlow, zhigh) in enumerate(zip(zbin_edges[:-1], zbin_edges[1:])):
+            zbin_label = f"z_bin{ibin+1}"
+
+            h_xy_flat = self[zbin_label].flatten()
+
+            xybin_edges = h_xy_flat.axes[0].edges
+
+            xybin_edges_new = (xybin_edges - xybin_edges[0]) / (xybin_edges[-1] - xybin_edges[0]) * (zhigh - zlow) + zlow
+
+            if ibin == 0:
+                # first z bin, include the first lower edge
+                flat_bin_edges.append(xybin_edges_new)
+            else:
+                # include only the upper edges
+                flat_bin_edges.append(xybin_edges_new[1:])
+
+            flat_bin_values.append(h_xy_flat.values())
+            flat_bin_variances.append(h_xy_flat.variances())
+
+        flat_bin_edges = np.concatenate(flat_bin_edges)
+        flat_bin_values = np.concatenate(flat_bin_values)
+        flat_bin_variances = np.concatenate(flat_bin_variances)
+
+        # make a 1D histogram
+        hflat = hist.Hist(hist.axis.Variable(flat_bin_edges), storage=hist.storage.Weight())
+        hflat.view()['value'] = flat_bin_values
+        hflat.view()['variance'] = flat_bin_variances
+
+        return hflat
+
+    def fromFlat(self, h_flat):
+        flat_bin_values = h_flat.values()
+        flat_bin_variances = h_flat.variances()
+
+        z_bin_values = []
+        z_bin_variances = []
+
+        bin_offset = 0
+
+        for zbin in range(1, len(self)+1):
+            zbin_label = f"z_bin{zbin}"
+
+            y_bin_values = []
+            y_bin_variances = []
+
+            for ybin in range(1, len(self[zbin_label])+1):
+                ybin_label = f"y_bin{ybin}"
+
+                xbin_edges = self[zbin_label][ybin_label].axes[0].edges
+                nbins_x = len(xbin_edges) - 1
+
+                sub_values = flat_bin_values[bin_offset : bin_offset + nbins_x]
+                sub_variances = flat_bin_variances[bin_offset : bin_offset + nbins_x]
+
+                self[zbin_label][ybin_label].view()['value'] = sub_values
+                self[zbin_label][ybin_label].view()['variance'] = sub_variances
+
+                y_bin_values.append(np.sum(sub_values))
+                y_bin_variances.append(np.sum(sub_variances))
+
+                bin_offset += nbins_x
+
+            self[zbin_label]._yhist.view()['value'] = y_bin_values
+            self[zbin_label]._yhist.view()['variance'] = y_bin_variances
+
+            z_bin_values.append(np.sum(y_bin_values))
+            z_bin_variances.append(np.sum(y_bin_variances))
+
+        self._zhist.view()['value'] = z_bin_values
+        self._zhist.view()['variance'] = z_bin_variances
+
+    def scale(self, factor):
+        self._zhist *= factor
+
+        for zbin_label in self:
+            self[zbin_label].scale(factor)
+
+        return self
+
+    def multiply(self, other_fh3d):
+        self._zhist = myhu.multiply(self._zhist, other_fh3d._zhist)
+
+        for zbin_label in self:
+            self[zbin_label] = self[zbin_label].multiply(other_fh3d[zbin_label])
+
+        return self
+
+    def divide(self, other_fh3d):
+        self._zhist = myhu.divide(self._zhist, other_fh3d._zhist)
+
+        for zbin_label in self:
+            self[zbin_label].divide(other_fh3d[zbin_label])
+
+        return self
 
     def norm(self, flow=True, density=False):
         if flow:
@@ -301,33 +600,35 @@ class FlattenedHistogram3D():
         else:
             # get sum from every z bin slice
             n = 0.
-            for zbin_label in self._xyhists:
-                n += self._xyhists[zbin_label].norm(flow=False, density=density)
+            for zbin_label in self:
+                n += self[zbin_label].norm(flow=False, density=density)
             return n
 
-    def rescale(self, norm=1., flow=True, density=False):
+    def renormalize(self, norm=1., flow=True, density=False):
         old_norm = self.norm(flow=flow, density=density)
 
         self._zhist *= norm / old_norm
 
-        for zbin_label in self._xyhists:
-            norm_zbin = self._xyhists[zbin_label].norm(flow=flow, density=density)
+        for zbin_label in self:
+            norm_zbin = self[zbin_label].norm(flow=flow, density=density)
             norm_zbin = norm_zbin * norm / old_norm
-            self._xyhists[zbin_label].rescale(norm_zbin, flow=flow, density=density)
+            self[zbin_label].renormalize(norm_zbin, flow=flow, density=density)
+
+        return self
 
     def make_density(self):
         self._zhist /= myhu.get_hist_widths(self._zhist)
 
-        for zbin_label in self._xyhists:
-            self._xyhists[zbin_label].make_density()
+        for zbin_label in self:
+            self[zbin_label].make_density()
 
     def set_xlabel(self, label):
-        for zbin in self._xyhists:
-            self._xyhists[zbin].set_xlabel(label)
+        for zbin in self:
+            self[zbin].set_xlabel(label)
 
     def set_ylabel(self, label):
-        for zbin in self._xyhists:
-            self._xyhists[zbin].set_ylabel(label)
+        for zbin in self:
+            self[zbin].set_ylabel(label)
 
     def set_zlabel(self, label):
         if self._zhist is None:
@@ -337,8 +638,8 @@ class FlattenedHistogram3D():
 
     def write(self, f_write, directory):
         f_write[os.path.join(directory, '_zhist')] = self._zhist
-        for zbin_label in self._xyhists:
-            self._xyhists[zbin_label].write(f_write, os.path.join(directory, zbin_label))
+        for zbin_label in self:
+            self[zbin_label].write(f_write, os.path.join(directory, zbin_label))
 
     def copy(self):
         return copy.deepcopy(self)
@@ -365,7 +666,7 @@ class FlattenedHistogram3D():
         else:
             assert(len(rescales_order_of_magnitude)==len(self))
 
-        for z, zbin in enumerate(self._xyhists):
+        for z, zbin in enumerate(self):
             figname = figname_prefix+'_'+zbin
 
             # update stamp
@@ -375,7 +676,7 @@ class FlattenedHistogram3D():
             else:
                 plot_args_z['stamp_texts'] = [stamps[z]]
 
-            self._xyhists[zbin].plot(
+            self[zbin].plot(
                 figname,
                 markers = markers,
                 colors = colors,
@@ -414,7 +715,7 @@ class FlattenedHistogram3D():
         h_inst.fill(xarr, yarr, zarr, weight=weights)
 
         if norm is not None:
-            h_inst.rescale(norm, flow=True, density=False)
+            h_inst.renormalize(norm, flow=True, density=False)
 
         if density:
             h_inst.make_density()
@@ -428,7 +729,7 @@ class FlattenedHistogram3D():
 
         elif len(histograms_list) == 1:
             return histograms_list[0]
-        
+
         else:
             h_average = histograms_list[0].copy()
 
