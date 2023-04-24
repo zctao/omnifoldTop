@@ -14,8 +14,8 @@ parser.add_argument("top_result_dir", type=str,
 parser.add_argument("--binning-config", type=str,
                     default='configs/binning/bins_ttdiffxs.json',
                     help="Path to the binning config file for variables.")
-parser.add_argument("--correction-dir", type=str,
-                    default="/mnt/xrootdg/ztao/NtupleTT/latest/systCRL/ttbar_nominal",
+parser.add_argument("--correction-fpath", type=str,
+                    default="/mnt/xrootdg/ztao/NtupleTT/20230417/systCRL/ttbar_nominal/ttbar_histograms_run2.root",
                     help="Directory to read binned corrections")
 parser.add_argument("-f", "--outfilename", type=str, default="histograms.root",
                     help="Output file name")
@@ -82,7 +82,7 @@ for cwd, subdirs, files in os.walk(args.top_result_dir):
         iterations = args.iterations,
         nruns = args.nensembles,
         include_ibu = args.include_ibu,
-        binned_correction_dir = args.correction_dir,
+        binned_correction_fpath = args.correction_fpath,
         plot_verbosity = args.plot_verbosity
         )
 
