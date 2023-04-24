@@ -306,6 +306,18 @@ def get_bin_correlations_from_hists(histogram_list):
         logger.error("Cannot handle the histogram collection of dimension {}".format(hists_content.ndim))
         return None
 
+def multiply(h1, h2):
+    product = h1.values() * h2.values()
+
+    # For now assume h1 and h2 are uncorrelated
+    product_variance = h1.variances() * h2.values()**2 + h2.variances() * h1.values()**2
+
+    hp = h1.copy()
+    hp.view()['value'] = product
+    hp.view()['variance'] = product_variance
+
+    return hp
+
 def divide(h1, h2):
     #FIXME: deal with errors
     # cf. TH1::Divide in ROOT, both Poisson and Binomial errors
