@@ -226,16 +226,22 @@ class DataHandler(Mapping):
         return self.get_arrays(features, valid_only=True)
 
     def _in_data_reco(self, variable):
-        if self.data_reco is None:
-            return False
+        if isinstance(variable, list):
+            return all([self._in_data_reco(v) for v in variable])
         else:
-            return variable in self.data_reco.dtype.names
+            if self.data_reco is None:
+                return False
+            else:
+                return variable in self.data_reco.dtype.names
 
     def _in_data_truth(self, variable):
-        if self.data_truth is None:
-            return False
+        if isinstance(variable, list):
+            return all([self._in_data_truth(v) for v in variable])
         else:
-            return variable in self.data_truth.dtype.names
+            if self.data_truth is None:
+                return False
+            else:
+                return variable in self.data_truth.dtype.names
 
     def get_arrays(self, features, valid_only=False):
         """
@@ -581,8 +587,6 @@ class DataHandler(Mapping):
         extra_cuts=None
         ):
 
-
-
         if not isinstance(absoluteValues, list):
             absoluteValues = [absoluteValues] * len(variables)
 
@@ -650,19 +654,30 @@ class DataHandler(Mapping):
         self.underflow_overflow_reco = False
         self.underflow_overflow_truth = False
 
-    def update_underflow_overflow_flags(self, varname, bins):
+    def update_underflow_overflow_flags(self, varnames, bins):
         try:
-            varr = self.get_arrays(varname, valid_only=False)
+            varr = self.get_arrays(varnames, valid_only=False)
 
-            isflow = (varr < bins[0]) | (varr > bins[-1])
-            #TODO: update this for higher dimensions
+            if isinstance(bins, np.ndarray):
+                isflow = (varr < bins[0]) | (varr > bins[-1])
+            elif isinstance(bins, dict) and varr.shape[-1] == 2:
+                fh2d = fh.FlattenedHistogram2D(bins)
+                isflow = fh2d.is_underflow_or_overflow(varr[:,0], varr[:,1])
+            elif isinstance(bins, dict) and varr.shape[-1] == 3:
+                fh3d = fh.FlattenedHistogram3D(bins)
+                isflow = fh3d.is_underflow_or_overflow(varr[:,0], varr[:,1], varr[:,2])
+            else:
+                raise RuntimeError(f"Cannot handle data array of shape {varr.shape} with binning config {bins}")
         except KeyError:
             isflow = False
 
-        if self._in_data_reco(varname):
+        # for now: assume all varnames are either reco or truth variables
+        if self._in_data_reco(varnames):
             self.underflow_overflow_reco |= isflow
-        elif self._in_data_truth(varname):
+        elif self._in_data_truth(varnames):
             self.underflow_overflow_truth |= isflow
+        else:
+            raise RuntimeError(f"variables {varnames} are neither in reco or in truth")
 
     def is_underflow_or_overflow(self):
         return self.underflow_overflow_reco | self.underflow_overflow_truth
