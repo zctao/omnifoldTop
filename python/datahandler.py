@@ -676,8 +676,6 @@ class DataHandler(Mapping):
             self.underflow_overflow_reco |= isflow
         elif self._in_data_truth(varnames):
             self.underflow_overflow_truth |= isflow
-        else:
-            raise RuntimeError(f"variables {varnames} are neither in reco or in truth")
 
     def is_underflow_or_overflow(self):
         return self.underflow_overflow_reco | self.underflow_overflow_truth
