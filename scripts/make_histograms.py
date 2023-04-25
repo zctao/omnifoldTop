@@ -354,6 +354,8 @@ def make_histograms_of_observables_multidim(
     binConfig_d, # dict, binning configuration
     iteration = -1, # int, which iteration to use as the nominal. Default is the last one
     nruns = None, # int, number of runs. Default is to take all that are available
+    include_reco = False, # If True, include also reco level histograms
+    include_ibu = False, # If True, include also IBU for comparison
     binned_correction_d = None, # dict, dictionary of binned corrections
     binned_correction_flow = True # bool, if False, exclude overflow/underflow bins when compute binned corrections
     ):
@@ -442,13 +444,52 @@ def make_histograms_of_observables_multidim(
         extra_cuts = inbins_sig_truth
     )
 
-    if efficiency:
-        hists_multidim_d['absoluteDiffXs_prior'] = hists_multidim_d['prior'].copy()
-        hists_multidim_d['absoluteDiffXs_prior'].make_density()
+    ##
+    # truth distributions if using pseudo data
+    # TODO?
 
-        hists_multidim_d['relativeDiffXs_prior'] = hists_multidim_d['prior'].copy()
-        hists_multidim_d['relativeDiffXs_prior'].renormalize(norm=1., density=False, flow=True)
-        hists_multidim_d['relativeDiffXs_prior'].make_density()
+    ##
+    # IBU
+    # TODO?
+    # if include_ibu:
+
+    ###
+    # Reco level
+    if include_reco:
+        logger.debug(f" Reco-level distributions")
+
+        # observed data
+        hists_multidim_d['reco_data'] = unfolder.handle_obs.get_histograms_flattened(
+            varnames_reco,
+            bins_reco_d,
+            density=False,
+            absoluteValues=absValues
+        )
+
+        if unfolder.handle_obsbkg is not None:
+            hists_multidim_d['reco_data'] += unfolder.handle_obsbkg.get_histograms_flattened(
+                varnames_reco,
+                bins_reco_d,
+                density=False,
+                absoluteValues=absValues
+            )
+
+        # signal simulation
+        hists_multidim_d['reco_sig'] = unfolder.handle_sig.get_histograms_flattened(
+            varnames_reco,
+            bins_reco_d,
+            density=False,
+            absoluteValues=absValues
+        )
+
+        # background simulation if available
+        if unfolder.handle_bkg is not None:
+            hists_multidim_d['reco_bkg'] = unfolder.handle_bkg.get_histograms_flattened(
+                varnames_reco,
+                bins_reco_d,
+                density=False,
+                absoluteValues=absValues
+            )
 
     return hists_multidim_d
 
@@ -763,6 +804,7 @@ def make_histograms_from_unfolder(
             binning_d,
             iteration = iteration,
             nruns = nruns,
+            include_reco = include_reco,
             binned_correction_d = binned_corrections_d,
             binned_correction_flow = binned_correction_flow
         )
