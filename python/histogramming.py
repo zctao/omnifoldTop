@@ -325,7 +325,7 @@ def divide(h1, h2):
     ratios = h1.values() / h2.values()
 
     # Uncorrelated for now. Not a valid assumption if compute efficiency
-    r_variance = (h1.variances() / h1.values()**2 + h2.variances() / h2.values()**2) * ratios**2
+    r_variance = h1.variances() / h2.values()**2 + h2.variances() * h1.values()**2 / h2.values()**4
 
     hr = h1.copy()
     hr.view()['value'] = ratios
