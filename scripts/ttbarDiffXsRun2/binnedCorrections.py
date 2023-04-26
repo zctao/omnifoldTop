@@ -6,8 +6,6 @@ import os
 import histogramming as myhu
 import FlattenedHistogram as fh
 
-from ttbarDiffXsRun2.helpers import get_acceptance_correction, get_efficiency_correction
-
 import logging
 logger = logging.getLogger("binnedCorrections")
 
@@ -150,6 +148,7 @@ def binned_corrections(
     histograms_dict, # dict, collection of histograms from collect_histograms()
     observables=[], # list of str, names of observables to compute corrections
     flow = True, # bool, if True, include underflow and overflow bins
+    mc_weight = False, # bool, if True, use response with mc weight
     branching_ratio = 0.438, # for ttbar l+jets, branching ratio to scale the truth distribution
     # https://gitlab.cern.ch/ttbarDiffXs13TeV/ttbarunfold/-/blob/DM_ljets_resolved/src/Spectrum.cxx#L645
     output_name = None
@@ -170,9 +169,9 @@ def binned_corrections(
         corrections_d[obs] = {}
 
         if len(obs_list) == 1:
-            h_acc, h_eff = compute_binned_corrections(obs, histograms_dict, branching_ratio, flow=flow)
+            h_acc, h_eff = compute_binned_corrections(obs, histograms_dict, branching_ratio, flow=flow, mcw=mc_weight)
         else:
-            h_acc, h_eff = compute_binned_corrections_multidim(obs, histograms_dict, branching_ratio, flow=flow)
+            h_acc, h_eff = compute_binned_corrections_multidim(obs, histograms_dict, branching_ratio, flow=flow, mcw=mc_weight)
 
         corrections_d[obs]['acceptance'] = h_acc
         corrections_d[obs]['efficiency'] = h_eff
@@ -217,10 +216,14 @@ if __name__ == "__main__":
                         help="Name of the output file for binned corrections")
     parser.add_argument('--observables', nargs='+', type=str,
                         help="List of observables. Use all that are available in the histograms if not specified")
+    parser.add_argument('--no-flow', action='store_true',
+                        help="If True, exclude underflow and overflow bins")
+    parser.add_argument('--mc-weight', action='store_true',
+                        help="If True, use the response with mc weights for computing binned corrections")
+    parser.add_argument('--histogram-outname', type=str,
+                        help="If specified, save the collected histograms to 'histogram_outname'")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="If True, set the logging level to DEBUG.")
-    parser.add_argument('--histogram-outname', type=str,
-                        help="If specified, save the collected histograms to 'histogramoutname'")
 
     args = parser.parse_args()
 
@@ -237,4 +240,10 @@ if __name__ == "__main__":
         logger.info(f"Write histograms to file {args.histogram_outname}")
         myhu.write_histograms_dict_to_file(hists_d, args.histogram_outname)
 
-    binned_corrections(hists_d, output_name=args.output)
+    binned_corrections(
+        hists_d,
+        observables=args.observables,
+        flow = not args.no_flow,
+        mc_weight = args.mc_weight,
+        output_name=args.output
+        )

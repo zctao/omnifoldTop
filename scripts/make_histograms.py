@@ -745,11 +745,7 @@ def make_histograms_from_unfolder(
     binning_d = util.get_bins_dict(binning_config)
 
     # binned corrections
-    binned_corrections_d = binned_corrections(
-        myhu.read_histograms_dict_from_file(binned_correction_fpath),
-        observables + observables_multidim,
-        flow = binned_correction_flow
-    )
+    binned_corrections_d = myhu.read_histograms_dict_from_file(binned_correction_fpath)
 
     histograms_dict = {}
 
