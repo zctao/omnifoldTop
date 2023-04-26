@@ -769,7 +769,7 @@ def load_unfolder(
     # observables
     if not observables:
         # if not specified, take the list of observabes from arguments config
-        observables[:] = args_d['observables'] + args_d['observables_extra']
+        observables[:] = set(args_d['observables'] + args_d['observables_extra'])
 
     observable_all = set(args_d['observables']+args_d['observables_extra']+observables)
     observable_extra = observable_all.difference(args_d['observables'])
