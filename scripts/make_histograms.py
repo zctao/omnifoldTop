@@ -11,7 +11,8 @@ import histogramming as myhu
 from OmniFoldTTbar import load_unfolder
 from ibuv2 import run_ibu
 
-from ttbarDiffXsRun2.binnedCorrections import binned_corrections, apply_efficiency_correction
+from ttbarDiffXsRun2.binnedCorrections import apply_efficiency_correction
+from ttbarDiffXsRun2.helpers import ttbar_diffXs_run2_params
 
 import logging
 logger = logging.getLogger("make_histograms")
@@ -177,6 +178,8 @@ def make_histograms_of_observable(
         # Acceptance corrections have already been accounted for during iterations
 
         hists_v_d['absoluteDiffXs'] = h_uf_corrected / myhu.get_hist_widths(h_uf_corrected)
+        # also divide the integrated luminosity
+        hists_v_d['absoluteDiffXs'] *= (1. / ttbar_diffXs_run2_params['luminosity'])
 
         hists_v_d['relativeDiffXs'] = hists_v_d['absoluteDiffXs'].copy()
         myhu.renormalize_hist(hists_v_d['relativeDiffXs'], density=True)
@@ -303,6 +306,7 @@ def make_histograms_of_observable(
 
         if acceptance and efficiency:
             hists_v_d['absoluteDiffXs_ibu'] = h_ibu / myhu.get_hist_widths(h_ibu)
+            hists_v_d['absoluteDiffXs_ibu'] *= (1. / ttbar_diffXs_run2_params['luminosity'])
             hists_v_d['relativeDiffXs_ibu'] = hists_v_d['absoluteDiffXs_ibu'].copy()
             myhu.renormalize_hist(hists_v_d['relativeDiffXs_ibu'], density=True)
 
@@ -427,6 +431,7 @@ def make_histograms_of_observables_multidim(
         # Acceptance corrections have already been accounted for during iterations
 
         hists_multidim_d['absoluteDiffXs'] = hists_multidim_d['unfolded_corrected'].copy()
+        hists_multidim_d['absoluteDiffXs'].scale(1./ttbar_diffXs_run2_params['luminosity'])
         hists_multidim_d['absoluteDiffXs'].make_density()
 
         hists_multidim_d['relativeDiffXs'] = hists_multidim_d['unfolded_corrected'].copy()

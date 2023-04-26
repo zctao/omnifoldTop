@@ -9,10 +9,11 @@ import FlattenedHistogram as fh
 import logging
 logger = logging.getLogger("binnedCorrections")
 
+from ttbarDiffXsRun2.helpers import ttbar_diffXs_run2_params
+
 def compute_binned_corrections(
     observable,
     histograms_dict,
-    branching_ratio,
     flow,
     mcw = False
     ):
@@ -32,7 +33,8 @@ def compute_binned_corrections(
 
     # Efficiency correction
     # Scale the truth distribution by 1. / branching_ratio
-    h_truth *= 1. / branching_ratio
+    # https://gitlab.cern.ch/ttbarDiffXs13TeV/ttbarunfold/-/blob/42d07fa2d49bbf699905e05bbb86c6c6b68a8dbf/src/Spectrum.cxx#L645
+    h_truth *= 1. / ttbar_diffXs_run2_params['branching_ratio']
 
     # h_resp_mcw instead?
     h_eff = myhu.projectToYaxis(h_resp, flow=flow)
@@ -44,7 +46,6 @@ def compute_binned_corrections(
 def compute_binned_corrections_multidim(
     observable,
     histograms_dict,
-    branching_ratio,
     flow,
     mcw = False
     ):
@@ -77,7 +78,8 @@ def compute_binned_corrections_multidim(
     # Efficiency correction
 
     # Scale the truth distribution by 1. / branching_ratio
-    h_truth.scale(1. / branching_ratio)
+    # https://gitlab.cern.ch/ttbarDiffXs13TeV/ttbarunfold/-/blob/42d07fa2d49bbf699905e05bbb86c6c6b68a8dbf/src/Spectrum.cxx#L645
+    h_truth.scale(1. / ttbar_diffXs_run2_params['branching_ratio'])
 
     h_eff_flat = myhu.projectToYaxis(h_resp,flow=flow)
 
@@ -149,8 +151,6 @@ def binned_corrections(
     observables=[], # list of str, names of observables to compute corrections
     flow = True, # bool, if True, include underflow and overflow bins
     mc_weight = False, # bool, if True, use response with mc weight
-    branching_ratio = 0.438, # for ttbar l+jets, branching ratio to scale the truth distribution
-    # https://gitlab.cern.ch/ttbarDiffXs13TeV/ttbarunfold/-/blob/DM_ljets_resolved/src/Spectrum.cxx#L645
     output_name = None
     ):
 
@@ -169,9 +169,9 @@ def binned_corrections(
         corrections_d[obs] = {}
 
         if len(obs_list) == 1:
-            h_acc, h_eff = compute_binned_corrections(obs, histograms_dict, branching_ratio, flow=flow, mcw=mc_weight)
+            h_acc, h_eff = compute_binned_corrections(obs, histograms_dict, flow=flow, mcw=mc_weight)
         else:
-            h_acc, h_eff = compute_binned_corrections_multidim(obs, histograms_dict, branching_ratio, flow=flow, mcw=mc_weight)
+            h_acc, h_eff = compute_binned_corrections_multidim(obs, histograms_dict, flow=flow, mcw=mc_weight)
 
         corrections_d[obs]['acceptance'] = h_acc
         corrections_d[obs]['efficiency'] = h_eff
