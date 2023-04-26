@@ -231,12 +231,13 @@ class FlattenedHistogram2D():
 
         return self
 
-    def make_density(self):
-        self._yhist /= myhu.get_hist_widths(self._yhist)
+    def make_density(self, outer_bin_width=1.):
+        ybin_widths = myhu.get_hist_widths(self._yhist) * outer_bin_width
+        self._yhist /= ybin_widths
 
-        for ybin_label in self:
-            bwidths = myhu.get_hist_widths(self[ybin_label])
-            self[ybin_label] /= bwidths
+        for ybin_label, ybin_w in zip(self, ybin_widths):
+            xbin_widths = myhu.get_hist_widths(self[ybin_label])
+            self[ybin_label] /= (xbin_widths * ybin_w)
 
     def write(self, f_write, directory):
         f_write[os.path.join(directory, '_yhist')] = self._yhist
@@ -616,11 +617,12 @@ class FlattenedHistogram3D():
 
         return self
 
-    def make_density(self):
-        self._zhist /= myhu.get_hist_widths(self._zhist)
+    def make_density(self, outer_bin_width=1.):
+        zbin_widths = myhu.get_hist_widths(self._zhist) * outer_bin_width
+        self._zhist /= zbin_widths
 
-        for zbin_label in self:
-            self[zbin_label].make_density()
+        for zbin_label, zbin_w in zip(self, zbin_widths):
+            self[zbin_label].make_density(outer_bin_width=zbin_w)
 
     def set_xlabel(self, label):
         for zbin in self:
