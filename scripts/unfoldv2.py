@@ -10,7 +10,7 @@ from copy import copy
 import util
 import plotter
 import reweight
-from OmniFoldTTbar import OmniFoldTTbar, clearAllUnderflowOverflow
+from OmniFoldTTbar import OmniFoldTTbar
 from make_histograms import make_histograms_from_unfolder
 import preprocessor
 import modelUtils
@@ -122,8 +122,7 @@ def unfold(**parsed_args):
 
     # If required, exclude events in the overflow and underflow bins to match what is done in the case of binned unfolding
     if parsed_args["exclude_flow"]:
-        clearAllUnderflowOverflow(
-            unfolder,
+        unfolder.clearAllUnderflowOverflow(
             parsed_args['observables'],
             fpath_binning = parsed_args['binning_config'],
             obs_config = observable_dict

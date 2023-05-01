@@ -741,30 +741,32 @@ class OmniFoldTTbar():
         if self.handle_obsbkg is not None:
             self.handle_obsbkg.clear_underflow_overflow_events()
 
-#####
-# helper function to clear all events in underflow and overflow bins
-def clearAllUnderflowOverflow(ufdr, observables, fpath_binning, obs_config):
-    if not os.path.isfile(fpath_binning):
-        logger.error(f"Cannot access binning config file: {fpath_binning}")
-        raise RuntimeError("Fail to clear events in underflow/oveflow bins")
+    # helper function to clear all events in underflow and overflow bins
+    def clearAllUnderflowOverflow(self, observables, fpath_binning, obs_config):
+        logger.info("Remove events in underflow or overflow bins")
 
-    ufdr.reset_underflow_overflow_flags()
+        if not os.path.isfile(fpath_binning):
+            logger.error(f"Cannot access binning config file: {fpath_binning}")
+            raise RuntimeError("Fail to clear events in underflow/oveflow bins")
 
-    bins_reco_d = util.get_bins_dict(fpath_binning)
-    bins_truth_d = util.get_bins_dict(fpath_binning)
+        self.reset_underflow_overflow_flags()
 
-    for ob in observables:
-        # Same binning at reco and truth level for now
-        bins_reco = bins_reco_d[ob]
-        bins_truth = bins_truth_d[ob]
+        bins_reco_d = util.get_bins_dict(fpath_binning)
+        bins_truth_d = util.get_bins_dict(fpath_binning)
 
-        vname_reco = obs_config[ob]['branch_det']
-        vname_truth = obs_config[ob]['branch_mc']
+        for ob in observables:
+            logger.debug(f" {ob}")
+            # Same binning at reco and truth level for now
+            bins_reco = bins_reco_d[ob]
+            bins_truth = bins_truth_d[ob]
 
-        ufdr.update_underflow_overflow_flags(vname_reco, bins_reco)
-        ufdr.update_underflow_overflow_flags(vname_truth, bins_truth)
+            vname_reco = obs_config[ob]['branch_det']
+            vname_truth = obs_config[ob]['branch_mc']
 
-    ufdr.clear_underflow_overflow_events()
+            self.update_underflow_overflow_flags(vname_reco, bins_reco)
+            self.update_underflow_overflow_flags(vname_truth, bins_truth)
+
+        self.clear_underflow_overflow_events()
 
 # helper function to instantiate an unfolder from a previous result directory
 def load_unfolder(
@@ -861,7 +863,7 @@ def load_unfolder(
 
     if args_d['exclude_flow']:
         try:
-            clearAllUnderflowOverflow(unfolder, observables, fpath_binning, obsConfig)
+            unfolder.clearAllUnderflowOverflow(observables, fpath_binning, obsConfig)
         except:
             return None
 
