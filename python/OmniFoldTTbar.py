@@ -27,7 +27,6 @@ def getDataHandler(
     filepaths, # list of str
     variables_reco, # list of str
     variables_truth = [], # list of str
-    dummy_value = None, # float
     reweighter = None,
     weight_type = 'nominal',
     use_toydata = False
@@ -41,8 +40,7 @@ def getDataHandler(
         dh = DataHandlerROOT(
             filepaths, variables_reco, variables_truth,
             treename_reco=tree_reco, treename_truth=tree_truth,
-            weight_type=weight_type,
-            dummy_value=dummy_value)
+            weight_type=weight_type)
 
     elif use_toydata:
         dh = DataToy()
@@ -118,8 +116,6 @@ class OmniFoldTTbar():
         # extra variables to unfold but not used in training, list of str
         variables_reco_extra = [],
         variables_truth_extra = [],
-        # Flag to determine if dummy events are used to account for acceptance effect
-        correct_acceptance = False,
         # output directory
         outputdir = None,
         # data reweighting for stress test
@@ -128,7 +124,10 @@ class OmniFoldTTbar():
         weight_type_data='nominal',
         weight_type_mc='nominal',
         # If or not use toy data handler
-        use_toydata=False
+        use_toydata=False,
+        # Flags for efficiency and acceptance corrections
+        correct_efficiency=False,
+        correct_acceptance=False
     ):
 
         # output directory
@@ -150,10 +149,10 @@ class OmniFoldTTbar():
         vars_reco_all = list(set().union(variables_reco, variables_reco_extra)) if variables_reco_extra else variables_reco
         vars_truth_all = list(set().union(variables_truth, variables_truth_extra)) if variables_truth_extra else variables_truth
 
-        if correct_acceptance:
-            self.dummy_value = -99.
-        else:
-            self.dummy_value = None
+        # unfolded weights
+        self.unfolded_weights = None
+        # h5py file
+        self.file_uw = None
 
         # data handlers
         self.handle_obs = None
@@ -173,10 +172,11 @@ class OmniFoldTTbar():
             use_toydata = use_toydata
         )
 
-        # unfolded weights
-        self.unfolded_weights = None
-        # h5py file
-        self.file_uw = None
+        if not correct_efficiency:
+            self.remove_events_failing_reco()
+
+        if not correct_acceptance:
+            self.remove_events_failing_truth()
 
     def __del__(self):
         if self.file_uw is not None:
@@ -209,7 +209,6 @@ class OmniFoldTTbar():
             filepaths_obs,
             vars_reco,
             vars_truth if truth_known else [],
-            self.dummy_value,
             reweighter = data_reweighter,
             weight_type = weight_type_data,
             use_toydata = use_toydata
@@ -219,7 +218,7 @@ class OmniFoldTTbar():
         # Signal MC simulation
         logger.info(f"Load signal simulation files: {' '.join(filepaths_sig)}")
         self.handle_sig = getDataHandler(
-            filepaths_sig, vars_reco, vars_truth, self.dummy_value,
+            filepaths_sig, vars_reco, vars_truth,
             weight_type = weight_type_mc,
             use_toydata = use_toydata
             )
@@ -230,7 +229,7 @@ class OmniFoldTTbar():
             logger.info(f"Load background simulation files: {' '.join(filepaths_bkg)}")
             # only reco level events are needed
             self.handle_bkg = getDataHandler(
-                filepaths_bkg, vars_reco, [], self.dummy_value,
+                filepaths_bkg, vars_reco, [],
                 weight_type = weight_type_mc,
                 use_toydata = use_toydata
                 )
@@ -241,7 +240,7 @@ class OmniFoldTTbar():
             logger.info(f"Load background simulation files to be mixed with data: {' '.join(filepaths_obsbkg)}")
             # only reco level events are needed
             self.handle_obsbkg = getDataHandler(
-                filepaths_obsbkg, vars_reco, [], self.dummy_value,
+                filepaths_obsbkg, vars_reco, [],
                 weight_type = weight_type_data,
                 use_toydata = use_toydata
                 )
@@ -386,6 +385,7 @@ class OmniFoldTTbar():
         batch_size=256,
         plot_status=False, # If True, make extra plots for monitoring/debugging
         resume_training=False, # If True, load trained models if available, continue to train for more runs/steps if needed
+        dummy_value=-99.,
     ):
         """
         Run unfolding
@@ -411,11 +411,11 @@ class OmniFoldTTbar():
         X_sim, X_sim_order = p.feature_preprocess(X_sim)
         X_gen, X_gen_order = p.feature_preprocess(X_gen)
 
-        # step 2: reset dummy values
+        # step 2: dummy values
 
-        X_data[~passcut_data] = self.dummy_value
-        X_sim[~passcut_sim] = self.dummy_value
-        X_gen[~passcut_gen] = self.dummy_value
+        X_data[~passcut_data] = dummy_value
+        X_sim[~passcut_sim] = dummy_value
+        X_gen[~passcut_gen] = dummy_value
 
         # step 3: weight preprocessing
 
@@ -688,6 +688,28 @@ class OmniFoldTTbar():
             title = "Event weights",
             xlabel = 'w')
 
+    def remove_events_failing_reco(self):
+        logger.info("Remove events that fail reco-level selections")
+        self.handle_obs.remove_events_failing_reco()
+        self.handle_sig.remove_events_failing_reco()
+
+        if self.handle_bkg is not None:
+            self.handle_bkg.remove_events_failing_reco()
+
+        if self.handle_obsbkg is not None:
+            self.handle_obsbkg.remove_events_failing_reco()
+
+    def remove_events_failing_truth(self):
+        logger.info("Remove events that fail truth-level selections")
+        self.handle_obs.remove_events_failing_truth()
+        self.handle_sig.remove_events_failing_truth()
+
+        if self.handle_bkg is not None:
+            self.handle_bkg.remove_events_failing_truth()
+
+        if self.handle_obsbkg is not None:
+            self.handle_obsbkg.remove_events_failing_truth()
+
     # methods for setting underflow overflow flags
     def reset_underflow_overflow_flags(self):
         self.handle_obs.reset_underflow_overflow_flags()
@@ -828,12 +850,13 @@ def load_unfolder(
         filepaths_bkg = args_d['background'],
         filepaths_obsbkg = args_d['bdata'],
         normalize_to_data = normalize_to_data,
-        correct_acceptance = args_d['correct_acceptance'],
         weight_type_data = args_d['weight_data'],
         weight_type_mc = args_d['weight_mc'],
         truth_known = args_d['truth_known'],
         outputdir = args_d['outputdir'],
-        data_reweighter = rw
+        data_reweighter = rw,
+        correct_efficiency = args_d.get('correct_efficiency', False),
+        correct_acceptance = args_d['correct_acceptance']
     )
 
     if args_d['exclude_flow']:

@@ -650,6 +650,45 @@ class DataHandler(Mapping):
         else:
             raise RuntimeError("Only 1D or 2D array or a list of 1D array of weights can be processed.")
 
+    def remove_unmatched_events(self):
+        # keep only events that pass all selections
+        if self.data_truth is None:
+            # reco only
+            self.data_reco = self.data_reco[self.pass_reco]
+            self.weights = self.weights[self.pass_reco]
+            self.pass_reco = self.pass_reco[self.pass_reco]
+        else:
+            pass_all = self.pass_reco & self.pass_truth
+            self.data_reco = self.data_reco[pass_all]
+            self.data_truth = self.data_truth[pass_all]
+            self.weights = self.weights[pass_all]
+            self.weights_mc = self.weights_mc[pass_all]
+
+            self.pass_reco = self.pass_reco[pass_all]
+            self.pass_truth = self.pass_truth[pass_all]
+
+    def remove_events_failing_reco(self):
+        if self.data_truth is not None:
+            self.data_truth = self.data_truth[self.pass_reco]
+            self.weights_mc = self.weights_mc[self.pass_reco]
+            self.pass_truth = self.pass_truth[self.pass_reco]
+
+        self.data_reco = self.data_reco[self.pass_reco]
+        self.weights = self.weights[self.pass_reco]
+        self.pass_reco = self.pass_reco[self.pass_reco]
+
+    def remove_events_failing_truth(self):
+        if self.data_truth is None:
+            return
+
+        self.data_reco = self.data_reco[self.pass_truth]
+        self.weights = self.weights[self.pass_truth]
+        self.pass_reco = self.pass_reco[self.pass_truth]
+
+        self.data_truth = self.data_truth[self.pass_truth]
+        self.weights_mc = self.weights_mc[self.pass_truth]
+        self.pass_truth = self.pass_truth[self.pass_truth]
+
     def reset_underflow_overflow_flags(self):
         self.underflow_overflow_reco = False
         self.underflow_overflow_truth = False

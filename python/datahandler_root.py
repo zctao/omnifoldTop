@@ -29,27 +29,6 @@ def MeVtoGeV(array):
         if isObjectVar or isPartonVar:
             array[fname] /= 1000.
 
-def setDummyValue(array, masks, dummy_value):
-    """
-    Set dummy value of entries in array that are masked by masks
-
-    Parameters
-    ----------
-    array : numpy structured array
-    masks : numpy ndarray
-    dummy_value : float
-    """
-
-    if array.dtype.names is None:
-        array[masks] = dummy_value
-    else:
-        for vname in list(array.dtype.names):
-            # avoid modifying event flags
-            if vname in ['isDummy', 'isMatched']:
-                continue
-
-            array[vname][masks] = dummy_value
-
 def load_dataset_root(
         file_names,
         tree_name,
@@ -280,9 +259,6 @@ class DataHandlerROOT(DataHandler):
     treename_truth : str, default 'parton'
         Name of the truth-level tree. If empty or None, skip loading the 
         truth-level tree
-    dummy_value : float, default None
-        Dummy value for setting events that are flagged as dummy. If None, only
-        include events that are not dummy in the array
     """
     def __init__(
         self,
@@ -291,8 +267,7 @@ class DataHandlerROOT(DataHandler):
         variable_names_mc=[],
         weight_type='nominal',
         treename_reco='reco',
-        treename_truth='parton',
-        dummy_value=None
+        treename_truth='parton'
     ):
         # load data from root files
         variable_names = dh._filter_variable_names(variable_names)
@@ -321,46 +296,6 @@ class DataHandlerROOT(DataHandler):
             self.data_truth = None
             self.pass_truth = None
             self.weights_mc = None
-
-        # deal with events that fail selections
-        if dummy_value is None:
-            # include only events that pass all selections
-            if self.data_truth is not None:
-                pass_all = self.pass_reco & self.pass_truth
-                self.data_reco = self.data_reco[pass_all]
-                self.data_truth = self.data_truth[pass_all]
-                self.weights = self.weights[pass_all]
-                self.weights_mc = self.weights_mc[pass_all]
-
-                self.pass_reco = self.pass_reco[pass_all]
-                self.pass_truth = self.pass_truth[pass_all]
-            else:
-                self.data_reco = self.data_reco[self.pass_reco]
-                self.weights = self.weights[self.pass_reco]
-                self.pass_reco = self.pass_reco[self.pass_reco]
-        else:
-            # set dummy value
-            dummy_value = float(dummy_value)
-
-            # acceptance effect only for now
-            if self.data_truth is not None:
-                setDummyValue(self.data_truth, ~self.pass_truth, dummy_value)
-                setDummyValue(self.weights_mc, ~self.pass_truth, dummy_value)
-                #
-                self.data_truth = self.data_truth[self.pass_reco]
-                self.weights_mc = self.weights_mc[self.pass_reco]
-                self.pass_truth = self.pass_truth[self.pass_reco]
-
-            self.data_reco = self.data_reco[self.pass_reco]
-            self.weights = self.weights[self.pass_reco]
-            self.pass_reco = self.pass_reco[self.pass_reco]
-            #
-            # if account for both acceptance and efficiency corrections
-            #setDummyValue(self.data_reco, ~self.pass_reco, dummy_value)
-            #setDummyValue(self.weights, ~self.pass_reco, dummy_value)
-            #if self.data_truth is not None:
-            #    setDummyValue(self.data_truth, ~self.pass_truth, dummy_value)
-            #    setDummyValue(self.weights_mc, ~self.pass_truth, dummy_value)
 
         # sanity check
         assert(len(self.data_reco)==len(self.weights))

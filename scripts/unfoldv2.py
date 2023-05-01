@@ -107,12 +107,13 @@ def unfold(**parsed_args):
         normalize_to_data = parsed_args['normalize'],
         variables_reco_extra = varnames_extra_reco,
         variables_truth_extra = varnames_extra_truth,
-        correct_acceptance = parsed_args['correct_acceptance'],
         outputdir = parsed_args["outputdir"],
         data_reweighter = rw,
         weight_type_data = parsed_args["weight_data"],
         weight_type_mc = parsed_args["weight_mc"],
-        use_toydata = parsed_args["toydata"]
+        use_toydata = parsed_args["toydata"],
+        correct_efficiency = parsed_args['correct_efficiency'],
+        correct_acceptance = parsed_args['correct_acceptance']
         )
 
     t_init_done = time.time()
@@ -168,7 +169,8 @@ def unfold(**parsed_args):
             fast_correction = parsed_args['fast_correction'],
             batch_size = parsed_args['batch_size'],
             plot_status = parsed_args['plot_verbosity'] >= 2,
-            resume_training = parsed_args['resume']
+            resume_training = parsed_args['resume'],
+            dummy_value = -99.
         )
 
     t_run_done = time.time()
@@ -306,7 +308,9 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument('-l', '--load-models', type=str,
                         help="Directory from where to load trained models. If provided, training will be skipped.")
     parser.add_argument('-c', '--correct-acceptance', action='store_true',
-                        help="If True, use dummy value for events that are not truth matched to account for acceptance effects")
+                        help="If True, include events that fail truth-level requirements to account for acceptance effects")
+    parser.add_argument('--correct-efficiency', action='store_true',
+                        help="If True, include events that fail reco-level requirements to account for efficiency effects")
     parser.add_argument('--fast-correction', action='store_true',
                         help="If True, assign an average weight of one for events that are not truth matched for acceptance correction")
     parser.add_argument('--binning-config', type=str,
