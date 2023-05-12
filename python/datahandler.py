@@ -475,7 +475,7 @@ class DataHandler(Mapping):
 
         return cor_df
 
-    def get_histogram(self, variable, bin_edges, weights=None, density=False, norm=None, absoluteValue=False, extra_cuts=None):
+    def get_histogram(self, variable, bin_edges, weights=None, density=False, norm=None, absoluteValue=False, extra_cuts=None, bootstrap=False):
         """
         Retrieve the histogram of a weighted variable in the dataset.
 
@@ -496,6 +496,9 @@ class DataHandler(Mapping):
             If True, fill the histogram with the absolute value
         extra_cuts : array-like of shape (nevents,) of bool, default None
             An array of flags to select events that are included in filling the histogram
+        bootstrap : bool, default: False
+            Multiply each weight by a random value drawn from a Poisson
+            distribution with lambda = 1.
 
         Returns
         -------
@@ -515,6 +518,9 @@ class DataHandler(Mapping):
                 if absoluteValue:
                     varr = np.abs(varr)
                 assert(len(varr) == len(weights))
+
+                if bootstrap:
+                    weights = weights * rng.poisson(1, size=len(weights))
 
                 if extra_cuts is not None: # filter events
                     assert(len(varr) == len(extra_cuts))
@@ -544,7 +550,8 @@ class DataHandler(Mapping):
         weights=None,
         absoluteValue_x=False,
         absoluteValue_y=False,
-        density=False
+        density=False,
+        bootstrap=False
         ):
         """
 
@@ -574,6 +581,9 @@ class DataHandler(Mapping):
         assert(len(varr_x) == len(w))
         assert(len(varr_y) == len(w))
 
+        if bootstrap:
+            w = w * rng.poisson(1, size=len(weights))
+
         return calc_hist2d(varr_x, varr_y, bins=(bins_x, bins_y), weights=w, density=density)
 
     def get_histograms_flattened(
@@ -584,7 +594,8 @@ class DataHandler(Mapping):
         density=False,
         norm=None,
         absoluteValues=False,
-        extra_cuts=None
+        extra_cuts=None,
+        bootstrap=False
         ):
 
         if not isinstance(absoluteValues, list):
@@ -607,6 +618,9 @@ class DataHandler(Mapping):
 
             for arr in data_arrs:
                 assert(len(arr)==len(weights))
+
+            if bootstrap:
+                weights = weights * rng.poisson(1, size=len(weights))
 
             if extra_cuts is not None: # filter events
                 for arr in data_arrs:
