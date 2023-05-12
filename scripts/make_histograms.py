@@ -29,7 +29,7 @@ def make_histograms_of_observable(
     include_reco = False, # If True, include also reco level histograms
     include_ibu = False, # If True, include also IBU for comparison
     binned_correction_d = None, # dict, dictionary of binned corrections
-    binned_correction_flow = True # bool, if False, exclude overflow/underflow bins when compute binned corrections
+    binned_noflow = False # bool, if True, exclude events in overflow/underflow bins
     ):
 
     logger.info(f"Make histograms for {observable}")
@@ -47,7 +47,7 @@ def make_histograms_of_observable(
     absValue = "_abs" in observable
 
     # flags to filter out underflow/overflow events
-    if not binned_correction_flow:
+    if binned_noflow:
         unfolder.reset_underflow_overflow_flags()
         unfolder.update_underflow_overflow_flags(varname_reco, bins_det)
         unfolder.update_underflow_overflow_flags(varname_truth, bins_mc)
@@ -211,7 +211,7 @@ def make_histograms_of_observable(
             absoluteValue = absValue,
             acceptance = acceptance,
             efficiency = efficiency,
-            flow = binned_correction_flow
+            flow = not binned_noflow
         )
 
         # take the ones at the same iteration as OmniFold
@@ -280,7 +280,7 @@ def make_histograms_of_observables_multidim(
     include_reco = False, # If True, include also reco level histograms
     include_ibu = False, # If True, include also IBU for comparison
     binned_correction_d = None, # dict, dictionary of binned corrections
-    binned_correction_flow = True # bool, if False, exclude overflow/underflow bins when compute binned corrections
+    binned_noflow = False # bool, if True, exclude events in overflow/underflow bins
     ):
 
     obs_list = observables.split("_vs_")
@@ -299,7 +299,7 @@ def make_histograms_of_observables_multidim(
     bins_truth_d = binConfig_d[observables]
 
     # binned_correction_flow
-    if not binned_correction_flow:
+    if binned_noflow:
         unfolder.reset_underflow_overflow_flags()
         unfolder.update_underflow_overflow_flags(varnames_reco, bins_reco_d)
         unfolder.update_underflow_overflow_flags(varnames_truth, bins_truth_d)
@@ -639,7 +639,7 @@ def make_histograms_from_unfolder(
     compute_metrics = False, # If True, compute metrics
     plot_verbosity = 0, # int, control how many plots to make
     binned_correction_fpath = None, # str, file path to read histograms for binned corrections
-    binned_correction_flow = True, # bool, if False, exclude overflow/underflow bins when compute binned corrections
+    binned_noflow = False, # bool, if True, exclude overflow/underflow bins when making binned distribution
     observables_multidim = [], # list of observables in the "x_vs_y_vs_.." format for higher dimension distributions
     ):
 
@@ -692,7 +692,7 @@ def make_histograms_from_unfolder(
             include_ibu = include_ibu,
             include_reco = include_reco,
             binned_correction_d = binned_corrections_d,
-            binned_correction_flow = binned_correction_flow
+            binned_noflow = binned_noflow
             )
 
         # compute metrics
@@ -730,7 +730,7 @@ def make_histograms_from_unfolder(
             nruns = nruns,
             include_reco = include_reco,
             binned_correction_d = binned_corrections_d,
-            binned_correction_flow = binned_correction_flow
+            binned_noflow = binned_noflow
         )
 
     # save histograms to file
@@ -774,7 +774,7 @@ def make_histograms(
     plot_verbosity = 0,
     verbose = False,
     binned_correction_fpath = None,
-    binned_correction_noflow = False
+    binned_noflow = False
     ):
 
     logger.setLevel(logging.DEBUG if verbose else logging.INFO)
@@ -857,7 +857,7 @@ def make_histograms(
                 compute_metrics = compute_metrics,
                 plot_verbosity = plot_verbosity,
                 binned_correction_fpath = binned_correction_fpath,
-                binned_correction_flow = not binned_correction_noflow,
+                binned_noflow = binned_noflow,
                 observables_multidim = observables_multidim
                 )
 
@@ -968,9 +968,9 @@ if __name__ == "__main__":
     parser.add_argument('--binned-correction', dest="binned_correction_fpath",
                         type=str,
                         help="File path to read histograms for binned corrections")
-    parser.add_argument("--correction-noflow", dest="binned_correction_noflow",
+    parser.add_argument("--binned-noflow", dest="binned_noflow",
                         action='store_true',
-                        help="If True, exclude underflow and overflow bins when computing binned corrections")
+                        help="If True, exclude underflow and overflow bins when making binned distributions")
 
     args = parser.parse_args()
 
