@@ -2,99 +2,19 @@
 import os
 import time
 import tracemalloc
-import numpy as np
 
 import util
 import metrics
 import plotter
 import histogramming as myhu
 from OmniFoldTTbar import load_unfolder
-from ibuv2 import run_ibu
+from ibu import run_ibu_from_unfolder
 
 from ttbarDiffXsRun2.binnedCorrections import apply_efficiency_correction
 from ttbarDiffXsRun2.helpers import ttbar_diffXs_run2_params
 
 import logging
 logger = logging.getLogger("make_histograms")
-
-def get_ibu_unfolded_histogram_from_unfolder(
-    unfolder,
-    vname_reco,
-    vname_truth,
-    bins_reco,
-    bins_truth,
-    niterations = None, # number of iterations
-    all_iterations = False, # if True, return results at every iteration
-    norm = None,
-    absoluteValue = False,
-    acceptance = None,
-    efficiency = None,
-    correction_flow = True
-    ):
-
-    # Prepare inputs
-    # data array
-    array_obs = unfolder.handle_obs[vname_reco]
-    if absoluteValue:
-        array_obs = np.abs(array_obs)
-
-    wobs = unfolder.handle_obs.get_weights()
-
-    if unfolder.handle_obsbkg is not None:
-        array_obsbkg = unfolder.handle_obsbkg[vname_reco]
-        if absoluteValue:
-            array_obsbkg = np.abs(array_obsbkg)
-
-        wobsbkg = unfolder.handle_obsbkg.get_weights()
-
-        array_obs = np.concatenate([array_obs, array_obsbkg])
-        wobs = np.concatenate([wobs, wobsbkg])
-
-    # simulation
-    # Take only events that are truth matched i.e. pass both reco and truth cuts
-    pass_all_sig = unfolder.handle_sig.pass_reco & unfolder.handle_sig.pass_truth
-
-    array_sim = unfolder.handle_sig.get_arrays(vname_reco)[pass_all_sig]
-    if absoluteValue:
-        array_sim = np.abs(array_sim)
-
-    wsim = unfolder.handle_sig.get_weights(valid_only=False)[pass_all_sig]
-
-    array_gen = unfolder.handle_sig.get_arrays(vname_truth)[pass_all_sig]
-    if absoluteValue:
-        array_gen = np.abs(array_gen)
-
-    wgen = unfolder.handle_sig.get_weights(reco_level=False, valid_only=False)[pass_all_sig]
-
-    if unfolder.handle_bkg is not None:
-        array_bkg = unfolder.handle_bkg[vname_reco]
-        if absoluteValue:
-            array_bkg = np.abs(array_bkg)
-
-        wbkg = unfolder.handle_bkg.get_weights()
-    else:
-        array_bkg, wbkg = None, None
-
-    ###
-    # run IBU
-    if niterations is None:
-        # run IBU the same iterations as OmniFold
-        niterations = unfolder.unfolded_weights.shape[1]
-
-    hists_ibu, h_ibu_corr, reponse = run_ibu(
-        bins_reco, bins_truth,
-        array_obs, array_sim, array_gen, array_bkg,
-        wobs, wsim, wgen, wbkg,
-        niterations = niterations,
-        all_iterations = all_iterations,
-        density = False,
-        norm = norm,
-        acceptance_correction = acceptance,
-        efficiency_correction = efficiency,
-        flow = correction_flow
-        )
-
-    return hists_ibu, h_ibu_corr, reponse
 
 def make_histograms_of_observable(
     unfolder,
@@ -282,17 +202,16 @@ def make_histograms_of_observable(
     if include_ibu:
         logger.info(f" Run IBU for {observable}")
 
-        varname_reco = obsConfig_d[observable]['branch_det']
-
-        hists_ibu_alliters, h_ibu_correlation, response = get_ibu_unfolded_histogram_from_unfolder(
+        hists_ibu_alliters, h_ibu_correlation, response = run_ibu_from_unfolder(
             unfolder,
             varname_reco, varname_truth,
             bins_det, bins_mc,
+            niterations = iteration if iteration > 0 else unfolder.unfolded_weights.shape[1],
             all_iterations = True,
             absoluteValue = absValue,
             acceptance = acceptance,
             efficiency = efficiency,
-            correction_flow = binned_correction_flow
+            flow = binned_correction_flow
         )
 
         # take the ones at the same iteration as OmniFold
@@ -456,7 +375,8 @@ def make_histograms_of_observables_multidim(
     ##
     # IBU
     # TODO?
-    # if include_ibu:
+    if include_ibu:
+        logger.info(f" Run IBU for {observables}")
 
     ###
     # Reco level
