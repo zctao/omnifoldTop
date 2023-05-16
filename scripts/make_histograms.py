@@ -16,6 +16,17 @@ from ttbarDiffXsRun2.helpers import ttbar_diffXs_run2_params
 import logging
 logger = logging.getLogger("make_histograms")
 
+# hard code here for now
+keys_to_save = [
+    'unfolded', 'unfolded_alliters', 'unfolded_allruns', 'unfolded_correlation',
+    'unfolded_corrected', 'relativeDiffXs', 'absoluteDiffXs',
+    'prior', 'prior_noflow', 'truth', 'truth_noflow',
+    'reco_data', 'reco_sig', 'reco_bkg',
+    'ibu', 'ibu_corrected','ibu_alliters', 'ibu_correlation', 'response',
+    'relativeDiffXs_ibu', 'absoluteDiffXs_ibu',
+    'acceptance', 'efficiency'
+    ]
+
 def make_histograms_of_observable(
     unfolder,
     observable, # str, name of the observable
@@ -91,13 +102,16 @@ def make_histograms_of_observable(
     hists_v_d['unfolded'] = h_uf
     hists_v_d['unfolded_correlation'] = h_uf_correlation
 
-    if efficiency:
-        h_uf_corrected = apply_efficiency_correction(h_uf, efficiency)
-        hists_v_d['unfolded_corrected'] = h_uf_corrected
+    if unfolder.with_efficiency_correction:
+        hists_v_d['unfolded_corrected'] = h_uf.copy()
+    elif efficiency:
+        hists_v_d['unfolded_corrected'] = apply_efficiency_correction(h_uf, efficiency)
 
-        # Acceptance corrections have already been accounted for during iterations
+    # Acceptance corrections have already been accounted for during iterations
 
-        hists_v_d['absoluteDiffXs'] = h_uf_corrected / myhu.get_hist_widths(h_uf_corrected)
+    if 'unfolded_corrected' in hists_v_d:
+
+        hists_v_d['absoluteDiffXs'] = hists_v_d['unfolded_corrected'] / myhu.get_hist_widths(hists_v_d['unfolded_corrected'])
         # also divide the integrated luminosity
         hists_v_d['absoluteDiffXs'] *= (1. / ttbar_diffXs_run2_params['luminosity'])
 
@@ -209,8 +223,8 @@ def make_histograms_of_observable(
             niterations = iteration if iteration > 0 else unfolder.unfolded_weights.shape[1],
             all_iterations = True,
             absoluteValue = absValue,
-            acceptance = acceptance,
-            efficiency = efficiency,
+            acceptance = acceptance if unfolder.with_acceptance_correction else None,
+            efficiency = efficiency if unfolder.with_efficiency_correction else None,
             flow = not binned_noflow
         )
 
@@ -223,8 +237,13 @@ def make_histograms_of_observable(
         hists_v_d['ibu_correlation'] = h_ibu_correlation
         hists_v_d['response'] = response
 
-        if acceptance and efficiency:
-            hists_v_d['absoluteDiffXs_ibu'] = h_ibu / myhu.get_hist_widths(h_ibu)
+        if unfolder.with_efficiency_correction:
+            hists_v_d['ibu_corrected'] = h_ibu.copy()
+        elif efficiency:
+            hists_v_d['ibu_corrected'] = apply_efficiency_correction(h_ibu, efficiency)
+
+        if 'ibu_corrected' in hists_v_d:
+            hists_v_d['absoluteDiffXs_ibu'] = hists_v_d['ibu_corrected'] / myhu.get_hist_widths(hists_v_d['ibu_corrected'])
             hists_v_d['absoluteDiffXs_ibu'] *= (1. / ttbar_diffXs_run2_params['luminosity'])
             hists_v_d['relativeDiffXs_ibu'] = hists_v_d['absoluteDiffXs_ibu'].copy()
             myhu.renormalize_hist(hists_v_d['relativeDiffXs_ibu'], density=True)
@@ -343,11 +362,15 @@ def make_histograms_of_observables_multidim(
     if len(obs_list) >= 3:
         hists_multidim_d['unfolded'].set_zlabel(obsConfig_d[obs_list[2]]['xlabel'])
 
-    if efficiency:
+    if unfolder.with_efficiency_correction:
+        hists_multidim_d['unfolded_corrected'] = hists_multidim_d['unfolded'].copy()
+    elif efficiency:
         # apply binned correction
         hists_multidim_d['unfolded_corrected'] = apply_efficiency_correction(hists_multidim_d['unfolded'], efficiency)
 
-        # Acceptance corrections have already been accounted for during iterations
+    # Acceptance corrections have already been accounted for during iterations
+
+    if 'unfolded_corrected' in hists_multidim_d:
 
         hists_multidim_d['absoluteDiffXs'] = hists_multidim_d['unfolded_corrected'].copy()
         hists_multidim_d['absoluteDiffXs'].scale(1./ttbar_diffXs_run2_params['luminosity'])
@@ -737,16 +760,6 @@ def make_histograms_from_unfolder(
     if outputdir:
         outname_hist = os.path.join(outputdir, outfilename)
         logger.info(f"Write histograms to file: {outname_hist}")
-        # hard code here for now
-        keys_to_save = [
-            'unfolded', 'unfolded_alliters', 'unfolded_allruns', 'unfolded_correlation',
-            'unfolded_corrected', 'relativeDiffXs', 'absoluteDiffXs',
-            'prior', 'prior_noflow', 'truth', 'truth_noflow',
-            'reco_data', 'reco_sig', 'reco_bkg',
-            'ibu', 'ibu_alliters', 'ibu_correlation', 'response',
-            'relativeDiffXs_ibu', 'absoluteDiffXs_ibu',
-            'acceptance', 'efficiency'
-            ]
 
         hists_to_write = {}
         for ob in histograms_dict:

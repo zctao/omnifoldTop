@@ -172,9 +172,11 @@ class OmniFoldTTbar():
             use_toydata = use_toydata
         )
 
+        self.with_efficiency_correction = correct_efficiency
         if not correct_efficiency:
             self.remove_events_failing_reco()
 
+        self.with_acceptance_correction = correct_acceptance
         if not correct_acceptance:
             self.remove_events_failing_truth()
 
