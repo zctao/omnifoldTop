@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import math
@@ -277,6 +278,9 @@ def plot_graphs(
     if labels is not None:
         ax.legend()
 
+    if not os.path.isdir(os.path.dirname(figname)):
+        os.makedirs(os.path.dirname(figname))
+
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
 
@@ -345,6 +349,9 @@ def plot_hist(
         ax.hist(data, bins=bins, weights=w, histtype='step', label=l)
 
     ax.legend()
+
+    if not os.path.isdir(os.path.dirname(figname)):
+        os.makedirs(os.path.dirname(figname))
 
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
@@ -458,6 +465,9 @@ def plot_histograms_and_ratios(
             )
 
     # save plot
+    if not os.path.isdir(os.path.dirname(figname)):
+        os.makedirs(os.path.dirname(figname))
+
     fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
     plt.close(fig)
 
@@ -633,6 +643,9 @@ def plot_correlations(figname, correlations, bins=None, print_bincontents=False)
                 bin_content = f"{correlations[ix][iy]:.2f}"
                 ax.text(xc, yc, bin_content, ha='center', va='center', fontsize=fontsize)
 
+    if not os.path.isdir(os.path.dirname(figname)):
+        os.makedirs(os.path.dirname(figname))
+
     fig.savefig(figname+'.png', dpi=200)
     plt.close(fig)
 
@@ -789,6 +802,9 @@ def plot_hists_bin_distr(figname, histograms_list, histogram_ref=None):
                 ax[it][ibin].ticklabel_format(style='sci', scilimits=(-2,2), useMathText=True)
                 ax[it][ibin].xaxis.get_offset_text().set_fontsize(7)
 
+    if not os.path.isdir(os.path.dirname(figname)):
+        os.makedirs(os.path.dirname(figname))
+
     fig.savefig(figname+'.png', dpi=200, bbox_inches='tight')
     plt.close(fig)
 
@@ -844,6 +860,9 @@ def plot_LR_distr(figname, ratios, labels=None):
 
     if labels is not None:
         ax.legend()
+
+    if not os.path.isdir(os.path.dirname(figname)):
+        os.makedirs(os.path.dirname(figname))
 
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
@@ -925,6 +944,9 @@ def plot_training_vs_validation(
     hep.histplot(hist_preds_cat0_v, ax=ax, label='y = 0 (validation)', histtype='errorbar', markersize=3, marker='+')
 
     ax.legend()
+
+    if not os.path.isdir(os.path.dirname(figname)):
+        os.makedirs(os.path.dirname(figname))
 
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
@@ -1124,6 +1146,9 @@ def plot_response(figname, histogram2d, variable, title='Detector Response'):
             if bin_content != 0:
                 ax.text(xc, yc, str(int(bin_content)), ha='center', va='center', fontsize=3)
 
+    if not os.path.isdir(os.path.dirname(figname)):
+        os.makedirs(os.path.dirname(figname))
+
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
 
@@ -1168,6 +1193,9 @@ def plot_uncertainties(
     ax.axhline(y=0., color='black', linestyle='--', alpha=0.3)
 
     ax.legend(loc='upper left')
+
+    if not os.path.isdir(os.path.dirname(figname)):
+        os.makedirs(os.path.dirname(figname))
 
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
