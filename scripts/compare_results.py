@@ -25,6 +25,11 @@ def compare_results(
         verbose = False
     ):
 
+    for fpath_hist in fpaths_histogram:
+        if not os.path.isfile(fpath_hist):
+            logger.error(f"Cannot read file {fpath_hist}")
+            return
+
     logging.basicConfig(level=logging.INFO)
     if verbose:
         logger.setLevel(logging.DEBUG)
