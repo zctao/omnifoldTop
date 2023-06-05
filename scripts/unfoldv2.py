@@ -323,7 +323,7 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="Type of event weights to retrieve from MC ntuples")
     parser.add_argument('--weight-data', type=str, default='nominal',
                         help="Type of event weights to retrieve from data ntuples")
-    parser.add_argument("--preprocessor-config", type=str, default='configs/preprocessor/angle_to_cos.json', help="location of the preprocessor config file")
+    parser.add_argument("--preprocessor-config", type=str, default='configs/preprocessor/std.json', help="location of the preprocessor config file")
     parser.add_argument('--parallel-models', type=int, default=1, help="Number of parallel models, default ot 1")
     parser.add_argument('--lrscheduler-config', type=str, default="configs/lrs/constant_warm_up.json", help="config file for learning rate scheduler")
     parser.add_argument('--toydata', action='store_true', help="If True, use toy data")
