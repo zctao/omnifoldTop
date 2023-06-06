@@ -5,7 +5,7 @@ import plotter
 import util
 
 import logging
-logger = logging.getLogger("compare_results")
+logger = logging.getLogger("compare_histograms")
 
 hnames_to_compare = [
     'unfolded', 'unfolded_corrected', 'relativeDiffXs', 'absoluteDiffXs',
@@ -15,7 +15,7 @@ hnames_to_compare = [
     'acceptance', 'efficiency'
 ]
 
-def compare_results(
+def compare_histograms(
         fpaths_histogram,
         labels = [],
         observables = [],
@@ -121,4 +121,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    compare_results(**vars(args))
+    compare_histograms(**vars(args))
