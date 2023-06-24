@@ -379,82 +379,50 @@ def write_config_systematics(
     outname_config_syst = f"{outname_config}_syst.json"
     util.write_dict_to_json(cfg_dict_list, outname_config_syst)
 
-def getSamples(
-    sample_dir, # top directory to read sample files
-    category = 'ljets', # "ejets" or "mjets" or "ljets"
-    systematics = 'nominal', # type of systematics
-    alternative_sample = '', # str, alternative sample to replace the nominal e.g. ttbar_hw_nominal
-    subcampaigns = ["mc16a", "mc16d", "mc16e"]
+def write_config_test(
+    sample_local_dir,
+    category = "ljets",
+    subcampaigns = ["mc16a", "mc16d", "mc16e"],
+    output_top_dir = '.',
+    outname_config =  'runConfig',
+    common_cfg = {}
     ):
 
-    years = []
-    for e in subcampaigns:
-        if e == "mc16a":
-            years += [2015, 2016]
-        elif e == "mc16d":
-            years += [2017]
-        elif e == "mc16e":
-            years += [2018]
-        else:
-            raise RuntimeError(f"Unknown MC subcampaign {e}")
+    print("unfolding test")
 
-    if category == "ljets":
-        channels = ["ljets"] #["ejets", "mjets"]
-    elif category == "ejets" or category == "mjets":
-        channels = [category]
+    # alternative ttbar vs nominal ttbar
+    # samples
+    signal_nominal = get_samples_signal(
+        sample_local_dir, category, subcampaigns,
+        sample_type = 'mcWAlt',
+        sample_suffix = 'AFII_nominal'
+    )
 
-    ###
-    # observed data
-    data = [os.path.join(sample_dir, f"obs/{y}/data_0_pseudotop_{c}.root") for c in channels for y in years]
+    for ttbar_alt in ['hw', 'amc']:
 
-    ###
-    # background
-    backgrounds = []
+        signal_alt = get_samples_signal(
+            sample_local_dir, category, subcampaigns,
+            sample_type = 'mcWAlt',
+            sample_suffix = f"{ttbar_alt}_nominal"
+        )
 
-    # Fakes
-    backgrounds += [os.path.join(sample_dir, f"fakes/{y}/data_0_pseudotop_{c}.root") for c in channels for y in years]
+        outdir_alt = os.path.join(output_top_dir, f"ttbar_{ttbar_alt}_vs_nominal")
 
-    # W+jets
-    sample_type_Wjets = "systCRL/Wjets_nominal" # only one that is available
-    backgrounds += [os.path.join(sample_dir, f"{sample_type_Wjets}/{e}/Wjets_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
+        # config
+        ttbar_alt_cfg = common_cfg.copy()
+        ttbar_alt_cfg.update({
+            "data": signal_alt,
+            "signal": signal_nominal,
+            "outputdir": outdir_alt,
+            "plot_verbosity": 2,
+            "normalize": True,
+            "correct_acceptance": False,
+            "truth_known": True
+        })
 
-    # Z+jets
-    sample_type_Zjets = "systCRL/Zjets_nominal" # only one that is available
-    backgrounds += [os.path.join(sample_dir, f"{sample_type_Zjets}/{e}/Zjets_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
-
-    # other samples
-    for bkg in ['singleTop', 'ttH', 'ttV', 'VV']:
-        if systematics != 'nominal':
-            sample_type_bkg = f"detNP/{bkg}_{systematics}"
-        elif alternative_sample.startswith(f"{bkg}_"):
-            sample_type_bkg = f"mcWAlt/{alternative_sample}"
-        else:
-            sample_type_bkg = f"systCRL/{bkg}_nominal"
-
-        backgrounds += [os.path.join(sample_dir, f"{sample_type_bkg}/{e}/{bkg}_0_pseudotop_{c}.root") for c in channels for e in subcampaigns]
-
-    ###
-    # signal
-    signal = []
-
-    if systematics != 'nominal':
-        sample_type_sig = f"detNP/ttbar_{systematics}"
-    elif alternative_sample.startswith("ttbar_"):
-        sample_type_sig = f"mcWAlt/{alternative_sample}"
-    else:
-        sample_type_sig = "systCRL/ttbar_nominal"
-
-    for e in subcampaigns:
-        for c in channels:
-            s = glob.glob(os.path.join(sample_dir, f"{sample_type_sig}/{e}/ttbar_*_pseudotop_parton_{c}.root"))
-            s.sort()
-            signal += s
-
-    assert(data)
-    assert(signal)
-    assert(backgrounds)
-
-    return data, signal, backgrounds
+        # write run config to file
+        outname_config_alt = f"{outname_config}_ttbar_{ttbar_alt}_vs_nominal.json"
+        util.write_dict_to_json(ttbar_alt_cfg, outname_config_alt)
 
 def createRun2Config(
         sample_local_dir,
@@ -464,6 +432,7 @@ def createRun2Config(
         subcampaigns = ["mc16a", "mc16d", "mc16e"],
         do_bootstrap = False,
         do_systematics = False,
+        unfolding_test = False,
         systematics_keywords = [],
         common_cfg = {}
     ):
@@ -551,6 +520,16 @@ def createRun2Config(
             common_cfg = common_cfg
         )
 
+    if unfolding_test:
+        write_config_test(
+            sample_local_dir,
+            category = category,
+            subcampaigns = subcampaigns,
+            output_top_dir = output_top_dir,
+            outname_config = outname_config,
+            common_cfg = common_cfg
+        )
+
 if __name__ == "__main__":
 
     import argparse
@@ -574,6 +553,8 @@ if __name__ == "__main__":
                         help="List of keywords to filter systematic uncertainties to evaluate.If empty, include all available")
     parser.add_argument("-b", "--do-bootstrap", action="store_true",
                         help="If True, also generate run configs to do bootstrap")
+    parser.add_argument("-t", "--unfolding-test", action="store_true",
+                        help="If True, generate run configs for unfolding tests")
     parser.add_argument("--observables", nargs='+',
                         default=['th_pt', 'th_y', 'tl_pt', 'tl_y', 'ptt', 'ytt', 'mtt'],
                         help="List of observables to unfold")
@@ -584,6 +565,7 @@ if __name__ == "__main__":
     common_cfg = {
         "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
         "binning_config" : "configs/binning/bins_ttdiffxs.json",
+        "preprocessor_config": "configs/preprocessor/std.json",
         "iterations" : 4,
         "batch_size" : 20000,
         "normalize" : False,
@@ -606,5 +588,6 @@ if __name__ == "__main__":
         do_bootstrap = args.do_bootstrap,
         do_systematics = args.do_systematics,
         systematics_keywords = args.systematics_keywords,
+        unfolding_test = args.unfolding_test,
         common_cfg = common_cfg
         )
