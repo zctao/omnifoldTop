@@ -169,16 +169,10 @@ class OmniFoldTTbar():
             data_reweighter = data_reweighter,
             weight_type_data = weight_type_data,
             weight_type_mc = weight_type_mc,
-            use_toydata = use_toydata
+            use_toydata = use_toydata,
+            correct_efficiency = correct_efficiency,
+            correct_acceptance = correct_acceptance
         )
-
-        self.with_efficiency_correction = correct_efficiency
-        if not correct_efficiency:
-            self.remove_events_failing_reco()
-
-        self.with_acceptance_correction = correct_acceptance
-        if not correct_acceptance:
-            self.remove_events_failing_truth()
 
     def __del__(self):
         if self.file_uw is not None:
@@ -198,6 +192,8 @@ class OmniFoldTTbar():
         weight_type_data = 'nominal', # str, optional
         weight_type_mc = 'nominal', # str, optional
         use_toydata = False, # bool, optional
+        correct_efficiency = False, # bool
+        correct_acceptance = False, # bool
         ):
         """
         Load input files into data handlers: self.handle_obs, self.handle_sig, 
@@ -247,6 +243,15 @@ class OmniFoldTTbar():
                 use_toydata = use_toydata
                 )
             logger.info(f"Total number of background events mixed with data: {len(self.handle_obsbkg)}")
+
+        ###
+        self.with_efficiency_correction = correct_efficiency
+        if not correct_efficiency:
+            self.remove_events_failing_reco()
+
+        self.with_acceptance_correction = correct_acceptance
+        if not correct_acceptance:
+            self.remove_events_failing_truth()
 
         ####
         # Event weights

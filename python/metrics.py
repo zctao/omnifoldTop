@@ -1,7 +1,6 @@
 """
 Functions to compute metrics for quantifying the unfolding performance
 """
-import os
 import numpy as np
 from scipy import stats
 
