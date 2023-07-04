@@ -106,7 +106,7 @@ def warm_up_constant(epoch, lr, **args):
     else:
         return lr
 
-def init_lr_scheduler(init_path):
+def init_lr_scheduler(init_path=None):
     """
     arguments
     ---------
@@ -119,11 +119,17 @@ def init_lr_scheduler(init_path):
     """
     global lrscheduler
 
-    with open(init_path, "r") as init_file:
-        config = json.load(init_file)
-
-    scheduler_args = config["scheduler_args"]
-    # scheduler_args = json.loads(config["scheduler_args"]) if config["scheduler_args"] is not "" else None
+    if init_path is None:
+        # default config
+        config = {
+            "initial_learning_rate": 0.001,
+            "scheduler_names":"constant",
+            "reduce_on_plateau":0}
+        scheduler_args = {}
+    else:
+        with open(init_path, "r") as init_file:
+            config = json.load(init_file)
+            scheduler_args = config["scheduler_args"]
     
     lrscheduler = LearningRateScheduler(config["initial_learning_rate"],
                                         config["scheduler_names"],
@@ -134,6 +140,9 @@ def get_lr_scheduler()->LearningRateScheduler:
     """
     returns the learning rate scheduler
     """
+    if lrscheduler is None: # not yet initialized
+        init_lr_scheduler()
+
     return lrscheduler
 
 """
