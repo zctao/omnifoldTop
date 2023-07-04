@@ -834,7 +834,7 @@ def plot_gaussian(ax, histogram, binedges, dofit=False):
     #yref = gaus(x, sum(histogram)/math.sqrt(2*math.pi), 0, 1)
     #ax.plot(x, yref, '--')
 
-def plot_LR_distr(figname, ratios, labels=None, xlabel="Likelihood ratio", logy=False):
+def plot_LR_distr(figname, ratios, labels=None, xlabel="Likelihood ratio", logy=False, nbins=25):
     """
     Plot the distribution of likelihood ratios.
 
@@ -847,7 +847,7 @@ def plot_LR_distr(figname, ratios, labels=None, xlabel="Likelihood ratio", logy=
     labels : sequence of str, optional
         Labels for each set of likelihood ratios in `ratios`.
     """
-    bins_r = 25 #np.linspace(min(r.min() for r in ratios)*0.9, max(r.max() for r in ratios)*1.1, 50)
+    #np.linspace(min(r.min() for r in ratios)*0.9, max(r.max() for r in ratios)*1.1, 50)
 
     fig, ax = plt.subplots()
     ax.set_xlabel(xlabel)
@@ -855,7 +855,7 @@ def plot_LR_distr(figname, ratios, labels=None, xlabel="Likelihood ratio", logy=
         ax.set_yscale('log')
 
     for i,r in enumerate(ratios):
-        hr = myhu.calc_hist(r, bins_r, density=False)
+        hr = myhu.calc_hist(r, nbins, density=False)
         l = labels[i] if labels is not None else None
         hep.histplot(hr, ax=ax, label=l)
 
