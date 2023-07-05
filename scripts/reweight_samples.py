@@ -62,7 +62,7 @@ def reweight_samples(**parsed_args):
     # preprocessing
     X = np.concatenate([target_arr, source_arr])
     xmean = np.mean(X, axis=0)
-    xstd = np.mean(X, axis=0)
+    xstd = np.std(X, axis=0)
 
     target_arr -= xmean
     target_arr /= xstd
