@@ -122,7 +122,8 @@ def init_lr_scheduler(init_path=None):
     if init_path is None:
         # default config
         config = {
-            "initial_learning_rate": 0.001,
+            #"initial_learning_rate": 0.001,
+            "initial_learning_rate": 0.0001,
             "scheduler_names":"constant",
             "reduce_on_plateau":0}
         scheduler_args = {}
