@@ -1112,7 +1112,7 @@ def plot_training_inputs_step2(figname_prefix, variable_names, Xgen, wgen):
         xlabel = 'w (training)',
         title = "Step-2 prior weights at truth level")
 
-def plot_response(figname, histogram2d, variable, title='Detector Response'):
+def plot_response(figname, histogram2d, variable, title='Detector Response', percentage=True):
     """
     Plot the unfolded detector response matrix.
 
@@ -1135,17 +1135,21 @@ def plot_response(figname, histogram2d, variable, title='Detector Response'):
     ax.set_ylabel(f'Truth-level {variable}')
 
     X, Y = np.meshgrid(xedges, yedges)
-    im = ax.pcolormesh(X, Y, h2d.T*100, cmap='Greens')
-    fig.colorbar(im, ax=ax, label="%")
+    im = ax.pcolormesh(X, Y, h2d.T*100 if percentage else h2d.T, cmap='Greens')
+    fig.colorbar(im, ax=ax, label = "%" if percentage else '')
 
     # label bin content
     xcenter =(xedges[:-1]+xedges[1:])/2
     ycenter = (yedges[:-1]+yedges[1:])/2
     for i, xc in enumerate(xcenter):
         for j, yc in enumerate(ycenter):
-            bin_content = round(h2d[i, j]*100)
+            bin_content = round(h2d[i, j],2)
             if bin_content != 0:
-                ax.text(xc, yc, str(int(bin_content)), ha='center', va='center', fontsize=3)
+                if percentage:
+                    bin_text = f"{int(bin_content*100)}"
+                else:
+                    bin_text = f"{bin_content:.2f}"
+                ax.text(xc, yc, bin_text, ha='center', va='center', fontsize=3)
 
     if not os.path.isdir(os.path.dirname(figname)):
         os.makedirs(os.path.dirname(figname))
