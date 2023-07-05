@@ -1,9 +1,11 @@
+import os
 import numpy as np
 from sklearn.model_selection import KFold
 import hist
 
 from modelUtils import n_models_in_parallel, get_model, get_callbacks, train_model
 import histogramming as myhu
+import plotter
 
 import logging
 
@@ -77,7 +79,9 @@ def train_and_reweight(
     # Reweight
     calibrate=False,
     # Logging
-    verbose= False
+    verbose=False,
+    # plot
+    plot=False
     ):
 
     if verbose:
@@ -106,19 +110,13 @@ def train_and_reweight(
     # K-fold cross validation
     logger.debug(f"nsplit_cv = {nsplit_cv}")
 
-    if nsplit_cv > 1:
-        if model_filepath_load:
-            model_filepath_load = model_filepath_load + "_cv{}"
-        if model_filepath_save:
-            model_filepath_save = model_filepath_save + "_cv{}"
-
     kf = KFold(nsplit_cv)
 
     for icv, ((index_train_source, index_test_source), (index_train_target, index_test_target)) in enumerate(zip(kf.split(X_source), kf.split(X_target))):
         logger.info(f"KFold: {icv}")
 
-        model_filepath_load_icv = model_filepath_load.format(icv) if model_filepath_load else None
-        model_filepath_save_icv = model_filepath_save.format(icv) if model_filepath_save else None
+        model_filepath_load_icv = f"{model_filepath_load}_cv{icv}" if model_filepath_load else None
+        model_filepath_save_icv = f"{model_filepath_save}_cv{icv}" if model_filepath_save else None
 
         # set up network
         classifier = set_up_model(
@@ -179,6 +177,18 @@ def train_and_reweight(
         for i in range(n_models_in_parallel):
             histogram_r = myhu.divide(histogram_1[i], histogram_0[i])
             rw[i] = myhu.read_histogram_at_locations(preds_source[i], histogram_r)
+
+            if plot and model_filepath_save:
+                plotter.plot_histograms_and_ratios(
+                    figname = f"{model_filepath_save}_preds_r{i}",
+                    hists_numerator = [histogram_1[i]],
+                    hist_denominator = histogram_0[i],
+                    draw_options_numerator = [{'label':'Target'}],
+                    draw_option_denominator = {'label':'Source'},
+                    xlabel = 'NN Output',
+                    ylabel_ratio = 'Target / Source'
+                )
+
         return rw
     else:
         # direct reweighting

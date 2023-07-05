@@ -4,6 +4,7 @@ import sys
 import argparse
 import logging
 import numpy as np
+import glob
 import h5py
 
 import util
@@ -87,7 +88,26 @@ def reweight_samples(**parsed_args):
     ##
     # Plot input distributions
     if parsed_args['plot_verbosity'] > 1:
-        pass
+        logger.info("Plot input distributions")
+        for obs, varr_1, varr_0 in zip(parsed_args['observables'], target_arr.T, source_arr.T):
+            logger.debug(f" Plot {obs}")
+            plotter.plot_hist(
+                os.path.join(parsed_args['outputdir'], f"input_{obs}"),
+                [varr_1, varr_0],
+                weight_arrs = [w_target, w_source],
+                labels = ['Target', 'Source'],
+                xlabel = obsCfg_d[obs]['xlabel'],
+                title = "Training inputs"
+            )
+
+        logger.info("Plot input weights")
+        plotter.plot_hist(
+            os.path.join(parsed_args['outputdir'], f"input_w"),
+            [w_target, w_source],
+            labels = ['Target', 'Source'],
+            xlabel = 'w',
+            title = "Training inputs"
+        )
 
     if parsed_args['weights_file']:
         file_rw = h5py.File(parsed_args['weights_file'], 'r')
@@ -114,11 +134,17 @@ def reweight_samples(**parsed_args):
             batch_size = parsed_args['batch_size'],
             epochs = 100,
             calibrate = parsed_args['reweight_method']=='histogram',
-            verbose= parsed_args['verbose']
+            verbose= parsed_args['verbose'],
+            plot = parsed_args['plot_verbosity'] > 0
         )[0]
         # [0] because modelUtils.n_models_in_parallel = 1
 
     if parsed_args['plot_verbosity'] > 0:
+        # plot train history
+        logger.info("Plot training history")
+        for csvfile in glob.glob(os.path.join(model_dir, '*.csv')):
+            plotter.plot_train_log(csvfile)
+
         # plot distributions of the weights
         logger.info("Plot the weight distribution")
         plotter.plot_LR_distr(
