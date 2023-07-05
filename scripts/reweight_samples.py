@@ -169,7 +169,7 @@ def reweight_samples(**parsed_args):
 
             hist_target = dh_target.get_histogram(vname, binedges, absoluteValue=absV)
             hist_source = dh_source.get_histogram(vname, binedges, absoluteValue=absV)
-            hist_source_rw = dh_source.get_histogram(vname, binedges, weights=rw[:], absoluteValue=absV)
+            hist_source_rw = dh_source.get_histogram(vname, binedges, weights=w_source * rw[:], absoluteValue=absV)
 
             plotter.plot_histograms_and_ratios(
                 figname = os.path.join(parsed_args['outputdir'], obs),
