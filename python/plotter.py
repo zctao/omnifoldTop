@@ -1112,7 +1112,7 @@ def plot_training_inputs_step2(figname_prefix, variable_names, Xgen, wgen):
         xlabel = 'w (training)',
         title = "Step-2 prior weights at truth level")
 
-def plot_response(figname, histogram2d, variable, title='Detector Response', percentage=True):
+def plot_response(figname, histogram2d, variable, title='Detector Response', percentage=True, **pcolormesh_args):
     """
     Plot the unfolded detector response matrix.
 
@@ -1135,7 +1135,7 @@ def plot_response(figname, histogram2d, variable, title='Detector Response', per
     ax.set_ylabel(f'Truth-level {variable}')
 
     X, Y = np.meshgrid(xedges, yedges)
-    im = ax.pcolormesh(X, Y, h2d.T*100 if percentage else h2d.T, cmap='Greens')
+    im = ax.pcolormesh(X, Y, h2d.T*100 if percentage else h2d.T, **pcolormesh_args)
     fig.colorbar(im, ax=ax, label = "%" if percentage else '')
 
     # label bin content
