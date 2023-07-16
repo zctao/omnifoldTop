@@ -1,8 +1,8 @@
-import uproot
 import numpy as np
+import math
+import uproot
 
-import datahandler as dh
-from datahandler import DataHandler
+from datahandler import DataHandlerBase, filter_variable_names
 
 import logging
 logger = logging.getLogger('datahandler_root')
@@ -29,14 +29,14 @@ def MeVtoGeV(array):
         if isObjectVar or isPartonVar:
             array[fname] /= 1000.
 
-def load_dataset_root(
-        file_names,
-        tree_name,
-        variable_names
+def load_arrays(
+    file_names,
+    tree_name,
+    variable_names = None
     ):
     """
     Load data from a list of ROOT files
-    Return a structured numpy array of data and a numpy ndarray as masks
+    Return a structured numpy array of data
 
     Parameters
     ----------
@@ -49,69 +49,23 @@ def load_dataset_root(
 
     Returns
     -------
-    A numpy ndarray for event features and a numpy ndarray of event selection flags
+    A numpy ndarray for event features
     """
     if isinstance(file_names, str):
         file_names = [file_names]
 
-    intrees = [fname + ':' + tree_name for fname in file_names]
-
-    #####
-    # feature variables
-    if variable_names:
-        branches = [variable_names] if isinstance(variable_names, str) else variable_names.copy()
-
-        # event flags
-        branches += ['isMatched', 'isDummy']
-
-        # in case of KLFitter
-        # check if any variable is KLFitter variable
-        for vname in variable_names:
-            if 'klfitter' in vname:
-                branches.append('klfitter_logLikelihood')
-                break
-
-        # for filtering a small fraction of reco events with zero weights
-        # due to weight_pileup
-        branches += ['normalized_weight']
-
-        # for checking invalid value in truth trees
-        branches.append('MC_thad_afterFSR_y')
-    else:
-        # load everything
-        branches = None
-
-    data_array = uproot.lazy(intrees, filter_name=branches)
-    # variables in branches but not in intrees are ignored
+    data_array = uproot.concatenate(
+        [f"{fname}:{tree_name}" for fname in file_names],
+        variable_names
+        )
 
     # convert awkward array to numpy array for now
-    # can probably use awkward array directly once it is more stable
     data_array = data_array.to_numpy()
 
     # convert units
     MeVtoGeV(data_array)
 
-    #####
-    # event selection flag
-    pass_sel = (data_array['isDummy'] == 0)
-
-    # In case of reco variables with KLFitter, cut on KLFitter logLikelihood
-    if 'klfitter_logLikelihood' in data_array.dtype.names:
-        pass_sel &= data_array['klfitter_logLikelihood'] > -52.
-
-    if 'normalized_weight' in data_array.dtype.names:
-        # remove reco events with zero event weights
-        pass_sel &= data_array['normalized_weight'] != 0.
-
-    # A special case where some matched events in truth trees contain invalid
-    # (nan or inf) values
-    if 'MC_thad_afterFSR_y' in data_array.dtype.names:
-        invalid = np.isnan(data_array['MC_thad_afterFSR_y'])
-        pass_sel &= (~invalid)
-        #print("number of events with invalid value", np.sum(invalid))
-
-    # TODO: return a masked array?
-    return data_array, pass_sel
+    return data_array
 
 def read_weight_array(
         filename, # str, name of the root file to read
@@ -159,7 +113,7 @@ def read_weight_array(
 
     return warr
 
-def load_weights_root(
+def load_weights(
         file_names,
         tree_name,
         weight_name,
@@ -224,6 +178,7 @@ def load_weights_root(
 
     weights_arr = np.empty(shape=(0,))
 
+    # read the weight array one file at a time because not all files contain the same type of weight arrays e.g. data-driven fakes do not have pileup weights 
     for fname in file_names:
 
         weights_arr = np.concatenate([
@@ -240,7 +195,97 @@ def load_weights_root(
 
     return weights_arr
 
-class DataHandlerROOT(DataHandler):
+def select_reco(file_names, treename='reco'):
+    branches = ['isDummy', "normalized_weight"]
+    # For KLFitter
+    # branches += ['klfitter_logLikelihood']
+
+    array_reco = uproot.concatenate(
+        [f"{fname}:{treename}" for fname in file_names],
+        branches).to_numpy()
+
+    passcuts = array_reco['isDummy'] == 0
+    passcuts &= (array_reco['normalized_weight'] != 0)
+    #passcuts &= (array_reco['klfitter_logLikelihood'] > -52.)
+
+    return passcuts
+
+def select_parton(file_names, treename='parton'):
+    branches = ['isDummy', "MC_thad_afterFSR_y"]
+
+    array_parton = uproot.concatenate(
+        [f"{fname}:{treename}" for fname in file_names],
+        branches).to_numpy()
+
+    passcuts = array_parton['isDummy'] == 0
+    passcuts &= (~np.isnan(array_parton['MC_thad_afterFSR_y']))
+
+    return passcuts
+
+def compute_dphi(phi_arr1, phi_arr2):
+
+    if not isinstance(phi_arr1, np.ndarray) or not isinstance(phi_arr2, np.ndarray):
+        dphi = (phi_arr1 - phi_arr2).to_numpy()
+    else:
+        dphi = phi_arr1 - phi_arr2
+
+    sel_gt_pi = dphi > math.pi
+    sel_lt_mpi = dphi < -math.pi
+
+    dphi[sel_gt_pi] -= 2*math.pi
+    dphi[sel_lt_mpi] += 2*math.pi
+
+    return dphi
+
+def compute_dR(phi_arr1, y_arr1, phi_arr2, y_arr2):
+
+    dphi = compute_dphi(phi_arr1, phi_arr2)
+
+    dy = y_arr1 - y_arr2
+
+    return np.sqrt(dphi * dphi + dy * dy)
+
+def match_top_dR(
+    file_names,
+    maxDR = 0.8,
+    treename_reco='reco',
+    treename_truth='parton'
+    ):
+    aliases_reco = {
+        'th_y' : 'PseudoTop_Reco_top_had_y',
+        'th_phi' : 'PseudoTop_Reco_top_had_phi',
+        'tl_y' : 'PseudoTop_Reco_top_lep_y',
+        'tl_phi' : 'PseudoTop_Reco_top_lep_phi'
+    }
+
+    aliases_truth = {
+        'th_y' : 'MC_thad_afterFSR_y',
+        'th_phi' : 'MC_thad_afterFSR_phi',
+        'tl_y' : 'MC_tlep_afterFSR_y',
+        'tl_phi' : 'MC_tlep_afterFSR_phi'
+    }
+
+    array_reco = uproot.concatenate(
+        [f"{fname}:{treename_reco}" for fname in file_names],
+        ['th_y', 'th_phi', 'tl_y', 'tl_phi'],
+        aliases = aliases_reco
+    ).to_numpy()
+
+    array_truth = uproot.concatenate(
+        [f"{fname}:{treename_truth}" for fname in file_names],
+        ['th_y', 'th_phi', 'tl_y', 'tl_phi'],
+        aliases = aliases_truth
+    ).to_numpy()
+
+    th_dR = compute_dR(array_reco['th_phi'], array_reco['th_y'], array_truth['th_phi'], array_truth['th_y'])
+
+    tl_dR = compute_dR(array_reco['tl_phi'], array_reco['tl_y'], array_truth['tl_phi'], array_truth['tl_y'])
+
+    passcuts = (th_dR < maxDR) & (tl_dR < maxDR)
+
+    return passcuts
+
+class DataHandlerROOT(DataHandlerBase):
     """
     Load data from root files
 
@@ -265,38 +310,56 @@ class DataHandlerROOT(DataHandler):
         filepaths,
         variable_names=[],
         variable_names_mc=[],
-        weight_type='nominal',
         treename_reco='reco',
-        treename_truth='parton'
-    ):
+        treename_truth='parton',
+        weight_name_nominal='normalized_weight',
+        weight_type='nominal',
+        matchDR = None # float
+        ):
+
+        super().__init__()
+
+        ######
         # load data from root files
-        variable_names = dh._filter_variable_names(variable_names)
-        self.data_reco, self.pass_reco = load_dataset_root(
-            filepaths, treename_reco, variable_names)
+        logger.debug("Load data array from reco trees")
+        variable_names = filter_variable_names(variable_names)
+        self.data_reco = load_arrays(filepaths, treename_reco, variable_names)
 
+        if variable_names_mc:
+            logger.debug("Load data array from truth trees")
+            variable_names_mc = filter_variable_names(variable_names_mc)
+            self.data_truth = load_arrays(filepaths, treename_truth, variable_names_mc)
+
+        ######
         # event weights
-        self.weights = load_weights_root(
-            filepaths, treename_reco, weight_name = 'normalized_weight',
-            weight_type = weight_type
-            )
+        logger.debug("Load weight arrays")
+        self.weights = load_weights(
+            filepaths, treename_reco,
+            weight_name = weight_name_nominal, weight_type = weight_type
+        )
 
-        # truth variables if available
-        if treename_truth:
-            variable_names_mc = dh._filter_variable_names(variable_names_mc)
-            self.data_truth, self.pass_truth = load_dataset_root(
-                filepaths, treename_truth, variable_names_mc)
-
+        if variable_names_mc:
             # event weights
-            #self.weights_mc = load_weights_root(
-            #    filepaths, treename_truth, weight_name = 'normalized_weight_mc',
-            #    weight_type = weight_type
-            #    )
+            #self.weights_mc = load_weights(
+            #    filepaths, treename_truth,
+            #    weight_name = weight_name_nominal+'_mc', weight_type = weight_type
+            #)
             self.weights_mc = self.weights.copy()
-        else:
-            self.data_truth = None
-            self.pass_truth = None
-            self.weights_mc = None
 
+        ######
+        # event selection flags
+        self.pass_reco = select_reco(filepaths, treename=treename_reco)
+        self.pass_truth = select_parton(filepaths, treename=treename_truth)
+
+        if matchDR is not None:
+            self.pass_truth &= match_top_dR(
+                filepaths,
+                maxDR = matchDR,
+                treename_reco = treename_reco,
+                treename_truth = treename_truth
+                )
+
+        ######
         # sanity check
         assert(len(self.data_reco)==len(self.weights))
         assert(len(self.data_reco)==len(self.pass_reco))
@@ -304,7 +367,3 @@ class DataHandlerROOT(DataHandler):
             assert(len(self.data_reco)==len(self.data_truth))
             assert(len(self.data_truth)==len(self.weights_mc))
             assert(len(self.data_truth)==len(self.pass_truth))
-
-        # overflow/underflow flags to be set later
-        self.underflow_overflow_reco = False
-        self.underflow_overflow_truth = False

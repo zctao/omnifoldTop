@@ -1,6 +1,7 @@
 import numpy as np
 
 import histogramming as myhu
+import make_histograms as mh
 from ttbarDiffXsRun2.binnedCorrections import apply_acceptance_correction, apply_efficiency_correction
 
 def unfold(
@@ -38,57 +39,6 @@ def unfold(
 
     return hists_unfold # shape: (niterations, )
 
-def get_observed_distribution(
-    unfolder,
-    vname_reco,
-    bins_reco,
-    absoluteValue=False,
-    bootstrap=False
-    ):
- 
-    h_data = unfolder.handle_obs.get_histogram(
-        vname_reco, bins_reco, density=False, absoluteValue=absoluteValue, bootstrap=bootstrap
-        )
-
-    if unfolder.handle_obsbkg is not None:
-        h_data += unfolder.handle_obsbkg.get_histogram(
-            vname_reco, bins_reco, density=False, absoluteValue=absoluteValue
-            )
-
-    if unfolder.handle_bkg is not None:
-        h_bkg = unfolder.handle_bkg.get_histogram(
-            vname_reco, bins_reco, density=False, absoluteValue=absoluteValue
-            )
-
-        h_data += (-1 * h_bkg)
-
-    return h_data
-
-def get_response(
-    unfolder,
-    vname_reco,
-    vname_truth,
-    bins_reco,
-    bins_truth,
-    absoluteValue
-    ):
-
-    response = unfolder.handle_sig.get_histogram2d(
-        vname_reco, vname_truth, 
-        bins_reco, bins_truth, 
-        absoluteValue_x=absoluteValue, absoluteValue_y=absoluteValue
-        )
-
-    # normalize per truth bin to 1
-    #response.view()['value'] = response.values() / response.project(1).values()
-    #response.view()['value'] = response.values() / response.values().sum(axis=0)
-    response_normed = np.zeros_like(response.values())
-    np.divide(response.values(), response.values().sum(axis=0), out=response_normed, where=response.values().sum(axis=0)!=0)
-
-    response.view()['value'] = response_normed
-
-    return response
-
 def run_ibu_from_unfolder(
     unfolder,
     vname_reco,
@@ -108,11 +58,11 @@ def run_ibu_from_unfolder(
 
     ###
     # observed distribution
-    h_obs = get_observed_distribution(unfolder, vname_reco, bins_reco, absoluteValue=absoluteValue)
+    h_obs = mh.get_observed_distribution(unfolder, vname_reco, bins_reco, absoluteValue=absoluteValue, subtract_background=True)
 
     ###
     # response
-    resp = get_response(unfolder, vname_reco, vname_truth, bins_reco, bins_truth, absoluteValue=absoluteValue)
+    resp = unfolder.handle_sig.get_response(vname_reco, vname_truth, bins_reco, bins_truth, absoluteValue=absoluteValue)
 
     # prior distribution
     rd2 = unfolder.handle_sig.get_histogram2d(
@@ -134,7 +84,7 @@ def run_ibu_from_unfolder(
 
     for rs in range(nresamples):
 
-        h_obs_rs = get_observed_distribution(unfolder, vname_reco, bins_reco, absoluteValue=absoluteValue, bootstrap=True)
+        h_obs_rs = mh.get_observed_distribution(unfolder, vname_reco, bins_reco, absoluteValue=absoluteValue, bootstrap=True, subtract_background=True)
 
         hists_ibu_resample.append(
             unfold(resp, h_obs_rs, h_prior, niterations, acceptance_correction=acceptance, efficiency_correction=efficiency)

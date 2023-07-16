@@ -1,7 +1,6 @@
 import os
 import logging
 import argparse
-import numpy as np
 
 import util
 from OmniFoldTTbar import getDataHandler
@@ -48,18 +47,11 @@ for obs, vname_reco, vname_truth in zip(args.observables, varnames_reco, varname
     bins_reco = binCfg_d[obs]
     bins_truth = binCfg_d[obs]
 
-    response_obs_d[obs] = dh.get_histogram2d(
+    response_obs_d[obs] = dh.get_response(
         vname_reco, vname_truth,
         bins_reco, bins_truth,
-        absoluteValue_x = '_abs' in obs,
-        absoluteValue_y = '_abs' in obs,
-        )
-
-    # normalize per truth bin to 1
-    response_normed = np.zeros_like(response_obs_d[obs].values())
-    np.divide(response_obs_d[obs].values(), response_obs_d[obs].values().sum(axis=0), out=response_normed, where=response_obs_d[obs].values().sum(axis=0)!=0)
-
-    response_obs_d[obs].view()['value'] = response_normed
+        absoluteValue = '_abs' in obs
+    )
 
 # output directory
 if not os.path.isdir(args.outputdir):

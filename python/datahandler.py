@@ -3,175 +3,29 @@ Classes for working with OmniFold datasets.
 """
 
 from collections.abc import Mapping
-
 import numpy as np
 import pandas as pd
-import util
-from histogramming import calc_hist, calc_hist2d
-import FlattenedHistogram as fh
 
 from numpy.random import default_rng
 rng = default_rng()
 
-def load_dataset(file_names, array_name='arr_0', allow_pickle=True, encoding='bytes', weight_columns=[]):
-    """
-    Load and return a structured numpy array from a list of npz files.
+import util
+from histogramming import calc_hist, calc_hist2d
+import FlattenedHistogram as fh
 
-    Parameters
-    ----------
-    file_names : str or file-like object; or sequence of str or file-like objects
-        List of npz files to load. If columns in the file should be
-        reweighted, provide the filename as "{path}*{reweight factor}".
-        Columns identified in `weight_columns` will be multiplied by
-        `reweight factor`.
-    array_name : str, default: "arr_0"
-        Name of the array to load from each file in `file_names`
-    allow_pickle : bool, default: True
-        Allow loading pickled object arrays. Loading pickled data can
-        execute arbitrary code. If False, object arrays will fail to load.
-    encoding : {"bytes", "ASCII", "latin1"}, default: "bytes"
-        Text encoding to use when loading Python 2 strings in Python 3.
-    weight_columns : str or sequence of str, default: []
-        Names of columns to reweight, if reweighting is being used.
+class DataHandlerBase(Mapping):
+    def __init__(self):
+        # data array
+        self.data_reco = None # reco level
+        self.data_truth = None # truth level
 
-    Returns
-    -------
-    np.ndarray
-        Arrays saved in each file, concatenated.
+        # event weights
+        self.weights = None # reco level
+        self.weights_mc = None # truth level
 
-    Raises
-    ------
-    IOError
-        If a file does not exist or can't be read.
-    RuntimeError
-        If a file doesn't contain an array named `array_name`.
-    ValueError
-        If a file contains an object array but `allow_pickle` is False.
-    ValueError
-        A file using reweighting doesn't contain `weight_columns`.
-
-    See Also
-    --------
-    np.load : details of how NumPy loads files
-    """
-    data = None
-    if not isinstance(file_names, list):
-        file_names = [file_names]
-    if not isinstance(weight_columns, list):
-        weight_columns = [weight_columns]
-
-    for fname in file_names:
-        fn, rwfactor = util.parse_input_name(fname)
-
-        npzfile = np.load(fn, allow_pickle=allow_pickle, encoding=encoding)
-        di = npzfile[array_name]
-        if len(di)==0:
-            raise RuntimeError('There is no events in input file {}'.format(fname))
-
-        # rescale total event weights for this input file
-        if rwfactor != 1.:
-            for wname in weight_columns:
-                try:
-                    di[wname] *= rwfactor
-                except ValueError:
-                    print('Unknown field name {}'.format(wname))
-                    continue
-
-        if data is None:
-            data = di
-        else:
-            data  = np.concatenate([data, di])
-        npzfile.close()
-
-    return data
-
-class DataHandler(Mapping):
-    """
-    Load data from a series of npy files.
-
-    Parameters
-    ----------
-    file_names : str or file-like object; or sequence of str or file-like objects
-        List of npz files to load. If the weight column should be adjusted,
-        provide the filename as "{path}*{reweight factor}".
-    variable_names : list of str
-        List of reco-level variables to read. If not provided, read all 
-        variables in the dataset.
-    variable_names_mc : list of str, optional
-        List of truth-level variables to read. If not provided, skip reading
-        truth-level variables
-    weights_name : str, default: "w"
-        Name of the event weight column.
-    weights_name_mc : str, default: None
-        Name of the mc weights
-    vars_dict : dict, default: {}
-        Use the key "vtype" to set the dtype of the loaded data. If not
-        provided, defaults to "float".
-    array_name : str, default: "arr_0"
-        Name of the array to load from each file.
-
-    Raises
-    ------
-    IOError
-        If a file does not exist or can't be read.
-    ValueError
-        A file doesn't contain one of `variable_names` or `variable_names_mc`.
-    RuntimeError
-        A file doesn't contain an array named `array_name`.
-    ValueError
-        A file using reweighting doesn't contain `weights_name` or `weights_name_mc`.
-    """
-
-    def __init__(
-        self,
-        filepaths,
-        variable_names,
-        variable_names_mc=[],
-        weights_name="w",
-        weights_name_mc=None,
-        vars_dict={},
-        array_name="arr_0",
-    ):
-        # load data from npz files to numpy array
-        tmpDataArr = load_dataset(filepaths, array_name=array_name, weight_columns=weights_name)
-        #assert(tmpDataArr is not None)
-
-        # reco level
-        variable_names = _filter_variable_names(variable_names)
-
-        # convert all fields to float
-        dtypes = [(vname, vars_dict.get('vtype','float')) for vname in variable_names]
-        self.data_reco = np.array(tmpDataArr[variable_names], dtype=dtypes)
-
-        # event weight
-        if weights_name:
-            self.weights = tmpDataArr[weights_name].flatten()
-        else:
-            self.weights = np.ones(len(self.data_reco))
-
-        # truth level
-        if variable_names_mc:
-            variable_names_mc = _filter_variable_names(variable_names_mc)
-
-            # convert all fields to float
-            dtypes_mc = [(vname, vars_dict.get('vtype','float')) for vname in variable_names_mc]
-            self.data_truth = np.array(tmpDataArr[variable_names_mc], dtype=dtypes_mc)
-
-            # mc weights
-            if weights_name_mc:
-                self.weights_mc = tmpDataArr[weights_name_mc].flatten()
-            else:
-                self.weights_mc = np.ones(len(self.data_truth))
-        else:
-            self.data_truth = None
-            self.weights_mc = None
-
-        # for now
-        self.pass_reco = np.full(len(self.data_reco), True)
-        if self.data_truth is not None:
-            self.pass_truth = np.full(len(self.data_truth), True)
-        else:
-            self.pass_truth = None
+        # event selection flags
+        self.pass_reco = None # reco level
+        self.pass_truth = None # truth level
 
         # overflow/underflow flags to be set later
         self.underflow_overflow_reco = False
@@ -185,7 +39,7 @@ class DataHandler(Mapping):
         -------
         non-negative int
         """
-        return len(self.data_reco)
+        return len(self.data_reco) if self.data_reco is not None else 0
 
     def __contains__(self, variable):
         """
@@ -586,6 +440,36 @@ class DataHandler(Mapping):
 
         return calc_hist2d(varr_x, varr_y, bins=(bins_x, bins_y), weights=w, density=density)
 
+    def get_response(
+        self,
+        variable_reco,
+        variable_truth,
+        bins_reco,
+        bins_truth,
+        absoluteValue=False
+        ):
+
+        if not self._in_data_reco(variable_reco):
+            raise ValueError(f"Array for variable {variable_reco} not available")
+        elif not self._in_data_truth(variable_truth):
+            raise ValueError(f"Array for variable {variable_truth} not available")
+        else:
+            response = self.get_histogram2d(
+                variable_reco, variable_truth,
+                bins_reco, bins_truth,
+                absoluteValue_x=absoluteValue, absoluteValue_y=absoluteValue
+            )
+
+            # normalize per truth bin to 1
+            #response.view()['value'] = response.values() / response.project(1).values()
+            #response.view()['value'] = response.values() / response.values().sum(axis=0)
+            response_normed = np.zeros_like(response.values())
+            np.divide(response.values(), response.values().sum(axis=0), out=response_normed, where=response.values().sum(axis=0)!=0)
+
+            response.view()['value'] = response_normed
+
+            return response
+
     def get_histograms_flattened(
         self,
         variables, # list of str
@@ -747,7 +631,7 @@ class DataHandler(Mapping):
 
         self.reset_underflow_overflow_flags()
 
-def _filter_variable_names(variable_names):
+def filter_variable_names(variable_names):
     """
     Normalize a list of variables.
 
@@ -821,166 +705,3 @@ def standardize_dataset(features):
         deviation_one = centred_at_zero / np.std(centred_at_zero, axis=0)
 
         return deviation_one
-
-# Toy data
-class DataToy(DataHandler):
-    """
-    A randomly generated toy dataset.
-
-    The truth distribution is sampled from a normal distribution specified
-    by `mu` and `sigma`. The reconstructed distribution is obtained by adding
-    Gaussian noise with standard deviation 1 to the truth distribution.
-    """
-
-    def __init__(self):
-        self.data_reco = None
-        self.data_truth = None
-        self.pass_reco = None
-        self.pass_truth = None
-        self.weights = None
-        self.weights_mc = None
-
-    def generate(
-        self,
-        nevents,
-        varnames = ['x'],
-        mean = 0.,
-        covariance = 1.,
-        covariance_meas = 1.,
-        eff = 1.,
-        acc = 1.,
-        dummy_value = -10.
-        ):
-        """
-        Parameters
-        ----------
-        nevents : positive int
-            Number of events in the dataset
-        varname :  list of str, default: ['x']
-            List of variable names
-        mean : float or sequence of float, default: 0
-            Mean of the truth distribution.
-        covariance : float or 1D array of float or 2D array of float, default: 1
-            Covariance for generating toy data
-        covariance_meas : float or 1D array of float or 2D array of float, default: 1
-            Covariance for detector smearing
-        eff : positive float, default: 1
-            Reconstruction efficiency. Fraction of events in truth that are also in reco
-        acc : positivee float, default: 1
-            Acceptance. Fraction of the events in reco that also in truth
-        dummy_value : float, default -10.
-            Value assigned to events that are in reco but not truth or in truth but not reco
-        """
-
-        if np.asarray(mean).ndim == 0: # a float
-            mean = np.asarray([mean]) # change to a 1D array
-        else:
-            mean = np.asarray(mean)
-
-        if np.asarray(covariance).ndim == 0:
-            cov_t = np.diag([covariance]*len(varnames))
-        elif np.asarray(covariance).ndim == 1:
-            cov_t = np.diag(covariance)
-        elif np.asarray(covariance).ndim == 2:
-            cov_t = covariance
-        else:
-            print(f"ERROR: covariance_true has to be a float, 1D array of float, or 2D array of float")
-            return
-
-        if np.asarray(covariance_meas).ndim == 0:
-            cov_m = np.diag([covariance_meas]*len(varnames))
-        elif np.asarray(covariance_meas).ndim == 1:
-            cov_m = np.diag(covariance_meas)
-        elif np.asarray(covariance_meas).ndim == 2:
-            cov_m = covariance_meas
-        else:
-            print(f"ERROR: covariance_meas has to be a float, 1D array of float, or 2D array of float")
-            return
-
-        # generate toy data
-        # truth level
-        dtype_truth = [(v+'_truth', 'float') for v in varnames]
-        arr_truth = rng.multivariate_normal(mean, cov=cov_t, size=nevents)
-        self.data_truth = np.rec.fromarrays(arr_truth.T, dtype=dtype_truth)
-
-        # detector level
-        # define detector smearing
-        def measure(*data):
-            d = np.asarray(data)
-            s = rng.multivariate_normal([0.]*len(data), cov=cov_m)
-            return tuple(d+s)
-
-        #after smearing
-        dtype_reco = [(v+'_reco', 'float') for v in varnames]
-        self.data_reco = np.array([measure(*data) for data in self.data_truth], dtype=dtype_reco)
-
-        # efficiency
-        if eff < 1:
-            self.pass_reco = rng.binomial(1, eff, nevents).astype(bool)
-            self.data_reco[~self.pass_reco] = dummy_value
-        else:
-            self.pass_reco = np.full(nevents, True)
-
-        # acceptance
-        if acc < 1:
-            self.pass_truth = rng.binomial(1, acc, nevents).astype(bool)
-            self.data_truth[~self.pass_truth] = dummy_value
-        else:
-            self.pass_truth = np.full(nevents, True)
-
-        # all event weights are one for now
-        self.weights = np.ones(nevents)
-        self.weights_mc = np.ones(nevents)
-
-    def save_data(self, filepath, save_weights=True, save_pass=True):
-        d = {'reco' :  self.data_reco, 'truth' : self.data_truth}
-
-        if save_weights:
-            d['weights'] = self.weights
-            d['weights_mc'] = self.weights_mc
-
-        if save_pass:
-            d['pass_reco'] = self.pass_reco
-            d['pass_truth'] = self.pass_truth
-
-        np.savez(filepath, **d)
-
-    def load_data(self, filepaths):
-        if isinstance(filepaths, str):
-            filepaths = [filepaths]
-
-        for fpath in filepaths:
-            with np.load(fpath) as f:
-                if self.data_reco is None:
-                    self.data_reco = f['reco']
-                else:
-                    self.data_reco = np.concatenate((self.data_reco, f['reco']))
-
-                if self.data_truth is None:
-                    self.data_truth = f['truth']
-                else:
-                    self.data_truth = np.concatenate((self.data_truth, f['truth']))
-
-                wtmp = f['weights'] if 'weights' in f else np.ones(len(self.data_reco))
-                if self.weights is None:
-                    self.weights = wtmp
-                else:
-                    self.weights = np.concatenate((self.weights, wtmp))
-
-                wmctmp = f['weights_mc'] if 'weights_mc' in f else np.ones(len(self.data_truth))
-                if self.weights_mc is None:
-                    self.weights_mc = wmctmp
-                else:
-                    self.weights_mc = np.concatenate((self.weights_mc, wmctmp))
-
-                preco = f['pass_reco'] if 'pass_reco' in f else np.full(len(self.data_reco), True)
-                if self.pass_reco is None:
-                    self.pass_reco = preco
-                else:
-                    self.pass_reco = np.concatenate((self.pass_reco, preco))
-
-                ptruth = f['pass_truth'] if 'pass_truth' in f else np.full(len(self.data_truth), True)
-                if self.pass_truth is None:
-                    self.pass_truth = ptruth
-                else:
-                    self.pass_truth = np.concatenate((self.pass_truth, ptruth))

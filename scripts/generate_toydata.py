@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import time
-from datahandler import DataToy
+from datahandler_toy import DataHandlerToy
 
 def generate_toydata(
     nevents,
@@ -17,7 +17,7 @@ def generate_toydata(
     ):
 
     # Gen and Sim
-    toy_sim = DataToy()
+    toy_sim = DataHandlerToy()
     print(f"Generating toy data sim: mu={mu_sim}, cov={cov_sim}, cov_meas={cov_meas}, eff={eff}, acc={acc}")
     t_sim_start = time.time()
     toy_sim.generate(nevents=nevents, varnames=varnames, mean=mu_sim, covariance=cov_sim, covariance_meas=cov_meas, eff=eff, acc=acc)
@@ -29,7 +29,7 @@ def generate_toydata(
 
     # Data and Truth
     print(f"Generating toy data obs: mu={mu_obs}, cov={cov_obs}, cov_meas={cov_meas}, eff={eff}, acc={acc}")
-    toy_obs = DataToy()
+    toy_obs = DataHandlerToy()
     t_obs_start = time.time()
     toy_obs.generate(nevents=nevents, varnames=varnames, mean=mu_obs, covariance=cov_obs, covariance_meas=cov_meas, eff=eff, acc=acc)
     t_obs_done = time.time()

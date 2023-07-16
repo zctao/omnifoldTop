@@ -2,13 +2,14 @@
 import os
 import time
 import tracemalloc
+import numpy as np
 
 import util
 import metrics
 import plotter
 import histogramming as myhu
 from OmniFoldTTbar import load_unfolder
-from ibu import run_ibu_from_unfolder
+import ibu
 
 from ttbarDiffXsRun2.binnedCorrections import apply_efficiency_correction
 from ttbarDiffXsRun2.helpers import ttbar_diffXs_run2_params
@@ -27,6 +28,48 @@ keys_to_save = [
     'acceptance', 'efficiency'
     ]
 
+# Helper function to get histograms from unfolder
+def get_observed_distribution(
+    unfolder,
+    vname_reco,
+    bins_reco,
+    absoluteValue=False,
+    bootstrap=False,
+    subtract_background=False
+    ):
+
+    h_obs = unfolder.handle_obs.get_histogram(
+        vname_reco, bins_reco, density=False, absoluteValue=absoluteValue, bootstrap=bootstrap
+        )
+
+    if unfolder.handle_obsbkg is not None:
+        h_obs += unfolder.handle_obsbkg.get_histogram(
+            vname_reco, bins_reco, density=False, absoluteValue=absoluteValue
+            )
+
+    if subtract_background and unfolder.handle_bkg is not None:
+        h_bkg = unfolder.handle_bkg.get_histogram(
+            vname_reco, bins_reco, density=False, absoluteValue=absoluteValue
+            )
+
+        h_obs += (-1 * h_bkg)
+
+    return h_obs
+
+def get_response(
+    unfolder,
+    vname_reco,
+    vname_truth,
+    bins_reco,
+    bins_truth,
+    absoluteValue=False
+    ):
+
+    return unfolder.handle_sig.get_response(
+        vname_reco, vname_truth, bins_reco, bins_truth, absoluteValue
+        )
+
+####
 def make_histograms_of_observable(
     unfolder,
     observable, # str, name of the observable
@@ -176,13 +219,7 @@ def make_histograms_of_observable(
         absoluteValue_x = absValue,
         absoluteValue_y = absValue
         )
-
-    htemp_prior = hist2d_sig.project(1) # this includes underflow/overflow bins in axis 0
-    # Use the binning from the projected histogram but overwrite its content
-    # Exclude underflow and overflow bins
-    htemp_prior.view()['value'] = hist2d_sig.values().sum(axis=0)
-    htemp_prior.view()['variance'] = hist2d_sig.variances().sum(axis=0)
-    hists_v_d['prior_noflow'] = htemp_prior
+    hists_v_d['prior_noflow'] = myhu.projectToYaxis(hist2d_sig, flow=False)
 
     ##
     # truth distribution if using pseudo data
@@ -205,18 +242,14 @@ def make_histograms_of_observable(
             absoluteValue_x = absValue,
             absoluteValue_y = absValue
         )
-
-        htemp_truth = hist2d_obs.project(1)
-        htemp_truth.view()['value'] = hist2d_obs.values().sum(axis=0)
-        htemp_truth.view()['variance'] = hist2d_obs.variances().sum(axis=0)
-        hists_v_d['truth_noflow'] = htemp_truth
+        hists_v_d['truth_noflow'] = myhu.projectToYaxis(hist2d_obs, flow=False)
 
     ##
     # IBU
     if include_ibu:
         logger.info(f" Run IBU for {observable}")
 
-        hists_ibu_alliters, h_ibu_correlation, response = run_ibu_from_unfolder(
+        hists_ibu_alliters, h_ibu_correlation, response = ibu.run_ibu_from_unfolder(
             unfolder,
             varname_reco, varname_truth,
             bins_det, bins_mc,
@@ -254,21 +287,12 @@ def make_histograms_of_observable(
         logger.debug(f" Reco-level distributions")
 
         # observed data
-        h_data = unfolder.handle_obs.get_histogram(
+        hists_v_d['reco_data'] = get_observed_distribution(
+            unfolder,
             varname_reco,
             bins_det,
-            density = False,
             absoluteValue = absValue
-            )
-
-        if unfolder.handle_obsbkg is not None:
-            h_data += unfolder.handle_obsbkg.get_histogram(
-                varname_reco,
-                bins_det,
-                density = False,
-                absoluteValue = absValue)
-
-        hists_v_d['reco_data'] = h_data
+        )
 
         # signal simulation
         hists_v_d['reco_sig'] = unfolder.handle_sig.get_histogram(
