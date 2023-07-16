@@ -1,6 +1,6 @@
 {
-  "data" : ["/data/ztao/ttbarDiffXs13TeV/latest/mcWAlt/ttbar_nominal/mc16a/ttbar_0_pseudotop_parton_ejets.root"],
-  "signal" : ["/data/ztao/ttbarDiffXs13TeV/latest/mcWAlt/ttbar_nominal/mc16a/ttbar_1_pseudotop_parton_ejets.root"],
+  "data" : ["/mnt/xrootdg/ztao/NtupleTT/20221221/mcWAlt/ttbar_nominal/mc16a/ttbar_0_pseudotop_parton_ljets.root"],
+  "signal" : ["/mnt/xrootdg/ztao/NtupleTT/20221221/mcWAlt/ttbar_nominal/mc16a/ttbar_1_pseudotop_parton_ljets.root"],
   "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
   "iterations" : 3,
   "truth_known" : true,
@@ -12,5 +12,6 @@
   "run_ibu" : true,
   "gpu" : 1,
   "nruns": 2,
-  "parallel_models": 3
+  "parallel_models": 3,
+  "preprocessor_config": "configs/preprocessor/std.json"
 }
