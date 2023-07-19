@@ -2,52 +2,103 @@
 Module to handle binned corrections
 """
 import os
+import time
 
 import histogramming as myhu
 import FlattenedHistogram as fh
+import util
+from datahandler_root import DataHandlerROOT
 
 import logging
 logger = logging.getLogger("binnedCorrections")
 
 from ttbarDiffXsRun2.helpers import ttbar_diffXs_run2_params
 
-def compute_binned_corrections(
-    observable,
-    histograms_dict,
-    flow,
-    mcw = False
-    ):
+# Acceptance correction
+def compute_binned_acceptance(hist_response, hist_reco, flow):
+    hist_acc = myhu.projectToXaxis(hist_response, flow=flow)
+    hist_acc.name = "acceptance"
+    hist_acc = myhu.divide(hist_acc, hist_reco)
+    return hist_acc
 
-    if mcw:
-        h_resp = histograms_dict[observable][f"h2d_{observable}_response_mcWeight"]
-    else:
-        h_resp = histograms_dict[observable][f"h2d_{observable}_response"]
+def compute_binned_acceptance_multidim(fhist_response, fhist_reco, flow):
+    fhist_acc = fhist_response.projectToReco(flow=flow)
+    fhist_acc.name = "acceptance"
+    fhist_acc.divide(fhist_reco)
 
-    h_reco = histograms_dict[observable][f"h_{observable}_reco"]
-    h_truth = histograms_dict[observable][f"h_{observable}_truth"]
+    return fhist_acc
 
-    # Acceptance correction
-    h_acc = myhu.projectToXaxis(h_resp, flow=flow)
-    h_acc.name = "acceptance"
-    h_acc = myhu.divide(h_acc, h_reco)
-
-    # Efficiency correction
+# Efficiency correction
+def compute_binned_efficiency(hist_response, hist_truth, flow):
     # Scale the truth distribution by 1. / branching_ratio
     # https://gitlab.cern.ch/ttbarDiffXs13TeV/ttbarunfold/-/blob/42d07fa2d49bbf699905e05bbb86c6c6b68a8dbf/src/Spectrum.cxx#L645
-    h_truth *= 1. / ttbar_diffXs_run2_params['branching_ratio']
+    hist_truth = hist_truth * ( 1./ttbar_diffXs_run2_params['branching_ratio'] )
 
-    # h_resp_mcw instead?
-    h_eff = myhu.projectToYaxis(h_resp, flow=flow)
-    h_eff.name = "efficiency"
-    h_eff = myhu.divide(h_eff, h_truth)
+    hist_eff = myhu.projectToYaxis(hist_response, flow=flow)
+    hist_eff.name = "efficiency"
+    hist_eff = myhu.divide(hist_eff, hist_truth)
 
-    return h_acc, h_eff
+    return hist_eff
 
-def compute_binned_corrections_multidim(
+def compute_binned_efficiency_multidim(fhist_response, fhist_truth, flow):
+    # Scale the truth distribution by 1. / branching_ratio
+    fhist_truth.scale( 1./ttbar_diffXs_run2_params['branching_ratio'] )
+
+    fhist_eff = fhist_response.projectToTruth(flow=flow)
+    fhist_eff.name = "efficiency"
+    fhist_eff.divide(fhist_truth)
+
+    return fhist_eff
+
+def binned_corrections_observable(
     observable,
-    histograms_dict,
-    flow,
-    mcw = False
+    histograms_d,
+    handle_sim = None,
+    obsConfig_d = None,
+    flow=True
+    ):
+
+    # histograms
+    h_reco = histograms_d[observable][f"h_{observable}_reco"]
+    h_truth = histograms_d[observable][f"h_{observable}_truth"]
+
+    # response
+    if handle_sim is not None:
+        # recompute response from data handler
+        if not obsConfig_d:
+            raise RuntimeError("Cannot load arrays from data handler: no observable configuration dictionary provided")
+
+        resp = handle_sim.get_response(
+            obsConfig_d[observable]['branch_det'],
+            obsConfig_d[observable]['branch_mc'],
+            bins_reco = h_reco.axes[0].edges,
+            bins_truth = h_truth.axes[0].edges,
+            absoluteValue = '_abs' in observable,
+            normalize_truthbins = False
+            )
+    else:
+        # get the response from histograms_d
+        resp = histograms_d[observable][f"h2d_{observable}_response"]
+
+    acceptance = compute_binned_acceptance(resp, h_reco, flow=flow)
+    efficiency = compute_binned_efficiency(resp, h_truth, flow=flow)
+
+    hists_out_d = {
+        "acceptance": acceptance,
+        "efficiency": efficiency,
+        "response": resp,
+        "hreco": h_reco,
+        "htruth": h_truth
+    }
+
+    return hists_out_d
+
+def binned_corrections_observable_multidim(
+    observable,
+    histograms_d,
+    handle_sim = None,
+    obsConfig_d = None,
+    flow=True
     ):
 
     obs_list = observable.split("_vs_")
@@ -58,123 +109,127 @@ def compute_binned_corrections_multidim(
     else:
         raise RuntimeError(f"Observable {observable} is neither 2D nor 3D")
 
-    if mcw:
-        h_resp = histograms_dict[observable][f"{hname_prefix}_{observable}_response_mcWeight"]
+    # histograms
+    fh_reco = histograms_d[observable][f"{hname_prefix}_{observable}_reco"]
+    fh_truth = histograms_d[observable][f"{hname_prefix}_{observable}_truth"]
+
+    # response
+    if handle_sim is not None:
+        # recompute response from data handler
+        if not obsConfig_d:
+            raise RuntimeError("Cannot load arrays from data handler: no observable configuration dictionary provided")
+
+        varnames_reco = [obsConfig_d[obs]['branch_det'] for obs in obs_list]
+        varnames_truth = [obsConfig_d[obs]['branch_mc'] for obs in obs_list]
+
+        resp = handle_sim.get_response_flattened(
+            varnames_reco,
+            varnames_truth,
+            fh_reco.get_bins(),
+            fh_truth.get_bins(),
+            absoluteValues = ["_abs" in obs for obs in obs_list],
+            normalize_truthbins = False
+        )
     else:
-        h_resp = histograms_dict[observable][f"{hname_prefix}_{observable}_response"]
+        # get the response from histograms_d
+        # FIXME
+        resp = histograms_d[observable][f"{hname_prefix}_{observable}_response"]
 
-    h_reco = histograms_dict[observable][f"{hname_prefix}_{observable}_reco"]
-    h_truth = histograms_dict[observable][f"{hname_prefix}_{observable}_truth"]
+    acceptance = compute_binned_acceptance_multidim(resp, fh_reco, flow=flow)
+    efficiency = compute_binned_efficiency_multidim(resp, fh_truth, flow=flow)
 
-    # Acceptance correction
-    h_acc_flat = myhu.projectToXaxis(h_resp, flow=flow)
+    hists_out_d = {
+        "acceptance": acceptance,
+        "efficiency": efficiency,
+        "response": resp,
+        "hreco": fh_reco,
+        "htruth": fh_truth
+    }
 
-    h_acc = h_reco.copy()
-    h_acc.reset()
-    h_acc.fromFlat(h_acc_flat)
-
-    h_acc.divide(h_reco)
-
-    # Efficiency correction
-
-    # Scale the truth distribution by 1. / branching_ratio
-    # https://gitlab.cern.ch/ttbarDiffXs13TeV/ttbarunfold/-/blob/42d07fa2d49bbf699905e05bbb86c6c6b68a8dbf/src/Spectrum.cxx#L645
-    h_truth.scale(1. / ttbar_diffXs_run2_params['branching_ratio'])
-
-    h_eff_flat = myhu.projectToYaxis(h_resp,flow=flow)
-
-    h_eff = h_truth.copy()
-    h_eff.reset()
-    h_eff.fromFlat(h_eff_flat)
-
-    h_eff.divide(h_truth)
-
-    return h_acc, h_eff
-
-def collect_histograms(
-    histograms_dir, # str, top directory to collect histograms for computing corrections
-    observables=[], # list of str, names of observables to compute corrections
-    histogram_suffix = "_histograms.root",
-    output_name = None
-    ):
-
-    if not os.path.isdir(histograms_dir):
-        logger.error(f"Cannot access directory {histograms_dir}")
-        return {}
-
-    logger.info(f"Collect histogram files from {histograms_dir}")
-    fpaths_histogram = []
-    for r, d, files in os.walk(histograms_dir):
-        for fname in files:
-            if fname.endswith(histogram_suffix):
-                logger.debug(f" {os.path.join(r,fname)}")
-                fpaths_histogram.append(os.path.join(r,fname))
-
-    if not fpaths_histogram:
-        logger.error(f"Found no histogram file in {histograms_dir}")
-
-    histograms_d = {}
-
-    logger.info("Read histograms from files")
-    for fpath in fpaths_histogram:
-        hists_file_d = myhu.read_histograms_dict_from_file(fpath)
-
-        if not observables:
-            observables = list(hists_file_d.keys())
-
-        for ob in observables:
-
-            if not ob in hists_file_d:
-                logger.error(f"Cannot find histograms for {ob} in {fpath}")
-                continue
-
-            if not ob in histograms_d:
-                histograms_d[ob] = {}
-
-            for hname in hists_file_d[ob]:
-                if hname.startswith("Acceptance_") or hname.startswith("Efficiency_"):
-                    continue
-
-                if not hname in histograms_d[ob]:
-                    histograms_d[ob][hname] = hists_file_d[ob][hname]
-                else:
-                    histograms_d[ob][hname] += hists_file_d[ob][hname]
-
-    if output_name:
-        logger.info(f"Write histograms to file {output_name}")
-        myhu.write_histograms_dict_to_file(histograms_d, output_name)
-
-    return histograms_d
+    return hists_out_d
 
 def binned_corrections(
-    histograms_dict, # dict, collection of histograms from collect_histograms()
-    observables=[], # list of str, names of observables to compute corrections
-    flow = True, # bool, if True, include underflow and overflow bins
-    mc_weight = False, # bool, if True, use response with mc weight
-    output_name = None
+    fpath_histograms,
+    fpaths_sample = [],
+    observables = [],
+    flow = True,
+    output_name = None,
+    observable_config = 'configs/observables/vars_ttbardiffXs_pseudotop.json'
     ):
+
+    logger.info(f"Read histograms from {fpath_histograms}")
+    histograms_dict = myhu.read_histograms_dict_from_file(args.fpath_histograms)
+
+    if output_name:
+        outdir = os.path.dirname(output_name)
+        if not os.path.isdir(outdir):
+            logger.debug(f"Create output directory {outdir}")
+            os.makedirs(outdir)
+
+    if not observables:
+        observables = list(histograms_dict.keys())
+
+    obsCfg_d = util.read_dict_from_json(observable_config)
+
+    t_dh_start = time.time()
+
+    if fpaths_sample:
+        logger.info(f"Load data from {fpaths_sample}")
+
+        varnames_reco = set()
+        varnames_truth = set()
+        for obs in observables:
+            obs_list = obs.split("_vs_")
+            for ob in obs_list:
+                varnames_reco.add(obsCfg_d[ob]['branch_det'])
+                varnames_truth.add(obsCfg_d[ob]['branch_mc'])
+
+        dh_signal = DataHandlerROOT(
+            fpaths_sample,
+            list(varnames_reco),
+            list(varnames_truth),
+            treename_reco='reco',
+            treename_truth='parton',
+            weight_type='nominal',
+            matchDR = None
+            )
+
+        logger.info(f"Sample loaded")
+    else:
+        dh_signal = None
+
+    t_dh_done = time.time()
 
     logger.info("Compute corrections")
 
     corrections_d = {}
 
-    if not observables:
-        observables = list(histograms_dict.keys())
+    t_cor_start = time.time()
 
     for obs in observables:
-        logger.info(obs)
+        logger.info(f" {obs}")
 
         obs_list = obs.split("_vs_")
 
         corrections_d[obs] = {}
 
         if len(obs_list) == 1:
-            h_acc, h_eff = compute_binned_corrections(obs, histograms_dict, flow=flow, mcw=mc_weight)
+            hists_corr_d = binned_corrections_observable(
+                obs, histograms_dict, dh_signal, obsCfg_d, flow=flow
+                )
         else:
-            h_acc, h_eff = compute_binned_corrections_multidim(obs, histograms_dict, flow=flow, mcw=mc_weight)
+            hists_corr_d = binned_corrections_observable_multidim(
+                obs, histograms_dict, dh_signal, obsCfg_d, flow=flow
+                )
 
-        corrections_d[obs]['acceptance'] = h_acc
-        corrections_d[obs]['efficiency'] = h_eff
+        corrections_d[obs].update(hists_corr_d)
+
+    t_cor_done = time.time()
+    logger.info("Done")
+
+    logger.debug("Timing:")
+    logger.debug(f" Load samples: {(t_dh_done-t_dh_start):.2f} seconds")
+    logger.debug(f" Compute corrections: {(t_cor_done-t_cor_start):.2f} seconds")
 
     if output_name:
         logger.info(f"Write corrections to file {output_name}")
@@ -212,16 +267,17 @@ if __name__ == "__main__":
 
     parser.add_argument('fpath_histograms', type=str,
                         help="Filepath of histogram file or top directory to collect histograms for computing binned corrections")
+    parser.add_argument('-s', '--samples', type=str, nargs='+',
+                        help="List of sample file paths for building response matrices")
     parser.add_argument('-o', '--output', type=str, required=True,
                         help="Name of the output file for binned corrections")
     parser.add_argument('--observables', nargs='+', type=str,
                         help="List of observables. Use all that are available in the histograms if not specified")
+    parser.add_argument('--observable-config', type=str,
+                        default="configs/observables/vars_ttbardiffXs_pseudotop.json",
+                        help="File path to observable configuration")
     parser.add_argument('--no-flow', action='store_true',
                         help="If True, exclude underflow and overflow bins")
-    parser.add_argument('--mc-weight', action='store_true',
-                        help="If True, use the response with mc weights for computing binned corrections")
-    parser.add_argument('--histogram-outname', type=str,
-                        help="If specified, save the collected histograms to 'histogram_outname'")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="If True, set the logging level to DEBUG.")
 
@@ -231,19 +287,11 @@ if __name__ == "__main__":
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    if os.path.isdir(args.fpath_histograms):
-        hists_d = collect_histograms(args.fpath_histograms, args.observables)
-    else:
-        hists_d = myhu.read_histograms_dict_from_file(args.fpath_histograms)
-
-    if args.histogram_outname:
-        logger.info(f"Write histograms to file {args.histogram_outname}")
-        myhu.write_histograms_dict_to_file(hists_d, args.histogram_outname)
-
     binned_corrections(
-        hists_d,
+        args.fpath_histograms,
+        args.samples,
         observables=args.observables,
         flow = not args.no_flow,
-        mc_weight = args.mc_weight,
-        output_name=args.output
+        output_name=args.output,
+        observable_config = args.observable_config
         )
