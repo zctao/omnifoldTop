@@ -446,7 +446,8 @@ class DataHandlerBase(Mapping):
         variable_truth,
         bins_reco,
         bins_truth,
-        absoluteValue=False
+        absoluteValue=False,
+        normalize_truthbins=True
         ):
 
         if not self._in_data_reco(variable_reco):
@@ -460,13 +461,14 @@ class DataHandlerBase(Mapping):
                 absoluteValue_x=absoluteValue, absoluteValue_y=absoluteValue
             )
 
-            # normalize per truth bin to 1
-            #response.view()['value'] = response.values() / response.project(1).values()
-            #response.view()['value'] = response.values() / response.values().sum(axis=0)
-            response_normed = np.zeros_like(response.values())
-            np.divide(response.values(), response.values().sum(axis=0), out=response_normed, where=response.values().sum(axis=0)!=0)
+            if normalize_truthbins:
+                # normalize per truth bin to 1
+                #response.view()['value'] = response.values() / response.project(1).values()
+                #response.view()['value'] = response.values() / response.values().sum(axis=0)
+                response_normed = np.zeros_like(response.values())
+                np.divide(response.values(), response.values().sum(axis=0), out=response_normed, where=response.values().sum(axis=0)!=0)
 
-            response.view()['value'] = response_normed
+                response.view()['value'] = response_normed
 
             return response
 
@@ -547,6 +549,64 @@ class DataHandlerBase(Mapping):
                 )
         else:
             raise RuntimeError("Only 1D or 2D array or a list of 1D array of weights can be processed.")
+
+    def get_response_flattened(
+        self,
+        variables_reco, # list of str
+        variables_truth, # list of str
+        bins_reco_dict,
+        bins_truth_dict,
+        absoluteValues=False,
+        normalize_truthbins=True
+        ):
+
+        if not isinstance(absoluteValues, list):
+            absoluteValues = [absoluteValues] * len(variables_reco)
+
+        if len(variables_reco) == 2:
+            fh_reco = fh.FlattenedHistogram2D(bins_reco_dict, *variables_reco)
+            fh_truth = fh.FlattenedHistogram2D(bins_truth_dict, *variables_truth)
+        elif len(variables_reco) == 3:
+            fh_reco = fh.FlattenedHistogram3D(bins_reco_dict, *variables_reco)
+            fh_truth = fh.FlattenedHistogram3D(bins_truth_dict, *variables_truth)
+        else:
+            raise RuntimeError(f"Dimension {len(variables_reco)} flattened histograms currently not supported")
+
+        fh_response = fh.FlattenedResponse(fh_reco, fh_truth)
+
+        # event selections
+        passall = self.pass_reco & self.pass_truth
+
+        # data arrays
+        data_arr_reco = []
+        for vname, absolute in zip(variables_reco, absoluteValues):
+            varr_reco = self.get_arrays(vname, valid_only=False)
+            varr_reco = varr_reco[passall]
+
+            if absolute:
+                varr_reco = np.abs(varr_reco)
+
+            data_arr_reco.append(varr_reco)
+
+        data_arr_truth = []
+        for vname, absolute in zip(variables_truth, absoluteValues):
+            varr_truth = self.get_arrays(vname, valid_only=False)
+            varr_truth = varr_truth[passall]
+
+            if absolute:
+                varr_truth = np.abs(varr_truth)
+
+            data_arr_truth.append(varr_truth)
+
+        weight_arr = self.get_weights(reco_level=True, valid_only=False)
+        weight_arr = weight_arr[passall]
+
+        fh_response.fill(data_arr_reco, data_arr_truth, weight=weight_arr)
+
+        if normalize_truthbins:
+            fh_response.normalize_truth_bins()
+
+        return fh_response
 
     def remove_unmatched_events(self):
         # keep only events that pass all selections

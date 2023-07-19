@@ -366,7 +366,7 @@ def write_dict_uproot(file_to_write, obj_dict, top_dir=''):
             if isinstance(v, list):
                 for iv, vv in enumerate(v):
                     file_to_write[os.path.join(top_dir, f"{k}-list-{iv}")] = vv
-            elif isinstance(v, fh.FlattenedHistogram2D) or isinstance(v, fh.FlattenedHistogram3D):
+            elif isinstance(v, fh.FlattenedHistogram2D) or isinstance(v, fh.FlattenedHistogram3D) or isinstance(v, fh.FlattenedResponse):
                 v.write(file_to_write, os.path.join(top_dir, k))
             elif v is not None:
                 file_to_write[os.path.join(top_dir, k)] = v

@@ -103,6 +103,46 @@ class FlattenedHistogram2D():
         # also fill y hist
         self._yhist.fill(yarr, weight=weight)
 
+    def nbins(self):
+        nbins = 0
+
+        for ybin_label in self:
+            nbins += len(self[ybin_label].axes[0].edges) - 1
+
+        return nbins
+
+    def get_bins(self):
+        bins_d = {"axis": "x_vs_y"}
+
+        ybin_edges = self._yhist.axes[0].edges
+
+        for ibin, (ylow, yhigh) in enumerate(zip(ybin_edges[:-1], ybin_edges[1:])):
+            ybin_label = f"y_bin{ibin+1}"
+            bins_d[ybin_label] = {
+                "edge": [ylow, yhigh],
+                "x_bins": list(self[ybin_label].axes[0].edges)
+            }
+
+        return bins_d
+
+    def find_bins(self, xarr, yarr):
+        bin_indices = np.zeros(len(xarr), dtype=np.int32)
+
+        ybin_edges = self._yhist.axes[0].edges
+        ibin_offset = 0
+        for ibin, (ylow, yhigh) in enumerate(zip(ybin_edges[:-1], ybin_edges[1:])):
+            ybin_label = f"y_bin{ibin+1}"
+
+            ysel = (yarr >= ylow) & (yarr < yhigh)
+            xarr_sel = xarr[ysel]
+
+            xbin_edges = self[ybin_label].axes[0].edges
+            bin_indices[ysel] = np.searchsorted(xbin_edges, xarr_sel, side='right') + ibin_offset
+
+            ibin_offset += len(xbin_edges) - 1
+
+        return bin_indices
+
     def is_underflow_or_overflow(self, xarr, yarr):
         assert(len(xarr)==len(yarr))
 
@@ -117,6 +157,25 @@ class FlattenedHistogram2D():
             isflow[ysel] |= (xarr[ysel] < xbin_edges[0] | xarr[ysel] >= xbin_edges[-1])
 
         return isflow
+
+    def flatten_array(self, xarr, yarr):
+        condlist = []
+        funclist = []
+
+        ybin_edges = self._yhist.axes[0].edges
+
+        for ibin, (ylow, yhigh) in enumerate(zip(ybin_edges[:-1], ybin_edges[1:])):
+            ybin_label = f"y_bin{ibin+1}"
+            xbin_edges = self[ybin_label].axes[0].edges
+
+            ysel = (yarr >= ylow) & (yarr < yhigh)
+            condlist.append(ysel)
+
+            funclist.append(
+                lambda x, xbin_edges=xbin_edges, ylow=ylow, yhigh=yhigh: (x - xbin_edges[0]) / (xbin_edges[-1] - xbin_edges[0]) * (yhigh - ylow) + ylow
+            )
+
+        return np.piecewise(xarr, condlist, funclist)
 
     def flatten(self):
         hflat = None
@@ -471,6 +530,47 @@ class FlattenedHistogram3D():
         # also fill z hist
         self._zhist.fill(zarr, weight=weight)
 
+    def nbins(self):
+        nbins = 0
+
+        for zbin_label in self:
+            nbins += self[zbin_label].nbins()
+
+        return nbins
+
+    def get_bins(self):
+        bins_d = {"axis": "x_vs_y_vs_z"}
+
+        zbin_edges = self._zhist.axes[0].edges
+
+        for ibin, (zlow, zhigh) in enumerate(zip(zbin_edges[:-1], zbin_edges[1:])):
+            zbin_label = f"z_bin{ibin+1}"
+
+            bins_d[zbin_label] = {"edge": [zlow, zhigh]}
+            bins_d[zbin_label].update(
+                self[zbin_label].get_bins()
+            )
+
+        return bins_d
+
+    def find_bins(self, xarr, yarr, zarr):
+        bin_indices = np.zeros(len(xarr), dtype=np.int32)
+
+        zbin_edges = self._zhist.axes[0].edges
+        ibin_offset = 0
+        for ibin, (zlow, zhigh) in enumerate(zip(zbin_edges[:-1], zbin_edges[1:])):
+            zbin_label = f"z_bin{ibin+1}"
+
+            zsel = (zarr >= zlow) & (zarr < zhigh)
+            xarr_sel = xarr[zsel]
+            yarr_sel = yarr[zsel]
+
+            bin_indices[zsel] = self[zbin_label].find_bins(xarr_sel, yarr_sel) + ibin_offset
+
+            ibin_offset += self[zbin_label].nbins()
+
+        return bin_indices
+
     def is_underflow_or_overflow(self, xarr, yarr, zarr):
         assert(len(xarr)==len(yarr))
         assert(len(xarr)==len(zarr))
@@ -486,6 +586,31 @@ class FlattenedHistogram3D():
             isflow[zsel] |= self[zbin_label].is_underflow_or_overflow(xarr[zsel], yarr[zsel])
 
         return isflow
+
+    def flatten_array(self, xarr, yarr, zarr):
+        condlist = []
+        funclist = []
+
+        zbin_edges = self._zhist.axes[0].edges
+
+        xyarr = np.empty_like(xarr)
+
+        for ibin, (zlow, zhigh) in enumerate(zip(zbin_edges[:-1], zbin_edges[1:])):
+            zbin_label = f"z_bin{ibin+1}"
+
+            zsel = (zarr >= zlow) & (zarr < zhigh)
+            condlist.append(zsel)
+
+            h_xy_flat = self[zbin_label].flatten()
+            xybin_edges = h_xy_flat.axes[0].edges
+
+            funclist.append(
+                lambda xy, xybin_edges=xybin_edges, zlow=zlow, zhigh=zhigh: (xy - xybin_edges[0]) / (xybin_edges[-1] - xybin_edges[0]) * (zhigh - zlow) + zlow 
+            )
+
+            xyarr[zsel] = self[zbin_label].flatten_array( xarr[zsel], yarr[zsel])
+
+        return np.piecewise(xyarr, condlist, funclist)
 
     def flatten(self):
         hflat = None
@@ -754,6 +879,71 @@ class FlattenedHistogram3D():
             else:
                 # keep looking
                 FlattenedHistogram3D.convert_in_dict(hists_dict[k])
+
+class FlattenedResponse():
+    def __init__(self, flattenedHist_reco, flattenedHist_truth):
+        # for binning
+        self._fh_reco = flattenedHist_reco.copy()
+        self._fh_truth = flattenedHist_truth.copy()
+
+        # get flattened bins
+        bins_reco = self._fh_reco.flatten().axes[0].edges
+        bins_truth = self._fh_truth.flatten().axes[0].edges
+
+        self._resp = hist.Hist(hist.axis.Variable(bins_reco), hist.axis.Variable(bins_truth), storage=hist.storage.Weight())
+
+    def get(self):
+        return self._resp
+
+    def fill(self, arrs_reco, arrs_truth, weight=None):
+
+        arrs_reco_flat = self._fh_reco.flatten_array(*arrs_reco)
+        arrs_truth_flat = self._fh_truth.flatten_array(*arrs_truth)
+
+        if isinstance(weight, float):
+            weight = [weight] * len(arrs_reco_flat)
+
+        self._resp.fill(arrs_reco_flat, arrs_truth_flat, weight=weight)
+
+        self._fh_reco.fill(*arrs_reco, weight=weight)
+        self._fh_truth.fill(*arrs_truth, weight=weight)
+
+    def projectToReco(self, flow=True):
+        fh_proj_reco = self._fh_reco.copy()
+
+        fh_proj_reco.fromFlat(myhu.projectToXaxis(self._resp, flow=flow))
+
+        return fh_proj_reco
+
+    def projectToTruth(self, flow=True):
+        fh_proj_truth = self._fh_truth.copy()
+
+        fh_proj_truth.fromFlat(myhu.projectToYaxis(self._resp, flow=flow))
+
+        return fh_proj_truth
+
+    def normalize_truth_bins(self):
+        # normalize echo truth bin to sum of one
+        resp_normed = np.zeros_like(self._resp.values())
+
+        np.divide(self._resp.values(), self._resp.values().sum(axis=0), out=resp_normed, where=self._resp.values().sum(axis=0)!=0)
+
+        self._resp.view()['value'] = resp_normed
+
+    def write(self, f_write, directory):
+        f_write[os.path.join(directory, '_resp')] =  self._resp
+        self._fh_reco.write(f_write, os.path.join(directory, '_fh_reco'))
+        self._fh_truth.write(f_write, os.path.join(directory, '_fh_truth'))
+
+    @classmethod
+    def from_dict(cls, hists_d):
+        h_inst = cls()
+
+        h_inst._fh_reco = hists_d.get('_fh_reco')
+        h_inst._fh_truth = hists_d.get('_fh_truth')
+        h_inst._resp = hists_d.get('_resp')
+
+        return h_inst
 
 def average_histograms(histograms_list):
     if not histograms_list:
