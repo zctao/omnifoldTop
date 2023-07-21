@@ -349,9 +349,10 @@ class DataHandlerROOT(DataHandlerBase):
         ######
         # event selection flags
         self.pass_reco = select_reco(filepaths, treename=treename_reco)
-        self.pass_truth = select_parton(filepaths, treename=treename_truth)
+        if variable_names_mc:
+            self.pass_truth = select_parton(filepaths, treename=treename_truth)
 
-        if matchDR is not None:
+        if matchDR is not None and self.pass_truth is not None:
             self.pass_truth &= match_top_dR(
                 filepaths,
                 maxDR = matchDR,
