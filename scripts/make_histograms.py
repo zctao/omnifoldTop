@@ -613,7 +613,7 @@ def plot_histograms(
     if resp is not None:
         figname_resp = os.path.join(outdir, f"Response_{observable}")
         logger.info(f" Plot response: {figname_resp}")
-        plotter.plot_response(figname_resp, resp, observable)
+        plotter.plot_response(figname_resp, resp, observable, cmap='Blues')
 
     ###
     # Iteration history
