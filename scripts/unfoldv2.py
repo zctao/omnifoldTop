@@ -113,7 +113,8 @@ def unfold(**parsed_args):
         weight_type_mc = parsed_args["weight_mc"],
         use_toydata = parsed_args["toydata"],
         correct_efficiency = parsed_args['correct_efficiency'],
-        correct_acceptance = parsed_args['correct_acceptance']
+        correct_acceptance = parsed_args['correct_acceptance'],
+        match_dR = parsed_args['match_dR']
         )
 
     t_init_done = time.time()
@@ -331,6 +332,8 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="If True, exclude events in overflow and underflow bins given a binning configuration")
     parser.add_argument('--resume', action='store_true',
                         help="If True, load previously trained models and continue to run more steps if needed")
+    parser.add_argument('--match-dR', type=float,
+                        help="Require dR between the reco and truth tops less than the provided value")
 
     if print_help:
         parser.print_help()

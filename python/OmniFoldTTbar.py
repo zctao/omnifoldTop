@@ -29,7 +29,8 @@ def getDataHandler(
     variables_truth = [], # list of str
     reweighter = None,
     weight_type = 'nominal',
-    use_toydata = False
+    use_toydata = False,
+    match_dR = None
 ):
     input_ext = util.getFilesExtension(filepaths)
 
@@ -46,7 +47,8 @@ def getDataHandler(
         dh = DataHandlerROOT(
             filepaths, variables_reco, variables_truth,
             treename_reco=tree_reco, treename_truth=tree_truth,
-            weight_type=weight_type)
+            weight_type=weight_type,
+            matchDR=match_dR)
 
     else:
         raise ValueError(f"Don't have data handler for files with extension {input_ext}")
@@ -128,7 +130,9 @@ class OmniFoldTTbar():
         use_toydata=False,
         # Flags for efficiency and acceptance corrections
         correct_efficiency=False,
-        correct_acceptance=False
+        correct_acceptance=False,
+        # max dR for matching reco and truth tops
+        match_dR=None
     ):
 
         # output directory
@@ -172,7 +176,8 @@ class OmniFoldTTbar():
             weight_type_mc = weight_type_mc,
             use_toydata = use_toydata,
             correct_efficiency = correct_efficiency,
-            correct_acceptance = correct_acceptance
+            correct_acceptance = correct_acceptance,
+            match_dR = match_dR
         )
 
     def __del__(self):
@@ -195,6 +200,7 @@ class OmniFoldTTbar():
         use_toydata = False, # bool, optional
         correct_efficiency = False, # bool
         correct_acceptance = False, # bool
+        match_dR = None, # float
         ):
         """
         Load input files into data handlers: self.handle_obs, self.handle_sig, 
@@ -210,7 +216,8 @@ class OmniFoldTTbar():
             vars_truth if truth_known else [],
             reweighter = data_reweighter,
             weight_type = weight_type_data,
-            use_toydata = use_toydata
+            use_toydata = use_toydata,
+            match_dR = match_dR # For pseudo data TODO check this
             )
         logger.info(f"Total number of observed events: {len(self.handle_obs)}")
 
@@ -219,7 +226,8 @@ class OmniFoldTTbar():
         self.handle_sig = getDataHandler(
             filepaths_sig, vars_reco, vars_truth,
             weight_type = weight_type_mc,
-            use_toydata = use_toydata
+            use_toydata = use_toydata,
+            match_dR = match_dR
             )
         logger.info(f"Total number of signal events: {len(self.handle_sig)}")
 
@@ -866,7 +874,8 @@ def load_unfolder(
         outputdir = args_d['outputdir'],
         data_reweighter = rw,
         correct_efficiency = args_d.get('correct_efficiency', False),
-        correct_acceptance = args_d['correct_acceptance']
+        correct_acceptance = args_d['correct_acceptance'],
+        match_dR = args_d.get('match_dR')
     )
 
     if args_d['exclude_flow']:
