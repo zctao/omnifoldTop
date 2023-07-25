@@ -154,7 +154,7 @@ def reweight_samples(**parsed_args):
             w_bkg = w_background,
             model_type = parsed_args["model_type"],
             model_filepath_save = os.path.join(model_dir, "model"),
-            nsplit_cv = 2,
+            nsplit_cv = parsed_args['cross_validation'],
             batch_size = parsed_args['batch_size'],
             epochs = 100,
             calibrate = parsed_args['reweight_method']=='histogram',
@@ -271,6 +271,8 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument("--binning-config", type=str,
                         default='configs/binning/bins_ttdiffxs.json',
                         help="Path to the binning config file for variables.")
+    parser.add_argument("-c", "--cross-validation", type=int, default=2,
+                        help="Number of splits for cross validation")
 
     if print_help:
         parser.print_help()
