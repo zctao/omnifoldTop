@@ -13,11 +13,12 @@ from OmniFoldTTbar import getDataHandler
 from nnreweighter import train_and_reweight
 import plotter
 
+util.configRootLogger()
+logger = logging.getLogger("reweight_sample")
+
 def reweight_samples(**parsed_args):
 
     # Prepare logging
-    util.configRootLogger()
-    logger = logging.getLogger("nnreweight")
     logger.setLevel(logging.DEBUG if parsed_args['verbose']>0 else logging.INFO)
 
     logger.info(f"Hostname: {os.uname().nodename}")
@@ -53,14 +54,26 @@ def reweight_samples(**parsed_args):
     dh_source = getDataHandler(parsed_args['source'], varnames)
     logger.info(f"Total number of events in source: {len(dh_source)}")
 
+    if parsed_args['background']:
+        logger.info(f"Load background samples: {' '.join(parsed_args['background'])}")
+        dh_bkg = getDataHandler(parsed_args['background'], varnames)
+        logger.info(f"Total number of events in background: {len(dh_bkg)}")
+    else:
+        dh_bkg = None
+
     ######
     # feature arrays
     logger.info("Cconstruct feature and label arrays")
     target_arr = dh_target[varnames]
     source_arr = dh_source[varnames]
+    background_arr = dh_bkg[varnames] if dh_bkg is not None else None
 
     # preprocessing
-    X = np.concatenate([target_arr, source_arr])
+    if background_arr is None:
+        X = np.concatenate([target_arr, source_arr])
+    else:
+        X = np.concatenate([target_arr, background_arr, source_arr])
+
     xmean = np.mean(X, axis=0)
     xstd = np.std(X, axis=0)
 
@@ -70,43 +83,52 @@ def reweight_samples(**parsed_args):
     source_arr -= xmean
     source_arr /= xstd
 
+    if background_arr is not None:
+        background_arr -= xmean
+        background_arr /= xstd
+
     # event weights
     logger.info("Prepare weights")
-    w_target = dh_target.get_weights()
 
     if parsed_args['normalize_weight']:
         logger.info(f"Rescale source weights to be consistant with the target weights")
+
         sumw_target = dh_target.sum_weights()
         sumw_source = dh_source.sum_weights()
-        dh_source.rescale_weights(sumw_target/sumw_source)
+        sumw_bkg = dh_bkg.sum_weights() if dh_bkg is not None else 0
 
+        dh_source.rescale_weights( sumw_target/(sumw_source+sumw_bkg) )
+
+        if dh_bkg:
+            dh_bkg.rescale_weights( sumw_target/(sumw_source+sumw_bkg) )
+
+    w_target = dh_target.get_weights()
     w_source = dh_source.get_weights()
 
-    logger.debug(f"total weights (target): {dh_target.sum_weights()}")
-    logger.debug(f"total weights (source): {dh_source.sum_weights()}")
+    if dh_bkg is not None:
+        # subtract background from target
+        w_background = dh_bkg.get_weights()
+    else:
+        w_background = None
+
+    logger.debug(f"total weights (target): {w_target.sum()}")
+    logger.debug(f"total weights (source): {w_source.sum()}")
+    if w_background is not None:
+        logger.debug(f"total weights (background): {w_background.sum()}")
 
     ##
     # Plot input distributions
     if parsed_args['plot_verbosity'] > 1:
-        logger.info("Plot input distributions")
-        for obs, varr_1, varr_0 in zip(parsed_args['observables'], target_arr.T, source_arr.T):
-            logger.debug(f" Plot {obs}")
-            plotter.plot_hist(
-                os.path.join(parsed_args['outputdir'], f"input_{obs}"),
-                [varr_1, varr_0],
-                weight_arrs = [w_target, w_source],
-                labels = ['Target', 'Source'],
-                xlabel = obsCfg_d[obs]['xlabel'],
-                title = "Training inputs"
-            )
-
-        logger.info("Plot input weights")
-        plotter.plot_hist(
-            os.path.join(parsed_args['outputdir'], f"input_w"),
-            [w_target, w_source],
-            labels = ['Target', 'Source'],
-            xlabel = 'w',
-            title = "Training inputs"
+        plot_inputs(
+            arrays_1 = target_arr if background_arr is None else np.concatenate([target_arr, background_arr]),
+            arrays_0 = source_arr,
+            weights_1 = w_target if w_background is None else np.concatenate([w_target, w_background]),
+            weights_0 = w_source,
+            observables = parsed_args['observables'],
+            obsCfg_d = obsCfg_d,
+            outputdir = parsed_args['outputdir'],
+            label_1 = 'Target',
+            label_0 = 'Source'
         )
 
     if parsed_args['weights_file']:
@@ -128,6 +150,8 @@ def reweight_samples(**parsed_args):
             X_source = source_arr,
             w_target = w_target,
             w_source = w_source,
+            X_bkg = background_arr,
+            w_bkg = w_background,
             model_type = parsed_args["model_type"],
             model_filepath_save = os.path.join(model_dir, "model"),
             nsplit_cv = 2,
@@ -168,6 +192,10 @@ def reweight_samples(**parsed_args):
             absV = '_abs' in obs
 
             hist_target = dh_target.get_histogram(vname, binedges, absoluteValue=absV)
+            if dh_bkg:
+                hist_bkg = dh_bkg.get_histogram(vname, binedges, absoluteValue=absV)
+                hist_target += (-1 * hist_bkg)
+
             hist_source = dh_source.get_histogram(vname, binedges, absoluteValue=absV)
             hist_source_rw = dh_source.get_histogram(vname, binedges, weights=w_source * rw[:], absoluteValue=absV)
 
@@ -184,6 +212,30 @@ def reweight_samples(**parsed_args):
 
     file_rw.close()
 
+def plot_inputs(
+    arrays_1, arrays_0, weights_1, weights_0, observables, obsCfg_d, outputdir, label_1, label_0
+    ):
+    logger.info("Plot input distributions")
+    for obs, varr_1, varr_0 in zip(observables, arrays_1.T, arrays_0.T):
+        logger.debug(f" Plot {obs}")
+        plotter.plot_hist(
+            os.path.join(outputdir, f"input_{obs}"),
+            [varr_1, varr_0],
+            weight_arrs = [weights_1, weights_0],
+            labels = [label_1, label_0],
+            xlabel = obsCfg_d[obs]['xlabel'],
+            title = "Training inputs"
+        )
+
+    logger.info("Plot input weights")
+    plotter.plot_hist(
+        os.path.join(outputdir, f"input_w"),
+        [weights_1, weights_0],
+        labels = [label_1, label_0],
+        xlabel = 'w',
+        title = "Training inputs"
+    )
+
 def getArgsParser(arguments_list=None, print_help=False):
 
     parser = argparse.ArgumentParser()
@@ -192,6 +244,8 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="Target sample to reweight to as a list of root files")
     parser.add_argument('-s', '--source', required=True, nargs='+', type=str,
                         help="Source sample to be reweighted")
+    parser.add_argument('-b', '--background', nargs='+', type=str,
+                        help="Background contributions to be subtracted from target")
     parser.add_argument('--observables', nargs='+', type=str,
                         default=['th_pt','th_y','tl_pt','tl_y','mtt','ptt','ytt'],
                         help="List of observables used to train the classifier")

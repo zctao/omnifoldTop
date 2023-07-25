@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.model_selection import KFold
+from sklearn.utils import shuffle
 import hist
 
 from modelUtils import n_models_in_parallel, get_model, get_callbacks, train_model
@@ -21,7 +22,7 @@ def check_weights(w, nevents=None):
     elif len(w) != n_models_in_parallel:
         raise RuntimeError(f"The number of weight arrays provided in the list ({len(w)}) is inconsistent with the number of parallel models ({n_models_in_parallel})")
 
-    return w
+    return np.asarray(w)
 
 def set_up_model(
     model_type, # str, type of the network
@@ -59,12 +60,108 @@ def predict(model, events, batch_size):
 def reweight(preds):
     return np.nan_to_num( preds / (1. - preds))
 
+def _train_impl(
+    # Inputs
+    X_1,
+    w_1,
+    X_0,
+    w_0,
+    X_b = None,
+    w_b = None,
+    # model
+    model_type = 'dense_100x3',
+    skip_training = False,
+    model_filepath_load = None,
+    model_filepath_save = None,
+    # Training
+    resume_training = False,
+    batch_size = 20000,
+    epochs = 100
+    ):
+
+    # set up network
+    classifier = set_up_model(
+        model_type,
+        input_shape = X_0.shape[1:],
+        model_filepath_load = model_filepath_load,
+        resume_training = resume_training
+        )
+
+    if skip_training:
+        logger.info("Use trained model for reweighting")
+
+    else:
+        logger.info("Start training")
+
+        if X_b is None:
+            X_train = np.concatenate([X_0, X_1])
+            Y_train = np.concatenate([np.zeros(len(X_0)), np.ones(len(X_1))])
+            w_train = np.concatenate([w_0, w_1], axis=1)
+        else:
+            X_train = np.concatenate([X_0, X_1, X_b])
+            Y_train = np.concatenate([np.zeros(len(X_0)), np.ones(len(X_1)+len(X_b))])
+            w_train = np.concatenate([w_0, w_1, -1*w_b], axis=1)
+
+        train_model(
+            classifier,
+            X_train, Y_train, w_train,
+            batch_size = batch_size, epochs = epochs,
+            callbacks = get_callbacks(model_filepath_save),
+            )
+
+        logger.info("Training done")
+
+        if model_filepath_save:
+            logger.info("Save model to " + model_filepath_save)
+            classifier.save_weights(model_filepath_save)
+
+    return classifier
+
+def _reweight_impl(
+    classifier,
+    X_0,
+    w_0 = None,
+    X_1 = None,
+    w_1 = None,
+    X_b = None,
+    w_b = None,
+    batch_size = 20000,
+    calibrate = False,
+    hists_calib_0 = [],
+    hists_calib_1 = [],
+    ):
+    logger.info("Reweight")
+
+    preds_0 = predict(classifier, X_0, batch_size)
+
+    if calibrate:
+        if not hists_calib_0 or not hists_calib_1:
+            raise RuntimeError("Reweight with calibration but no histogram is initialized")
+
+        if X_1 is None or w_0 is None or w_1 is None:
+            raise RuntimeError("Reweight with calibration but either target array or weights are provided")
+
+        preds_1 = predict(classifier, X_1, batch_size)
+        preds_b = predict(classifier, X_b, batch_size) if X_b is not None else None
+
+        for i in range(n_models_in_parallel):
+            hists_calib_1[i].fill(preds_1[i], weight=w_1[i])
+
+            if preds_b is not None:
+                hists_calib_1[i].fill(preds_b[i], weight=-1*w_b[i])
+
+            hists_calib_0[i].fill(preds_0[i], weight=w_0[i])
+
+    return preds_0
+
 def train_and_reweight(
     # Inputs
     X_target, 
     X_source,
     w_target = None,
     w_source = None,
+    X_bkg = None,
+    w_bkg = None,
     # model
     model_type = 'dense_100x3',
     skip_training = False,
@@ -92,9 +189,16 @@ def train_and_reweight(
     w_target = check_weights(w_target, nevents = len(X_target))
     w_source = check_weights(w_source, nevents = len(X_source))
 
-    # labels
-    Y_target = np.ones(len(X_target))
-    Y_source = np.zeros(len(X_source))
+    # background to be subtracted from target
+    if X_bkg is not None:
+        # shuffle background
+        X_bkg, w_bkg = shuffle(X_bkg, w_bkg)
+        w_bkg = check_weights(w_bkg, nevents = len(X_bkg))
+
+    # shuffle
+    if X_bkg is not None:
+
+        X_bkg = X_bkg
 
     # model outputs
     preds_source = np.empty(shape=(n_models_in_parallel, len(X_source)))
@@ -105,71 +209,95 @@ def train_and_reweight(
         logger.debug(f"calibrator nbins = {nbins}")
         histogram_1 = [ hist.Hist(hist.axis.Regular(nbins, 0., 1.), storage=hist.storage.Weight()) for _ in range(n_models_in_parallel) ]
         histogram_0 = [ hist.Hist(hist.axis.Regular(nbins, 0., 1.), storage=hist.storage.Weight()) for _ in range(n_models_in_parallel) ]
+    else:
+        histogram_1, histogram_0 = [], []
 
-    # K-fold cross validation
-    logger.debug(f"nsplit_cv = {nsplit_cv}")
+    if nsplit_cv < 2:
+        classifier = _train_impl(
+            X_target, w_target,
+            X_source, w_source,
+            X_bkg, w_bkg,
+            model_type = model_type,
+            skip_training = skip_training,
+            model_filepath_load = model_filepath_load,
+            model_filepath_save = model_filepath_save,
+            resume_training = resume_training,
+            batch_size = batch_size,
+            epochs = epochs
+        )
 
-    kf = KFold(nsplit_cv)
+        preds_source[:] = _reweight_impl(
+            classifier,
+            X_source, w_source,
+            X_target, w_target,
+            X_bkg, w_bkg,
+            batch_size = batch_size,
+            calibrate = calibrate,
+            hists_calib_0 = histogram_0,
+            hists_calib_1 = histogram_1
+        )
 
-    for icv, ((index_train_source, index_test_source), (index_train_target, index_test_target)) in enumerate(zip(kf.split(X_source), kf.split(X_target))):
-        logger.info(f"KFold: {icv}")
+    else:
+        # K-fold cross validation
+        logger.debug(f"nsplit_cv = {nsplit_cv}")
+        kf = KFold(nsplit_cv)
 
-        model_filepath_load_icv = f"{model_filepath_load}_cv{icv}" if model_filepath_load else None
-        model_filepath_save_icv = f"{model_filepath_save}_cv{icv}" if model_filepath_save else None
+        i_source_gen = kf.split(X_source)
+        i_target_gen = kf.split(X_target)
+        i_bkg_gen = kf.split(X_bkg) if X_bkg is not None else None
 
-        # set up network
-        classifier = set_up_model(
-            model_type, 
-            input_shape = X_source.shape[1:],
-            model_filepath_load = model_filepath_load_icv,
-            resume_training = resume_training
-            )
-
-        if skip_training:
-            logger.info("Use trained model for reweighting")
-
+        if i_bkg_gen is None:
+            index_gen_zip = zip(i_source_gen, i_target_gen)
         else:
-            logger.info("Start training")
+            index_gen_zip = zip(i_source_gen, i_target_gen, i_bkg_gen)
 
-            X_train = np.concatenate([X_source[index_train_source], X_target[index_train_target]])
-            Y_train = np.concatenate([Y_source[index_train_source], Y_target[index_train_target]])
-            w_train = np.concatenate([np.asarray(w_source)[:,index_train_source], np.asarray(w_target)[:,index_train_target]], axis=1)
+        for icv, indices in enumerate(index_gen_zip):
+            logger.info(f"KFold: {icv}")
 
-            train_model(
-                classifier,
-                X_train, Y_train, w_train,
-                batch_size = batch_size, epochs = epochs,
-                callbacks = get_callbacks(model_filepath_save_icv),
-                )
-            
-            logger.info("Training done")
+            # unpack indices
+            indices_train_source, indices_test_source = indices[0]
+            indices_train_target, indices_test_target = indices[1]
 
-            if model_filepath_save_icv:
-                logger.info("Save model to " + model_filepath_save_icv)
-                classifier.save_weights(model_filepath_save_icv)
+            if len(indices) > 2:
+                indices_train_bkg, indices_test_bkg = indices[2]
+            else:
+                indices_train_bkg, indices_test_bkg = None, None
 
-        # reweight
-        logger.info("Reweight")
+            # model file paths
+            model_filepath_load_icv = f"{model_filepath_load}_cv{icv}" if model_filepath_load else None
+            model_filepath_save_icv = f"{model_filepath_save}_cv{icv}" if model_filepath_save else None
 
-        preds_source[:,index_test_source] = predict(
-            classifier, X_source[index_test_source], batch_size=batch_size
+            classifier = _train_impl(
+                X_target[indices_train_target],
+                w_target[:, indices_train_target],
+                X_source[indices_train_source],
+                w_source[:, indices_train_source],
+                X_bkg[indices_train_bkg] if indices_train_bkg is not None else None,
+                w_bkg[:, indices_train_bkg] if indices_train_bkg is not None else None,
+                model_type = model_type,
+                skip_training = skip_training,
+                model_filepath_load = model_filepath_load_icv,
+                model_filepath_save = model_filepath_save_icv,
+                resume_training = resume_training,
+                batch_size = batch_size,
+                epochs = epochs
             )
 
-        if calibrate:
-            preds_test_target = predict(
-                classifier, X_target[index_test_target], batch_size=batch_size
-                )
+            preds_source[:, indices_test_source] = _reweight_impl(
+                classifier,
+                X_source[indices_test_source],
+                w_source[:,indices_test_source],
+                X_target[indices_test_target],
+                w_target[:,indices_test_target],
+                X_bkg[indices_test_bkg] if indices_test_bkg is not None else None,
+                w_bkg[:, indices_test_bkg] if indices_test_bkg is not None else None,
+                batch_size = batch_size,
+                calibrate = calibrate,
+                hists_calib_0 = histogram_0,
+                hists_calib_1 = histogram_1
+            )
 
-            for i in range(n_models_in_parallel):
-                histogram_1[i].fill(
-                    preds_test_target[i], weight=w_target[i][index_test_target]
-                    )
-
-                histogram_0[i].fill(
-                    preds_source[i,index_test_source], weight=w_source[i][index_test_source]
-                    )
-
-    # end of cross validation loop
+        # end of cross validation loop
 
     if calibrate:
         rw = np.empty_like(preds_source)
