@@ -292,7 +292,8 @@ def plot_hist(
     nbins=20,
     xlabel='',
     ylabel='',
-    title=''
+    title='',
+    bin_margin=0.1
     ):
     """
     Plot a series of datasets as 1d histograms.
@@ -321,10 +322,12 @@ def plot_hist(
         Y-axis label
     title: str, optional
         Histogram title
+    bin_margin: float, optional
+        Margin in percentage for determining bin edges
     """
-    xmax = max([np.max(data) for data in data_arrs])
-    xmin = min([np.min(data) for data in data_arrs])
-    margin = (xmax - xmin) * 0.1
+    xmax = max([np.nanmax(data) for data in data_arrs])
+    xmin = min([np.nanmin(data) for data in data_arrs])
+    margin = (xmax - xmin) * bin_margin
     bins = np.linspace(xmin-margin, xmax+margin, nbins+1)
 
     if weight_arrs is None:

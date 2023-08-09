@@ -173,7 +173,6 @@ def get_bins_dict(fname_bins):
 def gaus(x, a, mu, sigma):
     return a*np.exp(-(x-mu)**2/(2*sigma**2))
 
-import math
 def fit_gaussian_to_hist(histogram, binedges, dofit=True):
 
     midbins = (binedges[:-1] + binedges[1:]) / 2.

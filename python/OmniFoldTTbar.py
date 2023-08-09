@@ -30,7 +30,8 @@ def getDataHandler(
     reweighter = None,
     weight_type = 'nominal',
     use_toydata = False,
-    match_dR = None
+    match_dR = None,
+    plot_dir = None
 ):
     input_ext = util.getFilesExtension(filepaths)
 
@@ -48,7 +49,7 @@ def getDataHandler(
             filepaths, variables_reco, variables_truth,
             treename_reco=tree_reco, treename_truth=tree_truth,
             weight_type=weight_type,
-            matchDR=match_dR)
+            matchDR=match_dR, plot_dir=plot_dir)
 
     else:
         raise ValueError(f"Don't have data handler for files with extension {input_ext}")
@@ -217,7 +218,7 @@ class OmniFoldTTbar():
             reweighter = data_reweighter,
             weight_type = weight_type_data,
             use_toydata = use_toydata,
-            match_dR = match_dR # For pseudo data TODO check this
+            match_dR = match_dR # For pseudo data
             )
         logger.info(f"Total number of observed events: {len(self.handle_obs)}")
 

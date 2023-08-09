@@ -22,6 +22,8 @@ parser.add_argument('-o', '--outputdir', type=str, default='.',
 parser.add_argument("--binning-config", type=str,
                     default='configs/binning/bins_ttdiffxs.json',
                     help="Path to the binning config file for variables.")
+parser.add_argument('--match-dR', type=float,
+                    help="Require dR between the reco and truth tops less than the provided value")
 
 args = parser.parse_args()
 
@@ -39,7 +41,11 @@ binCfg_d = util.get_bins_dict(args.binning_config)
 
 # Load samples
 logger.info(f"Load samples from {args.samples}")
-dh = getDataHandler(args.samples, varnames_reco, varnames_truth)
+dh = getDataHandler(
+    args.samples, varnames_reco, varnames_truth,
+    match_dR = args.match_dR,
+    plot_dir = args.outputdir
+    )
 
 response_obs_d = {}
 

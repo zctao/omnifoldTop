@@ -1,8 +1,10 @@
 import numpy as np
 import math
 import uproot
+import os
 
 from datahandler import DataHandlerBase, filter_variable_names
+import plotter
 
 import logging
 logger = logging.getLogger('datahandler_root')
@@ -249,7 +251,8 @@ def match_top_dR(
     file_names,
     maxDR = 0.8,
     treename_reco='reco',
-    treename_truth='parton'
+    treename_truth='parton',
+    plot_dir=None
     ):
     aliases_reco = {
         'th_y' : 'PseudoTop_Reco_top_had_y',
@@ -277,11 +280,25 @@ def match_top_dR(
         aliases = aliases_truth
     ).to_numpy()
 
-    th_dR = compute_dR(array_reco['th_phi'], array_reco['th_y'], array_truth['th_phi'], array_truth['th_y'])
+    dR_th = compute_dR(array_reco['th_phi'], array_reco['th_y'], array_truth['th_phi'], array_truth['th_y'])
 
-    tl_dR = compute_dR(array_reco['tl_phi'], array_reco['tl_y'], array_truth['tl_phi'], array_truth['tl_y'])
+    dR_tl = compute_dR(array_reco['tl_phi'], array_reco['tl_y'], array_truth['tl_phi'], array_truth['tl_y'])
 
-    passcuts = (th_dR < maxDR) & (tl_dR < maxDR)
+    passcuts = (dR_th < maxDR) & (dR_tl < maxDR)
+
+    if plot_dir:
+        # plot distributions of th_dR and tl_dR
+        plotter.plot_hist(
+            os.path.join(plot_dir, 'dR_th'), [dR_th],
+            nbins = 50, bin_margin = 0.02,
+            xlabel = "$\\Delta R(t_{had}^{reco}, t_{had}^{part})$", ylabel = "Events"
+        )
+
+        plotter.plot_hist(
+            os.path.join(plot_dir, 'dR_tl'), [dR_tl],
+            nbins = 50, bin_margin = 0.02,
+            xlabel = "$\\Delta R(t_{lep}^{reco}, t_{lep}^{part})$", ylabel = "Events"
+        )
 
     return passcuts
 
@@ -314,7 +331,8 @@ class DataHandlerROOT(DataHandlerBase):
         treename_truth='parton',
         weight_name_nominal='normalized_weight',
         weight_type='nominal',
-        matchDR = None # float
+        matchDR = None, # float
+        plot_dir = None, # str
         ):
 
         super().__init__()
@@ -357,7 +375,8 @@ class DataHandlerROOT(DataHandlerBase):
                 filepaths,
                 maxDR = matchDR,
                 treename_reco = treename_reco,
-                treename_truth = treename_truth
+                treename_truth = treename_truth,
+                plot_dir = plot_dir
                 )
 
         ######
