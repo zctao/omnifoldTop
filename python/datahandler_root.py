@@ -302,6 +302,159 @@ def match_top_dR(
 
     return passcuts
 
+def match_top_decays_dR(
+    file_names,
+    maxDR = 0.8,
+    treename_reco='reco',
+    treename_truth='parton',
+    plot_dir=None
+    ):
+
+    arrays_reco = uproot.concatenate(
+        [f"{fname}:{treename_reco}" for fname in file_names],
+        [
+            #'PseudoTop_Reco_bhad_jetIndex', 'PseudoTop_Reco_blep_jetIndex',
+            'PseudoTop_Reco_lq1_jetIndex', 'PseudoTop_Reco_lq2_jetIndex', 'PseudoTop_Reco_nu_eta', 'PseudoTop_Reco_nu_phi',
+            'lep_eta','lep_phi', 'jet_eta', 'jet_phi'
+        ]
+    )
+
+    arrays_truth = uproot.concatenate(
+        [f"{fname}:{treename_truth}" for fname in file_names],
+        [
+            #'MC_b_from_tbar_afterFSR_eta', 'MC_b_from_tbar_afterFSR_phi',
+            #'MC_b_from_t_afterFSR_eta', 'MC_b_from_t_afterFSR_phi',
+            #'MC_W_from_tbar_afterFSR_eta', 'MC_W_from_tbar_afterFSR_phi',
+            #'MC_W_from_t_afterFSR_eta', 'MC_W_from_t_afterFSR_phi',
+            # In the current version of mini-ntuples MINI362, the above branches are zeros
+            # also: MC_Wdecay2_from_t_afterFSR_eta
+            'MC_Wdecay1_from_tbar_afterFSR_y', 'MC_Wdecay1_from_tbar_afterFSR_phi', 'MC_Wdecay1_from_tbar_afterFSR_pdgid',
+            'MC_Wdecay2_from_tbar_afterFSR_y', 'MC_Wdecay2_from_tbar_afterFSR_phi', 'MC_Wdecay2_from_tbar_afterFSR_pdgid',
+            'MC_Wdecay1_from_t_afterFSR_y', 'MC_Wdecay1_from_t_afterFSR_phi', 'MC_Wdecay1_from_t_afterFSR_pdgid',
+            'MC_Wdecay2_from_t_afterFSR_y', 'MC_Wdecay2_from_t_afterFSR_phi', 'MC_Wdecay2_from_t_afterFSR_pdgid',
+         ]
+    )
+
+    # reco
+    reco_lep_eta = arrays_reco['lep_eta'].to_numpy()
+    reco_lep_phi = arrays_reco['lep_phi'].to_numpy()
+    reco_nu_eta = arrays_reco['PseudoTop_Reco_nu_eta'].to_numpy()
+    reco_nu_phi = arrays_reco['PseudoTop_Reco_nu_phi'].to_numpy()
+
+    reco_lq1_idx = arrays_reco['PseudoTop_Reco_lq1_jetIndex']
+    reco_lq2_idx = arrays_reco['PseudoTop_Reco_lq2_jetIndex']
+
+    nevents = len(arrays_reco)
+    reco_lq1_eta = arrays_reco['jet_eta'][np.arange(nevents),reco_lq1_idx].to_numpy()
+    reco_lq1_phi = arrays_reco['jet_phi'][np.arange(nevents),reco_lq1_idx].to_numpy()
+    reco_lq2_eta = arrays_reco['jet_eta'][np.arange(nevents),reco_lq2_idx].to_numpy()
+    reco_lq2_phi = arrays_reco['jet_phi'][np.arange(nevents),reco_lq2_idx].to_numpy()
+
+    # truth
+    etalist = [
+        arrays_truth['MC_Wdecay1_from_t_afterFSR_y'].to_numpy(),
+        arrays_truth['MC_Wdecay2_from_t_afterFSR_y'].to_numpy(),
+        arrays_truth['MC_Wdecay1_from_tbar_afterFSR_y'].to_numpy(),
+        arrays_truth['MC_Wdecay2_from_tbar_afterFSR_y'].to_numpy()
+    ]
+
+    philist = [
+        arrays_truth['MC_Wdecay1_from_t_afterFSR_phi'].to_numpy(),
+        arrays_truth['MC_Wdecay2_from_t_afterFSR_phi'].to_numpy(),
+        arrays_truth['MC_Wdecay1_from_tbar_afterFSR_phi'].to_numpy(),
+        arrays_truth['MC_Wdecay2_from_tbar_afterFSR_phi'].to_numpy()
+    ]
+
+    islep_t = abs(arrays_truth['MC_Wdecay1_from_t_afterFSR_pdgid']) > 10
+    oddID_t_wd1 = arrays_truth['MC_Wdecay1_from_t_afterFSR_pdgid']%2 == 1
+    islep_tbar = abs(arrays_truth['MC_Wdecay1_from_tbar_afterFSR_pdgid']) > 10
+    oddID_tbar_wd1 = arrays_truth['MC_Wdecay1_from_tbar_afterFSR_pdgid']%2 == 1
+
+    islep_t = islep_t.to_numpy()
+    oddID_t_wd1 = oddID_t_wd1.to_numpy()
+    islep_tbar = islep_tbar.to_numpy()
+    oddID_tbar_wd1 = oddID_tbar_wd1.to_numpy()
+
+    condlist_islep = [islep_t & oddID_t_wd1, islep_t & (~oddID_t_wd1), islep_tbar & oddID_tbar_wd1, islep_tbar & (~oddID_tbar_wd1)]
+
+    MC_lep_eta = np.select(condlist_islep, etalist, default=-66.)
+    MC_lep_phi = np.select(condlist_islep, philist, default=-66.)
+
+    condlist_isnu = [islep_t & (~oddID_t_wd1), islep_t & oddID_t_wd1, islep_tbar & (~oddID_tbar_wd1), islep_tbar & oddID_tbar_wd1]
+
+    MC_nu_eta = np.select(condlist_isnu, etalist, default=-66.)
+    MC_nu_phi = np.select(condlist_isnu, philist, default=-66.)
+
+    MC_lq1_eta = np.where(~islep_t, etalist[0], etalist[2])
+    MC_lq1_phi = np.where(~islep_t, philist[0], philist[2])
+
+    MC_lq2_eta = np.where(~islep_t, etalist[1], etalist[3])
+    MC_lq2_phi = np.where(~islep_t, philist[1], philist[3])
+
+    # dR
+    dR_lep = compute_dR(reco_lep_phi, reco_lep_eta, MC_lep_phi, MC_lep_eta)
+    dR_nu = compute_dR(reco_nu_phi, reco_nu_eta, MC_nu_phi, MC_nu_eta)
+
+    dR_lq1_1 = compute_dR(reco_lq1_phi, reco_lq1_eta, MC_lq1_phi, MC_lq1_eta)
+    dR_lq1_2 = compute_dR(reco_lq1_phi, reco_lq1_eta, MC_lq2_phi, MC_lq2_eta)
+    dR_lq2_1 = compute_dR(reco_lq2_phi, reco_lq2_eta, MC_lq1_phi, MC_lq1_eta)
+    dR_lq2_2 = compute_dR(reco_lq2_phi, reco_lq2_eta, MC_lq2_phi, MC_lq2_eta)
+
+    lep_match = (dR_lep < maxDR) & (dR_nu < maxDR)
+    jet_match = ( (dR_lq1_1 < maxDR) & (dR_lq2_2 < maxDR) ) | ( (dR_lq1_2 < maxDR) & (dR_lq2_1 < maxDR) )
+
+    if plot_dir:
+        # plot distributions of dRs
+        plotter.plot_hist(
+            os.path.join(plot_dir, 'dR_lep'), [dR_lep],
+            nbins = 50, bin_margin = 0.02,
+            xlabel = "$\\Delta R(l^{reco}, l^{part})$", ylabel = "Events"
+        )
+
+        plotter.plot_hist(
+            os.path.join(plot_dir, 'dR_nu'), [dR_nu],
+            nbins = 50, bin_margin = 0.02,
+            xlabel = "$\\Delta R(\\nu^{reco}, \\nu^{part})$", ylabel = "Events"
+        )
+
+        plotter.plot_hist(
+            os.path.join(plot_dir, 'dR_lq1_1'), [dR_lq1_1],
+            nbins = 50, bin_margin = 0.02,
+            xlabel = "$\\Delta R(lq_1^{reco}, lq_1^{part})$", ylabel = "Events",
+        )
+
+        plotter.plot_hist(
+            os.path.join(plot_dir, 'dR_lq1_2'), [dR_lq1_2],
+            nbins = 50, bin_margin = 0.02,
+            xlabel = "$\\Delta R(lq_1^{reco}, lq_2^{part})$", ylabel = "Events",
+        )
+
+        plotter.plot_hist(
+            os.path.join(plot_dir, 'dR_lq2_1'), [dR_lq2_1],
+            nbins = 50, bin_margin = 0.02,
+            xlabel = "$\\Delta R(lq_2^{reco}, lq_1^{part})$", ylabel = "Events",
+        )
+
+        plotter.plot_hist(
+            os.path.join(plot_dir, 'dR_lq2_2'), [dR_lq2_2],
+            nbins = 50, bin_margin = 0.02,
+            xlabel = "$\\Delta R(lq_2^{reco}, lq_2^{part})$", ylabel = "Events",
+        )
+
+        plotter.plot_hist(
+            os.path.join(plot_dir, 'dR_lq1'), [np.nanmin([dR_lq1_1, dR_lq1_2],axis=0)],
+            nbins = 50, bin_margin = 0.02,
+            xlabel = "$min(\\Delta R(lq_1^{reco}, lq_1^{part}),\\Delta R(lq_1^{reco}, lq_2^{part}))$", ylabel = "Events",
+        )
+
+        plotter.plot_hist(
+            os.path.join(plot_dir, 'dR_lq2'), [np.nanmin([dR_lq2_1, dR_lq2_2],axis=0)],
+            nbins = 50, bin_margin = 0.02,
+            xlabel = "$min(\\Delta R(lq^2_{reco}, lq^1_{part}),\\Delta R(lq^2_{reco}, lq^2_{part}))$", ylabel = "Events",
+        )
+
+    return lep_match & jet_match
+
 class DataHandlerROOT(DataHandlerBase):
     """
     Load data from root files
@@ -372,6 +525,7 @@ class DataHandlerROOT(DataHandlerBase):
 
         if matchDR is not None and self.pass_truth is not None:
             self.pass_truth &= match_top_dR(
+            #self.pass_truth &= match_top_decays_dR(
                 filepaths,
                 maxDR = matchDR,
                 treename_reco = treename_reco,
