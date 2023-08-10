@@ -3,7 +3,7 @@ import math
 import uproot
 import os
 
-from datahandler import DataHandlerBase, filter_variable_names
+from datahandler_base import DataHandlerBase, filter_variable_names
 import plotter
 
 import logging
@@ -484,7 +484,7 @@ class DataHandlerROOT(DataHandlerBase):
         treename_truth='parton',
         weight_name_nominal='normalized_weight',
         weight_type='nominal',
-        matchDR = None, # float
+        match_dR = None, # float
         plot_dir = None, # str
         ):
 
@@ -523,11 +523,11 @@ class DataHandlerROOT(DataHandlerBase):
         if variable_names_mc:
             self.pass_truth = select_parton(filepaths, treename=treename_truth)
 
-        if matchDR is not None and self.pass_truth is not None:
+        if match_dR is not None and self.pass_truth is not None:
             self.pass_truth &= match_top_dR(
             #self.pass_truth &= match_top_decays_dR(
                 filepaths,
-                maxDR = matchDR,
+                maxDR = match_dR,
                 treename_reco = treename_reco,
                 treename_truth = treename_truth,
                 plot_dir = plot_dir

@@ -2,7 +2,7 @@ import numpy as np
 from numpy.random import default_rng
 rng = default_rng()
 
-from datahandler import DataHandlerBase
+from datahandler_base import DataHandlerBase
 
 # Toy data
 class DataHandlerToy(DataHandlerBase):

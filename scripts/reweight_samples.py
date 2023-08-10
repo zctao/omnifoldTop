@@ -9,7 +9,7 @@ import h5py
 
 import util
 import modelUtils
-from OmniFoldTTbar import getDataHandler
+from datahandler import getDataHandler
 from nnreweighter import train_and_reweight
 import plotter
 

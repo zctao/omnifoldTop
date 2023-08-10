@@ -9,8 +9,7 @@ import plotter
 import reweight
 import histogramming as myhu
 import FlattenedHistogram as fh
-from datahandler_toy import DataHandlerToy
-from datahandler_root import DataHandlerROOT
+from datahandler import getDataHandler
 from omnifold import omnifold
 import modelUtils
 import preprocessor
@@ -21,45 +20,6 @@ logger.setLevel(logging.DEBUG)
 
 from numpy.random import default_rng
 rng = default_rng()
-
-# maybe put the following in datahandler.py
-def getDataHandler(
-    filepaths, # list of str
-    variables_reco, # list of str
-    variables_truth = [], # list of str
-    reweighter = None,
-    weight_type = 'nominal',
-    use_toydata = False,
-    match_dR = None,
-    plot_dir = None
-):
-    input_ext = util.getFilesExtension(filepaths)
-
-    if use_toydata:
-        dh = DataHandlerToy()
-        dh.load_data(filepaths)
-
-    elif input_ext == ".root":
-        # ROOT files
-        # hard code tree names here for now
-        tree_reco = 'reco'
-        tree_truth = 'parton' if variables_truth else None
-
-        dh = DataHandlerROOT(
-            filepaths, variables_reco, variables_truth,
-            treename_reco=tree_reco, treename_truth=tree_truth,
-            weight_type=weight_type,
-            matchDR=match_dR, plot_dir=plot_dir)
-
-    else:
-        raise ValueError(f"Don't have data handler for files with extension {input_ext}")
-
-    if reweighter is not None:
-        # TODO: check if variables required by reweighter are included
-        dh.rescale_weights(reweighter=reweighter)
-
-    return dh
-##
 
 def read_weights_from_npz(filepaths_weights):
 

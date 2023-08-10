@@ -3,7 +3,7 @@ import logging
 import argparse
 
 import util
-from OmniFoldTTbar import getDataHandler
+from datahandler import getDataHandler
 import histogramming as myhu
 import plotter
 

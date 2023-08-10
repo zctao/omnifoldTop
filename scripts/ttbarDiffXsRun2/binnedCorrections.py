@@ -191,7 +191,7 @@ def binned_corrections(
             treename_reco='reco',
             treename_truth='parton',
             weight_type='nominal',
-            matchDR = None
+            match_dR = None
             )
 
         logger.info(f"Sample loaded")
