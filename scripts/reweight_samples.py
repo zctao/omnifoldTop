@@ -144,7 +144,20 @@ def reweight_samples(**parsed_args):
 
         file_rw = h5py.File(os.path.join(parsed_args['outputdir'], "reweights.h5"), "w")
 
+        # create datasets
+        # reweighting factors (only events that passed selections)
         rw = file_rw.create_dataset("rw", shape=(len(source_arr),))
+
+        # event selection flags
+        # FIXME hardcode pass_reco for reco-level variables only for now
+        pass_sel = file_rw.create_dataset("pass_sel", data = dh_source.pass_reco)
+
+        # event weights
+        weights_rw = file_rw.create_dataset(
+            "weights_rw", data = dh_source.get_weights(valid_only=False)
+            )
+
+        # run weighting
         rw[:] = train_and_reweight(
             X_target = target_arr,
             X_source = source_arr,
@@ -162,6 +175,9 @@ def reweight_samples(**parsed_args):
             plot = parsed_args['plot_verbosity'] > 0
         )[0]
         # [0] because modelUtils.n_models_in_parallel = 1
+
+        # update event weights
+        weights_rw[pass_sel[:]] = w_source * rw[:]
 
     if parsed_args['plot_verbosity'] > 0:
         # plot train history
