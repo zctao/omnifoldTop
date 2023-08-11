@@ -3,18 +3,17 @@ import os
 import sys
 import time
 import tracemalloc
-import logging
-import numpy as np
-from copy import copy
 
 import util
 import plotter
 import reweight
-from OmniFoldTTbar import OmniFoldTTbar
+from OmniFoldTTbar import init_unfolder
 from make_histograms import make_histograms_from_unfolder
-import preprocessor
 import modelUtils
 import lrscheduler
+
+import logging
+logger = logging.getLogger("unfold")
 
 def unfold(**parsed_args):
 
@@ -34,7 +33,6 @@ def unfold(**parsed_args):
 
     logfile = os.path.join(parsed_args['outputdir'], logname)
     util.configRootLogger(filename=logfile)
-    logger = logging.getLogger('Unfold')
     logger.setLevel(logging.DEBUG if parsed_args['verbose']>0 else logging.INFO)
 
     # Host
@@ -60,90 +58,29 @@ def unfold(**parsed_args):
     util.write_dict_to_json(parsed_args, fname_args)
 
     #################
-    # Variables
-    #################
-    # Dictionary for observable configurations
-    observable_dict = util.read_dict_from_json(parsed_args['observable_config'])
-
-    logger.info("Observables used in training: {}".format(' '.join(parsed_args['observables'])))
-    varnames_train_reco = [ observable_dict[key]['branch_det'] for key in parsed_args['observables'] ]
-    varnames_train_truth = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables'] ]
-
-    if parsed_args['observables_extra']:
-        logger.info("Extra observables to unfold: {}".format(' '.join(parsed_args['observables_extra'])))
-        varnames_extra_reco = [ observable_dict[key]['branch_det'] for key in parsed_args['observables_extra'] ]
-        varnames_extra_truth = [ observable_dict[key]['branch_mc'] for key in parsed_args['observables_extra'] ]
-    else:
-        varnames_extra_reco = []
-        varnames_extra_truth = []
-
-    #################
-    # Initialize preprocessor
-    #################
-
-    preprocessor.initialize(observable_dict, parsed_args['preprocessor_config'], varnames_train_truth)
-
-    #################
-    # Initialize and load data
-    #################
-
-    # reweights
-    rw = None
-    if parsed_args["reweight_data"]:
-        var_lookup = np.vectorize(lambda v: observable_dict[v]["branch_mc"])
-        rw = copy(reweight.rw[parsed_args["reweight_data"]])
-        rw.variables = var_lookup(rw.variables)
+    # Initialize unfolder
 
     t_init_start = time.time()
 
-    unfolder = OmniFoldTTbar(
-        varnames_train_reco,
-        varnames_train_truth,
-        parsed_args['data'],
-        parsed_args['signal'],
-        parsed_args['background'],
-        parsed_args['bdata'],
-        truth_known = parsed_args['truth_known'],
-        normalize_to_data = parsed_args['normalize'],
-        variables_reco_extra = varnames_extra_reco,
-        variables_truth_extra = varnames_extra_truth,
-        outputdir = parsed_args["outputdir"],
-        data_reweighter = rw,
-        weight_type_data = parsed_args["weight_data"],
-        weight_type_mc = parsed_args["weight_mc"],
-        use_toydata = parsed_args["toydata"],
-        correct_efficiency = parsed_args['correct_efficiency'],
-        correct_acceptance = parsed_args['correct_acceptance'],
-        match_dR = parsed_args['match_dR']
-        )
+    unfolder = init_unfolder(parsed_args)
 
     t_init_done = time.time()
     logger.debug(f"Initializing unfolder and loading input data took {(t_init_done-t_init_start):.2f} seconds.")
     util.reportMemUsage(logger)
 
-    # If required, exclude events in the overflow and underflow bins to match what is done in the case of binned unfolding
-    if parsed_args["exclude_flow"]:
-        unfolder.clearAllUnderflowOverflow(
-            parsed_args['observables'],
-            fpath_binning = parsed_args['binning_config'],
-            obs_config = observable_dict
-            )
-
     #################
     # Set up parallelization
-    #################
+
     modelUtils.n_models_in_parallel = parsed_args["parallel_models"]
     logger.debug(f"{modelUtils.n_models_in_parallel} models will run in parallel")
 
     #################
     # Initialize learning rate scheduler
-    #################
 
     lrscheduler.init_lr_scheduler(parsed_args["lrscheduler_config"])
 
     #################
     # Run unfolding
-    #################
 
     logger.info("Start unfolding ... ")
     t_run_start = time.time()
@@ -181,33 +118,32 @@ def unfold(**parsed_args):
 
     #################
     # Make histograms and plots
-    #################
 
     # Variable correlations
     if parsed_args['plot_verbosity'] >= 2: # '-pp'
         # Before unfolding
         logger.info(f"Plot input variable correlations")
 
-        corr_data = unfolder.handle_obs.get_correlations(varnames_train_reco)
+        corr_data = unfolder.handle_obs.get_correlations(unfolder.varnames_reco)
         plotter.plot_correlations(
             os.path.join(unfolder.outdir, "InputCorr_data"), corr_data,
             print_bincontents=True
         )
 
         if parsed_args['truth_known']:
-            corr_truth = unfolder.handle_obs.get_correlations(varnames_train_truth)
+            corr_truth = unfolder.handle_obs.get_correlations(unfolder.varnames_truth)
             plotter.plot_correlations(
                 os.path.join(unfolder.outdir, "InputCorr_truth"), corr_truth,
                 print_bincontents=True
             )
 
-        corr_sim = unfolder.handle_sig.get_correlations(varnames_train_reco)
+        corr_sim = unfolder.handle_sig.get_correlations(unfolder.varnames_reco)
         plotter.plot_correlations(
             os.path.join(unfolder.outdir, "InputCorr_sim"), corr_sim,
             print_bincontents=True
         )
 
-        corr_gen = unfolder.handle_sig.get_correlations(varnames_train_truth)
+        corr_gen = unfolder.handle_sig.get_correlations(unfolder.varnames_truth)
         plotter.plot_correlations(
             os.path.join(unfolder.outdir, "InputCorr_gen"), corr_gen,
             print_bincontents=True
@@ -215,7 +151,7 @@ def unfold(**parsed_args):
 
         # After unfolding
         logger.info(f"Plot variable correlations after unfolding")
-        corr_unf = unfolder.get_correlations_unfolded(varnames_train_truth)
+        corr_unf = unfolder.get_correlations_unfolded(unfolder.varnames_truth)
         plotter.plot_correlations(
             os.path.join(unfolder.outdir, "OutputCorr_unf"), corr_unf,
             print_bincontents=True
@@ -227,12 +163,14 @@ def unfold(**parsed_args):
     all_observables = set().union(
         parsed_args['observables'], parsed_args['observables_extra'])
 
+    obsConfig_d = util.read_dict_from_json(parsed_args['observable_config'])
+
     if parsed_args['binning_config']:
         make_histograms_from_unfolder(
             unfolder,
             parsed_args['binning_config'],
             observables = all_observables,
-            obsConfig_d = observable_dict,
+            obsConfig_d = obsConfig_d,
             include_ibu = parsed_args['run_ibu'],
             compute_metrics = True,
             plot_verbosity = parsed_args['plot_verbosity']

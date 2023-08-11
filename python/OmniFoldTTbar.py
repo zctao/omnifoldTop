@@ -746,106 +746,79 @@ class OmniFoldTTbar():
         self.clear_underflow_overflow_events()
 
 # helper function to instantiate an unfolder from a previous result directory
-def load_unfolder(
-    # Path to the arguments json config
-    fpath_arguments, # str
-    # List of observables. If empty, use the observables from arguments config
-    observables=[], # list of str
-    # Observable configuration. If empty, use the config from arguments
-    obsConfig={}, # dict
-    # File path to binning configuration. If None, use the config from arguments if available
-    fpath_binning=None,
-    # Flag for renormalizing sample. If True, normalize simulation weights to data.
-    # If None, set the flag according to the run arguments
-    normalize_to_data = None, # bool
-    args_update = {}, # dict, new arguments to overwrite the ones read from fpath_arguments if any
-    ):
+def init_unfolder(args_d):
 
-    logger.info(f"Read arguments from {fpath_arguments}")
-    args_d = util.read_dict_from_json(fpath_arguments)
+    #################
+    # Variables
+    #################
+    # Dictionary for observable configurations
+    observable_dict = util.read_dict_from_json(args_d['observable_config'])
+    logger.info("Observables used in training: {}".format(' '.join(args_d['observables'])))
+    varnames_train_reco = [ observable_dict[key]['branch_det'] for key in args_d['observables'] ]
+    varnames_train_truth = [ observable_dict[key]['branch_mc'] for key in args_d['observables'] ]
 
-    if args_update:
-        args_d.update(args_update)
+    if args_d['observables_extra']:
+        logger.info("Extra observables to unfold: {}".format(' '.join(args_d['observables_extra'])))
+        varnames_extra_reco = [ observable_dict[key]['branch_det'] for key in args_d['observables_extra'] ]
+        varnames_extra_truth = [ observable_dict[key]['branch_mc'] for key in args_d['observables_extra'] ]
+    else:
+        varnames_extra_reco = []
+        varnames_extra_truth = []
 
-    # observables
-    if not observables:
-        # if not specified, take the list of observabes from arguments config
-        observables[:] = set(args_d['observables'] + args_d['observables_extra'])
+    #################
+    # Initialize preprocessor
+    #################
 
-    observable_all = set(args_d['observables']+args_d['observables_extra']+observables)
-    observable_extra = observable_all.difference(args_d['observables'])
+    if args_d['preprocessor_config']:
+        preprocessor.initialize(observable_dict, args_d['preprocessor_config'], varnames_train_truth)
 
-    # configuration for observables
-    if not obsConfig:
-        # if not provided, use the one from the arguments config
-        observable_config = args_d['observable_config']
-        logger.info(f"Get observable config from {observable_config}")
-        obsConfig.update(util.read_dict_from_json(observable_config))
-
-        if not obsConfig:
-            logger.error("Failed to load observable config. Abort...")
-            return None
-
-    # binning configuration
-    if fpath_binning is None:
-        fpath_binning = args_d['binning_config']
-
-    # reco level variable names
-    varnames_reco = [obsConfig[k]['branch_det'] for k in args_d['observables']]
-    varnames_reco_extra = [obsConfig[k]['branch_det'] for k in observable_extra]
-
-    # truth level variable names
-    varnames_truth = [obsConfig[k]["branch_mc"] for k in args_d['observables']]
-    varnames_truth_extra = [obsConfig[k]["branch_mc"] for k in observable_extra]
-
+    #################
+    # Initialize and load data
+    #################
     # reweighter
     rw = None
-    if args_d['reweight_data']:
-        var_lookup = np.vectorize(lambda v: obsConfig[v]["branch_mc"])
+    if args_d["reweight_data"]:
+        var_lookup = np.vectorize(lambda v: observable_dict[v]["branch_mc"])
         rw = copy(reweight.rw[args_d["reweight_data"]])
         rw.variables = var_lookup(rw.variables)
 
-    # normalize simulation weights
-    if normalize_to_data is None:
-        normalize_to_data = args_d['normalize']
-
-    # for backward compatibility
-    if args_d.get('dummy_value') is not None:
-        args_d['correct_acceptance'] = True
-
-    if args_d.get('weight_type') is not None:
-        args_d['weight_mc'] = args_d['weight_type']
-        if args_d.get('weight_data') is None:
-            args_d['weight_data'] = 'nominal'
-
-    logger.info("Construct unfolder")
+    logger.info("Initialize unfolder")
     unfolder = OmniFoldTTbar(
-        varnames_reco,
-        varnames_truth,
-        variables_reco_extra = varnames_reco_extra,
-        variables_truth_extra = varnames_truth_extra,
-        filepaths_obs = args_d['data'],
-        filepaths_sig = args_d['signal'],
-        filepaths_bkg = args_d['background'],
-        filepaths_obsbkg = args_d['bdata'],
-        normalize_to_data = normalize_to_data,
-        weight_type_data = args_d['weight_data'],
-        weight_type_mc = args_d['weight_mc'],
-        truth_known = args_d['truth_known'],
-        outputdir = args_d['outputdir'],
+        varnames_train_reco,
+        varnames_train_truth,
+        args_d['data'],
+        args_d['signal'],
+        args_d.get('background',[]),
+        args_d.get('bdata',[]),
+        truth_known = args_d.get('truth_known', False),
+        normalize_to_data = args_d.get('normalize', False),
+        variables_reco_extra = varnames_extra_reco,
+        variables_truth_extra = varnames_extra_truth,
+        outputdir = args_d.get("outputdir"),
         data_reweighter = rw,
+        weight_type_data = args_d.get("weight_data",'nominal'),
+        weight_type_mc = args_d.get("weight_mc", 'nominal'),
+        use_toydata = args_d.get("toydata", False),
         correct_efficiency = args_d.get('correct_efficiency', False),
-        correct_acceptance = args_d['correct_acceptance'],
+        correct_acceptance = args_d.get('correct_acceptance', False),
         match_dR = args_d.get('match_dR')
-    )
+        )
 
-    if args_d['exclude_flow']:
-        try:
-            unfolder.clearAllUnderflowOverflow(observables, fpath_binning, obsConfig)
-        except:
-            return None
+    # If needed, exclude events in the overflow and underflow bins to match what is done in the case of binned unfolding
+    if args_d.get("exclude_flow"):
+        unfolder.clearAllUnderflowOverflow(
+            args_d['observables'],
+            fpath_binning = args_d['binning_config'],
+            obs_config = observable_dict
+            )
 
-    # read unfolded event weights
+    return unfolder
+
+def load_unfolder(args_d):
+
+    unfolder = init_unfolder(args_d)
+
+    # load unfolded event weights
     fnames_uw = args_d.get("unfolded_weights")
     if fnames_uw is None:
         fnames_uw = os.path.join(args_d['outputdir'], "weights_unfolded")
@@ -858,3 +831,25 @@ def load_unfolder(
     unfolder.load(fnames_uw)
 
     return unfolder
+
+def read_arguments(
+    fpath_arguments,  # str, path to argument json file
+    args_update # dict, new arguments to overwrite the ones read from fpath_arguments if any
+    ):
+
+    logger.info(f"Read arguments from {fpath_arguments}")
+    args_d = util.read_dict_from_json(fpath_arguments)
+
+    if args_update:
+        args_d.update(args_update)
+
+    # for backward compatibility
+    if args_d.get('dummy_value') is not None:
+        args_d['correct_acceptance'] = True
+
+    if args_d.get('weight_type') is not None:
+        args_d['weight_mc'] = args_d['weight_type']
+        if args_d.get('weight_data') is None:
+            args_d['weight_data'] = 'nominal'
+
+    return args_d

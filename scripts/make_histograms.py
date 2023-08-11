@@ -8,7 +8,7 @@ import util
 import metrics
 import plotter
 import histogramming as myhu
-from OmniFoldTTbar import load_unfolder
+from OmniFoldTTbar import read_arguments, load_unfolder
 import ibu
 
 from ttbarDiffXsRun2.binnedCorrections import apply_efficiency_correction
@@ -823,6 +823,22 @@ def make_histograms(
         logger.critical(f"Fail to find directory {result_dir}")
         return
 
+    # load unfolder arguments
+    args_update = {}
+
+    if observable_config:
+        args_update['observable_config'] = observable_config
+
+    if observables:
+        args_update['observables'] = observables
+
+    observables_extra = []
+    for obs_md in observables_multidim:
+        observables_extra += obs_md.split("_vs_")
+    observables_extra = list(set(observables_extra))
+    if observables_extra:
+        args_update['observables_extra'] = observables_extra
+
     # path to argument json config
     fpath_args_config = os.path.join(result_dir, "arguments.json")
     if not os.path.isfile(fpath_args_config):
@@ -834,28 +850,13 @@ def make_histograms(
             logger.critical(f"Cannot find argument config {fpath_args_config}")
             return
 
-    # observable config
-    # If None, use the same one as in the argument json config
-    obsConfig_d = {}
-    if observable_config:
-        obsConfig_d = util.read_dict_from_json(observable_config)
-    # if empty, it will be filled by load_unfolder
-
-    observables_extra = []
-    for obs_md in observables_multidim:
-        observables_extra += obs_md.split("_vs_")
-    observables_extra = list(set(observables_extra))
+    args_d = read_arguments(fpath_args_config, args_update)
 
     # unfolder
     logger.info(f"Load unfolder from {result_dir} ... ")
     t_load_start = time.time()
 
-    ufdr = load_unfolder(
-        fpath_args_config,
-        observables,
-        obsConfig_d,
-        args_update = {'observables_extra': observables_extra}
-        )
+    ufdr = load_unfolder(args_d)
 
     t_load_stop = time.time()
     logger.info(f"Done")
@@ -863,6 +864,10 @@ def make_histograms(
 
     mcurrent, mpeak = tracemalloc.get_traced_memory()
     logger.debug(f"Current memory usage: {mcurrent*1e-6:.1f} MB; Peak usage: {mpeak*1e-6:.1f} MB")
+
+    # observables
+    obsConfig_d = util.read_dict_from_json(args_d['observable_config'])
+    observables_all = list(set(args_d['observables']+args_d['observables_extra']))
 
     logger.info("Start histogramming")
     t_hist_start = time.time()
@@ -884,7 +889,7 @@ def make_histograms(
             make_histograms_from_unfolder(
                 ufdr,
                 binning_config,
-                observables,
+                observables_all,
                 obsConfig_d,
                 iteration = it,
                 nruns = n,
