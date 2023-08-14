@@ -154,7 +154,7 @@ def reweight_samples(**parsed_args):
 
         # event weights
         weights_rw = file_rw.create_dataset(
-            "weights_rw", data = dh_source.get_weights(valid_only=False)
+            parsed_args["weight_name"], data = dh_source.get_weights(valid_only=False)
             )
 
         # run weighting
@@ -289,6 +289,8 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="Path to the binning config file for variables.")
     parser.add_argument("-c", "--cross-validation", type=int, default=2,
                         help="Number of splits for cross validation")
+    parser.add_argument("--weight-name", type=str, default="normalized_weight",
+                        help="Weight array name stored in the output file")
 
     if print_help:
         parser.print_help()
