@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import uproot
+import h5py
 import os
 
 from datahandler_base import DataHandlerBase, filter_variable_names
@@ -194,6 +195,18 @@ def load_weights(
                 weight_index = index_w
             )
             ])
+
+    return weights_arr
+
+def load_external_weights_h5(file_names, weight_name):
+    if isinstance(file_names, str):
+        file_names = [file_names]
+
+    weights_arr = np.empty(shape=(0,))
+
+    for fname in file_names:
+        with h5py.File(fname, 'r') as fh5:
+            weights_arr = np.concatenate([weights_arr, fh5[weight_name][:]])
 
     return weights_arr
 
@@ -504,10 +517,19 @@ class DataHandlerROOT(DataHandlerBase):
         ######
         # event weights
         logger.debug("Load weight arrays")
-        self.weights = load_weights(
-            filepaths, treename_reco,
-            weight_name = weight_name_nominal, weight_type = weight_type
-        )
+
+        # Special case: load event weights from external files
+        if weight_type.startswith("external:"):
+            # "external:" is followed by a comma separated list of file paths
+            wfiles = weight_type.replace("external:","",1).split(",")
+            self.weights = load_external_weights_h5(wfiles, weight_name_nominal)
+            if len(self.weights) != len(self):
+                raise RuntimeError(f"External weights are not of the same size as data")
+        else:
+            self.weights = load_weights(
+                filepaths, treename_reco,
+                weight_name = weight_name_nominal, weight_type = weight_type
+            )
 
         if variable_names_mc:
             # event weights
