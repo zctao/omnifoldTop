@@ -253,17 +253,17 @@ class OmniFoldTTbar():
         logger.debug("Prepare input arrays")
 
         # observed data (or pseudo data)
-        arr_data = self.handle_obs.get_arrays(self.varnames_reco, valid_only=False)
+        arr_data = self.handle_obs.get_arrays(self.varnames_reco, valid_only=True)
 
         # only for testing with pseudo data:
         # mix background simulation with signal simulation as pseudo data
         if self.handle_obsbkg is not None:
-            arr_dataobs = self.handle_obsbkg.get_arrays(self.varnames_reco, valid_only=False)
+            arr_dataobs = self.handle_obsbkg.get_arrays(self.varnames_reco, valid_only=True)
             arr_data = np.concatenate([arr_data, arr_dataobs])
 
         # add backgrouund simulation to the data array (with negative weights)
         if self.handle_bkg is not None:
-            arr_bkg = self.handle_bkg.get_arrays(self.varnames_reco, valid_only=False)
+            arr_bkg = self.handle_bkg.get_arrays(self.varnames_reco, valid_only=True)
             arr_data = np.concatenate([arr_data, arr_bkg])
 
         # signal simulation
@@ -277,16 +277,16 @@ class OmniFoldTTbar():
     def _get_event_weights(self, resample_data=False, resample_mc=False, standardize=True):
         logger.debug("Prepare event weights")
 
-        wdata = self.handle_obs.get_weights(bootstrap=resample_data, valid_only=False)
+        wdata = self.handle_obs.get_weights(bootstrap=resample_data, valid_only=True)
 
         if standardize:
             logger.debug("Standardize data weights to mean of one for training")
             # exclude dummy value when calculating mean
-            wmean_obs = np.mean(wdata[self.handle_obs.pass_reco])
+            wmean_obs = np.mean(wdata)
             wdata /= wmean_obs
 
         if self.handle_obsbkg is not None:
-            wobsbkg = self.handle_obsbkg.get_weights(bootstrap=resample_data, valid_only=False)
+            wobsbkg = self.handle_obsbkg.get_weights(bootstrap=resample_data, valid_only=True)
             if standardize: # rescale by the same factor as data
                 wobsbkg /= wmean_obs
 
@@ -294,7 +294,7 @@ class OmniFoldTTbar():
 
         # add background simulation as observed data but with negative weights
         if self.handle_bkg is not None:
-            wbkg = self.handle_bkg.get_weights(bootstrap=resample_mc, valid_only=False)
+            wbkg = self.handle_bkg.get_weights(bootstrap=resample_mc, valid_only=True)
             if standardize:
                 # rescale by the same factor as data
                 wbkg /= wmean_obs
@@ -333,20 +333,6 @@ class OmniFoldTTbar():
 
         return wdata, wsim, wgen
 
-    def _get_event_flags(self):
-        logger.debug("Get event selection flags")
-
-        data_pass_reco = self.handle_obs.pass_reco
-        if self.handle_obsbkg is not None:
-            data_pass_reco = np.concatenate([data_pass_reco, self.handle_obsbkg.pass_reco])
-        if self.handle_bkg is not None:
-            data_pass_reco = np.concatenate([data_pass_reco, self.handle_bkg.pass_reco])
-
-        mc_pass_reco = self.handle_sig.pass_reco
-        mc_pass_truth = self.handle_sig.pass_truth
-
-        return data_pass_reco, mc_pass_reco, mc_pass_truth
-
     def run(
         self,
         niterations, # number of iterations
@@ -371,10 +357,10 @@ class OmniFoldTTbar():
         # preprocess data and weights
         X_data, X_sim, X_gen = self._get_input_arrays()
         w_data, w_sim, w_gen = self._get_event_weights(resample_data=resample_data, resample_mc=resample_mc)
-        passcut_data, passcut_sim, passcut_gen = self._get_event_flags()
+        passcut_sim, passcut_gen = self.handle_sig.pass_reco, self.handle_sig.pass_truth
 
         # total weights for rescaling the unfolded weights
-        sumw_data = w_data[passcut_data].sum()
+        sumw_data = w_data.sum()
         sumw_sim_valid = w_sim[passcut_sim].sum()
         sumw_sim_matched = w_sim[passcut_sim & passcut_gen].sum()
         sumw_gen_matched = w_gen[passcut_sim & passcut_gen].sum()
@@ -390,7 +376,6 @@ class OmniFoldTTbar():
 
         # step 2: dummy values
 
-        X_data[~passcut_data] = dummy_value
         X_sim[~passcut_sim] = dummy_value
         X_gen[~passcut_gen] = dummy_value
 
@@ -404,15 +389,15 @@ class OmniFoldTTbar():
 
         assert(np.array_equal(X_data_order, X_sim_order) and np.array_equal(X_sim_order, X_gen_order))
 
-        X_data[passcut_data], X_sim[passcut_sim], X_gen[passcut_gen] = p.apply_normalizer(X_data[passcut_data], X_sim[passcut_sim], X_gen[passcut_gen], X_data_order)
+        X_data, X_sim[passcut_sim], X_gen[passcut_gen] = p.apply_normalizer(X_data, X_sim[passcut_sim], X_gen[passcut_gen], X_data_order)
 
         # plot variable and event weight distributions for training
         if plot_status:
             plotter.plot_training_inputs_step1(
                 os.path.join(self.outdir, "Train_step1"),
                 self.varnames_reco,
-                X_data[passcut_data], X_sim[passcut_sim],
-                w_data[passcut_data], w_sim[passcut_sim])
+                X_data, X_sim[passcut_sim],
+                w_data, w_sim[passcut_sim])
 
             plotter.plot_training_inputs_step2(
                 os.path.join(self.outdir, "Train_step2"),
@@ -465,7 +450,7 @@ class OmniFoldTTbar():
             self.unfolded_weights[ir*modelUtils.n_models_in_parallel:(ir+1)*modelUtils.n_models_in_parallel,:,:] = omnifold(
                 X_data, X_sim, X_gen,
                 w_data, w_sim, w_gen,
-                passcut_data, passcut_sim, passcut_gen,
+                passcut_sim, passcut_gen,
                 niterations = niterations,
                 model_type = model_type,
                 save_models_to = save_model_dir,

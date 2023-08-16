@@ -117,7 +117,6 @@ def omnifold(
     w_sim, # reco weights of signal simulation events
     w_gen, # MC weights of signal simulation events
     # Event selection flags
-    passcut_data, # flags to indicate if data events pass reco level selections
     passcut_sim, # flags to indicate if signal events pass reco level selections
     passcut_gen, # flags to indicate if signal events pass truth level selections
     # Parameters
@@ -158,10 +157,10 @@ def omnifold(
     # Step 1
     # Use events that pass reco level selections
     # features
-    X_step1 = np.concatenate([ X_data[passcut_data], X_sim[passcut_sim] ])
+    X_step1 = np.concatenate([ X_data, X_sim[passcut_sim] ])
 
     # labels: data=1, sim=0
-    Y_step1 = np.concatenate([ np.ones(np.count_nonzero(passcut_data)), np.zeros(np.count_nonzero(passcut_sim)) ])
+    Y_step1 = np.concatenate([ np.ones(len(X_data)), np.zeros(np.count_nonzero(passcut_sim)) ])
 
     log_size_bytes("feature array for step 1", X_step1.nbytes)
     log_size_bytes("label array for step 1", Y_step1.nbytes)
@@ -236,7 +235,7 @@ def omnifold(
             i,
             X_step1, Y_step1, X_sim,
             w_data, w_sim, weights_push,
-            passcut_data, passcut_sim,
+            passcut_sim,
             model_type = model_type,
             save_models_to = save_models_to,
             load_models_from = load_models_from,
@@ -371,7 +370,7 @@ def run_step1(
     X_step1, Y_step1,
     X_sim,
     w_data, w_sim, w_push,
-    passcut_data, passcut_sim,
+    passcut_sim,
     # model
     model_type,
     save_models_to='',
@@ -408,7 +407,7 @@ def run_step1(
         logger.info("Use trained model for reweighting")
     else:
         w_step1 = [np.concatenate([
-            w_data[passcut_data], (w_push[j]*w_sim[j])[passcut_sim]
+            w_data, (w_push[j]*w_sim[j])[passcut_sim]
             ]) for j in range(modelUtils.n_models_in_parallel)]
 
         filepath_save = os.path.join(save_models_to, model_name) if save_models_to else None
