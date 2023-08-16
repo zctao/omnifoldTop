@@ -126,6 +126,7 @@ def _reweight_impl(
     w_1 = None,
     X_b = None,
     w_b = None,
+    X_pred = None,
     batch_size = 20000,
     calibrate = False,
     hists_calib_0 = [],
@@ -133,7 +134,10 @@ def _reweight_impl(
     ):
     logger.info("Reweight")
 
-    preds_0 = predict(classifier, X_0, batch_size)
+    if X_pred is None:
+        preds = predict(classifier, X_0, batch_size)
+    else:
+        preds = predict(classifier, X_pred, batch_size)
 
     if calibrate:
         if not hists_calib_0 or not hists_calib_1:
@@ -144,6 +148,7 @@ def _reweight_impl(
 
         preds_1 = predict(classifier, X_1, batch_size)
         preds_b = predict(classifier, X_b, batch_size) if X_b is not None else None
+        preds_0 = preds if X_pred is None else predict(classifier, X_0, batch_size)
 
         for i in range(modelUtils.n_models_in_parallel):
             hists_calib_1[i].fill(preds_1[i], weight=w_1[i])
@@ -153,7 +158,7 @@ def _reweight_impl(
 
             hists_calib_0[i].fill(preds_0[i], weight=w_0[i])
 
-    return preds_0
+    return preds
 
 def train_and_reweight(
     # Inputs
@@ -163,6 +168,8 @@ def train_and_reweight(
     w_source = None,
     X_bkg = None,
     w_bkg = None,
+    # Array used for prediction only. If None, use X_source
+    X_pred = None,
     # model
     model_type = 'dense_100x3',
     skip_training = False,
@@ -202,7 +209,8 @@ def train_and_reweight(
         X_bkg = X_bkg
 
     # model outputs
-    preds_source = np.empty(shape=(modelUtils.n_models_in_parallel, len(X_source)))
+    npreds = len(X_source) if X_pred is None else len(X_pred)
+    preds_out = np.empty(shape=(modelUtils.n_models_in_parallel, npreds))
 
     # calibrator
     if calibrate:
@@ -213,7 +221,9 @@ def train_and_reweight(
     else:
         histogram_1, histogram_0 = [], []
 
-    if nsplit_cv < 2:
+    if nsplit_cv < 2 or X_pred is not None:
+        # assume X_source and X_pred are separate arrays, therefore no need for cross validation
+
         classifier = _train_impl(
             X_target, w_target,
             X_source, w_source,
@@ -227,11 +237,12 @@ def train_and_reweight(
             epochs = epochs
         )
 
-        preds_source[:] = _reweight_impl(
+        preds_out[:] = _reweight_impl(
             classifier,
             X_source, w_source,
             X_target, w_target,
             X_bkg, w_bkg,
+            X_pred = X_pred,
             batch_size = batch_size,
             calibrate = calibrate,
             hists_calib_0 = histogram_0,
@@ -284,7 +295,7 @@ def train_and_reweight(
                 epochs = epochs
             )
 
-            preds_source[:, indices_test_source] = _reweight_impl(
+            preds_out[:, indices_test_source] = _reweight_impl(
                 classifier,
                 X_source[indices_test_source],
                 w_source[:,indices_test_source],
@@ -292,6 +303,7 @@ def train_and_reweight(
                 w_target[:,indices_test_target],
                 X_bkg[indices_test_bkg] if indices_test_bkg is not None else None,
                 w_bkg[:, indices_test_bkg] if indices_test_bkg is not None else None,
+                X_pred = X_pred,
                 batch_size = batch_size,
                 calibrate = calibrate,
                 hists_calib_0 = histogram_0,
@@ -301,14 +313,14 @@ def train_and_reweight(
         # end of cross validation loop
 
     if calibrate:
-        rw = np.empty_like(preds_source)
+        rw = np.empty_like(preds_out)
         for i in range(modelUtils.n_models_in_parallel):
             histogram_r = myhu.divide(histogram_1[i], histogram_0[i])
-            rw[i] = myhu.read_histogram_at_locations(preds_source[i], histogram_r)
+            rw[i] = myhu.read_histogram_at_locations(preds_out[i], histogram_r)
 
             if plot and model_filepath_save:
                 plotter.plot_histograms_and_ratios(
-                    figname = f"{model_filepath_save}_preds_r{i}",
+                    figname = f"{model_filepath_save}_preds_{i}",
                     hists_numerator = [histogram_1[i]],
                     hist_denominator = histogram_0[i],
                     draw_options_numerator = [{'label':'Target'}],
@@ -320,4 +332,6 @@ def train_and_reweight(
         return rw
     else:
         # direct reweighting
-        return reweight(preds_source)
+        rw = reweight(preds_out)
+
+    return rw
