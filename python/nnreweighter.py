@@ -16,8 +16,8 @@ def check_weights(w, nevents=None):
         if nevents is None:
             raise RuntimeError(f"Number of events is not specified")
         else:
-            w = [np.ones(nevents)] * n_models_in_parallel
-    elif not isinstance(w, list):
+            w = np.ones(shape=(n_models_in_parallel, nevents))
+    elif np.asarray(w).ndim == 1:
         w = [w] * n_models_in_parallel
     elif len(w) != n_models_in_parallel:
         raise RuntimeError(f"The number of weight arrays provided in the list ({len(w)}) is inconsistent with the number of parallel models ({n_models_in_parallel})")
