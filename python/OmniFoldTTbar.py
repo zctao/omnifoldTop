@@ -274,7 +274,8 @@ class OmniFoldTTbar():
         # add backgrouund simulation to the data array (with negative weights)
         if self.handle_bkg is not None:
             arr_bkg = self.handle_bkg.get_arrays(self.varnames_reco, valid_only=True)
-            arr_data = np.concatenate([arr_data, arr_bkg])
+        else:
+            arr_bkg = None
 
         # signal simulation
         # reco level
@@ -282,7 +283,7 @@ class OmniFoldTTbar():
         # truth level
         arr_gen = self.handle_sig.get_arrays(self.varnames_truth, valid_only=False)
 
-        return arr_data, arr_sim, arr_gen
+        return arr_data, arr_sim, arr_gen, arr_bkg
 
     def _get_event_weights(self, resample_data=False, resample_mc=False, standardize=True):
         logger.debug("Prepare event weights")
@@ -302,14 +303,14 @@ class OmniFoldTTbar():
 
             wdata = np.concatenate([wdata, wobsbkg])
 
-        # add background simulation as observed data but with negative weights
+        # background simulation
         if self.handle_bkg is not None:
             wbkg = self.handle_bkg.get_weights(bootstrap=resample_mc, valid_only=True)
             if standardize:
                 # rescale by the same factor as data
                 wbkg /= wmean_obs
-
-            wdata = np.concatenate([wdata, -1*wbkg])
+        else:
+            wbkg = None
 
         # signal simulation
         # reco level
@@ -341,7 +342,7 @@ class OmniFoldTTbar():
             #wmean_gen = np.mean(wgen[self.handle_sig.pass_truth])
             #wgen /= wmean_gen
 
-        return wdata, wsim, wgen
+        return wdata, wsim, wgen, wbkg
 
     def run(
         self,
@@ -364,13 +365,14 @@ class OmniFoldTTbar():
         Run unfolding
         """
 
-        # preprocess data and weights
-        X_data, X_sim, X_gen = self._get_input_arrays()
-        w_data, w_sim, w_gen = self._get_event_weights(resample_data=resample_data, resample_mc=resample_mc)
-        passcut_sim, passcut_gen = self.handle_sig.pass_reco, self.handle_sig.pass_truth
+        # data and weight arrays
+        X_data, X_sim, X_gen, X_bkg = self._get_input_arrays()
+        w_data, w_sim, w_gen, w_bkg = self._get_event_weights(resample_data=resample_data, resample_mc=resample_mc)
+        passcut_sim = self.handle_sig.pass_reco
+        passcut_gen = self.handle_sig.pass_truth
 
         # total weights for rescaling the unfolded weights
-        sumw_data = w_data.sum()
+        sumw_data = w_data.sum() if w_bkg is None else w_data.sum() - w_bkg.sum()
         sumw_sim_valid = w_sim[passcut_sim].sum()
         sumw_sim_matched = w_sim[passcut_sim & passcut_gen].sum()
         sumw_gen_matched = w_gen[passcut_sim & passcut_gen].sum()
@@ -394,14 +396,16 @@ class OmniFoldTTbar():
             plotter.plot_training_inputs_step1(
                 os.path.join(self.outdir, "Train_step1"),
                 self.varnames_reco,
-                X_data, X_sim[passcut_sim],
-                w_data, w_sim[passcut_sim])
+                X_data, X_sim[passcut_sim], X_bkg,
+                w_data, w_sim[passcut_sim], w_bkg
+                )
 
             plotter.plot_training_inputs_step2(
                 os.path.join(self.outdir, "Train_step2"),
                 self.varnames_truth,
                 X_gen[passcut_gen],
-                w_gen[passcut_gen])
+                w_gen[passcut_gen]
+                )
 
         # unfold
         assert(nruns>0)
@@ -442,12 +446,12 @@ class OmniFoldTTbar():
 
             if (resample_data or resample_mc) and resample_everyrun:
                 # fluctuate data weights
-                w_data, w_sim, w_gen = self._get_event_weights(resample_data=resample_data, resample_mc=resample_mc)
+                w_data, w_sim, w_gen, w_bkg = self._get_event_weights(resample_data=resample_data, resample_mc=resample_mc)
 
             # omnifold
             self.unfolded_weights[ir*modelUtils.n_models_in_parallel:(ir+1)*modelUtils.n_models_in_parallel,:,:] = omnifold(
-                X_data, X_sim, X_gen,
-                w_data, w_sim, w_gen,
+                X_data, X_sim, X_gen, X_bkg,
+                w_data, w_sim, w_gen, w_bkg,
                 passcut_sim, passcut_gen,
                 niterations = niterations,
                 model_type = model_type,

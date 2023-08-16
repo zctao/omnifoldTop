@@ -1070,11 +1070,15 @@ def draw_training_inputs_ratio(axes, features_array, label_array, weights):
 def plot_training_inputs_step1(
         figname_prefix,
         variable_names,
-        Xdata, Xsim,
-        wdata, wsim
+        Xobs, Xsim, Xbkg,
+        wobs, wsim, wbkg
         ):
     # features
     logger.info("Plot distributions of input variables for step 1")
+
+    Xdata = Xobs if Xbkg is None else np.concatenate([Xobs, Xbkg])
+    wdata = wobs if Xbkg is None else np.concatenate([wobs, -1*wbkg])
+
     for vname, vdata, vsim in zip(variable_names, Xdata.T, Xsim.T):
         logger.debug(f"  Plot variable {vname}")
         plot_hist(

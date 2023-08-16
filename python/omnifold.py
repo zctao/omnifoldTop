@@ -113,9 +113,11 @@ def omnifold(
     X_data, # feature array of observed data
     X_sim, # feature array of signal simulation at reco level
     X_gen, # feature array of signal simulation at truth level
+    X_bkg, # feature array of background simulation at reco level
     w_data, # event weights of observed data
     w_sim, # reco weights of signal simulation events
     w_gen, # MC weights of signal simulation events
+    w_bkg, # reco weights of background simulation events
     # Event selection flags
     passcut_sim, # flags to indicate if signal events pass reco level selections
     passcut_gen, # flags to indicate if signal events pass truth level selections
@@ -147,20 +149,32 @@ def omnifold(
     assert(len(X_gen)==len(w_gen))
     assert(len(X_sim)==len(passcut_sim))
     assert(len(X_gen)==len(passcut_gen))
+    if X_bkg is not None:
+        assert(len(X_bkg)==len(w_bkg))
 
     # Expand the weights arrays
     w_sim = np.array([w_sim for i in range(modelUtils.n_models_in_parallel)])
     w_gen = np.array([w_gen for i in range(modelUtils.n_models_in_parallel)])
 
     # no need to resize w_data, it is only used once and it is constant
+    if w_bkg is not None:
+        w_data = np.concatenate([w_data, -1*w_bkg])
 
     # Step 1
     # Use events that pass reco level selections
-    # features
-    X_step1 = np.concatenate([ X_data, X_sim[passcut_sim] ])
+    if X_bkg is None:
+        # features
+        X_step1 = np.concatenate([ X_data, X_sim[passcut_sim] ])
 
-    # labels: data=1, sim=0
-    Y_step1 = np.concatenate([ np.ones(len(X_data)), np.zeros(np.count_nonzero(passcut_sim)) ])
+        # labels: data=1, sim=0
+        Y_step1 = np.concatenate([ np.ones(len(X_data)), np.zeros(np.count_nonzero(passcut_sim)) ])
+
+    else:
+        # features
+        X_step1 = np.concatenate([ X_data, X_bkg, X_sim[passcut_sim] ])
+
+        # labels: data=1, sim=0
+        Y_step1 = np.concatenate([ np.ones(len(X_data)+len(X_bkg)), np.zeros(np.count_nonzero(passcut_sim)) ])
 
     log_size_bytes("feature array for step 1", X_step1.nbytes)
     log_size_bytes("label array for step 1", Y_step1.nbytes)
