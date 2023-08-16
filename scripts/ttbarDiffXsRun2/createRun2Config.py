@@ -565,7 +565,6 @@ if __name__ == "__main__":
     common_cfg = {
         "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
         "binning_config" : "configs/binning/bins_ttdiffxs.json",
-        "preprocessor_config": "configs/preprocessor/std.json",
         "iterations" : 4,
         "batch_size" : 20000,
         "normalize" : False,
