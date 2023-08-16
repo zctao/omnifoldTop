@@ -3,7 +3,8 @@ from sklearn.model_selection import KFold
 from sklearn.utils import shuffle
 import hist
 
-from modelUtils import n_models_in_parallel, get_model, get_callbacks, train_model
+import modelUtils
+from modelUtils import get_model, get_callbacks, train_model
 import histogramming as myhu
 import plotter
 
@@ -16,11 +17,11 @@ def check_weights(w, nevents=None):
         if nevents is None:
             raise RuntimeError(f"Number of events is not specified")
         else:
-            w = np.ones(shape=(n_models_in_parallel, nevents))
+            w = np.ones(shape=(modelUtils.n_models_in_parallel, nevents))
     elif np.asarray(w).ndim == 1:
-        w = [w] * n_models_in_parallel
-    elif len(w) != n_models_in_parallel:
-        raise RuntimeError(f"The number of weight arrays provided in the list ({len(w)}) is inconsistent with the number of parallel models ({n_models_in_parallel})")
+        w = [w] * modelUtils.n_models_in_parallel
+    elif len(w) != modelUtils.n_models_in_parallel:
+        raise RuntimeError(f"The number of weight arrays provided in the list ({len(w)}) is inconsistent with the number of parallel models ({modelUtils.n_models_in_parallel})")
 
     return np.asarray(w)
 
@@ -48,12 +49,12 @@ def set_up_model(
     return model
 
 def predict(model, events, batch_size):
-    events_list = [events for _ in range(n_models_in_parallel)]
+    events_list = [events for _ in range(modelUtils.n_models_in_parallel)]
     preds = model.predict(events_list, batch_size=batch_size)
     preds = np.squeeze(preds)
 
-    if n_models_in_parallel == 1:
-        preds = np.reshape(preds, (n_models_in_parallel,)+np.shape(preds)) # happens after squeezing, so that we keep the first dimension
+    if modelUtils.n_models_in_parallel == 1:
+        preds = np.reshape(preds, (modelUtils.n_models_in_parallel,)+np.shape(preds)) # happens after squeezing, so that we keep the first dimension
 
     return preds
 
@@ -144,7 +145,7 @@ def _reweight_impl(
         preds_1 = predict(classifier, X_1, batch_size)
         preds_b = predict(classifier, X_b, batch_size) if X_b is not None else None
 
-        for i in range(n_models_in_parallel):
+        for i in range(modelUtils.n_models_in_parallel):
             hists_calib_1[i].fill(preds_1[i], weight=w_1[i])
 
             if preds_b is not None:
@@ -201,14 +202,14 @@ def train_and_reweight(
         X_bkg = X_bkg
 
     # model outputs
-    preds_source = np.empty(shape=(n_models_in_parallel, len(X_source)))
+    preds_source = np.empty(shape=(modelUtils.n_models_in_parallel, len(X_source)))
 
     # calibrator
     if calibrate:
         nbins = 10 + int(len(X_source) ** (1. / 3.))
         logger.debug(f"calibrator nbins = {nbins}")
-        histogram_1 = [ hist.Hist(hist.axis.Regular(nbins, 0., 1.), storage=hist.storage.Weight()) for _ in range(n_models_in_parallel) ]
-        histogram_0 = [ hist.Hist(hist.axis.Regular(nbins, 0., 1.), storage=hist.storage.Weight()) for _ in range(n_models_in_parallel) ]
+        histogram_1 = [ hist.Hist(hist.axis.Regular(nbins, 0., 1.), storage=hist.storage.Weight()) for _ in range(modelUtils.n_models_in_parallel) ]
+        histogram_0 = [ hist.Hist(hist.axis.Regular(nbins, 0., 1.), storage=hist.storage.Weight()) for _ in range(modelUtils.n_models_in_parallel) ]
     else:
         histogram_1, histogram_0 = [], []
 
@@ -301,7 +302,7 @@ def train_and_reweight(
 
     if calibrate:
         rw = np.empty_like(preds_source)
-        for i in range(n_models_in_parallel):
+        for i in range(modelUtils.n_models_in_parallel):
             histogram_r = myhu.divide(histogram_1[i], histogram_0[i])
             rw[i] = myhu.read_histogram_at_locations(preds_source[i], histogram_r)
 
