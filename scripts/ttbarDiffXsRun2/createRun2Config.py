@@ -593,14 +593,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-d", "--sample-dir", type=str,
-                        default="/mnt/xrootdg/ztao/NtupleTT/latest",
-                        help="Sample directory")
+                        default=os.path.expandvars("${DATA_DIR}/NtupleTT/latest",
+                        help="Sample directory"))
     parser.add_argument("-n", "--config-name", type=str,
                         default="configs/run/ttbarDiffXsRun2/runCfg_run2_ljets")
     parser.add_argument("-c", "--category", choices=["ejets", "mjets", "ljets"],
                         default="ljets")
     parser.add_argument("-r", "--result-dir", type=str,
-                        default="/mnt/xrootdg/ztao/OmniFoldOutputs/Run2",
+                        default=os.path.expandvars("${DATA_DIR}/OmniFoldOutputs/Run2"),
                         help="Output directory of unfolding runs")
     parser.add_argument("-e", "--subcampaigns", nargs='+', choices=["mc16a", "mc16d", "mc16e"], default=["mc16a", "mc16d", "mc16e"])
     parser.add_argument("--observables", nargs='+',

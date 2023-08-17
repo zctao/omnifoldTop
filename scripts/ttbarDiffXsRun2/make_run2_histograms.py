@@ -15,7 +15,7 @@ parser.add_argument("--binning-config", type=str,
                     default='configs/binning/bins_ttdiffxs.json',
                     help="Path to the binning config file for variables.")
 parser.add_argument("--correction-fpath", type=str,
-                    default="/mnt/xrootdg/ztao/NtupleTT/20230417/systCRL/ttbar_nominal/ttbar_histograms_run2.root",
+                    default=os.path.expandvars("${DATA_DIR}/NtupleTT/20230417/systCRL/ttbar_nominal/ttbar_histograms_run2.root"),
                     help="Directory to read binned corrections")
 parser.add_argument("-f", "--outfilename", type=str, default="histograms.root",
                     help="Output file name")

@@ -1,6 +1,6 @@
 #!/bin/bash
-result_top_dir=/mnt/xrootdg/ztao/OmniFoldOutputs/Run2
-samples_dir=/mnt/xrootdg/ztao/NtupleTT/latest
+result_top_dir=${DATA_DIR}/OmniFoldOutputs/Run2
+samples_dir=${DATA_DIR}/NtupleTT/latest
 
 python scripts/ttbarDiffXsRun2/createRun2Config.py \
     -d ${samples_dir} \

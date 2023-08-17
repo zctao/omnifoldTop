@@ -1,5 +1,5 @@
 #!/bin/bash
-histograms_dir=${1:-/mnt/xrootdg/ztao/NtupleTT/20230417/systCRL/ttbar_nominal}
+histograms_dir=${1:-${DATA_DIR}/NtupleTT/20230417/systCRL/ttbar_nominal}
 
 python scripts/ttbarDiffXsRun2/binnedCorrections.py ${histograms_dir} \
     --output ${histograms_dir}/ttbar_binned_corrections.root \
