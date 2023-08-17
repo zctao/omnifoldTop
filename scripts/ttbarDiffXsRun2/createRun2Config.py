@@ -379,7 +379,7 @@ def write_config_systematics(
     outname_config_syst = f"{outname_config}_syst.json"
     util.write_dict_to_json(cfg_dict_list, outname_config_syst)
 
-def write_config_test(
+def write_config_models(
     sample_local_dir,
     category = "ljets",
     subcampaigns = ["mc16a", "mc16d", "mc16e"],
@@ -388,7 +388,7 @@ def write_config_test(
     common_cfg = {}
     ):
 
-    print("unfolding test")
+    print("Model tests")
 
     # alternative ttbar vs nominal ttbar
     # samples
@@ -424,16 +424,94 @@ def write_config_test(
         outname_config_alt = f"{outname_config}_ttbar_{ttbar_alt}_vs_nominal.json"
         util.write_dict_to_json(ttbar_alt_cfg, outname_config_alt)
 
+def write_config_stress(
+    sample_local_dir,
+    fpath_reweights = [],
+    category = "ljets",
+    subcampaigns = ["mc16a", "mc16d", "mc16e"],
+    output_top_dir = '.',
+    outname_config =  'runConfig',
+    common_cfg = {}
+    ):
+
+    print("Stress tests")
+
+    sig_nominal = get_samples_signal(sample_local_dir, category, subcampaigns)
+
+    stress_common_cfg = common_cfg.copy()
+    stress_common_cfg.update({
+        "data": sig_nominal,
+        "signal": sig_nominal,
+        "plot_verbosity": 2,
+        "normalize": True,
+        "correct_acceptance": False,
+        "truth_known": True
+    })
+
+    ######
+    # linear th_pt
+    stress_th_pt_cfg = stress_common_cfg.copy()
+    stress_th_pt_cfg.update({
+        "outputdir": os.path.join(output_top_dir, f"stress_th_pt"),
+        "reweight_data": "linear_th_pt"
+    })
+
+    # write run config to file
+    util.write_dict_to_json(stress_th_pt_cfg, f"{outname_config}_stress_th_pt.json")
+
+    ######
+    # mtt bump
+    stress_bump_cfg = stress_common_cfg.copy()
+    stress_bump_cfg.update({
+        "outputdir": os.path.join(output_top_dir, f"stress_bump"),
+        "reweight_data": "gaussian_bump"
+    })
+
+    # write run config to file
+    util.write_dict_to_json(stress_bump_cfg, f"{outname_config}_stress_bump.json")
+
+    # data
+    if not fpath_reweights:
+        print("WARNING cannot generate run config for data induced stress test: no external weight files are provided.")
+    else:
+        # reweighted signal MC as pseudo-data
+        stress_data_cfg = stress_common_cfg.copy()
+        stress_data_cfg.update({
+            "outputdir": os.path.join(output_top_dir, f"stress_data"),
+            "weight_data": f"external:{','.join(fpath_reweights)}",
+            "weight_mc": "nominal"
+        })
+
+        # write run config to file
+        util.write_dict_to_json(stress_data_cfg, f"{outname_config}_stress_data.json")
+
+        # use the reweighted signal MC to unfold data
+        data_nominal = get_samples_data(sample_local_dir, category, subcampaigns)
+        stress_data_alt_cfg = stress_common_cfg.copy()
+        stress_data_alt_cfg.update({
+            "outputdir": os.path.join(output_top_dir, f"stress_data_alt"),
+            "data": data_nominal,
+            "signal": sig_nominal,
+            "plot_verbosity": 2,
+            "normalize": False,
+            "correct_acceptance": True,
+            "truth_known": False,
+            "weight_data": "nominal",
+            "weight_mc": f"external:{','.join(fpath_reweights)}"
+        })
+
+        # write run config to file
+        util.write_dict_to_json(stress_data_alt_cfg, f"{outname_config}_stress_data_alt.json")
+
 def createRun2Config(
         sample_local_dir,
         category, # "ejets" or "mjets" or "ljets"
         outname_config = 'runConfig',
         output_top_dir = '.',
         subcampaigns = ["mc16a", "mc16d", "mc16e"],
-        do_bootstrap = False,
-        do_systematics = False,
-        unfolding_test = False,
+        run_list = None,
         systematics_keywords = [],
+        external_reweights = [],
         common_cfg = {}
     ):
 
@@ -453,81 +531,59 @@ def createRun2Config(
         print(f"Create directory {outputdir}")
         os.makedirs(outputdir)
 
-    # nominal input files
-    write_config_nominal(
-        sample_local_dir,
-        category = category,
-        subcampaigns = subcampaigns,
-        output_top_dir = output_top_dir,
-        outname_config = outname_config,
-        common_cfg = common_cfg
-        )
+    # common arguments for write_config_*
+    write_common_args = {
+        'sample_local_dir': sample_local_dir,
+        'category': category,
+        'subcampaigns': subcampaigns,
+        'output_top_dir': output_top_dir,
+        'outname_config': outname_config,
+        'common_cfg': common_cfg
+        }
+
+    # nominal
+    if 'nominal' in run_list:
+        write_config_nominal(**write_common_args)
 
     # bootstrap for statistical uncertainties
-    if do_bootstrap:
+    if 'bootstrap' in run_list:
         write_config_bootstrap(
-            sample_local_dir,
             nresamples = 10,
             start_index = 0,
-            category = category,
-            subcampaigns = subcampaigns,
-            output_top_dir = output_top_dir,
-            outname_config = outname_config,
-            common_cfg = common_cfg
+            **write_common_args
             )
 
         write_config_bootstrap_mc(
-            sample_local_dir,
             nresamples = 10,
             start_index = 0,
-            category = category,
-            subcampaigns = subcampaigns,
-            output_top_dir = output_top_dir,
-            outname_config = outname_config,
-            common_cfg = common_cfg
+            **write_common_args
             )
 
-        write_config_bootstrap_mc_clos(
-            sample_local_dir,
-            nresamples = 10,
-            start_index = 0,
-            category = category,
-            subcampaigns = subcampaigns,
-            output_top_dir = output_top_dir,
-            outname_config = outname_config,
-            common_cfg = common_cfg
-            )
-
-    # for systematic uncertainties
-    if do_systematics:
-        # mc closure
-        write_config_mc_clos(
-            sample_local_dir,
-            category = category,
-            subcampaigns = subcampaigns,
-            output_top_dir = output_top_dir,
-            outname_config = outname_config,
-            common_cfg = common_cfg
-        )
-
+    # Systematic uncertainties
+    if 'systematics' in run_list:
         write_config_systematics(
-            sample_local_dir,
             systematics_keywords = systematics_keywords,
-            category = category,
-            subcampaigns = subcampaigns,
-            output_top_dir = output_top_dir,
-            outname_config = outname_config,
-            common_cfg = common_cfg
+            **write_common_args
         )
 
-    if unfolding_test:
-        write_config_test(
-            sample_local_dir,
-            category = category,
-            subcampaigns = subcampaigns,
-            output_top_dir = output_top_dir,
-            outname_config = outname_config,
-            common_cfg = common_cfg
+    # MC closure
+    if 'closure' in run_list:
+        write_config_mc_clos(**write_common_args)
+
+        if 'bootstrap' in run_list:
+            write_config_bootstrap_mc_clos(
+                nresamples = 10,
+                start_index = 0,
+                **write_common_args
+                )
+
+    if 'model' in run_list:
+        write_config_models(**write_common_args)
+
+    if 'stress' in run_list:
+        write_config_stress(
+            fpath_reweights = external_reweights,
+            **write_common_args
         )
 
 if __name__ == "__main__":
@@ -547,17 +603,20 @@ if __name__ == "__main__":
                         default="/mnt/xrootdg/ztao/OmniFoldOutputs/Run2",
                         help="Output directory of unfolding runs")
     parser.add_argument("-e", "--subcampaigns", nargs='+', choices=["mc16a", "mc16d", "mc16e"], default=["mc16a", "mc16d", "mc16e"])
-    parser.add_argument("-s", "--do-systematics", action="store_true",
-                        help="If True, also generate run configs for evaluating systematics")
-    parser.add_argument("-k", "--systematics-keywords", type=str, nargs="*", default=[],
-                        help="List of keywords to filter systematic uncertainties to evaluate.If empty, include all available")
-    parser.add_argument("-b", "--do-bootstrap", action="store_true",
-                        help="If True, also generate run configs to do bootstrap")
-    parser.add_argument("-t", "--unfolding-test", action="store_true",
-                        help="If True, generate run configs for unfolding tests")
     parser.add_argument("--observables", nargs='+',
                         default=['th_pt', 'th_y', 'tl_pt', 'tl_y', 'ptt', 'ytt', 'mtt'],
                         help="List of observables to unfold")
+
+    run_options = ['nominal', 'bootstrap', 'systematics', 'model', 'closure', 'stress']
+    parser.add_argument("-l", "--run-list", nargs="+",
+                        choices=run_options, default=run_options,
+                        help="List of run types to generate config files. If None, generate run configs for all types")
+
+    parser.add_argument("-k", "--systematics-keywords", type=str, nargs="*", default=[],
+                        help="List of keywords to filter systematic uncertainties to evaluate. If empty, include all available.")
+
+    parser.add_argument("--external-reweights", type=str, nargs='+', default=[],
+                        help="List of path to external weight files from reweighting")
 
     args = parser.parse_args()
 
@@ -584,9 +643,8 @@ if __name__ == "__main__":
         outname_config = args.config_name,
         output_top_dir = args.result_dir,
         subcampaigns = args.subcampaigns,
-        do_bootstrap = args.do_bootstrap,
-        do_systematics = args.do_systematics,
+        run_list = args.run_list,
         systematics_keywords = args.systematics_keywords,
-        unfolding_test = args.unfolding_test,
+        external_reweights = args.external_reweights,
         common_cfg = common_cfg
         )
