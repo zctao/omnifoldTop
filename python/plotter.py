@@ -1067,6 +1067,43 @@ def draw_training_inputs_ratio(axes, features_array, label_array, weights):
 
         draw_ratio(ax, hist_label1, hist_label0, *get_default_colors(2), label_denom='label 1', labels_numer='label 0')
 
+def draw_inputs_ratio(axes, X_0, w_0, X_1, w_1, X_b=None, w_b=None):
+    # axes: list of axes from plt.subplots(); len(axes) = nfeatures
+    # X_0: feature arrays of label 0; ndarray of shape (nevents_0, nfeatures)
+    # w_0: weight array of label 0; ndarray of shape (nevents_0,)
+    # X_1: feature arrays of label 1; ndarray of shape (nevents_1, nfeatures)
+    # w_1: weight array of label 1; ndarray of shape (nevents_1,)
+    # X_b: feature arrays of background to be merged with X_1, optional
+    # w_b: weight array of background to be subtracted from w_1, optional
+
+    # only plot the first parallel run
+    if w_0.ndim > 1:
+        w_0 = w_0[0]
+
+    if w_1.ndim > 1:
+        w_1 = w_1[0]
+
+    if X_b is not None and w_b is not None:
+        if w_b.ndim > 1:
+            w_b = w_b[0]
+
+        X_1 = np.concatenate([X_1, X_b])
+        w_1 = np.concatenate([w_1, -1*w_b])
+
+    # number of bins
+    nbins=20
+
+    for ax, arr0, arr1 in zip(axes, X_0.T, X_1.T):
+        # bin edges
+        xmin = min(arr0.min(),arr1.min())
+        xmax = max(arr0.max(),arr1.max())
+        bin_edges = np.linspace(xmin, xmax, nbins+1)
+
+        hist_label1 = myhu.calc_hist(arr1, bins=bin_edges, weights=w_1, norm=1.)
+        hist_label0 = myhu.calc_hist(arr0, bins=bin_edges, weights=w_0, norm=1.)
+
+        draw_ratio(ax, hist_label1, hist_label0, *get_default_colors(2), label_denom='label 1', labels_numer='label 0')
+
 def plot_training_inputs_step1(
         figname_prefix,
         variable_names,

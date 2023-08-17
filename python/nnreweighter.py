@@ -185,7 +185,8 @@ def train_and_reweight(
     # Logging
     verbose=False,
     # plot
-    plot=False
+    plot=False,
+    ax_input_ratio=None
     ):
 
     if verbose:
@@ -203,10 +204,9 @@ def train_and_reweight(
         X_bkg, w_bkg = shuffle(X_bkg, w_bkg)
         w_bkg = check_weights(w_bkg, nevents = len(X_bkg))
 
-    # shuffle
-    if X_bkg is not None:
-
-        X_bkg = X_bkg
+    # plot input variable ratios
+    if plot and ax_input_ratio is not None:
+        plotter.draw_inputs_ratio(ax_input_ratio, X_source, w_source, X_target, w_target, X_bkg, w_bkg)
 
     # model outputs
     npreds = len(X_source) if X_pred is None else len(X_pred)
@@ -328,10 +328,14 @@ def train_and_reweight(
                     xlabel = 'NN Output',
                     ylabel_ratio = 'Target / Source'
                 )
-
-        return rw
     else:
         # direct reweighting
         rw = reweight(preds_out)
+
+    if plot and model_filepath_save:
+        for i in range(modelUtils.n_models_in_parallel):
+            figname_r = f"{model_filepath_save}_lr_{i}"
+            logger.info(f"Plot likelihood ratio distribution {figname_r}")
+            plotter.plot_LR_distr(figname_r, [rw[i]])
 
     return rw
