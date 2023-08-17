@@ -189,15 +189,16 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-d', '--data', required=True, nargs='+',
-                        type=str,
+                        type=str, action=util.ParseEnvVar,
                         help="Observed data root file names")
     parser.add_argument('-s', '--signal', required=True, nargs='+',
-                        type=str,
+                        type=str, action=util.ParseEnvVar,
                         help="Signal MC root file names")
     parser.add_argument('-b', '--background', nargs='+',
-                        type=str,
+                        type=str, action=util.ParseEnvVar,
                         help="Background MC root file names")
-    parser.add_argument('--bdata', nargs='+', type=str, default=None,
+    parser.add_argument('--bdata',
+                        nargs='+', type=str, action=util.ParseEnvVar,
                         help="Background MC files to be mixed with data")
     parser.add_argument('--observables', nargs='+',
                         default=['th_pt', 'th_y', 'th_phi', 'th_e', 'tl_pt', 'tl_y', 'tl_phi', 'tl_e'],
@@ -205,10 +206,11 @@ def getArgsParser(arguments_list=None, print_help=False):
     parser.add_argument('--observables-extra', nargs='*', default=[],
                         #default=['mtt', 'ptt', 'ytt', 'ystar', 'chitt', 'yboost', 'dphi', 'Ht', 'th_eta', 'th_m', 'th_pout', 'tl_eta', 'tl_m', 'tl_pout'],
                         help="List of extra observables to unfold.")
-    parser.add_argument('--observable-config',
-                        default='configs/observables/vars_ttbardiffXs_pseudotop.json',
+    parser.add_argument('--observable-config', action=util.ParseEnvVar,
+                        default='${SOURCE_DIR}/configs/observables/vars_ttbardiffXs_pseudotop.json',
                         help="JSON configurations for observables")
-    parser.add_argument('-o', '--outputdir', type=str, default='.',
+    parser.add_argument('-o', '--outputdir',
+                        type=str, default='.', action=util.ParseEnvVar,
                         help="Directory for storing outputs")
     parser.add_argument('-t', '--truth-known',
                         action='store_true',
@@ -217,7 +219,7 @@ def getArgsParser(arguments_list=None, print_help=False):
                         choices=reweight.rw.keys(), default=None,
                         help="Reweight strategy of the input spectrum for stress tests. Requires --truth-known.")
     parser.add_argument('--unfolded-weights',
-                        nargs='*', type=str,
+                        nargs='*', type=str, action=util.ParseEnvVar,
                         help="Unfolded weights file names. If provided, load event weights directly from the files and skip training.")
     parser.add_argument('-v', '--verbose',
                         action='count', default=0,
@@ -243,7 +245,7 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="If True, normalize simulation weights to data")
     parser.add_argument('--batch-size', type=int, default=16384,
                         help="Batch size for training")
-    parser.add_argument('-l', '--load-models', type=str,
+    parser.add_argument('-l', '--load-models', type=str, action=util.ParseEnvVar,
                         help="Directory from where to load trained models. If provided, training will be skipped.")
     parser.add_argument('-c', '--correct-acceptance', action='store_true',
                         help="If True, include events that fail truth-level requirements to account for acceptance effects")
@@ -251,19 +253,21 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="If True, include events that fail reco-level requirements to account for efficiency effects")
     parser.add_argument('--fast-correction', action='store_true',
                         help="If True, assign an average weight of one for events that are not truth matched for acceptance correction")
-    parser.add_argument('--binning-config', type=str,
-                        default="configs/binning/bins_ttdiffxs.json",
+    parser.add_argument('--binning-config', type=str, action=util.ParseEnvVar,
+                        default="${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json",
                         help="Binning config file for variables")
     parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
                         help="Plot verbose level. '-ppp' to make all plots.")
     parser.add_argument('--run-ibu', action='store_true',
                         help="If True, run unfolding also with IBU for comparison")
-    parser.add_argument('--weight-mc', type=str, default='nominal',
+    parser.add_argument('--weight-mc', type=str, default='nominal', action=util.ParseEnvVar,
                         help="Type of event weights to retrieve from MC ntuples")
-    parser.add_argument('--weight-data', type=str, default='nominal',
+    parser.add_argument('--weight-data', type=str, default='nominal', action=util.ParseEnvVar,
                         help="Type of event weights to retrieve from data ntuples")
     parser.add_argument('--parallel-models', type=int, default=1, help="Number of parallel models, default ot 1")
-    parser.add_argument('--lrscheduler-config', type=str, default="configs/lrs/constant_warm_up.json", help="config file for learning rate scheduler")
+    parser.add_argument('--lrscheduler-config', type=str, action=util.ParseEnvVar,
+                        default="${SOURCE_DIR}/configs/lrs/constant_warm_up.json",
+                        help="config file for learning rate scheduler")
     parser.add_argument('--toydata', action='store_true', help="If True, use toy data")
     parser.add_argument('--exclude-flow', action='store_true',
                         help="If True, exclude events in overflow and underflow bins given a binning configuration")

@@ -6,6 +6,7 @@ from packaging import version
 import tensorflow as tf
 import logging
 import itertools
+import argparse
 
 def parse_input_name(fname):
     fname_list = fname.split('*')
@@ -107,7 +108,7 @@ def reportGPUMemUsage(logger):
 
 # JSON encoder for numpy array
 # https://pynative.com/python-serialize-numpy-ndarray-into-json/
-from json import JSONEncoder
+from json import JSONEncoder, JSONDecoder
 
 class NumpyArrayEncoder(JSONEncoder):
     def default(self, obj):
@@ -115,10 +116,24 @@ class NumpyArrayEncoder(JSONEncoder):
             return obj.tolist()
         return JSONEncoder.default(self, obj)
 
+class ParseEnvDecoder(JSONDecoder):
+    def __init__(self, **kwargs):
+        # replace the object_hook with the customized one
+        kwargs["object_hook"] = self.object_hook
+        super().__init__(**kwargs)
+
+    def object_hook(self, obj):
+        for k, v in obj.items():
+            if isinstance(v,str):
+                obj[k] = os.path.expandvars(v)
+            elif isinstance(v, list):
+                obj[k] = [os.path.expandvars(iv) if isinstance(iv,str) else iv for iv in v]
+        return obj
+
 def read_dict_from_json(filename_json):
     jfile = open(filename_json, "r")
     try:
-        jdict = json.load(jfile)
+        jdict = json.load(jfile, cls=ParseEnvDecoder)
     except json.decoder.JSONDecodeError:
         jdict = {}
 
@@ -261,3 +276,23 @@ def reportMemUsage(logger):
 
     mtrace = tracemalloc.get_tracemalloc_memory()
     logger.debug(f"Memory used by tracemalloc: {mtrace*10**-6:.1f} MB")
+
+class ParseEnvVar(argparse.Action):
+    def __init__(self, option_strings, dest, default=None, **kwargs):
+
+        if default is not None:
+            if isinstance(default, str):
+                default = os.path.expandvars(default)
+            else:
+                default = [os.path.expandvars(dv) for dv in default]
+
+        super().__init__(option_strings, dest, default=default, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+
+        if isinstance(values, str):
+            values = os.path.expandvars(values)
+        else:
+            values = [os.path.expandvars(v) for v in values]
+
+        setattr(namespace, self.dest, values)

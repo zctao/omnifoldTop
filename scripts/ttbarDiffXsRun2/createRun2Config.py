@@ -592,15 +592,15 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-d", "--sample-dir", type=str,
-                        default=os.path.expandvars("${DATA_DIR}/NtupleTT/latest",
-                        help="Sample directory"))
+    parser.add_argument("-d", "--sample-dir", type=str, action=util.ParseEnvVar,
+                        default="${DATA_DIR}/NtupleTT/latest",
+                        help="Sample directory")
     parser.add_argument("-n", "--config-name", type=str,
                         default="configs/run/ttbarDiffXsRun2/runCfg_run2_ljets")
     parser.add_argument("-c", "--category", choices=["ejets", "mjets", "ljets"],
                         default="ljets")
-    parser.add_argument("-r", "--result-dir", type=str,
-                        default=os.path.expandvars("${DATA_DIR}/OmniFoldOutputs/Run2"),
+    parser.add_argument("-r", "--result-dir", type=str, action=util.ParseEnvVar,
+                        default="${DATA_DIR}/OmniFoldOutputs/Run2",
                         help="Output directory of unfolding runs")
     parser.add_argument("-e", "--subcampaigns", nargs='+', choices=["mc16a", "mc16d", "mc16e"], default=["mc16a", "mc16d", "mc16e"])
     parser.add_argument("--observables", nargs='+',
@@ -615,15 +615,16 @@ if __name__ == "__main__":
     parser.add_argument("-k", "--systematics-keywords", type=str, nargs="*", default=[],
                         help="List of keywords to filter systematic uncertainties to evaluate. If empty, include all available.")
 
-    parser.add_argument("--external-reweights", type=str, nargs='+', default=[],
+    parser.add_argument("--external-reweights",
+                        type=str, nargs='+', default=[], action=util.ParseEnvVar,
                         help="List of path to external weight files from reweighting")
 
     args = parser.parse_args()
 
     # hard code common config here for now
     common_cfg = {
-        "observable_config" : "configs/observables/vars_ttbardiffXs_pseudotop.json",
-        "binning_config" : "configs/binning/bins_ttdiffxs.json",
+        "observable_config" : "${SOURCE_DIR}/configs/observables/vars_ttbardiffXs_pseudotop.json",
+        "binning_config" : "${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json",
         "iterations" : 4,
         "batch_size" : 20000,
         "normalize" : False,

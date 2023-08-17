@@ -256,19 +256,23 @@ def getArgsParser(arguments_list=None, print_help=False):
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-t', '--target', required=True, nargs='+', type=str,
+    parser.add_argument('-t', '--target',
+                        required=True, nargs='+', type=str, action=util.ParseEnvVar,
                         help="Target sample to reweight to as a list of root files")
-    parser.add_argument('-s', '--source', required=True, nargs='+', type=str,
+    parser.add_argument('-s', '--source',
+                        required=True, nargs='+', type=str, action=util.ParseEnvVar,
                         help="Source sample to be reweighted")
-    parser.add_argument('-b', '--background', nargs='+', type=str,
+    parser.add_argument('-b', '--background',
+                        nargs='+', type=str, action=util.ParseEnvVar,
                         help="Background contributions to be subtracted from target")
     parser.add_argument('--observables', nargs='+', type=str,
                         default=['th_pt','th_y','tl_pt','tl_y','mtt','ptt','ytt'],
                         help="List of observables used to train the classifier")
-    parser.add_argument('--observable-config',
-                        default='configs/observables/vars_ttbardiffXs_pseudotop.json',
+    parser.add_argument('--observable-config', action=util.ParseEnvVar,
+                        default='${SOURCE_DIR}/configs/observables/vars_ttbardiffXs_pseudotop.json',
                         help="JSON configurations for observables")
-    parser.add_argument('-o', '--outputdir', type=str, default='.',
+    parser.add_argument('-o', '--outputdir',
+                        type=str, default='.', action=util.ParseEnvVar,
                         help="Output directory")
     parser.add_argument('-n', '--normalize-weight', action='store_true',
                         help="If True, renormalize source weights to target weights")
@@ -284,8 +288,8 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="Plot verbosity level")
     parser.add_argument('-w', '--weights-file', type=str,
                         help="File path to the weights file. If provided, load weights from this file and skip training")
-    parser.add_argument("--binning-config", type=str,
-                        default='configs/binning/bins_ttdiffxs.json',
+    parser.add_argument("--binning-config", type=str, action=util.ParseEnvVar,
+                        default='${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json',
                         help="Path to the binning config file for variables.")
     parser.add_argument("-c", "--cross-validation", type=int, default=2,
                         help="Number of splits for cross validation")

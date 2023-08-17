@@ -2,15 +2,15 @@
   "data" : ["${DATA_DIR}/NtupleTT/20221221/mcWAlt/ttbar_nominal/mc16a/ttbar_0_pseudotop_parton_ljets.root"],
   "signal" : ["${DATA_DIR}/NtupleTT/20221221/mcWAlt/ttbar_nominal/mc16a/ttbar_1_pseudotop_parton_ljets.root"],
   "observable_config" : "${SOURCE_DIR}/configs/observables/vars_ttbardiffXs_pseudotop.json",
-  "iterations" : 2,
+  "iterations" : 3,
   "truth_known" : true,
   "normalize" : true,
   "batch_size" : 20000,
   "plot_verbosity" : 3,
-  "outputdir" : "output/tmp",
+  "outputdir" : "output/test",
   "reweight_data" : "linear_th_pt",
   "run_ibu" : true,
-  "nruns": 1,
+  "nruns": 2,
   "gpu" : 1,
-  "parallel_models": 1
+  "parallel_models": 3
 }

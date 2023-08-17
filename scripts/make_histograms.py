@@ -980,22 +980,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Make, plot, and store histograms from unfolding results')
 
-    parser.add_argument('result_dir', type=str,
+    parser.add_argument('result_dir', type=str, action=util.ParseEnvVar,
                         help="Directory of the unfolding results")
-    parser.add_argument("--binning-config", type=str,
-                        default='configs/binning/bins_ttdiffxs.json',
+    parser.add_argument("--binning-config", type=str, action=util.ParseEnvVar,
+                        default='${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json',
                         help="Path to the binning config file for variables.")
     parser.add_argument("--observables", nargs='+', default=[],
                         help="List of observables to make histograms. If not provided, use the same ones from the unfolding results")
     parser.add_argument("--observables-multidim", nargs='+', default=[],
                         help="List of observables to make multi-dimension histograms.")
-    parser.add_argument("--observable_config", type=str,
+    parser.add_argument("--observable_config", type=str, action=util.ParseEnvVar,
                         help="Path to the observable config file. If not provided, use the same one from the unfolding results")
     parser.add_argument("-i", "--iterations", type=int, nargs='+', default=[-1],
                         help="Use the results at the specified iteration")
     parser.add_argument("-n", "--nruns", type=int, nargs='+', default=[None],
                         help="Number of runs for making unfolded distributions. If None, use all that are available")
-    parser.add_argument("-o", "--outputdir", type=str,
+    parser.add_argument("-o", "--outputdir", type=str, action=util.ParseEnvVar,
                         help="Output directory. If not provided, use result_dir.")
     parser.add_argument("-f", "--outfilename", type=str, default="histograms.root",
                         help="Output file name")
@@ -1008,7 +1008,7 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="If True, set logging level to DEBUG, otherwise INFO")
     parser.add_argument('--binned-correction', dest="binned_correction_fpath",
-                        type=str,
+                        type=str, action=util.ParseEnvVar,
                         help="File path to read histograms for binned corrections")
     parser.add_argument("--binned-noflow", dest="binned_noflow",
                         action='store_true',
