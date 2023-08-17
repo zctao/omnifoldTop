@@ -10,7 +10,7 @@ import reweight
 import histogramming as myhu
 import FlattenedHistogram as fh
 from datahandler import getDataHandler
-from omnifold import omnifold
+from omnifoldv2 import omnifold
 import modelUtils
 
 import logging
