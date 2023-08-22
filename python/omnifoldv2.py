@@ -134,7 +134,7 @@ def omnifold(
         "batch_size" : batch_size,
         "epochs" : epochs,
         "verbose" : verbose,
-        "nsplit_cv" : 2,
+        "nsplit_cv" : 1,
         "calibrate" : False,
         "plot" : plot
     }
