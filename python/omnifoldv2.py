@@ -253,7 +253,7 @@ def omnifold(
                     X_source = X_sim[passcut_sim & passcut_gen],
                     w_target = weights_push[:, passcut_sim & passcut_gen] * w_sim[passcut_sim & passcut_gen],
                     w_source = w_sim[passcut_sim & passcut_gen],
-                    X_pred = X_sim[~passcut_sim],
+                    X_pred = X_sim[~passcut_gen],
                     # model paths
                     model_filepath_load = model_load_2b,
                     model_filepath_save = model_save_2b,
