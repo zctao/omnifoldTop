@@ -177,6 +177,7 @@ def omnifold(
         )
 
         gc.collect()
+        reportGPUMemUsage(logger)
 
         #####
         # step 1b: deal with events that do not pass reco cuts
@@ -236,6 +237,7 @@ def omnifold(
         )
 
         gc.collect()
+        reportGPUMemUsage(logger)
 
         #####
         # step 2b: events that do not pass truth cuts
