@@ -25,29 +25,6 @@ def check_weights(w, nevents=None):
 
     return np.asarray(w)
 
-def set_up_model(
-    model_type, # str, type of the network
-    input_shape,
-    model_filepath_load = None, # str, filepath to load trained model weights
-    resume_training = False, # bool
-    ):
-
-    model = get_model(input_shape=input_shape, nclass=2, model_type=model_type)
-
-    # load model
-    if model_filepath_load:
-        try:
-            model.load_weights(model_filepath_load)
-            logger.info(f"Load model from {model_filepath_load}")
-        except:
-            if resume_training:
-                logger.debug(f"Cannot load model from {model_filepath_load}. Continue to train models from here.")
-            else:
-                logger.critical(f"Cannot load model from {model_filepath_load}")
-                raise RuntimeError("Model loading failure")
-
-    return model
-
 def predict(model, events, batch_size):
     events_list = [events for _ in range(modelUtils.n_models_in_parallel)]
     preds = model.predict(events_list, batch_size=batch_size)
@@ -81,12 +58,19 @@ def _train_impl(
     ):
 
     # set up network
-    classifier = set_up_model(
-        model_type,
-        input_shape = X_0.shape[1:],
-        model_filepath_load = model_filepath_load,
-        resume_training = resume_training
-        )
+    classifier = get_model(model_type=model_type, input_shape=X_0.shape[1:], nclass=2)
+
+    if model_filepath_load:
+        try:
+            classifier.load_weights(model_filepath_load)
+            logger.info(f"Load model from {model_filepath_load}")
+        except:
+            if resume_training:
+                logger.debug(f"Cannot load model from {model_filepath_load}. Continue to train models from here.")
+                skip_training = False
+            else:
+                logger.critical(f"Cannot load model from {model_filepath_load}")
+                raise RuntimeError("Model loading failure")
 
     if skip_training:
         logger.info("Use trained model for reweighting")

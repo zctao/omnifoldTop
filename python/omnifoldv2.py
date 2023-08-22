@@ -106,11 +106,6 @@ def omnifold(
     if load_models_from and not os.path.isdir(load_models_from):
         raise RuntimeError(f"Cannot load models from {load_models_from}: directory does not exist!")
 
-    if load_models_from and not continue_training:
-        skip_training = True
-    else:
-        skip_training = False
-
     ################
     # Plots
     if plot:
@@ -129,7 +124,7 @@ def omnifold(
     # Common run arguments
     runstep_args = {
         "model_type" : model_type,
-        "skip_training" : skip_training,
+        "skip_training" : True if load_models_from else False,
         "resume_training" : continue_training,
         "batch_size" : batch_size,
         "epochs" : epochs,
