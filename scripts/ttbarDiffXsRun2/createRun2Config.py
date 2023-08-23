@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import glob
+import json
 import util
 
 # systematics dictionary
@@ -619,6 +620,9 @@ if __name__ == "__main__":
                         type=str, nargs='+', default=[], action=util.ParseEnvVar,
                         help="List of path to external weight files from reweighting")
 
+    parser.add_argument("--config-string", type=str,
+                        help="String in JSON format to be parsed for updating run configs")
+
     args = parser.parse_args()
 
     # hard code common config here for now
@@ -637,6 +641,13 @@ if __name__ == "__main__":
 
     if args.observables:
         common_cfg["observables"] = args.observables
+
+    if args.config_string:
+        try:
+            jcfg = json.loads(args.config_string)
+            common_cfg.update(jcfg)
+        except json.decoder.JSONDecodeError:
+            print("ERROR Cannot parse the extra config string: {args.config_string}")
 
     createRun2Config(
         args.sample_dir,
