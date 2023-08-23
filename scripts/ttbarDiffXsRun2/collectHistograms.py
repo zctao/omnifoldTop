@@ -6,28 +6,31 @@ import logging
 logger = logging.getLogger("collectHistograms")
 
 def collect_histograms(
-    histograms_dir, # str, top directory to collect histograms for computing corrections
+    histograms_dir, # str, top directories to collect histograms
     observables=[], # list of str, names of observables to compute corrections
     histogram_suffix = "_histograms.root",
     output_name = None
     ):
 
-    if not os.path.isdir(histograms_dir):
-        logger.error(f"Cannot access directory {histograms_dir}")
-        return {}
-
-    logger.info(f"Collect histogram files from {histograms_dir}")
     fpaths_histogram = []
-    for r, d, files in os.walk(histograms_dir):
-        for fname in files:
-            if fname.endswith(histogram_suffix):
-                logger.debug(f" {os.path.join(r,fname)}")
-                fpaths_histogram.append(os.path.join(r,fname))
+    histograms_d = {}
+
+    for hist_dir in histograms_dir:
+        if not os.path.isdir(hist_dir):
+            logger.error(f"Cannot access directory {hist_dir}")
+            continue
+
+        logger.info(f"Collect histogram files from {hist_dir}")
+
+        for r, d, files in os.walk(hist_dir):
+            for fname in files:
+                if fname.endswith(histogram_suffix):
+                    logger.debug(f" {os.path.join(r,fname)}")
+                    fpaths_histogram.append(os.path.join(r,fname))
 
     if not fpaths_histogram:
         logger.error(f"Found no histogram file in {histograms_dir}")
-
-    histograms_d = {}
+        return histograms_d
 
     logger.info("Read histograms from files")
     for fpath in fpaths_histogram:
@@ -56,6 +59,12 @@ def collect_histograms(
 
     if output_name:
         logger.info(f"Write histograms to file {output_name}")
+
+        outdir = os.path.dirname(output_name)
+        if not os.path.isdir(outdir):
+            logger.info(f"Make output directory {outdir}")
+            os.makedirs(outdir)
+
         myhu.write_histograms_dict_to_file(histograms_d, output_name)
 
     return histograms_d
@@ -66,8 +75,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('histograms_topdir', type=str,
-                        help="Top directory to collect histograms")
+    parser.add_argument('histograms_topdir', nargs='+', type=str,
+                        help="Top directories to collect histograms")
     parser.add_argument('--observables', nargs='+', type=str,
                         help="List of observables. Use all that are available in the histograms if not specified")
     parser.add_argument('-s', '--suffix', type=str, default="_histograms.root",
