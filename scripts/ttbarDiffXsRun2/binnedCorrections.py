@@ -153,6 +153,7 @@ def binned_corrections(
     fpaths_sample = [],
     observables = [],
     flow = True,
+    match_dR = None,
     output_name = None,
     observable_config = 'configs/observables/vars_ttbardiffXs_pseudotop.json'
     ):
@@ -191,7 +192,7 @@ def binned_corrections(
             treename_reco='reco',
             treename_truth='parton',
             weight_type='nominal',
-            match_dR = None
+            match_dR = match_dR
             )
 
         logger.info(f"Sample loaded")
@@ -278,6 +279,8 @@ if __name__ == "__main__":
                         help="File path to observable configuration")
     parser.add_argument('--no-flow', action='store_true',
                         help="If True, exclude underflow and overflow bins")
+    parser.add_argument('--match-dR', type=float,
+                        help="Require dR between the reco and truth tops smaller than the provided value")
     parser.add_argument('-v', '--verbose', action='store_true',
                         help="If True, set the logging level to DEBUG.")
 
@@ -292,6 +295,7 @@ if __name__ == "__main__":
         args.samples,
         observables=args.observables,
         flow = not args.no_flow,
+        match_dR = args.match_dR,
         output_name=args.output,
         observable_config = args.observable_config
         )
