@@ -267,7 +267,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('fpath_histograms', type=str,
-                        help="Filepath of histogram file or top directory to collect histograms for computing binned corrections")
+                        help="Filepath of the histogram file for computing binned corrections")
     parser.add_argument('-s', '--samples', type=str, nargs='+',
                         help="List of sample file paths for building response matrices")
     parser.add_argument('-o', '--output', type=str, required=True,
