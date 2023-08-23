@@ -2,7 +2,6 @@
 import os
 import time
 import tracemalloc
-import numpy as np
 
 import util
 import metrics
@@ -11,7 +10,7 @@ import histogramming as myhu
 from OmniFoldTTbar import read_arguments, load_unfolder
 import ibu
 
-from ttbarDiffXsRun2.binnedCorrections import apply_efficiency_correction
+import ttbarDiffXsRun2.binnedCorrections as bc
 from ttbarDiffXsRun2.helpers import ttbar_diffXs_run2_params
 
 import logging
@@ -148,7 +147,7 @@ def make_histograms_of_observable(
     if unfolder.with_efficiency_correction:
         hists_v_d['unfolded_corrected'] = h_uf.copy()
     elif efficiency:
-        hists_v_d['unfolded_corrected'] = apply_efficiency_correction(h_uf, efficiency)
+        hists_v_d['unfolded_corrected'] = bc.apply_efficiency_correction(h_uf, efficiency)
 
     # Acceptance corrections have already been accounted for during iterations
 
@@ -273,7 +272,7 @@ def make_histograms_of_observable(
         if unfolder.with_efficiency_correction:
             hists_v_d['ibu_corrected'] = h_ibu.copy()
         elif efficiency:
-            hists_v_d['ibu_corrected'] = apply_efficiency_correction(h_ibu, efficiency)
+            hists_v_d['ibu_corrected'] = bc.apply_efficiency_correction(h_ibu, efficiency)
 
         if 'ibu_corrected' in hists_v_d:
             hists_v_d['absoluteDiffXs_ibu'] = hists_v_d['ibu_corrected'] / myhu.get_hist_widths(hists_v_d['ibu_corrected'])
@@ -390,7 +389,7 @@ def make_histograms_of_observables_multidim(
         hists_multidim_d['unfolded_corrected'] = hists_multidim_d['unfolded'].copy()
     elif efficiency:
         # apply binned correction
-        hists_multidim_d['unfolded_corrected'] = apply_efficiency_correction(hists_multidim_d['unfolded'], efficiency)
+        hists_multidim_d['unfolded_corrected'] = bc.apply_efficiency_correction(hists_multidim_d['unfolded'], efficiency)
 
     # Acceptance corrections have already been accounted for during iterations
 
@@ -686,6 +685,7 @@ def make_histograms_from_unfolder(
     compute_metrics = False, # If True, compute metrics
     plot_verbosity = 0, # int, control how many plots to make
     binned_correction_fpath = None, # str, file path to read histograms for binned corrections
+    recompute_corrections = False, # bool, if True, recompute binned corrections
     binned_noflow = False, # bool, if True, exclude overflow/underflow bins when making binned distribution
     observables_multidim = [], # list of observables in the "x_vs_y_vs_.." format for higher dimension distributions
     ):
@@ -725,6 +725,16 @@ def make_histograms_from_unfolder(
     histograms_dict = {}
 
     for ob in observables:
+
+        if recompute_corrections:
+            binned_corrections_d[ob].update(
+                bc.binned_corrections_observable(
+                    ob,
+                    histograms_d = binned_corrections_d,
+                    handle_sim = unfolder.handle_sig,
+                    obsConfig_d = obsConfig_d,
+                    flow = not binned_noflow)
+            )
 
         histograms_dict[ob] = make_histograms_of_observable(
             unfolder,
@@ -767,6 +777,15 @@ def make_histograms_from_unfolder(
             )
 
     for obs in observables_multidim:
+
+        binned_corrections_d[obs].update(
+                bc.binned_corrections_observable_multidim(
+                    ob,
+                    histograms_d = binned_corrections_d,
+                    handle_sim = unfolder.handle_sig,
+                    obsConfig_d = obsConfig_d,
+                    flow = not binned_noflow)
+            )
 
         histograms_dict[obs] = make_histograms_of_observables_multidim(
             unfolder,
@@ -811,6 +830,7 @@ def make_histograms(
     plot_verbosity = 0,
     verbose = False,
     binned_correction_fpath = None,
+    recompute_corrections = False,
     binned_noflow = False
     ):
 
@@ -899,6 +919,7 @@ def make_histograms(
                 compute_metrics = compute_metrics,
                 plot_verbosity = plot_verbosity,
                 binned_correction_fpath = binned_correction_fpath,
+                recompute_corrections = recompute_corrections,
                 binned_noflow = binned_noflow,
                 observables_multidim = observables_multidim
                 )
@@ -1010,6 +1031,8 @@ if __name__ == "__main__":
     parser.add_argument('--binned-correction', dest="binned_correction_fpath",
                         type=str, action=util.ParseEnvVar,
                         help="File path to read histograms for binned corrections")
+    parser.add_argument('-c', '--recompute-corrections', action='store_true',
+                        help="If True, recompute binned corrections")
     parser.add_argument("--binned-noflow", dest="binned_noflow",
                         action='store_true',
                         help="If True, exclude underflow and overflow bins when making binned distributions")
