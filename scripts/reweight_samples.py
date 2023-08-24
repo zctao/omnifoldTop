@@ -310,5 +310,5 @@ if __name__ == "__main__":
     except Exception as e:
         sys.exit(f"Config Failure: {e}")
 
-    # unfold
+    # reweight
     reweight_samples(**vars(args))

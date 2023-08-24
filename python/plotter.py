@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import math
 import matplotlib.pyplot as plt
+from matplotlib.offsetbox import AnchoredText
 import mplhep as hep
 import functools
 
@@ -375,6 +376,43 @@ def get_color_from_draw_options(draw_opt):
         c = c[-1]
 
     return c
+
+def plot_histogram_and_function(
+    figname,
+    histogram,
+    draw_option_histogram,
+    function,
+    draw_option_function,
+    xlabel = '',
+    ylabel = '',
+    title = ''
+    ):
+
+    fig, ax = plt.subplots()
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    if ylabel:
+        ax.set_ylabel(ylabel)
+    if title:
+        ax.set_title(title)
+
+    # draw the histogram
+    yerr = myhu.get_values_and_errors(histogram)[1]
+    hep.histplot(histogram, yerr=yerr, ax=ax, **draw_option_histogram)
+
+    # draw the fit function
+    binedges = histogram.axes.edges[0]
+    xp = np.linspace(binedges[0], binedges[-1],100)
+    ax.plot(xp, function(xp), **draw_option_function)
+
+    at = AnchoredText(str(function), loc='lower left', prop={'size':6}, frameon=True)
+    ax.add_artist(at)
+
+    if not os.path.isdir(os.path.dirname(figname)):
+        os.makedirs(os.path.dirname(figname))
+
+    fig.savefig(figname+'.png', dpi=300)
+    plt.close(fig)
 
 def plot_histograms_and_ratios(
     figname,
