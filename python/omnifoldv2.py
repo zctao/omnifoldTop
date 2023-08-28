@@ -219,7 +219,7 @@ def omnifold(
 
         weights_push[:, passcut_gen] = rw_step2 * train_and_reweight(
             # Inputs
-            X_target = X_gen[passcut_gen],  # background already included
+            X_target = X_gen[passcut_gen],
             X_source = X_gen[passcut_gen],
             w_target = weights_pull[:,passcut_gen] * w_gen[passcut_gen],
             w_source = w_gen[passcut_gen] * rw_step2,
