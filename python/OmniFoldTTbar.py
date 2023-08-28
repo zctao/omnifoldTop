@@ -64,6 +64,17 @@ def standardize_arrays(*arrays):
 
     return arrays
 
+def minmax_arrays(*arrays):
+    x = np.concatenate(arrays)
+    xmin = x.min(axis=0)
+    xmax = x.max(axis=0)
+
+    for arr in arrays:
+        arr -= xmin
+        arr /= (xmax - xmin)
+
+    return arrays
+
 class OmniFoldTTbar():
     def __init__(
         self,
