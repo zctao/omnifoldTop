@@ -504,6 +504,51 @@ def write_config_stress(
         # write run config to file
         util.write_dict_to_json(stress_data_alt_cfg, f"{outname_config}_stress_data_alt.json")
 
+def write_config_stress_binned(
+    sample_local_dir,
+    fpath_reweights,
+    category = "ljets",
+    subcampaigns = ["mc16a", "mc16d", "mc16e"],
+    output_top_dir = '.',
+    outname_config =  'runConfig',
+    common_cfg = {}
+    ):
+
+    print("Stress tests: binned reweighting")
+    if not fpath_reweights:
+        print("ERROR cannot generate run config for data induced stress test: no external weight files are provided.")
+    elif not os.path.isdir(fpath_reweights):
+        print(f"ERROR: {fpath_reweights} has to be a directory for the stress tests with binned reweighting")
+    else:
+        sig_nominal = get_samples_signal(sample_local_dir, category, subcampaigns)
+
+        observables = common_cfg["observables"]
+
+        fname_rw = 'reweights.h5' # hard code for now
+
+        cfg_list = []
+
+        for obs in observables:
+
+            stress_cfg = common_cfg.copy()
+            stress_cfg.update({
+                "data": sig_nominal,
+                "signal": sig_nominal,
+                "plot_verbosity": 2,
+                "normalize": True,
+                "correct_acceptance": False,
+                "truth_known": True,
+                "observables": [obs],
+                "outputdir": os.path.join(output_top_dir, f"stress_data_binned", obs),
+                "weight_data": f"external:{os.path.join(fpath_reweights, obs, fname_rw)}",
+                "weight_mc": "nominal"
+            })
+
+            cfg_list.append(stress_cfg)
+
+        # write run configs to file
+        util.write_dict_to_json(cfg_list, f"{outname_config}_stress_data_binned.json")
+
 def createRun2Config(
         sample_local_dir,
         category, # "ejets" or "mjets" or "ljets"
@@ -587,6 +632,12 @@ def createRun2Config(
             **write_common_args
         )
 
+    if 'stress_binned' in run_list:
+        write_config_stress_binned(
+            fpath_reweights = external_reweights[0], # FIXME
+            **write_common_args
+        )
+
 if __name__ == "__main__":
 
     import argparse
@@ -608,7 +659,7 @@ if __name__ == "__main__":
                         default=['th_pt', 'th_y', 'tl_pt', 'tl_y', 'ptt', 'ytt', 'mtt'],
                         help="List of observables to unfold")
 
-    run_options = ['nominal', 'bootstrap', 'systematics', 'model', 'closure', 'stress']
+    run_options = ['nominal', 'bootstrap', 'systematics', 'model', 'closure', 'stress', 'stress_binned']
     parser.add_argument("-l", "--run-list", nargs="+",
                         choices=run_options, default=run_options,
                         help="List of run types to generate config files. If None, generate run configs for all types")
