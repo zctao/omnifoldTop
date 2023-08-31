@@ -166,6 +166,7 @@ def train_and_reweight(
     epochs = 100,
     # Reweight
     calibrate=False,
+    clip_weights=False,
     # Logging
     verbose=False,
     # plot
@@ -315,6 +316,9 @@ def train_and_reweight(
     else:
         # direct reweighting
         rw = reweight(preds_out)
+
+    if clip_weights:
+        rw = np.clip(rw, -10., 10.)
 
     if plot and model_filepath_save:
         for i in range(modelUtils.n_models_in_parallel):

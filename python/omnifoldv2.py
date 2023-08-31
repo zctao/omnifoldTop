@@ -131,6 +131,7 @@ def omnifold(
         "verbose" : verbose,
         "nsplit_cv" : 1,
         "calibrate" : False,
+        "clip_weights" : True,
         "plot" : plot
     }
 
