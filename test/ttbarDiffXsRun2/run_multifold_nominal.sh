@@ -16,7 +16,7 @@ echo "Generate run configs"
 python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/createRun2Config.py \
     --sample-dir ${sample_dir} \
     --result-dir ${outdir} \
-    --config-name ${outdir}/configs/runCfg_run2_ljets \
+    --config-name ${outdir}/configs/runCfg \
     --subcampaigns $subcampaigns \
     --observables $observables \
     --run-list nominal
@@ -24,7 +24,7 @@ python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/createRun2Config.py \
 ######
 echo
 echo "Run unfolding"
-python ${SOURCE_DIR}/run_unfold.py ${outdir}/configs/runCfg_run2_ljets_nominal.json
+python ${SOURCE_DIR}/run_unfold.py ${outdir}/configs/runCfg_nominal.json
 
 ######
 # Binned corrections
