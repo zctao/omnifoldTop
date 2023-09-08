@@ -4,6 +4,7 @@ import os
 import histogramming as myhu
 import plotter
 import util
+import numpy as np
 
 # systematic uncertainties
 from ttbarDiffXsRun2.systematics import get_systematics
@@ -102,7 +103,8 @@ def compute_systematic_uncertainties(
     hist_filename = "histograms.root",
     every_run = False,
     ibu = False,
-    hist_key = 'absoluteDiffXs',
+    hist_key = 'unfolded',
+    normalize = False
     ):
 
     logger.debug("Compute systematic bin uncertainties")
@@ -115,7 +117,11 @@ def compute_systematic_uncertainties(
         fpath_hist_syst = os.path.join(systematics_topdir, syst_variation, hist_filename)
 
         # read histograms
-        hists_syst_d = myhu.read_histograms_dict_from_file(fpath_hist_syst)
+        try:
+            hists_syst_d = myhu.read_histograms_dict_from_file(fpath_hist_syst)
+        except:
+            logger.debug(f"No histograms found for {syst_variation}: cannot open {fpath_hist_syst}")
+            continue
 
         # loop over observables
         for ob in hists_syst_d:
@@ -126,6 +132,12 @@ def compute_systematic_uncertainties(
             # get the unfolded distributions
             h_syst = get_unfolded_histogram_from_dict(ob, hists_syst_d, ibu=ibu, hist_key=hist_key)
             h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, ibu=ibu, hist_key=hist_key)
+
+            if normalize:
+                if hist_key in ["absoluteDiffXs", "relativeDiffXs"]:
+                    logger.warn(f"Skip renormalizing histogram {hist_key}!")
+                else:
+                    myhu.renormalize_hist(h_syst, norm=myhu.get_hist_norm(h_nominal))
 
             # compute relative bin errors
             relerr_syst = h_syst.values() / h_nominal.values() - 1.
@@ -143,6 +155,9 @@ def compute_systematic_uncertainties(
                 h_nominal_allruns = histograms_nominal_d[ob].get('unfolded_allruns')
 
                 for h_syst_i, h_nominal_i in zip(h_syst_allruns, h_nominal_allruns):
+                    if normalize:
+                        myhu.renormalize_hist(h_syst_i, norm=myhu.get_hist_norm(h_nominal_i))
+
                     relerr_syst_i = h_syst_i.values() / h_nominal_i.values() - 1.
 
                     # store as a histogram
@@ -221,6 +236,66 @@ def plot_uncertainties_from_file(fpath):
     unc_d = myhu.read_histograms_dict_from_file(fpath)
     plot_fractional_uncertainties(unc_d)
 
+def compute_total_uncertainties(
+    bin_uncertainties_dict,
+    uncertainties = [], # list of uncertainty labels to plot
+    group_label = 'total'
+    ):
+
+    total_uncertainties_d = {}
+
+    # loop over observables
+    for ob in bin_uncertainties_dict:
+
+        var_up = 0.
+        var_down = 0.
+
+        # loop over uncertainties
+        for unc in uncertainties:
+            if isinstance(unc, tuple):
+                # up and down variations
+                unc_var1, unc_var2 = unc
+
+                hist_var1 = bin_uncertainties_dict[ob].get(unc_var1)
+                if hist_var1 is None:
+                    logger.error(f"No entry found for uncertainty {unc_var1}")
+                    continue
+
+                hist_var2 = bin_uncertainties_dict[ob].get(unc_var2)
+                if hist_var2 is None:
+                    logger.error(f"No entry found for uncertainty {unc_var2}")
+                    continue
+            else:
+                # symmetric
+                hist_var1 = bin_uncertainties_dict[ob].get(unc)
+                if hist_var1 is None:
+                    logger.error(f"No entry found for uncertainty {unc}")
+                    continue
+
+                hist_var2 = hist_var1 * -1.
+
+            relerr_var1 = myhu.get_values_and_errors(hist_var1)[0]
+            relerr_var2 = myhu.get_values_and_errors(hist_var2)[0]
+
+            relerr_up = np.max([relerr_var1, relerr_var2], axis=0)
+            relerr_down = np.min([relerr_var1, relerr_var2], axis=0)
+
+            var_up += relerr_up ** 2
+            var_down += relerr_down ** 2
+
+        total_uncertainties_d[ob] = {
+            f"{group_label}_up" : hist_var1.copy(),
+            f"{group_label}_down" : hist_var1.copy()
+        }
+
+        myhu.set_hist_contents(total_uncertainties_d[ob][f"{group_label}_up"], np.sqrt(var_up))
+        total_uncertainties_d[ob][f"{group_label}_up"].view()['variance'] = 0.
+
+        myhu.set_hist_contents(total_uncertainties_d[ob][f"{group_label}_down"], -1*np.sqrt(var_down))
+        total_uncertainties_d[ob][f"{group_label}_down"].view()['variance'] = 0.
+
+    return total_uncertainties_d
+
 def evaluate_uncertainties(
     nominal_dir, # str, directory of the nominal unfolding results
     bootstrap_topdir = None, # str, top directory of the results for bootstraping
@@ -234,11 +309,12 @@ def evaluate_uncertainties(
     hist_filename = "histograms.root", # str, name of the histogram root file
     ibu = False,
     plot = False,
-    hist_key = 'absoluteDiffXs'
+    hist_key = 'unfolded',
+    normalize = False
     ):
 
     bin_uncertainties_d = dict()
-    uncertainties_toplot = list()
+    uncertainties_all = list()
 
     if nensembles_model is not None:
         # use the histograms produced with the specified nensembles
@@ -264,13 +340,14 @@ def evaluate_uncertainties(
             hist_filename = hist_filename,
             every_run = systematics_everyrun,
             ibu = ibu,
-            hist_key = hist_key
+            hist_key = hist_key,
+            normalize = normalize
             )
 
         for ob in bin_uncertainties_d:
             bin_uncertainties_d[ob].update(bin_errors_syst_d[ob])
 
-        uncertainties_toplot += get_systematics(systematics_keywords, list_of_tuples=True)
+        uncertainties_all += get_systematics(systematics_keywords, list_of_tuples=True)
 
     # statistical uncertainty from bootstraping
     if bootstrap_topdir:
@@ -288,7 +365,7 @@ def evaluate_uncertainties(
         for ob in bin_uncertainties_d:
             bin_uncertainties_d[ob].update(bin_errors_Dstat_d[ob])
 
-        uncertainties_toplot.append("Data stat.")
+        uncertainties_all.append("Data stat.")
 
     if bootstrap_mc_topdir:
         logger.info(f"MC stat.")
@@ -305,9 +382,9 @@ def evaluate_uncertainties(
         for ob in bin_uncertainties_d:
             bin_uncertainties_d[ob].update(bin_errors_MCstat_d[ob])
 
-        uncertainties_toplot.append("MC stat.")
+        uncertainties_all.append("MC stat.")
 
-    # model uncertainty
+    # network uncertainty
     if not ibu and network_error_dir is not None:
 
         logger.info("network")
@@ -323,7 +400,25 @@ def evaluate_uncertainties(
         for ob in bin_uncertainties_d:
             bin_uncertainties_d[ob].update(bin_errors_network_d[ob])
 
-        uncertainties_toplot.append('network')
+        uncertainties_all.append('network')
+
+    # compute grouped and total uncertainties
+    bin_errors_total = compute_total_uncertainties(
+        bin_uncertainties_d,
+        uncertainties = uncertainties_all,
+        group_label = 'total'
+    )
+
+    # compute other uncertainty groups here
+    # bin_errors_detector = compute_total_uncertainties(
+    #    bin_uncertainties_d,
+    #    uncertainties = uncertainties_detector,
+    #    group_label = 'total'
+    # )
+
+    # Add to the uncertainty dict
+    for ob in bin_uncertainties_d:
+        bin_uncertainties_d[ob].update(bin_errors_total[ob])
 
     # save to file
     output_name = os.path.join(output_dir, 'bin_uncertainties.root')
@@ -333,7 +428,7 @@ def evaluate_uncertainties(
     if plot:
         plot_fractional_uncertainties(
             bin_uncertainties_d,
-            uncertainties = uncertainties_toplot,
+            uncertainties = uncertainties_all,
             outname_prefix = os.path.splitext(output_name)[0]
         )
 
@@ -365,23 +460,16 @@ if __name__ == "__main__":
                         help="Name of the unfolding histogram file")
     parser.add_argument("--ibu", action='store_true',
                         help="If True, use unfolded distributions from IBU for comparison")
+    parser.add_argument("--normalize", action='store_true',
+                        help="If True, normalize histograms to the nominal before computing the bin uncertainties")
     parser.add_argument("-p", "--plot", action='store_true',
                         help="If True, make plots")
 
 
     args = parser.parse_args()
 
-    # loop over types of histograms
-    for hkey in ['absoluteDiffXs', 'relativeDiffXs']:
-        args_d = vars(args).copy()
-        args_d.update({
-            'output_dir' : os.path.join(args_d['output_dir'], hkey),
-            'hist_key' : hkey
-        })
+    if not os.path.isdir(args.output_dir):
+        logger.info(f"Create output directory {args.output_dir}")
+        os.makedirs(args.output_dir)
 
-        if not os.path.isdir(args_d['output_dir']):
-            logger.info(f"Create output directory {args_d['output_dir']}")
-            os.makedirs(args_d['output_dir'])
-
-        evaluate_uncertainties(**args_d)
-        #TODO group and compute total
+    evaluate_uncertainties(**vars(args))
