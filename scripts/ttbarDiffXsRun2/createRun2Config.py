@@ -308,6 +308,19 @@ def write_config_systematics(
     sig_nom = get_samples_signal(sample_local_dir, category, subcampaigns)
     bkg_nom = get_samples_backgrounds(sample_local_dir, category, subcampaigns)
 
+    print("central")
+    central_cfg = common_cfg.copy()
+    central_cfg.update({
+        "data": sig_nom,
+        "bdata": bkg_nom,
+        "signal": sig_nom,
+        "background": bkg_nom,
+        "outputdir": os.path.join(output_top_dir, "central"),
+        "correct_acceptance" : False,
+        })
+
+    cfg_dict_list.append(central_cfg)
+
     # systematics as alternative sets of events in TTrees
     for syst in get_systematics(systematics_keywords, syst_type="Branch"):
         print(syst)
@@ -329,16 +342,13 @@ def write_config_systematics(
 
         # unfold using the nominal samples
 
-        # output directory
-        outdir_syst = os.path.join(output_top_dir, syst)
-
         syst_cfg = common_cfg.copy()
         syst_cfg.update({
             "data": sig_syst,
             "bdata": bkg_syst,
             "signal": sig_nom,
             "background": bkg_nom,
-            "outputdir": outdir_syst,
+            "outputdir": os.path.join(output_top_dir, syst),
             "correct_acceptance" : False,
             #"load_models": ?
             #"nruns": ?
@@ -349,9 +359,6 @@ def write_config_systematics(
     # systematics as scale factor variations
     for syst, wtype in zip(*get_systematics(systematics_keywords, syst_type="ScaleFactor", get_weight_types=True)):
         print(syst)
-
-        # output directory
-        outdir_syst = os.path.join(output_top_dir, syst)
 
         syst_cfg = common_cfg.copy()
 
