@@ -1,9 +1,9 @@
 #!/bin/bash
-timestamp='2023Aug18'
+timestamp=${1:-'latest'}
 subcampaigns='mc16a mc16d mc16e'
 
 sample_dir=${DATA_DIR}/NtupleTT/20221221
-outdir=${DATA_DIR}/OmniFoldOutputs/Run2Nominal/$timestamp
+outdir=${DATA_DIR}/OmniFoldOutputs//Run2TTbarXs/Nominal/$timestamp
 
 histogram_topdir=${DATA_DIR}/NtupleTT/20230501/systCRL/ttbar_nominal
 

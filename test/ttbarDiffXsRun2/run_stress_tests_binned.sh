@@ -1,10 +1,10 @@
 #!/bin/bash
-timestamp='2023Aug24'
+timestamp=${1:-'latest'}
 subcampaigns='mc16a mc16d mc16e'
 
 sample_dir=${DATA_DIR}/NtupleTT/20221221
-outdir_rw=${DATA_DIR}/OmniFoldOutputs/Reweight/$timestamp
-outdir_test=${DATA_DIR}/OmniFoldOutputs/StressTests/$timestamp
+outdir_rw=${DATA_DIR}/OmniFoldOutputs/Run2TTbarXs/Reweight/$timestamp
+outdir_test=${DATA_DIR}/OmniFoldOutputs/Run2TTbarXs/StressTests/$timestamp
 
 observables='mtt ptt th_pt tl_pt ytt th_y tl_y'
 
