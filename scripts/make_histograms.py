@@ -780,7 +780,7 @@ def make_histograms_from_unfolder(
 
         binned_corrections_d[obs].update(
                 bc.binned_corrections_observable_multidim(
-                    ob,
+                    obs,
                     histograms_d = binned_corrections_d,
                     handle_sim = unfolder.handle_sig,
                     obsConfig_d = obsConfig_d,
