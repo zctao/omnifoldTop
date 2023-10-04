@@ -28,7 +28,8 @@ fi
 
 run() {
     local label=$1
-    local obs=$2
+    shift 1
+    local obs=$@
 
     echo $label
     echo "Generate run config with acceptance corrections"
