@@ -27,7 +27,7 @@ omnifold_style = {'color': 'tab:red', 'label':'MultiFold', 'histtype': 'errorbar
 ibu_style = {'color': 'gray', 'label':'IBU', 'histtype': 'errorbar', 'marker': 'o', 'markersize': 2}
 error_style = {'lw': 1, 'capsize': 1.5, 'capthick': 1, 'markersize': 1.5}
 
-def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer, label_denom=None, labels_numer=[]):
+def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer, label_denom=None, labels_numer=[], yerr_denom=None, yerrs_numer=[]):
     """
     Plot ratios of several numerator histograms to a denominator histogram.
 
@@ -54,11 +54,25 @@ def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer, label_den
 
     # denominator uncertainty
     values_denom, errors_denom = myhu.get_values_and_errors(hist_denom)
-    if errors_denom is not None:
-        relerrs_denom = np.divide(errors_denom, values_denom, out=np.zeros_like(values_denom), where=(values_denom!=0))
-        relerrs_denom = np.append(relerrs_denom, relerrs_denom[-1])
+    # use the provided y errors if available
+    if yerr_denom is not None:
+        errors_denom = yerr_denom
 
-        ax.fill_between(bin_edges, 1-relerrs_denom, 1+relerrs_denom, step='post', facecolor=color_denom, alpha=0.3, label=label_denom)
+    if errors_denom is not None:
+        relerrs_denom = np.divide(errors_denom, values_denom, out=np.zeros_like(errors_denom), where=(values_denom!=0))
+
+        if relerrs_denom.ndim == 1:
+            relerrs_denom = np.append(relerrs_denom, relerrs_denom[-1])
+            relerrs_denom_down = 1 - relerrs_denom
+            relerrs_denom_up = 1 + relerrs_denom
+        elif relerrs_denom.ndim == 2:
+            relerrs_denom_down, relerrs_denom_up = relerrs_denom
+            relerrs_denom_down = 1 - np.append(relerrs_denom_down, relerrs_denom_down[-1])
+            relerrs_denom_up = 1 + np.append(relerrs_denom_up, relerrs_denom_up[-1])
+        else:
+            raise RuntimeError(f"draw_ratio: unknown error shape {errors_denom.shape}")
+
+        ax.fill_between(bin_edges, relerrs_denom_down, relerrs_denom_up, step='post', facecolor=color_denom, alpha=0.3, label=label_denom)
 
     # in case hists_numer and colors_numer are not lists
     if not isinstance(hists_numer, list):
@@ -71,15 +85,24 @@ def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer, label_den
     elif not isinstance(labels_numer, list):
         labels_numer = [labels_numer]
 
-    for hnum, cnum, lnum in zip(hists_numer, colors_numer, labels_numer):
+    if not yerrs_numer:
+        yerrs_numer = [None] * len(hists_numer)
+    else:
+        assert(len(yerrs_numer)==len(hists_numer))
+
+    for hnum, cnum, lnum, yerr_n in zip(hists_numer, colors_numer, labels_numer, yerrs_numer):
         if hnum is None:
             continue
 
         values_num, errors_num = myhu.get_values_and_errors(hnum)
+        # use the provided error if available
+        if yerr_n is not None:
+            errors_num = yerr_n
+
         ratio = np.divide(values_num, values_denom, out=np.zeros_like(values_denom), where=(values_denom!=0))
 
         if errors_num is not None:
-            ratio_errs = np.divide(errors_num, values_denom, out=np.zeros_like(values_denom), where=(values_denom!=0))
+            ratio_errs = np.divide(errors_num, values_denom, out=np.zeros_like(errors_num), where=(values_denom!=0))
         else:
             ratio_errs = None
 
@@ -153,8 +176,12 @@ def draw_histograms(
         hep.histplot(histograms, yerr=False, stack=True, ax=ax, **style_stack)
     else:
         for h, opt in zip(histograms, draw_options):
-            yerr_n = myhu.get_values_and_errors(h)[1]
-            hep.histplot(h, yerr=yerr_n, ax=ax, **opt)
+            # use 'yerr' in opt if provided, otherwise extract from h
+            if 'yerr' in opt:
+                hep.histplot(h, ax=ax, **opt)
+            else:
+                yerr_n = myhu.get_values_and_errors(h)[1]
+                hep.histplot(h, ax=ax, yerr=yerr_n, **opt)
 
     # legend
     if legend_loc is not None:
@@ -457,8 +484,13 @@ def plot_histograms_and_ratios(
 
     # draw histograms
     if hist_denominator and not denominator_ratio_only:
-        yerr_d = myhu.get_values_and_errors(hist_denominator)[1]
-        hep.histplot(hist_denominator, yerr=yerr_d, ax=ax, **draw_option_denominator)
+        # use 'yerr' in draw_option_denominator if provided
+        # otherwise extract from the histogram object
+        if 'yerr' in draw_option_denominator:
+            hep.histplot(hist_denominator, ax=ax, **draw_option_denominator)
+        else:
+            yerr_d = myhu.get_values_and_errors(hist_denominator)[1]
+            hep.histplot(hist_denominator, ax=ax, yerr=yerr_d, **draw_option_denominator)
 
     if not draw_options_numerator:
         draw_options_numerator = [{}] * len(hists_numerator)
@@ -497,12 +529,18 @@ def plot_histograms_and_ratios(
         if stack_numerators:
             colors_num_ratio = [colors_num_ratio[-1]]
 
+        yerrs_numer = [opt.get('yerr') for opt in draw_options_numerator]
+        if stack_numerators:
+            yerrs_numer = [functools.reduce(lambda x,y: np.sqrt(x*x+y*y), yerrs_numer)] if not any(e is None for e in yerrs_numer) else [None]
+
         draw_ratio(
             ax_ratio,
             hist_denominator,
             hists_num_ratio,
             get_color_from_draw_options(draw_option_denominator),
-            colors_num_ratio
+            colors_num_ratio,
+            yerr_denom = draw_option_denominator.get('yerr'),
+            yerrs_numer = yerrs_numer
             )
 
     # save plot
