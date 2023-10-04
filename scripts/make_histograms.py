@@ -24,7 +24,8 @@ keys_to_save = [
     'reco_data', 'reco_sig', 'reco_bkg',
     'ibu', 'ibu_corrected','ibu_alliters', 'ibu_correlation', 'response',
     'relativeDiffXs_ibu', 'absoluteDiffXs_ibu',
-    'acceptance', 'efficiency'
+    'acceptance', 'efficiency',
+    'relativeDiffXs_MC', 'absoluteDiffXs_MC'
     ]
 
 # Helper function to get histograms from unfolder
@@ -220,6 +221,11 @@ def make_histograms_of_observable(
         )
     hists_v_d['prior_noflow'] = myhu.projectToYaxis(hist2d_sig, flow=False)
 
+    logger.debug(f" Theory diff Xs")
+    if binned_correction_d:
+        hists_v_d['absoluteDiffXs_MC'] = binned_correction_d[observable]['absDiffXs']
+        hists_v_d['relativeDiffXs_MC'] = binned_correction_d[observable]['relDiffXs']
+
     ##
     # truth distribution if using pseudo data
     if unfolder.handle_obs.data_truth is not None:
@@ -413,6 +419,11 @@ def make_histograms_of_observables_multidim(
         absoluteValues=absValues,
         extra_cuts = inbins_sig_truth
     )
+
+    logger.debug(f" Theory diff Xs")
+    if binned_correction_d:
+        hists_multidim_d['absoluteDiffXs_MC'] = binned_correction_d[observables]['absDiffXs']
+        hists_multidim_d['relativeDiffXs_MC'] = binned_correction_d[observables]['relDiffXs']
 
     ##
     # truth distributions if using pseudo data

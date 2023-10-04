@@ -50,12 +50,42 @@ def compute_binned_efficiency_multidim(fhist_response, fhist_truth, flow):
 
     return fhist_eff
 
+def compute_diffXs_MC(hist_truth, relative=False):
+    # divided by bin widths
+    h_diffXs_th = hist_truth / myhu.get_hist_widths(hist_truth)
+
+    if relative:
+        h_diffXs_th = myhu.renormalize_hist(h_diffXs_th, density=True)
+    else:
+        # divided by branching ratio
+        h_diffXs_th *= (1. / ttbar_diffXs_run2_params['branching_ratio'])
+        # divided by luminosity
+        h_diffXs_th *= (1. / ttbar_diffXs_run2_params['luminosity'])
+
+    return h_diffXs_th
+
+def compute_diffXs_MC_multidim(fhist_truth, relative=False):
+    # divided by bin widths
+    fh_diffXs_th = fhist_truth.copy()
+    fh_diffXs_th.make_density()
+
+    if relative:
+        fh_diffXs_th.renormalize(norm=1., density=True)
+    else:
+        # divided by branching ratio
+        fh_diffXs_th.scale(1. / ttbar_diffXs_run2_params['branching_ratio'])
+        # divided by luminosity
+        fh_diffXs_th.scale(1. / ttbar_diffXs_run2_params['luminosity'])
+
+    return fh_diffXs_th
+
 def binned_corrections_observable(
     observable,
     histograms_d,
     handle_sim = None,
     obsConfig_d = None,
-    flow=True
+    flow=True,
+    compute_theoryDiffXs=True
     ):
 
     # histograms
@@ -91,6 +121,10 @@ def binned_corrections_observable(
         "htruth": h_truth
     }
 
+    if compute_theoryDiffXs:
+        hists_out_d["absDiffXs"] = compute_diffXs_MC(h_truth, False)
+        hists_out_d["relDiffXs"] = compute_diffXs_MC(h_truth, True)
+
     return hists_out_d
 
 def binned_corrections_observable_multidim(
@@ -98,7 +132,8 @@ def binned_corrections_observable_multidim(
     histograms_d,
     handle_sim = None,
     obsConfig_d = None,
-    flow=True
+    flow=True,
+    compute_theoryDiffXs=True
     ):
 
     obs_list = observable.split("_vs_")
@@ -145,6 +180,10 @@ def binned_corrections_observable_multidim(
         "hreco": fh_reco,
         "htruth": fh_truth
     }
+
+    if compute_theoryDiffXs:
+        hists_out_d["absDiffXs"] = compute_diffXs_MC_multidim(fh_truth, False)
+        hists_out_d["relDiffXs"] = compute_diffXs_MC_multidim(fh_truth, True)
 
     return hists_out_d
 
