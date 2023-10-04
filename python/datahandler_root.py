@@ -546,8 +546,8 @@ class DataHandlerROOT(DataHandlerBase):
             self.pass_truth = select_parton(filepaths, treename=treename_truth)
 
         if match_dR is not None and self.pass_truth is not None:
-            self.pass_truth &= match_top_dR(
-            #self.pass_truth &= match_top_decays_dR(
+            #self.pass_truth &= match_top_dR(
+            self.pass_truth &= match_top_decays_dR(
                 filepaths,
                 maxDR = match_dR,
                 treename_reco = treename_reco,
