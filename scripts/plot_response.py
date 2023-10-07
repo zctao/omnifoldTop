@@ -24,6 +24,8 @@ parser.add_argument("--binning-config", type=str,
                     help="Path to the binning config file for variables.")
 parser.add_argument('--match-dR', type=float,
                     help="Require dR between the reco and truth tops less than the provided value")
+parser.add_argument('--raw-entries', action='store_true',
+                    help="If True, do not normalize truth bins")
 
 args = parser.parse_args()
 
@@ -56,7 +58,8 @@ for obs, vname_reco, vname_truth in zip(args.observables, varnames_reco, varname
     response_obs_d[obs] = dh.get_response(
         vname_reco, vname_truth,
         bins_reco, bins_truth,
-        absoluteValue = '_abs' in obs
+        absoluteValue = '_abs' in obs,
+        normalize_truthbins = not args.raw_entries
     )
 
 # output directory
@@ -71,4 +74,4 @@ myhu.write_histograms_dict_to_file(response_obs_d, fpath_root)
 for obs in response_obs_d:
     figname = os.path.join(args.outputdir, f"response_{obs}")
     logger.info(f"Plot response for {obs}: {figname}")
-    plotter.plot_response(figname, response_obs_d[obs], obs)
+    plotter.plot_response(figname, response_obs_d[obs], obs, percentage=not args.raw_entries, title='')
