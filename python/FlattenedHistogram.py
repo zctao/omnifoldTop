@@ -310,11 +310,17 @@ class FlattenedHistogram2D():
         for ybin in self:
             self[ybin].axes[0].label = label
 
+    def get_xlabel(self, ybin='y_bin1'):
+        return self[ybin].axes[0].label
+
     def set_ylabel(self, label):
         if self._yhist is None:
             logger.warn(f"No y hist for setting label")
         else:
             self._yhist.axes[0].label = label
+
+    def get_ylabel(self):
+        return self._yhist.axes[0].label
 
     def plot(
         self,
@@ -753,15 +759,24 @@ class FlattenedHistogram3D():
         for zbin in self:
             self[zbin].set_xlabel(label)
 
+    def get_xlabel(self, zbin="z_bin1", ybin="y_bin1"):
+        return self[zbin].get_xlabel(ybin)
+
     def set_ylabel(self, label):
         for zbin in self:
             self[zbin].set_ylabel(label)
+
+    def get_ylabel(self, zbin="z_bin1"):
+        return self[zbin].get_ylabel()
 
     def set_zlabel(self, label):
         if self._zhist is None:
             logger.warn(f"No z hist for setting label")
         else:
             self._zhist.axes[0].label = label
+
+    def get_zlabel(self):
+        return self._zhist.axes[0].label
 
     def write(self, f_write, directory):
         f_write[os.path.join(directory, '_zhist')] = self._zhist
