@@ -7,7 +7,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "m^{t\\bar{t}}",
+    "unit": "GeV"
   },
 
   "ptt": {
@@ -18,7 +20,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "p_{T}^{t\\bar{t}}",
+    "unit": "GeV"
   },
 
   "ytt": {
@@ -29,7 +33,9 @@
     "ylabel_density": "Events/$\\Delta y$",
     "stamp_xy": [0.32, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "y^{t\\bar{t}}",
+    "unit": ""
   },
 
   "ytt_abs": {
@@ -40,7 +46,9 @@
     "ylabel_density": "Events/$\\Delta |y|$",
     "stamp_xy": [0.32, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "|y^{t\\bar{t}}|",
+    "unit": ""
   },
 
   "ystar": {
@@ -51,7 +59,9 @@
     "ylabel_density": "Events/$\\Delta y$",
     "stamp_xy": [0.32, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "y^{*}",
+    "unit": ""
   },
 
   "chitt": {
@@ -62,7 +72,9 @@
     "ylabel_density": "Events/$\\Delta \\chi$",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "\\chi^{t\\bar{t}}",
+    "unit": ""
   },
 
   "yboost": {
@@ -73,7 +85,9 @@
     "ylabel_density": "Events/$\\Delta y$",
     "stamp_xy": [0.32, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "y_{boost}^{t\\bar{t}}",
+    "unit": ""
   },
 
   "dphi": {
@@ -84,7 +98,9 @@
     "ylabel_density": "Events/rad",
     "stamp_xy": [0.10, 0.25],
     "legend_loc": "upper left", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "\\Delta\\phi(t, \\bar{t})",
+    "unit": "rad"
   },
 
   "phitt": {
@@ -95,7 +111,9 @@
     "ylabel_density": "Events/rad",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 2,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "\\phi^{t\\bar{t}}",
+    "unit": "rad"
   },
 
   "Ht": {
@@ -106,7 +124,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "H_{T}^{t\\bar{t}}",
+    "unit": "GeV"
   },
 
   "th_pt": {
@@ -117,7 +137,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "p_{T}^{t,had}",
+    "unit": "GeV"
   },
 
   "th_eta": {
@@ -128,7 +150,9 @@
     "ylabel_density": "Events/$\\Delta \\eta$",
     "stamp_xy": [0.32, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "\\eta^{t,had}",
+    "unit": ""
   },
 
   "th_y": {
@@ -139,7 +163,9 @@
     "ylabel_density": "Events/$\\Delta y$",
     "stamp_xy": [0.32, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "y^{t,had}",
+    "unit": ""
   },
 
   "th_y_abs": {
@@ -150,7 +176,9 @@
     "ylabel_density": "Events/$\\Delta |y|$",
     "stamp_xy": [0.32, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "|y^{t,had}|",
+    "unit": ""
   },
 
   "th_phi": {
@@ -161,7 +189,9 @@
     "ylabel_density": "Events/rad",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 2,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "\\phi^{t,had}",
+    "unit": "rad"
   },
 
   "th_m": {
@@ -172,7 +202,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "m^{t,had}",
+    "unit": "GeV"
   },
 
   "th_e": {
@@ -183,7 +215,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "E^{t,had}",
+    "unit": "GeV"
   },
 
   "th_px": {
@@ -194,7 +228,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "p_{x}^{t,had}",
+    "unit": "GeV"
   },
 
   "th_py": {
@@ -205,7 +241,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "p_{y}^{t,had}",
+    "unit": "GeV"
   },
 
   "th_pz": {
@@ -216,7 +254,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "p_{z}^{t,had}",
+    "unit": "GeV"
   },
 
   "th_pout": {
@@ -227,7 +267,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "p_{out}^{t,had}",
+    "unit": "GeV"
   },
 
   "tl_pt": {
@@ -238,7 +280,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "p_{T}^{t,lep}",
+    "unit": "GeV"
   },
 
   "tl_eta": {
@@ -249,7 +293,9 @@
     "ylabel_density": "Events/$\\Delta \\eta$",
     "stamp_xy": [0.32, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "\\eta^{t,lep}",
+    "unit": ""
   },
 
   "tl_y": {
@@ -260,7 +306,9 @@
     "ylabel_density": "Events/$\\Delta y$",
     "stamp_xy": [0.32, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "y^{t,lep}",
+    "unit": ""
   },
 
   "tl_y_abs": {
@@ -271,7 +319,9 @@
     "ylabel_density": "Events/$\\Delta |y|$",
     "stamp_xy": [0.32, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "|y^{t,lep}|",
+    "unit": ""
   },
 
   "tl_phi": {
@@ -282,7 +332,9 @@
     "ylabel_density": "Events/rad",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 2,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "\\phi^{t,lep}",
+    "unit": "rad"
   },
 
   "tl_m": {
@@ -293,7 +345,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "m^{t,lep}",
+    "unit": "GeV"
   },
 
   "tl_e": {
@@ -304,7 +358,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "E^{t,lep}",
+    "unit": "GeV"
   },
 
   "tl_px": {
@@ -315,7 +371,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "p_{x}^{t,lep}",
+    "unit": "GeV"
   },
 
   "tl_py": {
@@ -326,7 +384,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "p_{y}^{t,lep}",
+    "unit": "GeV"
   },
 
   "tl_pz": {
@@ -337,7 +397,9 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "p_{z}^{t,lep}",
+    "unit": "GeV"
   },
 
   "tl_pout": {
@@ -348,6 +410,8 @@
     "ylabel_density": "Events/GeV",
     "stamp_xy": [0.60, 0.25],
     "legend_loc": "upper right", "legend_ncol": 1,
-    "draw_prior_ratio": true
+    "draw_prior_ratio": true,
+    "symbol": "p_{out}^{t,lep}",
+    "unit": "GeV"
   }
 }

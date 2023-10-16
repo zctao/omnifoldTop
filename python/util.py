@@ -296,3 +296,60 @@ class ParseEnvVar(argparse.Action):
             values = [os.path.expandvars(v) for v in values]
 
         setattr(namespace, self.dest, values)
+
+def get_obs_label(observables, obsConfig_d):
+    if isinstance(observables, list):
+        return [get_obs_label(obs, obsConfig_d) for obs in observables]
+    else:
+        label = "$" + obsConfig_d[observables]['symbol'] + "$"
+
+        if obsConfig_d[observables].get("unit"):
+            label += " [" + obsConfig_d[observables]["unit"] + "]"
+
+        return label
+
+def get_diffXs_label(
+    observable_list,
+    obsConfig_d,
+    isRelative=False,
+    lumi_unit='pb'
+    ):
+
+    symbol_list = [obsConfig_d[obs]['symbol'] for obs in observable_list]
+    unit_list = [obsConfig_d[obs]['unit'] for obs in observable_list]
+
+    ndim = len(observable_list)
+
+    label_xs = "d" if ndim == 1 else f"d^{ndim}"
+    label_xs += "\\sigma_{t\\bar{t}} / "
+
+    if ndim > 1:
+        label_xs += "("
+
+    for symbol in symbol_list:
+        label_xs += f"d{symbol}"
+
+    if ndim > 1:
+        label_xs += ")"
+
+    if isRelative:
+        label_xs = "1/\\sigma_{t\\bar{t}} " + label_xs
+
+    label_unit = ''
+    for u in set(unit_list):
+        if u:
+            # count the occurrences
+            p = label_unit.count(u)
+            if p > 1:
+                label_unit += f"{u}^{p} "
+            else:
+                label_unit += f"{u} "
+    label_unit = label_unit.rstrip()
+
+    if isRelative:
+        label_unit = f"[1/{label_unit}]"
+    else:
+        label_unit = f"[{lumi_unit}/{label_unit}]"
+
+    label = "$" + label_xs + "$ " + label_unit
+    return label
