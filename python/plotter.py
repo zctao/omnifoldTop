@@ -134,6 +134,11 @@ def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045, **opts):
         if txt is not None:
             ax.text(x, y-i*dy, txt, **textopts)
 
+def draw_text(ax, texts, loc='center', prop={'size':5}, frameon=False):
+    txt_str = '\n'.join(texts)
+    at = AnchoredText(txt_str, loc=loc, prop=prop, frameon=frameon)
+    ax.add_artist(at)
+
 def draw_histograms(
     ax,
     histograms, # list of Hist
@@ -189,7 +194,10 @@ def draw_histograms(
 
     # stamp
     if stamp_texts:
-        draw_stamp(ax, stamp_texts, *stamp_loc, **stamp_opt)
+        if isinstance(stamp_loc, str):
+            draw_text(ax, stamp_texts, loc=stamp_loc, **stamp_opt)
+        else:
+            draw_stamp(ax, stamp_texts, *stamp_loc, **stamp_opt)
 
 def get_default_colors(ncolors):
     """
@@ -432,8 +440,7 @@ def plot_histogram_and_function(
     xp = np.linspace(binedges[0], binedges[-1],100)
     ax.plot(xp, function(xp), **draw_option_function)
 
-    at = AnchoredText(str(function), loc='lower left', prop={'size':6}, frameon=True)
-    ax.add_artist(at)
+    draw_text(ax, str(function), loc='lower left', prop={'size':6}, frameon=True)
 
     if not os.path.isdir(os.path.dirname(figname)):
         os.makedirs(os.path.dirname(figname))
