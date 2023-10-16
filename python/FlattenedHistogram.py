@@ -322,6 +322,101 @@ class FlattenedHistogram2D():
     def get_ylabel(self):
         return self._yhist.axes[0].label
 
+    def draw(
+        self,
+        axes,
+        markers = None,
+        colors = None,
+        common_styles = {},
+        rescales_order_of_magnitude = None,
+        errors = None,
+        stamp_texts = [],
+        stamp_loc = 'upper left',
+        legend_off = False,
+        ):
+        # histograms
+        hists_to_plot = [self[ybin] for ybin in self]
+
+        # labels
+        ybin_edges = self._yhist.axes[0].edges
+        yname = self.get_ylabel()
+        labels = [f"{ylow}$\leq${yname}$<${yhigh}" for ylow, yhigh in zip(ybin_edges[:-1], ybin_edges[1:])]
+
+        if rescales_order_of_magnitude is not None:
+            assert(len(rescales_order_of_magnitude)==len(self))
+            for i, oom in enumerate(rescales_order_of_magnitude):
+                hists_to_plot[i] = hists_to_plot[i] * 10**oom
+                labels[i] = f"($\times 10^{{ {oom} }}$), " + labels[i]
+
+        # colors
+        if not isinstance(colors, list):
+            colors = [colors]*len(self)
+        else:
+            assert(len(colors)==len(self))
+
+        # markers
+        if not isinstance(markers, list):
+            markers = [markers]*len(self)
+        else:
+            assert(len(markers)==len(self))
+
+        # yerr
+        if errors is not None:
+            assert(len(errors)==len(self))
+
+        draw_opts = []
+        for i in range(len(self)):
+            draw_opts.append({
+                'color': colors[i],
+                'label': labels[i],
+                'histtype': 'errorbar',
+                'xerr': True
+            })
+
+            # yerr
+            if errors is not None:
+                if rescales_order_of_magnitude is not None:
+                    # scale errors as well
+                    draw_opts[-1].update({
+                        'yerr':errors[i] * rescales_order_of_magnitude[i]
+                        })
+                else:
+                    draw_opts[-1].update({'yerr':errors[i]})
+
+            draw_opts[-1].update(common_styles)
+
+            if draw_opts[-1]['histtype'] == 'errorbar':
+                # marker
+                draw_opts[-1]['marker'] = markers[i]
+                draw_opts[-1]['markersize'] = 3
+
+        # make plot
+        if not hasattr(axes, "__len__"):
+            # draw on the same plot
+            plotter.draw_histograms(
+                axes,
+                hists_to_plot, draw_opts,
+                stamp_texts = stamp_texts,
+                stamp_loc = stamp_loc,
+                legend_loc = None if legend_off else 'best'
+            )
+        else:
+            # draw on separate plots
+            assert(len(axes)==len(self))
+            for ax, hplot, opts in zip(axes, hists_to_plot, draw_opts):
+                # label as stamp
+                stamp_texts = stamp_texts + [opts.pop('label')]
+
+                plotter.draw_histograms(
+                    ax,
+                    [hplot], [opts],
+                    stamp_texts = stamp_texts,
+                    stamp_loc = stamp_loc,
+                    legend_loc=None, # switch off legend at this stage
+                )
+
+        return axes
+
     def plot(
         self,
         figname,
@@ -785,6 +880,50 @@ class FlattenedHistogram3D():
 
     def copy(self):
         return copy.deepcopy(self)
+
+    def draw(
+        self,
+        axes,
+        markers = None,
+        colors = None,
+        common_styles = {},
+        rescales_order_of_magnitude = None,
+        errors = None,
+        stamp_texts = [],
+        stamp_loc = 'upper left',
+        legend_off = False
+        ):
+
+        # z bin edges
+        zbin_edges = self._zhist.axes[0].edges
+        zname = self._zhist.axes[0].label
+
+        # labels
+        zlabels = [f"{zlow}$\leq${zname}$<${zhigh}" for zlow, zhigh in zip(zbin_edges[:-1], zbin_edges[1:])]
+
+        # rescale
+        if rescales_order_of_magnitude is None:
+            rescales_order_of_magnitude = [None] * len(self)
+        else:
+            assert(len(rescales_order_of_magnitude)==len(self))
+
+        assert(len(axes)==len(self))
+        assert(len(markers)==len(self))
+        assert(len(colors)==len(self))
+        assert(len(errors)==len(self))
+
+        for i, zbin in enumerate(self):
+            self[zbin].draw(
+                axes = axes[i],
+                markers = markers[i],
+                colors = colors[i],
+                common_styles = common_styles,
+                rescales_order_of_magnitude = rescales_order_of_magnitude[i],
+                errors = errors[i],
+                stamp_texts = stamp_texts + [zlabels[i]],
+                stamp_loc = stamp_loc,
+                legend_off = legend_off
+            )
 
     def plot(
         self,
