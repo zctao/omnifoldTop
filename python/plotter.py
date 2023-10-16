@@ -163,8 +163,10 @@ def draw_histograms(
     bin_edges = histograms[0].axes[0].edges
     ax.set_xlim(bin_edges[0], bin_edges[-1])
 
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    if ylabel:
+        ax.set_ylabel(ylabel)
 
     if log_scale:
         ax.set_yscale('log')
@@ -457,7 +459,9 @@ def plot_histograms_and_ratios(
     xlabel = '',
     ylabel = '',
     ylabel_ratio = 'Ratio',
-    log_scale = False,
+    log_xscale = False,
+    log_yscale = False,
+    log_scale = False, # same as log_yscale
     legend_loc="best",
     legend_ncol=1,
     stamp_texts=[],
@@ -504,13 +508,17 @@ def plot_histograms_and_ratios(
     else:
         assert(len(hists_numerator) == len(draw_options_numerator))
 
+    if log_xscale:
+        ax.set_xscale('log')
+    if log_yscale or log_scale:
+        ax.set_yscale('log')
+
     draw_histograms(
         ax,
         histograms = hists_numerator,
         draw_options = draw_options_numerator,
         xlabel = xlabel if ax_ratio is None else '',
         ylabel = ylabel,
-        log_scale = log_scale,
         legend_loc = legend_loc,
         legend_ncol = legend_ncol,
         stamp_texts = stamp_texts,
@@ -529,6 +537,9 @@ def plot_histograms_and_ratios(
         ax_ratio.set_xlim(*ax.get_xlim())
         if ratio_lim:
             ax_ratio.set_ylim(*sorted(ratio_lim))
+
+        if log_xscale:
+            ax_ratio.set_xscale('log')
 
         hists_num_ratio = [functools.reduce(lambda x,y: x+y, hists_numerator)] if stack_numerators else hists_numerator
 
