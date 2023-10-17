@@ -333,7 +333,7 @@ def get_diffXs_label(
         label_xs += ")"
 
     if isRelative:
-        label_xs = "1/\\sigma_{t\\bar{t}} " + label_xs
+        label_xs = "1/\\sigma_{t\\bar{t}} \cdot " + label_xs
 
     label_unit = ''
     for u in set(unit_list):

@@ -143,8 +143,8 @@ def draw_histograms(
     ax,
     histograms, # list of Hist
     draw_options, # list of dict
-    xlabel = '',
-    ylabel = '',
+    xlabel = None,
+    ylabel = None,
     log_scale = False,
     legend_loc="best",
     legend_ncol=1,
@@ -163,17 +163,6 @@ def draw_histograms(
     bin_edges = histograms[0].axes[0].edges
     ax.set_xlim(bin_edges[0], bin_edges[-1])
 
-    if xlabel:
-        ax.set_xlabel(xlabel)
-    if ylabel:
-        ax.set_ylabel(ylabel)
-
-    if log_scale:
-        ax.set_yscale('log')
-
-    if title:
-        ax.set_title(title)
-
     if stack:
         style_keys = list(draw_options[-1].keys())
         style_stack = {k: [dopt[k] for dopt in draw_options] for k in style_keys}
@@ -189,6 +178,17 @@ def draw_histograms(
             else:
                 yerr_n = myhu.get_values_and_errors(h)[1]
                 hep.histplot(h, ax=ax, yerr=yerr_n, **opt)
+
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
+    if ylabel is not None:
+        ax.set_ylabel(ylabel)
+
+    if log_scale:
+        ax.set_yscale('log')
+
+    if title:
+        ax.set_title(title)
 
     # legend
     if legend_loc is not None:
@@ -328,9 +328,9 @@ def plot_hist(
     weight_arrs=None,
     labels=None,
     nbins=20,
-    xlabel='',
-    ylabel='',
-    title='',
+    xlabel=None,
+    ylabel=None,
+    title=None,
     bin_margin=0.1
     ):
     """
@@ -379,11 +379,11 @@ def plot_hist(
         assert(len(labels) == len(data_arrs))
 
     fig, ax = plt.subplots()
-    if xlabel:
+    if xlabel is not None:
         ax.set_xlabel(xlabel)
-    if ylabel:
+    if ylabel is not None:
         ax.set_ylabel(ylabel)
-    if title:
+    if title is not None:
         ax.set_title(title)
 
     for data, w, l in zip(data_arrs, weight_arrs, labels):
@@ -420,17 +420,17 @@ def plot_histogram_and_function(
     draw_option_histogram,
     function,
     draw_option_function,
-    xlabel = '',
-    ylabel = '',
-    title = ''
+    xlabel = None,
+    ylabel = None,
+    title = None
     ):
 
     fig, ax = plt.subplots()
-    if xlabel:
+    if xlabel is not None:
         ax.set_xlabel(xlabel)
-    if ylabel:
+    if ylabel is not None:
         ax.set_ylabel(ylabel)
-    if title:
+    if title is not None:
         ax.set_title(title)
 
     # draw the histogram
@@ -1300,15 +1300,15 @@ def plot_uncertainties(
     bins, # bin edges
     uncertainties, # list of (error_up, error_donw) for uncertainties
     draw_options=None,
-    xlabel='',
-    ylabel=''
+    xlabel=None,
+    ylabel=None
     ):
 
     fig, ax = plt.subplots()
 
-    if xlabel:
+    if xlabel is not None:
         ax.set_xlabel(xlabel)
-    if ylabel:
+    if ylabel is not None:
         ax.set_ylabel(ylabel)
 
     if not draw_options:
