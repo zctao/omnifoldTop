@@ -339,9 +339,9 @@ def get_diffXs_label(
     for u in set(unit_list):
         if u:
             # count the occurrences
-            p = label_unit.count(u)
+            p = unit_list.count(u)
             if p > 1:
-                label_unit += f"{u}^{p} "
+                label_unit += f"{u}$^{p}$ "
             else:
                 label_unit += f"{u} "
     label_unit = label_unit.rstrip()
