@@ -18,35 +18,43 @@ rescale_oom = {
     "ptt_vs_mtt": [1,1,1,1,1]
 }
 
-def get_error_arrays(hist_unc_down, hist_unc_up):
+def get_error_arrays(hist_unc_down, hist_unc_up, hist_central=None):
     if hist_unc_up is not None and hist_unc_down is None:
         hist_unc_down = hist_unc_up
     elif hist_unc_up is None and hist_unc_down is not None:
         hist_unc_up = hist_unc_down
 
-    if hist_unc_up is not None or hist_unc_down is not None:
-        return np.stack([
+    if hist_unc_up is not None and hist_unc_down is not None:
+        unc_arr = np.stack([
             np.abs(hist_unc_down.values()), np.abs(hist_unc_up.values())
             ])
+        if hist_central is None:
+            return unc_arr
+        else:
+            # The errors are percentage
+            return  unc_arr * hist_central.values()
     else:
         return None
 
-def get_error_arrays_2D(fhist_unc_down, fhist_unc_up):
+def get_error_arrays_2D(fhist_unc_down, fhist_unc_up, fhist_central=None):
     if fhist_unc_up is not None and fhist_unc_down is None:
         fhist_unc_down = fhist_unc_up
     elif fhist_unc_up is None and fhist_unc_down is not None:
         fhist_unc_up = fhist_unc_down
 
-    if fhist_unc_up is not None or fhist_unc_down is not None:
+    if fhist_unc_up is not None and fhist_unc_down is not None:
         assert(len(fhist_unc_up)==len(fhist_unc_down))
         errors = []
-        for ybin_down, ybin_up in zip(fhist_unc_down, fhist_unc_up):
+        for ybin in fhist_unc_down:
             errors.append(
                 np.stack([
-                    np.abs(fhist_unc_down[ybin_down].values()),
-                    np.abs(fhist_unc_up[ybin_up].values())
+                    np.abs(fhist_unc_down[ybin].values()),
+                    np.abs(fhist_unc_up[ybin].values())
                 ])
             )
+
+            if fhist_central is not None: # percentage error
+                errors[-1] *= fhist_central[ybin].values()
     else:
         errors = None
 
@@ -73,7 +81,7 @@ def plot_diffXs_1D(
         'marker': 'o', 'markersize': 3
     }
 
-    errors = get_error_arrays(hist_unc_down, hist_unc_up)
+    errors = get_error_arrays(hist_unc_down, hist_unc_up, histogram_data)
     if errors is not None:
         draw_opt_data['yerr'] = errors
 
@@ -133,7 +141,7 @@ def draw_diffXs_distr_2D(
         ax.set_yscale('log')
 
     # errors
-    errors = get_error_arrays_2D(fhist_unc_down, fhist_unc_up)
+    errors = get_error_arrays_2D(fhist_unc_down, fhist_unc_up, fhistogram_data)
 
     fhistogram_data.draw(
         ax,
