@@ -4,6 +4,7 @@ import pandas as pd
 import math
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
+from matplotlib import colormaps
 import mplhep as hep
 import functools
 
@@ -225,6 +226,17 @@ def get_default_colors(ncolors):
 def get_random_colors(ncolors, alpha=1):
     colors = [ tuple(rng.random(3)) + (alpha,) for i in range(ncolors)]
     return colors
+
+def get_default_colormaps(nmaps):
+    cmap_names = [
+        'Blues', 'Greens', 'Oranges', 'Reds', 'Purples', 'Greys',
+        'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu',
+        'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn'
+        ]
+
+    cmaps = [colormaps[cn] for cn in cmap_names[:nmaps]]
+
+    return cmaps
 
 def plot_graphs(
         figname,
