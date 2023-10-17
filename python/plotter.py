@@ -741,7 +741,7 @@ def plot_correlations(figname, correlations, bins=None, print_bincontents=False)
         ax.set_yticklabels(correlations.columns)
 
     hep.hist2dplot(
-        correlations, xbins=bins, ybins=bins, vmin=-1, vmax=1,
+        correlations, xbins=bins, ybins=bins,
         cbar=True, cmin=-1, cmax=1, cmap='coolwarm',
         ax=ax)
 

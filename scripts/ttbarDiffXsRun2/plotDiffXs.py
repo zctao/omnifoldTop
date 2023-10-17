@@ -18,6 +18,8 @@ rescale_oom = {
     "ptt_vs_mtt": [1,1,1,1,1]
 }
 
+ATLAS_stamp = ["ATLAS WIP", "$\sqrt{s}=13$ TeV, 140 fb$^{-1}$"]
+
 def get_error_arrays(hist_unc_down, hist_unc_up, hist_central=None):
     if hist_unc_up is not None and hist_unc_down is None:
         hist_unc_down = hist_unc_up
@@ -78,7 +80,7 @@ def plot_diffXs_1D(
     # unfolded measurement
     draw_opt_data = {
         'label': label_nominal, 'color': 'black', 'histtype': 'errorbar',
-        'marker': 'o', 'markersize': 3
+        'marker': 'o', 'markersize': 3, 'xerr': True
     }
 
     errors = get_error_arrays(hist_unc_down, hist_unc_up, histogram_data)
@@ -88,7 +90,7 @@ def plot_diffXs_1D(
     # MC truth
     colors_mc = plotter.get_default_colors(len(histograms_mc))
     draw_opts_mc = [
-        {'label': l_mc, 'color': c_mc, 'histtype': 'step'}
+        {'label': l_mc, 'color': c_mc, 'histtype': 'step', 'xerr': True}
         for l_mc, c_mc in zip(labels_mc, colors_mc)
     ]
 
@@ -105,8 +107,11 @@ def plot_diffXs_1D(
         ylabel_ratio = ylabel_ratio,
         log_xscale = log_obs,
         log_yscale = log_diffXs,
-        stamp_texts=["ATLAS WIP"],
-        stamp_loc='upper left'
+        stamp_texts=ATLAS_stamp,
+        stamp_loc='upper left',
+        stamp_opt={"prop":{"fontsize":"medium"}},
+        y_lim = 'x2',
+        ratio_lim = (0.5, 1.5)
     )
 
 def draw_diffXs_distr_2D(
@@ -553,7 +558,7 @@ if __name__ == "__main__":
                         action=util.ParseEnvVar, help="File path to uncertainties of absolute differential cross sections")
     parser.add_argument('-r', '--uncertainties-rel', type=str, 
                         action=util.ParseEnvVar, help="File path to uncertainties of relative differential cross sections")
-    parser.add_argument('-m', '--fpaths-otherMC', type=str, nargs='+', 
+    parser.add_argument('-m', '--fpaths-otherMC', type=str, nargs='+', default=[],
                         action=util.ParseEnvVar, help="File paths to other MC predictions")
     parser.add_argument('-o', '--outputdir', type=str, 
                         action=util.ParseEnvVar, help="Output directory")
@@ -561,7 +566,7 @@ if __name__ == "__main__":
                         help="List of observables to plot")
     parser.add_argument('--label-nominal', type=str, default="MC",
                         help="Label of the nominal MC prediction")
-    parser.add_argument('--labels-otherMC', type=str, nargs='+',
+    parser.add_argument('--labels-otherMC', type=str, nargs='+', default=[],
                         help="Labels of other MC predictions")
     parser.add_argument('--skip-nominalMC', action='store_true',
                         help="If True, do not plot the nominal MC prediction")
