@@ -504,7 +504,8 @@ def plotDiffXs(
 
         obs_labels = util.get_obs_label(obs_list, obsConfig_d)
         ylabel = util.get_diffXs_label(obs_list, obsConfig_d, isRelative, "pb")
-        ylabel_ratio = "Prediction / Data"
+        ylabel_ratio = "$\dfrac{\mathrm{Prediction}}{\mathrm{Data}}$"
+        yscale_log = obsConfig_d[obs_list[0]].get("log_scale", False)
 
         if len(obs_list) == 1:
             f_plot_diffXs = plot_diffXs_1D
@@ -536,7 +537,7 @@ def plotDiffXs(
             ylabel = ylabel,
             ylabel_ratio = ylabel_ratio,
             log_obs = False, # for now
-            log_diffXs = False, # for now
+            log_diffXs = yscale_log,
             **extra_args
         )
 

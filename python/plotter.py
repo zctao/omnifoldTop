@@ -468,6 +468,7 @@ def plot_histograms_and_ratios(
     stamp_loc=(0.75, 0.75),
     stamp_opt={},
     denominator_ratio_only = False,
+    y_lim = None,
     ratio_lim = None,
     title = '',
     stack_numerators = False
@@ -481,8 +482,8 @@ def plot_histograms_and_ratios(
         2 if hist_denominator else 1,
         sharex = True,
         gridspec_kw = {
-            'height_ratios': (3.5,1) if hist_denominator else (1,),
-            'hspace': 0.0
+            'height_ratios': (4,1) if hist_denominator else (1,),
+            'hspace': 0.15
         }
     )
 
@@ -492,6 +493,14 @@ def plot_histograms_and_ratios(
     else:
         ax = axes
         ax_ratio = None
+
+    if log_xscale:
+        ax.set_xscale('log')
+    if log_yscale or log_scale:
+        ax.set_yscale('log')
+
+    if isinstance(y_lim, tuple):
+        ax.set_ylim(*y_lim)
 
     # draw histograms
     if hist_denominator and not denominator_ratio_only:
@@ -508,11 +517,6 @@ def plot_histograms_and_ratios(
     else:
         assert(len(hists_numerator) == len(draw_options_numerator))
 
-    if log_xscale:
-        ax.set_xscale('log')
-    if log_yscale or log_scale:
-        ax.set_yscale('log')
-
     draw_histograms(
         ax,
         histograms = hists_numerator,
@@ -527,6 +531,21 @@ def plot_histograms_and_ratios(
         title = title,
         stack = stack_numerators
     )
+
+    # special case
+    if isinstance(y_lim, str): # e.g. "x2"
+        try:
+            yfactor = float(y_lim.lstrip("x"))
+        except ValueError:
+            logger.error(f"Cannot convert y_lim {y_lim}")
+            yfactor = 1.
+
+        ylim_bot, ylim_top = ax.get_ylim()
+        if log_yscale or log_scale:
+            ylim_top *= 10**yfactor
+        else:
+            ylim_top *= yfactor
+        ax.set_ylim(ylim_bot, ylim_top)
 
     # draw_ratios
     if hist_denominator:

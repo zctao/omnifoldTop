@@ -9,7 +9,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "m^{t\\bar{t}}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "ptt": {
@@ -22,7 +23,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "p_{T}^{t\\bar{t}}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "ytt": {
@@ -48,7 +50,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "|y^{t\\bar{t}}|",
-    "unit": ""
+    "unit": "",
+    "log_scale": false
   },
 
   "ystar": {
@@ -126,7 +129,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "H_{T}^{t\\bar{t}}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "th_pt": {
@@ -139,7 +143,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "p_{T}^{t,had}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "th_eta": {
@@ -204,7 +209,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "m^{t,had}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "th_e": {
@@ -217,7 +223,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "E^{t,had}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "th_px": {
@@ -230,7 +237,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "p_{x}^{t,had}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "th_py": {
@@ -243,7 +251,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "p_{y}^{t,had}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "th_pz": {
@@ -256,7 +265,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "p_{z}^{t,had}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "th_pout": {
@@ -269,7 +279,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "p_{out}^{t,had}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "tl_pt": {
@@ -282,7 +293,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "p_{T}^{t,lep}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "tl_eta": {
@@ -347,7 +359,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "m^{t,lep}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "tl_e": {
@@ -360,7 +373,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "E^{t,lep}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "tl_px": {
@@ -373,7 +387,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "p_{x}^{t,lep}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "tl_py": {
@@ -386,7 +401,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "p_{y}^{t,lep}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "tl_pz": {
@@ -399,7 +415,8 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "p_{z}^{t,lep}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   },
 
   "tl_pout": {
@@ -412,6 +429,7 @@
     "legend_loc": "upper right", "legend_ncol": 1,
     "draw_prior_ratio": true,
     "symbol": "p_{out}^{t,lep}",
-    "unit": "GeV"
+    "unit": "GeV",
+    "log_scale": true
   }
 }
