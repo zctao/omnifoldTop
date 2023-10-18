@@ -125,6 +125,12 @@ class FlattenedHistogram2D():
 
         return bins_d
 
+    def get_ybin_edges(self):
+        return self._yhist.axes[0].edges
+
+    def get_xbin_edges(self, ybin_label):
+        return self[ybin_label].axes[0].edges
+
     def find_bins(self, xarr, yarr):
         bin_indices = np.zeros(len(xarr), dtype=np.int32)
 
@@ -653,6 +659,15 @@ class FlattenedHistogram3D():
             )
 
         return bins_d
+
+    def get_zbin_edges(self):
+        return self._zhist.axes[0].edges
+
+    def get_ybin_edges(self, zbin_label):
+        return self[zbin_label].get_ybin_edges()
+
+    def get_xbin_edges(self, zbin_label, ybin_label):
+        return self[zbin_label].get_xbin_edges(ybin_label)
 
     def find_bins(self, xarr, yarr, zarr):
         bin_indices = np.zeros(len(xarr), dtype=np.int32)
