@@ -135,9 +135,9 @@ def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045, **opts):
         if txt is not None:
             ax.text(x, y-i*dy, txt, **textopts)
 
-def draw_text(ax, texts, loc='center', prop={'size':5}, frameon=False):
+def draw_text(ax, texts, loc='center', prop={'size':5}, frameon=False, **kwargs):
     txt_str = '\n'.join(texts)
-    at = AnchoredText(txt_str, loc=loc, prop=prop, frameon=frameon)
+    at = AnchoredText(txt_str, loc=loc, prop=prop, frameon=frameon, **kwargs)
     ax.add_artist(at)
 
 def draw_histograms(

@@ -338,6 +338,7 @@ class FlattenedHistogram2D():
         errors = None,
         stamp_texts = [],
         stamp_loc = 'upper left',
+        stamp_opt = {},
         legend_off = False,
         ):
         # histograms
@@ -352,7 +353,7 @@ class FlattenedHistogram2D():
             assert(len(rescales_order_of_magnitude)==len(self))
             for i, oom in enumerate(rescales_order_of_magnitude):
                 hists_to_plot[i] = hists_to_plot[i] * 10**oom
-                labels[i] = f"($\times 10^{{ {oom} }}$), " + labels[i]
+                labels[i] = rf"($\times 10^{{ {oom} }}$), " + labels[i]
 
         # colors
         if not isinstance(colors, list):
@@ -376,7 +377,7 @@ class FlattenedHistogram2D():
                 'color': colors[i],
                 'label': labels[i],
                 'histtype': 'errorbar',
-                'xerr': True
+                #'xerr': True
             })
 
             # yerr
@@ -404,20 +405,25 @@ class FlattenedHistogram2D():
                 hists_to_plot, draw_opts,
                 stamp_texts = stamp_texts,
                 stamp_loc = stamp_loc,
+                stamp_opt = stamp_opt,
                 legend_loc = None if legend_off else 'best'
             )
         else:
             # draw on separate plots
             assert(len(axes)==len(self))
             for ax, hplot, opts in zip(axes, hists_to_plot, draw_opts):
-                # label as stamp
-                stamp_texts = stamp_texts + [opts.pop('label')]
+                # Add label to stamp
+                if legend_off:
+                    stxt = []
+                else:
+                    stxt = stamp_texts + [opts.pop('label')]
 
                 plotter.draw_histograms(
                     ax,
                     [hplot], [opts],
-                    stamp_texts = stamp_texts,
+                    stamp_texts = stxt,
                     stamp_loc = stamp_loc,
+                    stamp_opt = stamp_opt,
                     legend_loc=None, # switch off legend at this stage
                 )
 

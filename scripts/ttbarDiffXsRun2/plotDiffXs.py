@@ -8,6 +8,7 @@ import plotter
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
+from matplotlib.offsetbox import AnchoredText
 
 util.configRootLogger()
 logger = logging.getLogger("plotDiffXs")
@@ -15,10 +16,15 @@ logger = logging.getLogger("plotDiffXs")
 default_markers = ['o','s','^','v','d','<','>','p','h','*','x','1','2','3','4']
 
 rescale_oom = {
-    "ptt_vs_mtt": [1,1,1,1,1]
+    "ptt_vs_mtt": [8,6,4,2,0],
+    "mtt_vs_th_y_abs_vs_ytt_abs": [9,6,3,0],
 }
 
-ATLAS_stamp = ["ATLAS WIP", "$\sqrt{s}=13$ TeV, 140 fb$^{-1}$"]
+ATLAS_stamp = [
+    "ATLAS WIP",
+    "$\sqrt{s}=13$ TeV, 140 fb$^{-1}$",
+    "Full phase space"
+]
 
 def get_error_arrays(hist_unc_down, hist_unc_up, hist_central=None):
     if hist_unc_up is not None and hist_unc_down is None:
@@ -74,7 +80,8 @@ def plot_diffXs_1D(
     ylabel = '',
     ylabel_ratio = '',
     log_obs = False,
-    log_diffXs = False
+    log_diffXs = False,
+    stamp_texts = []
     ):
 
     # unfolded measurement
@@ -107,12 +114,18 @@ def plot_diffXs_1D(
         ylabel_ratio = ylabel_ratio,
         log_xscale = log_obs,
         log_yscale = log_diffXs,
-        stamp_texts=ATLAS_stamp,
+        stamp_texts=stamp_texts,
         stamp_loc='upper left',
         stamp_opt={"prop":{"fontsize":"medium"}},
         y_lim = 'x2',
         ratio_lim = (0.5, 1.5)
     )
+
+def get_color_sequence(colormap, ncolors):
+    return [colormap(i) for i in np.linspace(0.9, 0.4, ncolors)]
+
+def get_color_for_legend(colormap):
+    return colormap(0.7)
 
 def draw_diffXs_distr_2D(
     ax,
@@ -127,23 +140,9 @@ def draw_diffXs_distr_2D(
     title = '',
     log_xscale = False,
     log_yscale = False,
-    rescales_order_of_magnitude = None
+    rescales_order_of_magnitude = None,
+    stamp_texts = []
     ):
-
-    if title:
-        ax.set_title(title)
-
-    if xlabel:
-        ax.set_xlabel(xlabel)
-
-    if ylabel:
-        ax.set_ylabel(ylabel)
-
-    if log_xscale:
-        ax.set_xscale('log')
-
-    if log_yscale:
-        ax.set_yscale('log')
 
     # errors
     errors = get_error_arrays_2D(fhist_unc_down, fhist_unc_up, fhistogram_data)
@@ -161,27 +160,64 @@ def draw_diffXs_distr_2D(
     leg_handles, leg_labels = ax.get_legend_handles_labels()
 
     # MC histograms
-    colors_mc = plotter.get_default_colors(len(fhistograms_mc))
-    for fhist_mc, c_mc in zip(fhistograms_mc, colors_mc):
+    # Get a color map for each MC
+    cmaps_mc = plotter.get_default_colormaps(len(fhistograms_mc))
+
+    for fhist_mc, cm_mc in zip(fhistograms_mc, cmaps_mc):
+        colors_mc = get_color_sequence(cm_mc, len(fhist_mc))
+
         fhist_mc.draw(
             ax,
-            colors = c_mc,
+            colors = colors_mc,
             common_styles = {'histtype': 'step'},
             rescales_order_of_magnitude = rescales_order_of_magnitude,
             legend_off = True,
-            stamp_texts = [],
+            stamp_texts = stamp_texts,
             stamp_loc = 'upper left',
+            stamp_opt = {"prop":{"fontsize":"medium"}}
         )
 
+    if title:
+        ax.set_title(title)
+
+    if xlabel:
+        ax.set_xlabel(xlabel)
+
+    if ylabel:
+        ax.set_ylabel(ylabel)
+
+    if log_xscale:
+        ax.set_xscale('log')
+
+    if log_yscale:
+        ax.set_yscale('log')
+
+    # y limits
+    ylim_bot, ylim_top = ax.get_ylim()
+    if log_yscale:
+        ylim_top *= 10**10
+    else:
+        ylim_top *= 3
+    ax.set_ylim(ylim_bot, ylim_top)
+
     # re-draw legends
-    leg_handles.append(mlines.Line2D ([], [], color='black', linestyle='None', marker='o'))
+    # remove error bar and add line marker for each MC
+    new_handles = [(lh[0],) for lh in leg_handles]
+
+    for fhist_mc, cm_mc in zip(fhistograms_mc, cmaps_mc):
+        colors_mc = get_color_sequence(cm_mc, len(fhist_mc))
+        assert(len(new_handles)==len(colors_mc))
+        for i, c in enumerate(colors_mc):
+            new_handles[i] = (mlines.Line2D([], [], color=c),) + new_handles[i]
+
+    new_handles.append(mlines.Line2D ([], [], color='black', linestyle='None', marker='o', markersize=3))
     leg_labels.append(label_nominal)
 
-    for c_mc, l_mc in zip(colors_mc, labels_mc):
-        leg_handles.append(mlines.Line2D([], [], color=c_mc))
+    for cm_mc, l_mc in zip(cmaps_mc, labels_mc):
+        new_handles.append(mlines.Line2D([], [], color=get_color_for_legend(cm_mc)))
         leg_labels.append(l_mc)
 
-    ax.legend(leg_handles, leg_labels)
+    ax.legend(new_handles, leg_labels, loc="upper right", fontsize='small', numpoints=1)
 
 def draw_diffXs_ratio_2D(
     axes,
@@ -193,7 +229,10 @@ def draw_diffXs_ratio_2D(
     fhist_unc_down = None,
     xlabel = '',
     ylabel = '',
-    log_xscale = False
+    log_xscale = False,
+    legend_off = False,
+    stamp_texts = [],
+    outer_bin_label = None
     ):
 
     for ax in axes:
@@ -205,6 +244,8 @@ def draw_diffXs_ratio_2D(
         if log_xscale:
             ax.set_xscale('log')
 
+        ax.set_ylim(0.0, 2.0)
+
     if ylabel:
         axes[0].set_ylabel(ylabel)
 
@@ -212,16 +253,15 @@ def draw_diffXs_ratio_2D(
     handles, labels = [], []
 
     # errors
-    if fhist_unc_up is not None and fhist_unc_down is None:
-        fhist_unc_down = fhist_unc_up.copy().scale(-1.)
-    elif fhist_unc_up is None and fhist_unc_down is not None:
-        fhist_unc_up = fhist_unc_down.copy().scale(-1.)
+    if fhist_unc_up is not None:
+        ratio_unc_up = fhist_unc_up.copy()
+    elif fhist_unc_down is not None:
+        ratio_unc_up = fhist_unc_down.copy().scale(-1.)
+    else:
+        ratio_unc_up = None
 
-    if fhist_unc_up is not None or fhist_unc_down is not None:
-        assert(len(fhist_unc_up)==len(fhist_unc_down))
-        ratio_unc_up = fhist_unc_up.divide(fhistogram_data)
-        ratio_unc_down = fhist_unc_down.divide(fhistogram_data)
-        # plot
+    if ratio_unc_up is not None:
+        ratio_unc_up.divide(fhistogram_data)
         ratio_unc_up.draw(
             axes,
             colors = 'grey',
@@ -229,6 +269,15 @@ def draw_diffXs_ratio_2D(
             legend_off = True
         )
 
+    if fhist_unc_down is not None:
+        ratio_unc_down = fhist_unc_down.copy()
+    elif fhist_unc_up is not None:
+        ratio_unc_down = fhist_unc_up.copy().scale(-1.)
+    else:
+        ratio_unc_down = None
+
+    if ratio_unc_down is not None:
+        ratio_unc_down.divide(fhistogram_data)
         ratio_unc_down.draw(
             axes,
             colors = 'grey',
@@ -236,24 +285,47 @@ def draw_diffXs_ratio_2D(
             legend_off = True
         )
 
+    if ratio_unc_up is not None or ratio_unc_down is not None:
         handles.append(mpatches.Patch(color='grey'))
-        labels.append(label_nominal)
+        labels.append("Syst")
+
+    # data
+    ratio_one = fhistogram_data.copy()
+    ratio_one.divide(fhistogram_data)
+    ratio_one.draw(
+        axes,
+        colors = "black",
+        common_styles = {'histtype':'step', 'yerr':False},
+        stamp_texts = [] if outer_bin_label is None else [outer_bin_label],
+        stamp_loc = "lower right",
+        stamp_opt = {"prop":{"fontsize":"medium"}}
+    )
+
+    handles.append(mlines.Line2D([], [], color="black"))
+    labels.append(label_nominal)
 
     # MC
-    colors_mc = plotter.get_default_colors(len(fhistograms_mc))
-    for fhist_mc, c_mc, l_mc in zip(fhistograms_mc, colors_mc, labels_mc):
-        ratio_mc = fhist_mc.divide(fhistogram_data)
+    cmaps_mc = plotter.get_default_colormaps(len(fhistograms_mc))
+
+    for fhist_mc, cm_mc, l_mc in zip(fhistograms_mc, cmaps_mc, labels_mc):
+
+        ratio_mc = fhist_mc.copy()
+        ratio_mc.divide(fhistogram_data)
         ratio_mc.draw(
             axes,
-            colors = c_mc,
+            colors = cm_mc(0.7),
             common_styles = {'histtype':'step'},
             legend_off = True
             )
 
-        handles.append(mlines.Line2D([], [], color=c_mc))
+        handles.append(mlines.Line2D([], [], color=cm_mc(0.7)))
         labels.append(l_mc)
 
-    return handles, labels
+    if not legend_off:
+        axes[-1].legend(handles, labels, loc='lower right', fontsize='medium', ncols=2, bbox_to_anchor=(1,1))
+
+    if stamp_texts:
+        plotter.draw_text(axes[0], stamp_texts, loc='lower left', prop={'fontsize':'medium'}, frameon=False, bbox_to_anchor=(0,1), bbox_transform=axes[0].transAxes)
 
 def plot_diffXs_2D(
     figname,
@@ -270,7 +342,8 @@ def plot_diffXs_2D(
     log_diffXs = False,
     title = '',
     title_ratio = '',
-    rescales_order_of_magnitude = None
+    rescales_order_of_magnitude = None,
+    stamp_texts = []
     ):
 
     fig, ax = plt.subplots()
@@ -299,7 +372,8 @@ def plot_diffXs_2D(
         title = title,
         log_xscale = log_obs,
         log_yscale = log_diffXs,
-        rescales_order_of_magnitude = rescales_order_of_magnitude
+        rescales_order_of_magnitude = rescales_order_of_magnitude,
+        stamp_texts = stamp_texts
     )
 
     # save plot
@@ -311,12 +385,13 @@ def plot_diffXs_2D(
 
     ######
     # draw the ratio in a separate plot
-    fig_r, ax_r = plt.subplots(1, len(fhistogram_data), sharey=True)
+    fig_r, ax_r = plt.subplots(1, len(fhistogram_data), sharey=True, figsize = (3.6*len(fhistogram_data),4.0))
+    plt.subplots_adjust(wspace=0)
 
     if title_ratio:
         fig_r.suptitle(title_ratio)
 
-    rhandles, rlabels = draw_diffXs_ratio_2D(
+    draw_diffXs_ratio_2D(
         ax_r,
         fhistogram_data,
         fhistograms_mc,
@@ -326,12 +401,9 @@ def plot_diffXs_2D(
         fhist_unc_down = fhist_unc_down,
         xlabel = xlabel,
         ylabel = ylabel_ratio,
-        log_xscale = log_obs
+        log_xscale = log_obs,
+        stamp_texts = stamp_texts
     )
-
-    # legend
-    if rhandles:
-        fig_r.legend(rhandles, rlabels, loc='outside upper right')
 
     # save plot
     fig_r.savefig(figname+'_ratio.png', dpi=300, bbox_inches='tight')
@@ -352,23 +424,11 @@ def plot_diffXs_3D(
     log_diffXs = False,
     title = '',
     title_ratio = '',
-    rescales_order_of_magnitude = None
+    rescales_order_of_magnitude = None,
+    stamp_texts = []
     ):
 
-    fig, axes = plt.subplots(1, len(fhistogram_data))
-
-    if title:
-        fig.suptitle(title)
-
-    # for ratio
-    #fig_r, axes_r = plt.subplots(len(fhistogram_data), 1, sharey='row')
-    fig_r = plt.figure(layout='constrained')
-    subfigs_r = fig.subfigures(len(fhistogram_data), 1)
-
-    if title_ratio:
-        fig_r.suptitle(title_ratio)
-
-    if not isinstance(rescales_order_of_magnitude, list):
+    if np.asarray(rescales_order_of_magnitude).ndim < 2:
         rescales_order_of_magnitude = [rescales_order_of_magnitude] * len(fhistogram_data)
 
     if observable_labels:
@@ -383,12 +443,26 @@ def plot_diffXs_3D(
             fhistogram_data.get_zlabel()
         ]
 
+    xlabel = observable_labels[0]
+
+    fig = plt.figure(layout='constrained', figsize=(4.8, 3.6*len(fhistogram_data)))
+    subfigs = fig.subfigures(len(fhistogram_data), 1)
+
+    if title:
+        fig.suptitle(title)
+
+    # zbin edges
+    zbin_edges = fhistogram_data.get_zbin_edges()
+    zobs = observable_labels[2]
+
     for i, zbin_label in enumerate(fhistogram_data):
 
-        xlabel = observable_labels[0]
+        ax = subfigs[i].subplots(1)
+
+        zbin_text = f"{zbin_edges[i]}$\\leq${zobs}$<${zbin_edges[i+1]}"
 
         draw_diffXs_distr_2D(
-            axes[i],
+            ax,
             fhistogram_data[zbin_label],
             [fhist_mc[zbin_label] for fhist_mc in fhistograms_mc],
             label_nominal,
@@ -400,10 +474,29 @@ def plot_diffXs_3D(
             log_xscale = log_obs,
             log_yscale = log_diffXs,
             rescales_order_of_magnitude = rescales_order_of_magnitude[i],
+            stamp_texts = stamp_texts + [zbin_text]
         )
 
-        # ratio
+    if not os.path.isdir(os.path.dirname(figname)):
+        os.makedirs(os.path.dirname(figname))
+
+    fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
+    plt.close(fig)
+
+    # ratio
+    fig_r = plt.figure(figsize=(18, 3.6*len(fhistogram_data)))
+    subfigs_r = fig_r.subfigures(len(fhistogram_data), 1, hspace=0.01)
+
+    if title_ratio:
+        fig_r.suptitle(title_ratio)
+
+    for i, zbin_label in enumerate(fhistogram_data):
+
         axes_r = subfigs_r[i].subplots(1, len(fhistogram_data[zbin_label]), sharey=True)
+        fig_r.subplots_adjust(wspace=0)
+
+        zbin_text = f"{zbin_edges[i]}$\\leq${zobs}$<${zbin_edges[i+1]}"
+
         draw_diffXs_ratio_2D(
             axes_r,
             fhistogram_data[zbin_label],
@@ -414,16 +507,13 @@ def plot_diffXs_3D(
             fhist_unc_down = fhist_unc_down[zbin_label] if fhist_unc_down is not None else None,
             xlabel = xlabel,
             ylabel = ylabel_ratio,
-            log_xscale = log_obs
+            log_xscale = log_obs,
+            legend_off = False if i==0 else True,
+            stamp_texts = stamp_texts if i==0 else [],
+            outer_bin_label = zbin_text
         )
 
-    if not os.path.isdir(os.path.dirname(figname)):
-        os.makedirs(os.path.dirname(figname))
-
-    fig.savefig(figname+'.png', dpi=300, bbox_inches='tight')
-    plt.close(fig)
-
-    #fig_r.savefig(figname+'_ratio.png', dpi=300, bbox_inches='tight')
+    fig_r.savefig(figname+'_ratio.png', dpi=300, bbox_inches='tight')
     plt.close(fig_r)
 
 def plotDiffXs(
@@ -482,6 +572,12 @@ def plotDiffXs(
     histname = 'relativeDiffXs' if isRelative else 'absoluteDiffXs'
     logger.debug(f"histogram name: {histname}")
 
+    # stamp
+    if isRelative:
+        stamps = ATLAS_stamp + ["Relative cross-section"]
+    else:
+        stamps = ATLAS_stamp + ["Absolute cross-section"]
+
     # loop over observables
     for obs in observables:
         logger.info(obs)
@@ -535,7 +631,7 @@ def plotDiffXs(
             obs_labels,
             hist_meas,
             hists_MC,
-            'data',
+            'Data',
             labels_MC,
             hist_unc_up,
             hist_unc_down,
@@ -543,6 +639,7 @@ def plotDiffXs(
             ylabel_ratio = ylabel_ratio,
             log_obs = False, # for now
             log_diffXs = yscale_log,
+            stamp_texts = stamps,
             **extra_args
         )
 
