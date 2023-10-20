@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 import util
 
-def get_metrics_and_std(metrics_d, metrics_str, value_str, iteration):
+def get_metrics(metrics_d, metrics_str, value_str, iteration):
     value_list = metrics_d['nominal'][metrics_str][value_str]
 
     if iteration=='best':
@@ -14,17 +14,120 @@ def get_metrics_and_std(metrics_d, metrics_str, value_str, iteration):
         iteration = int(iteration)
         value = value_list[iteration]
 
-    # standard deviation
+    # mean and standard deviation from resampling
     if "resample" in metrics_d:
         values_resamples = metrics_d["resample"][metrics_str][value_str]
+
+        metrics_mean = np.mean(np.asarray(values_resamples), axis=0)
         metrics_std = np.std(np.asarray(values_resamples), axis=0)
+
+        value_mean = metrics_mean[iteration]
         value_std = metrics_std[iteration]
     else:
+        metrics_mean = np.nan
         value_std = 0
 
-    return value, value_std
+    return value, value_mean, value_std
 
 def plot_metrics(
+    figname,
+    metrics_name,
+    metrics_nominal,
+    metrics_resample_mean,
+    metrics_resample_std,
+    networks,
+    title,
+    sort = True
+    ):
+
+    fig, ax = plt.subplots()
+
+    if title:
+        ax.set_title(title, loc='left')
+
+    if sort:
+        indices_sorted = np.argsort(metrics_nominal)
+        metrics_nominal = np.asarray(metrics_nominal)[indices_sorted]
+        metrics_resample_mean = np.asarray(metrics_resample_mean)[indices_sorted]
+        metrics_resample_std = np.asarray(metrics_resample_std)[indices_sorted]
+        networks = np.asarray(networks)[indices_sorted]
+
+    ax.errorbar(networks, metrics_resample_mean, yerr=metrics_resample_std, label='resamples', fmt='o', linewidth=2, capsize=3)
+    ax.errorbar(networks, metrics_nominal, fmt='s', label='nominal', markersize=5)
+
+    ax.set_ylabel(metrics_name)
+
+    ax.set_xticklabels(networks, fontsize='x-small', rotation=45, rotation_mode='anchor', ha='right')
+
+    ax.legend()
+
+    plt.subplots_adjust(bottom=0.15)
+
+    fig.savefig(figname+'.png', dpi=300)
+    plt.close(fig)
+
+def evaluateGridSearch(
+    topdir,
+    test_type, # stress_data, stress_bump, stress_th_pt
+    observable,
+    networks = ['dense_10x1', 'dense_100x3', 'dense_1000x10'],
+    metrics_dir = "Metrics",
+    iteration = -1, # or 'best'
+    outputdir = '.'
+    ):
+
+    # metrics to plot
+    deltas = np.full(len(networks), np.nan)
+    deltas_mean = np.full(len(networks), np.nan)
+    deltas_std = np.zeros(len(networks))
+
+    chi2s = np.full(len(networks), np.nan)
+    chi2s_mean = np.full(len(networks), np.nan)
+    chi2s_std = np.zeros(len(networks))
+
+    for i, network in enumerate(networks):
+        fpath_metrics = os.path.join(topdir, test_type, network, metrics_dir, f"{observable}.json")
+        metrics_d = util.read_dict_from_json(fpath_metrics)
+
+        try:
+            deltas[i], deltas_mean[i], deltas_std[i] = get_metrics(
+                metrics_d[observable], 'Delta', 'delta', iteration
+            )
+        except IndexError:
+            print(f"No result @ iteration {iteration}")
+            return
+
+        try:
+            chi2s[i], chi2s_mean[i], chi2s_std[i] = get_metrics(
+                metrics_d[observable], 'Chi2', 'chi2/ndf', iteration
+            )
+        except IndexError:
+            print(f"No result @ iteration {iteration}")
+            return
+
+    # plot
+    plot_metrics(
+        figname = os.path.join(outputdir, 'deltas'),
+        metrics_name = "$\\Delta$",
+        metrics_nominal = deltas,
+        metrics_resample_mean = deltas_mean,
+        metrics_resample_std = deltas_std,
+        networks = networks,
+        title = f"{test_type} {observable}"
+    )
+
+    plot_metrics(
+        figname = os.path.join(outputdir, 'chi2'),
+        metrics_name = "$\\chi^2$/NDF",
+        metrics_nominal = chi2s,
+        metrics_resample_mean = chi2s_mean,
+        metrics_resample_std = chi2s_std,
+        networks = networks,
+        title = f"{test_type} {observable}"
+    )
+
+# deprecated
+def _plot_metrics(
     figname,
     metrics_name,
     metrics_arr,
@@ -51,11 +154,12 @@ def plot_metrics(
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
 
-def evaluateGridSearch(
+# deprecated
+def _evaluateGridSearch(
     topdir,
     test_type, # stress_data, stress_bump, stress_th_pt
     observable, 
-    grids = ['dense_10x1', 'dense_100x3', 'dense_1000x10'],
+    networks = ['dense_10x1', 'dense_100x3', 'dense_1000x10'],
     metrics_dir = "Metrics",
     iteration = -1, # or 'best'
     outputdir = '.'
@@ -64,7 +168,7 @@ def evaluateGridSearch(
     # determine the number of columns and rows
     widths = set()
     depths = set()
-    for network in grids:
+    for network in networks:
         wxd = network.split("_")[-1]
         widths.add(int(wxd.split('x')[0]))
         depths.add(int(wxd.split('x')[1]))
@@ -82,7 +186,7 @@ def evaluateGridSearch(
     chi2s = np.full((len(depths), len(widths)), np.nan)
     chi2s_std = np.full((len(depths), len(widths)), np.nan)
 
-    for network in grids:
+    for network in networks:
         wxd = network.split("_")[-1]
         w = int(wxd.split('x')[0])
         d = int(wxd.split('x')[1])
@@ -116,7 +220,7 @@ def evaluateGridSearch(
         chi2s_std[index_d][index_w] = chi2_std
 
     # plot
-    plot_metrics(
+    _plot_metrics(
         figname = os.path.join(outputdir, 'deltas'),
         metrics_name = "$\\Delta$",
         metrics_arr = deltas,
@@ -125,7 +229,7 @@ def evaluateGridSearch(
         title = f"{test_type} {observable}"
     )
 
-    plot_metrics(
+    _plot_metrics(
         figname = os.path.join(outputdir, 'deltas_std'),
         metrics_name = "$\\sigma(\\Delta)$",
         metrics_arr = deltas_std,
@@ -133,7 +237,7 @@ def evaluateGridSearch(
         depths = depths,
         title = f"{test_type} {observable}"
     )
-    plot_metrics(
+    _plot_metrics(
         figname = os.path.join(outputdir, 'chi2'),
         metrics_name = "$\\chi^2$/NDF",
         metrics_arr = chi2s,
@@ -142,7 +246,7 @@ def evaluateGridSearch(
         title = f"{test_type} {observable}"
     )
 
-    plot_metrics(
+    _plot_metrics(
         figname = os.path.join(outputdir, 'chi2_std'),
         metrics_name = "$\\sigma(\\chi^2\\mathrm{/NDF})$",
         metrics_arr = chi2s_std,
@@ -192,7 +296,7 @@ if __name__ == "__main__":
                     topdir = args.topdir,
                     test_type = test,
                     observable = obs,
-                    grids = args.networks,
+                    networks = args.networks,
                     iteration = it,
                     outputdir = outdir
                 )
