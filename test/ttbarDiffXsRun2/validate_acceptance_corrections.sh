@@ -40,7 +40,7 @@ run() {
         --subcampaigns $subcampaigns \
         --observables $obs \
         --run-list nominal \
-        --config-string '{"correct_acceptance":true, "run_ibu":false}'
+        --config-string '{"correct_acceptance":true, "match_dR":0.8,"run_ibu":false}'
 
     echo "Generate run config without acceptance corrections"
     python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/createRun2Config.py \
@@ -50,7 +50,7 @@ run() {
         --subcampaigns $subcampaigns \
         --observables $obs \
         --run-list nominal \
-        --config-string '{"correct_acceptance":false, "run_ibu":false}'
+        --config-string '{"correct_acceptance":false, "match_dR":0.8,"run_ibu":false}'
 
     echo "Run unfolding and make histograms"
     python ${SOURCE_DIR}/run_unfold.py ${outdir}/configs/runCfg_${label}_wacc_nominal.json
