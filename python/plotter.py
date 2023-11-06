@@ -104,6 +104,7 @@ def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer, label_den
 
         if errors_num is not None:
             ratio_errs = np.divide(errors_num, values_denom, out=np.zeros_like(errors_num), where=(values_denom!=0))
+            ratio_errs = np.abs(ratio_errs)
         else:
             ratio_errs = None
 
