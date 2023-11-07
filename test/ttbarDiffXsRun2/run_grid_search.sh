@@ -1,6 +1,6 @@
 #!/bin/bash
 timestamp=${1:-'latest'}
-subcampaigns='mc16a'
+subcampaigns=${2:-'mc16a mc16d mc16e'}
 
 sample_dir=${DATA_DIR}/NtupleTT/20221221
 outdir_test=${DATA_DIR}/OmniFoldOutputs/Run2TTbarXs/GridSearch/$timestamp
