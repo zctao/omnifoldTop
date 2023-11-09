@@ -409,7 +409,7 @@ def write_config_systematics(
             "background": bkg_nom,
             "weight_data": wtype,
             "weight_mc": "nominal",
-            "outputdir": outdir_syst,
+            "outputdir": os.path.join(output_top_dir, syst),
             "correct_acceptance" : False,
             #"load_models": ?
             #"nruns": ?
@@ -426,8 +426,9 @@ def write_config_systematics(
     outname_config_syst = f"{outname_config}_syst.json"
     util.write_dict_to_json(cfg_dict_list, outname_config_syst)
 
-def write_config_models(
+def write_config_model(
     sample_local_dir,
+    ttbar_alt, # 'hw', 'amc'
     category = "ljets",
     subcampaigns = ["mc16a", "mc16d", "mc16e"],
     output_top_dir = '.',
@@ -435,7 +436,7 @@ def write_config_models(
     common_cfg = {}
     ):
 
-    print("Model tests")
+    print(f"Model tests: {ttbar_alt}")
 
     # alternative ttbar vs nominal ttbar
     # samples
@@ -445,31 +446,29 @@ def write_config_models(
         sample_suffix = 'AFII_nominal'
     )
 
-    for ttbar_alt in ['hw', 'amc']:
+    signal_alt = get_samples_signal(
+        sample_local_dir, category, subcampaigns,
+        sample_type = 'mcWAlt',
+        sample_suffix = f"{ttbar_alt}_nominal"
+    )
 
-        signal_alt = get_samples_signal(
-            sample_local_dir, category, subcampaigns,
-            sample_type = 'mcWAlt',
-            sample_suffix = f"{ttbar_alt}_nominal"
-        )
+    outdir_alt = os.path.join(output_top_dir, f"ttbar_{ttbar_alt}_vs_nominal")
 
-        outdir_alt = os.path.join(output_top_dir, f"ttbar_{ttbar_alt}_vs_nominal")
+    # config
+    ttbar_alt_cfg = common_cfg.copy()
+    ttbar_alt_cfg.update({
+        "data": signal_alt,
+        "signal": signal_nominal,
+        "outputdir": outdir_alt,
+        "plot_verbosity": 2,
+        "normalize": True,
+        "correct_acceptance": False,
+        "truth_known": True
+    })
 
-        # config
-        ttbar_alt_cfg = common_cfg.copy()
-        ttbar_alt_cfg.update({
-            "data": signal_alt,
-            "signal": signal_nominal,
-            "outputdir": outdir_alt,
-            "plot_verbosity": 2,
-            "normalize": True,
-            "correct_acceptance": False,
-            "truth_known": True
-        })
-
-        # write run config to file
-        outname_config_alt = f"{outname_config}_ttbar_{ttbar_alt}_vs_nominal.json"
-        util.write_dict_to_json(ttbar_alt_cfg, outname_config_alt)
+    # write run config to file
+    outname_config_alt = f"{outname_config}_model_{ttbar_alt}.json"
+    util.write_dict_to_json(ttbar_alt_cfg, outname_config_alt)
 
 def write_config_stress(
     sample_local_dir,
@@ -671,7 +670,8 @@ def createRun2Config(
         #        )
 
     if 'model' in run_list:
-        write_config_models(**write_common_args)
+        for ttbar_alt in ['hw', 'amc']:
+            write_config_model(ttbar_alt=ttbar_alt, **write_common_args)
 
     if 'stress' in run_list:
         write_config_stress(
