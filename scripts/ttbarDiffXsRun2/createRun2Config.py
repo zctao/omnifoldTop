@@ -256,7 +256,7 @@ def write_config_bootstrap_mc_clos(
     outname_config_bootstrap_mc = f"{outname_config}_bootstrap_mc_clos.json"
     util.write_dict_to_json(bootstrap_mc_cfg, outname_config_bootstrap_mc)
 
-def write_config_mc_clos(
+def write_config_closure_resample(
     sample_local_dir,
     category = "ljets", # "ejets" or "mjets" or "ljets"
     subcampaigns = ["mc16a", "mc16d", "mc16e"],
@@ -264,14 +264,14 @@ def write_config_mc_clos(
     outname_config =  'runConfig',
     common_cfg = {}
     ):
-    print("mc closure")
+    print("closure resample")
 
     # nominal samples:
     sig_nominal = get_samples_signal(sample_local_dir, category, subcampaigns)
     bkg_nominal = get_samples_backgrounds(sample_local_dir, category, subcampaigns)
 
     # output directory
-    outdir_clos = os.path.join(output_top_dir, "mc_clos")
+    outdir_clos = os.path.join(output_top_dir, "closure_resample")
 
     # config
     mc_clos_cfg = common_cfg.copy()
@@ -283,14 +283,53 @@ def write_config_mc_clos(
         "outputdir": outdir_clos,
         "resample_data": True,
         "resample_mc": False,
-        "run_ibu": False,
+        "run_ibu": True,
         "correct_acceptance" : False,
-        #"resample_everyrun" : True
+        "resample_everyrun" : True,
+        "plot_verbosity": 2,
+        "truth_known": True
         })
 
     # write run configuration to file
-    outname_config_mc_clos = f"{outname_config}_mc_clos.json"
+    outname_config_mc_clos = f"{outname_config}_closure_resample.json"
     util.write_dict_to_json(mc_clos_cfg, outname_config_mc_clos)
+
+def write_config_closure_oddeven(
+    sample_local_dir,
+    category = "ljets", # "ejets" or "mjets" or "ljets"
+    subcampaigns = ["mc16a", "mc16d", "mc16e"],
+    output_top_dir = '.',
+    outname_config =  'runConfig',
+    common_cfg = {}
+    ):
+    print("closure oddeven")
+
+    # nominal samples:
+    sig_nominal = get_samples_signal(sample_local_dir, category, subcampaigns)
+    bkg_nominal = get_samples_backgrounds(sample_local_dir, category, subcampaigns)
+
+    # output directory
+    outdir_clos = os.path.join(output_top_dir, "closure_oddeven")
+
+    # config
+    mc_clos_cfg = common_cfg.copy()
+    mc_clos_cfg.update({
+        "data": sig_nominal,
+        "bdata": bkg_nominal,
+        "background": bkg_nominal,
+        "outputdir": outdir_clos,
+        "resample_data": False,
+        "resample_mc": False,
+        "run_ibu": True,
+        "correct_acceptance": False,
+        "normalize": True,
+        "plot_verbosity": 2,
+        "truth_known": True
+        })
+
+    # write run configuration to file
+    outname_config_clos = f"{outname_config}_closure_oddeven.json"
+    util.write_dict_to_json(mc_clos_cfg, outname_config_clos)
 
 def write_config_systematics(
     sample_local_dir,
@@ -621,14 +660,15 @@ def createRun2Config(
 
     # MC closure
     if 'closure' in run_list:
-        write_config_mc_clos(**write_common_args)
+        write_config_closure_resample(**write_common_args)
+        write_config_closure_oddeven(**write_common_args)
 
-        if 'bootstrap' in run_list:
-            write_config_bootstrap_mc_clos(
-                nresamples = 10,
-                start_index = 0,
-                **write_common_args
-                )
+        #if 'bootstrap' in run_list:
+        #    write_config_bootstrap_mc_clos(
+        #        nresamples = 10,
+        #        start_index = 0,
+        #        **write_common_args
+        #        )
 
     if 'model' in run_list:
         write_config_models(**write_common_args)
