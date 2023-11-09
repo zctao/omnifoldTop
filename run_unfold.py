@@ -32,10 +32,7 @@ for run_cfg_d in run_cfgs:
         continue
 
     # get the default argument dictionary from getArgsParser
-    # -d and -s are the only two required arguments without defaults
-    data_samples = run_cfg_d["data"]
-    signal_samples = run_cfg_d["signal"]
-    default_args = getArgsParser(['-d']+data_samples+['-s']+signal_samples)
+    default_args = getArgsParser([])
     default_args = vars(default_args)
 
     # Loop over run_cfg_d and replace the default argument values

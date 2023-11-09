@@ -468,6 +468,25 @@ def match_top_decays_dR(
 
     return lep_match & jet_match
 
+def select_by_eventID(
+    file_names,
+    select_odd=True,
+    treename='reco',
+    eventID_name='eventNumber'
+    ):
+
+    arrays = uproot.concatenate(
+        [f"{fname}:{treename}" for fname in file_names],
+        [eventID_name]
+    )
+
+    isOdd = (arrays[eventID_name]%2 == 1).to_numpy()
+
+    if select_odd:
+        return isOdd
+    else:
+        return ~isOdd
+
 class DataHandlerROOT(DataHandlerBase):
     """
     Load data from root files
@@ -499,6 +518,7 @@ class DataHandlerROOT(DataHandlerBase):
         weight_type='nominal',
         match_dR = None, # float
         plot_dir = None, # str
+        odd_or_even = None, #str, 'odd', 'even'
         ):
 
         super().__init__()
@@ -554,6 +574,25 @@ class DataHandlerROOT(DataHandlerBase):
                 treename_truth = treename_truth,
                 plot_dir = plot_dir
                 )
+
+        if odd_or_even is not None:
+            if odd_or_even == 'odd':
+                sel_evt = select_by_eventID(filepaths, select_odd=True)
+            elif odd_or_even == 'even':
+                sel_evt = select_by_eventID(filepaths, select_odd=False)
+            else:
+                logger.warn(f"Unknown value for the argument 'odd_or_even': {odd_or_even}. No selection is applied.")
+                sel_evt = None
+
+            if sel_evt is not None:
+                self.data_reco = self.data_reco[sel_evt]
+                self.weights = self.weights[sel_evt]
+                self.pass_reco = self.pass_reco[sel_evt]
+
+                if self.data_truth is not None:
+                    self.data_truth = self.data_truth[sel_evt]
+                    self.weights_mc = self.weights_mc[sel_evt]
+                    self.pass_truth = self.pass_truth[sel_evt]
 
         ######
         # sanity check

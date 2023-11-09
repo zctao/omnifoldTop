@@ -188,10 +188,10 @@ def getArgsParser(arguments_list=None, print_help=False):
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-d', '--data', required=True, nargs='+',
+    parser.add_argument('-d', '--data', nargs='+',
                         type=str, action=util.ParseEnvVar,
                         help="Observed data root file names")
-    parser.add_argument('-s', '--signal', required=True, nargs='+',
+    parser.add_argument('-s', '--signal', nargs='+',
                         type=str, action=util.ParseEnvVar,
                         help="Signal MC root file names")
     parser.add_argument('-b', '--background', nargs='+',

@@ -190,6 +190,26 @@ class OmniFoldTTbar():
         Also rescale simulation weights in needed
         """
 
+        # Check filepaths
+        sel_obs, sel_sig = None, None
+        if not filepaths_obs and not filepaths_sig:
+            logger.critical("No file paths are provided.")
+            return
+        elif filepaths_obs and not filepaths_sig:
+            # special case: only filepaths_obs is provided
+            # use odd events as obs and even events as sig
+            logger.warn("Only file paths of data events are provide. Use events with odd event number as data and events with even event number as simulation.")
+            filepaths_sig = filepaths_obs
+            sel_obs = 'odd'
+            sel_sig = 'even'
+        elif not filepaths_obs and filepaths_sig:
+            # special case: only filepaths_sig is provided
+            # use odd events as sig and even events as obs
+            filepaths_obs = filepaths_sig
+            logger.warn("Only file paths of signal events are provide. Use events with even event number as data and events with odd event number as simulation.")
+            sel_obs = 'even'
+            sel_sig = 'odd'
+
         # Observed data
         logger.info(f"Load data files: {' '.join(filepaths_obs)}")
         self.handle_obs = getDataHandler(
@@ -199,7 +219,8 @@ class OmniFoldTTbar():
             reweighter = data_reweighter,
             weight_type = weight_type_data,
             use_toydata = use_toydata,
-            match_dR = match_dR # For pseudo data
+            match_dR = match_dR, # For pseudo data
+            odd_or_even = sel_obs
             )
         logger.info(f"Total number of observed events: {len(self.handle_obs)}")
 
@@ -209,7 +230,8 @@ class OmniFoldTTbar():
             filepaths_sig, vars_reco, vars_truth,
             weight_type = weight_type_mc,
             use_toydata = use_toydata,
-            match_dR = match_dR
+            match_dR = match_dR,
+            odd_or_even = sel_sig
             )
         logger.info(f"Total number of signal events: {len(self.handle_sig)}")
 
@@ -220,7 +242,8 @@ class OmniFoldTTbar():
             self.handle_bkg = getDataHandler(
                 filepaths_bkg, vars_reco, [],
                 weight_type = weight_type_mc,
-                use_toydata = use_toydata
+                use_toydata = use_toydata,
+                odd_or_even = sel_sig
                 )
             logger.info(f"Total number of background events: {len(self.handle_bkg)}")
 
@@ -231,7 +254,8 @@ class OmniFoldTTbar():
             self.handle_obsbkg = getDataHandler(
                 filepaths_obsbkg, vars_reco, [],
                 weight_type = weight_type_data,
-                use_toydata = use_toydata
+                use_toydata = use_toydata,
+                odd_or_even = sel_obs
                 )
             logger.info(f"Total number of background events mixed with data: {len(self.handle_obsbkg)}")
 
