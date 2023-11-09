@@ -4,6 +4,7 @@ import os
 import util
 import histogramming as myhu
 import plotter
+from FlattenedHistogram import FlattenedHistogram2D, FlattenedHistogram3D
 
 import logging
 logger = logging.getLogger('compareAcceptance')
@@ -43,14 +44,30 @@ def compareAcceptance(
         logger.info(obs)
 
         hist_omf_after = histograms_after_d[obs][histkey_omnifold]
+        if isinstance(hist_omf_after, FlattenedHistogram2D) or isinstance(hist_omf_after, FlattenedHistogram3D):
+            hist_omf_after = hist_omf_after.flatten()
+
         hist_omf_before = histograms_before_d[obs][histkey_omnifold]
+        if isinstance(hist_omf_before, FlattenedHistogram2D) or isinstance(hist_omf_before, FlattenedHistogram3D):
+            hist_omf_before = hist_omf_before.flatten()
+
         hist_ibu_after = histograms_after_d[obs][histkey_ibu]
+        if isinstance(hist_ibu_after, FlattenedHistogram2D) or isinstance(hist_ibu_after, FlattenedHistogram3D):
+            hist_ibu_after = hist_ibu_after.flatten()
+
         hist_ibu_before = histograms_before_d[obs][histkey_ibu]
+        if isinstance(hist_ibu_before, FlattenedHistogram2D) or isinstance(hist_ibu_before, FlattenedHistogram3D):
+            hist_ibu_before = hist_ibu_before.flatten()
 
         hist_omf_ratio = myhu.divide(hist_omf_after, hist_omf_before)
         hist_ibu_ratio = myhu.divide(hist_ibu_after, hist_ibu_before)
 
+        ndim_obs = len(obs.split('_vs_'))
+        uf_label = "MultiFold" if ndim_obs > 1 else "UniFold"
+
         # plot
+        logscale_x = obs in ['ptt_vs_mtt', 'th_pt_vs_mtt']
+
         plotter.plot_histograms_and_ratios(
             figname = os.path.join(outputdir, f"{obs}_omnifold"),
             hists_numerator = [hist_omf_after],
@@ -60,7 +77,8 @@ def compareAcceptance(
             xlabel = obs,
             ylabel = "Events",
             ylabel_ratio = "Ratio",
-            title = "UniFold"
+            title = uf_label,
+            log_xscale = logscale_x
         )
 
         plotter.plot_histograms_and_ratios(
@@ -72,18 +90,21 @@ def compareAcceptance(
             xlabel = obs,
             ylabel = "Events",
             ylabel_ratio = "Ratio",
-            title = "IBU"
+            title = "IBU",
+            log_xscale = logscale_x
         )
 
         plotter.plot_histograms_and_ratios(
             figname = os.path.join(outputdir, f"{obs}_ratio"),
             hists_numerator = [hist_omf_ratio],
             hist_denominator = hist_ibu_ratio,
-            draw_options_numerator = [{'label':'UniFold','color':'tab:red','histtype':'step'}],
+            draw_options_numerator = [{'label':uf_label,'color':'tab:red','histtype':'step'}],
             draw_option_denominator = {'label':'IBU','color':'grey','histtype':'step'},
             xlabel = obs,
             ylabel = "Ratio",
-            ylabel_ratio = "UniFold / IBU",
+            ylabel_ratio = f"{uf_label} / IBU",
+            log_xscale = logscale_x,
+            #ratio_lim = [0,2],
         )
 
 if __name__ == "__main__":
