@@ -113,3 +113,103 @@ def run_ibu_from_unfolder(
         return hists_ibu, bin_corr, resp
     else:
         return hists_ibu[-1], bin_corr[-1], resp
+
+def run_ibu_from_unfolder_multidim(
+    unfolder,
+    vnames_reco,
+    vnames_truth,
+    bins_reco,
+    bins_truth,
+    niterations = 4, # number of iterations
+    nresamples = 25, # number of resamples for estimating uncertainties
+    all_iterations = False, # if True, return results at every iteration
+    norm = None,
+    density = False,
+    absoluteValues = False,
+    acceptance = None,
+    efficiency = None,
+    flow = False
+    ):
+
+    if not isinstance(absoluteValues, list):
+        absoluteValues = [absoluteValues] * len(vnames_reco)
+
+    acceptance_flat = acceptance.flatten() if acceptance else None
+    efficiency_flat = efficiency.flatten() if efficiency else None
+
+    ###
+    # observed distribution
+    fh_obs = mh.get_observed_distribution_multidim(unfolder, vnames_reco, bins_reco, absoluteValues=absoluteValues, subtract_background=True)
+
+    ###
+    # prior distribution and response
+    fresp = unfolder.handle_sig.get_response_flattened(
+        vnames_reco,
+        vnames_truth,
+        bins_reco,
+        bins_truth,
+        absoluteValues = absoluteValues,
+        normalize_truthbins = False
+    )
+
+    # project to Y axis before normalizing the truth bins
+    fh_prior = fresp.projectToTruth(flow=flow)
+
+    # normalize each truth bin
+    fresp.normalize_truth_bins()
+
+    # run unfolding
+    hists_ibu = unfold(
+        fresp.get(),
+        fh_obs.flatten(),
+        fh_prior.flatten(),
+        niterations,
+        acceptance_correction = acceptance_flat,
+        efficiency_correction = efficiency_flat
+    )
+
+    # bin errors and correlation
+    hists_ibu_resample = []
+
+    for rs in range(nresamples):
+
+        fh_obs_rs = mh.get_observed_distribution_multidim(unfolder, vnames_reco, bins_reco, absoluteValues=absoluteValues, bootstrap=True, subtract_background=True)
+
+        hists_ibu_resample.append(
+            unfold(
+                fresp.get(),
+                fh_obs_rs.flatten(),
+                fh_prior.flatten(),
+                niterations,
+                acceptance_correction = acceptance_flat,
+                efficiency_correction = efficiency_flat
+            )
+        )
+
+    # standard deviation of each bin
+    bin_errors = myhu.get_sigma_from_hists(hists_ibu_resample) # shape: (niterations, nbins_hist)
+
+    # set error
+    myhu.set_hist_errors(hists_ibu, bin_errors)
+
+    # repack as FlattenedHistogram
+    fhists_ibu = []
+    for h_ibu in hists_ibu:
+        fhists_ibu.append(fh_prior.copy())
+
+        fhists_ibu[-1].fromFlat(h_ibu)
+
+        if norm is not None:
+            fhists_ibu[-1].renormalize(norm=norm, density=False)
+
+        if density:
+            fhists_ibu[-1].make_density()
+
+    # bin correlations
+    bin_corr = myhu.get_bin_correlations_from_hists(hists_ibu_resample)
+
+    # Return results
+    if all_iterations:
+        return fhists_ibu, bin_corr, fresp
+    else:
+        return fhists_ibu[-1], bin_corr[-1], fresp

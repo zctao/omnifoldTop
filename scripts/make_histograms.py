@@ -56,6 +56,33 @@ def get_observed_distribution(
 
     return h_obs
 
+def get_observed_distribution_multidim(
+    unfolder,
+    vname_reco,
+    bins_reco,
+    absoluteValues=False,
+    bootstrap=False,
+    subtract_background=False
+    ):
+
+    h_obs = unfolder.handle_obs.get_histograms_flattened(
+        vname_reco, bins_reco, density=False, absoluteValues=absoluteValues, bootstrap=bootstrap
+        )
+
+    if unfolder.handle_obsbkg is not None:
+        h_obs += unfolder.handle_obsbkg.get_histograms_flattened(
+            vname_reco, bins_reco, density=False, absoluteValues=absoluteValues
+            )
+
+    if subtract_background and unfolder.handle_bkg is not None:
+        h_bkg = unfolder.handle_bkg.get_histograms_flattened(
+            vname_reco, bins_reco, density=False, absoluteValues=absoluteValues
+            )
+
+        h_obs += h_bkg.scale(-1.)
+
+    return h_obs
+
 def get_response(
     unfolder,
     vname_reco,
@@ -431,9 +458,44 @@ def make_histograms_of_observables_multidim(
 
     ##
     # IBU
-    # TODO?
     if include_ibu:
         logger.info(f" Run IBU for {observables}")
+
+        fhists_ibu_alliters, h_ibu_correlation, fresponse = ibu.run_ibu_from_unfolder_multidim(
+            unfolder,
+            varnames_reco, varnames_truth,
+            bins_reco_d, bins_truth_d,
+            niterations = iteration if iteration > 0 else unfolder.unfolded_weights.shape[1],
+            all_iterations = True,
+            absoluteValues = absValues,
+            acceptance = acceptance if unfolder.with_acceptance_correction else None,
+            efficiency = efficiency if unfolder.with_efficiency_correction else None,
+            flow = not binned_noflow
+        )
+
+        # take the ones at the same iteration as OmniFold
+        fh_ibu = fhists_ibu_alliters[iteration]
+        h_ibu_correlation = h_ibu_correlation[iteration]
+
+        hists_multidim_d['ibu'] = fh_ibu
+        #hists_multidim_d['ibu_alliters'] = fhists_ibu_alliters
+        hists_multidim_d['ibu_correlation'] = h_ibu_correlation
+        hists_multidim_d['response'] = fresponse
+
+        if unfolder.with_efficiency_correction:
+            hists_multidim_d['ibu_corrected'] = fh_ibu.copy()
+        elif efficiency:
+            hists_multidim_d['ibu_corrected'] = bc.apply_efficiency_correction(fh_ibu, efficiency)
+
+        if 'ibu_corrected' in hists_multidim_d:
+
+            hists_multidim_d['absoluteDiffXs_ibu'] = hists_multidim_d['ibu_corrected'].copy()
+            hists_multidim_d['absoluteDiffXs_ibu'].scale(1./ttbar_diffXs_run2_params['luminosity'])
+            hists_multidim_d['absoluteDiffXs_ibu'].make_density()
+
+            hists_multidim_d['relativeDiffXs_ibu'] = hists_multidim_d['ibu_corrected'].copy()
+            hists_multidim_d['relativeDiffXs_ibu'].renormalize(norm=1., density=False, flow=True)
+            hists_multidim_d['relativeDiffXs_ibu'].make_density()
 
     ###
     # Reco level
@@ -441,20 +503,12 @@ def make_histograms_of_observables_multidim(
         logger.debug(f" Reco-level distributions")
 
         # observed data
-        hists_multidim_d['reco_data'] = unfolder.handle_obs.get_histograms_flattened(
+        hists_multidim_d['reco_data'] = get_observed_distribution_multidim(
+            unfolder,
             varnames_reco,
             bins_reco_d,
-            density=False,
             absoluteValues=absValues
         )
-
-        if unfolder.handle_obsbkg is not None:
-            hists_multidim_d['reco_data'] += unfolder.handle_obsbkg.get_histograms_flattened(
-                varnames_reco,
-                bins_reco_d,
-                density=False,
-                absoluteValues=absValues
-            )
 
         # signal simulation
         hists_multidim_d['reco_sig'] = unfolder.handle_sig.get_histograms_flattened(
@@ -806,6 +860,7 @@ def make_histograms_from_unfolder(
             iteration = iteration,
             nruns = nruns,
             include_reco = include_reco,
+            include_ibu = include_ibu,
             binned_correction_d = binned_corrections_d,
             binned_noflow = binned_noflow
         )
