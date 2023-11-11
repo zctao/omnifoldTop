@@ -51,13 +51,19 @@ def get_systematics(
                 for i in range(vector_length):
                     syst_name = f"{prefix}_{sname}{i+1}"
 
-                    if not select_systematics(syst_name, name_filters):
-                        continue
+                    systs, wtypes = [], []
+                    for v in variations:
+                        syst_var = f"{syst_name}_{v}"
 
-                    systs = [f"{syst_name}_{v}" for v in variations]
-                    wtypes = [f"weight_{prefix}_{sname}_{v}:{i}" if stype=="ScaleFactor" else "nominal" for v in variations]
+                        if not select_systematics(syst_var, name_filters):
+                            continue
 
-                    if list_of_tuples:
+                        wtype_var = f"weight_{prefix}_{sname}_{v}:{i}" if stype=="ScaleFactor" else "nominal"
+
+                        systs.append(syst_var)
+                        wtypes.append(wtype_var)
+
+                    if list_of_tuples and systs:
                         syst_list.append(tuple(systs))
                         wtype_list.append(tuple(wtypes))
                     else:
@@ -66,13 +72,19 @@ def get_systematics(
             else:
                 syst_name = f"{prefix}_{s}" if s else f"{prefix}"
 
-                if not select_systematics(syst_name, name_filters):
-                    continue
+                systs, wtypes = [], []
+                for v in variations:
+                    syst_var = f"{syst_name}_{v}"
 
-                systs = [f"{syst_name}_{v}" for v in variations]
-                wtypes = [f"weight_{syst_name}_{v}" if stype=="ScaleFactor" else "nominal" for v in variations]
+                    if not select_systematics(syst_var, name_filters):
+                        continue
 
-                if list_of_tuples:
+                    wtype_var = f"weight_{syst_name}_{v}" if stype=="ScaleFactor" else "nominal"
+
+                    systs.append(syst_var)
+                    wtypes.append(wtype_var)
+
+                if list_of_tuples and systs:
                     syst_list.append(tuple(systs))
                     wtype_list.append(tuple(wtypes))
                 else:
