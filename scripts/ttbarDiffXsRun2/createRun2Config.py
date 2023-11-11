@@ -338,7 +338,8 @@ def write_config_systematics(
     subcampaigns = ["mc16a", "mc16d", "mc16e"],
     output_top_dir = '.',
     outname_config =  'runConfig',
-    common_cfg = {}
+    common_cfg = {},
+    write_single_file = False
     ):
 
     cfg_dict_list = []
@@ -359,6 +360,11 @@ def write_config_systematics(
         })
 
     cfg_dict_list.append(central_cfg)
+
+    if not write_single_file:
+        # write to file
+        outname_config_central = f"{outname_config}_central.json"
+        util.write_dict_to_json(central_cfg, outname_config_central)
 
     # systematics as alternative sets of events in TTrees
     for syst in get_systematics(systematics_keywords, syst_type="Branch"):
@@ -395,6 +401,10 @@ def write_config_systematics(
 
         cfg_dict_list.append(syst_cfg)
 
+        if not write_single_file:
+            outname_config_syst = f"{outname_config}_{syst}.json"
+            util.write_dict_to_json(syst_cfg, outname_config_syst)
+
     # systematics as scale factor variations
     for syst, wtype in zip(*get_systematics(systematics_keywords, syst_type="ScaleFactor", get_weight_types=True)):
         print(syst)
@@ -418,13 +428,18 @@ def write_config_systematics(
 
         cfg_dict_list.append(syst_cfg)
 
+        if not write_single_file:
+            outname_config_syst = f"{outname_config}_{syst}.json"
+            util.write_dict_to_json(syst_cfg, outname_config_syst)
+
     # TODO modelling uncertainties
 
     print(f"Number of run configs for systematics: {len(cfg_dict_list)}")
 
-    # write run configs to file
-    outname_config_syst = f"{outname_config}_syst.json"
-    util.write_dict_to_json(cfg_dict_list, outname_config_syst)
+    if write_single_file:
+        # write run configs to file
+        outname_config_syst = f"{outname_config}_syst.json"
+        util.write_dict_to_json(cfg_dict_list, outname_config_syst)
 
 def write_config_model(
     sample_local_dir,
