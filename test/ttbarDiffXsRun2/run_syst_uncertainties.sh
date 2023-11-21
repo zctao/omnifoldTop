@@ -8,40 +8,44 @@ outdir=${DATA_DIR}/OmniFoldOutputs/Run2TTbarXs/Uncertainties/$timestamp
 observables='mtt ptt th_pt tl_pt ytt th_y tl_y'
 #observables_multidim='ptt_vs_mtt th_pt_vs_mtt ptt_vs_ytt_abs mtt_vs_ytt_abs mtt_vs_ptt_vs_ytt_abs mtt_vs_th_pt_vs_th_y_abs mtt_vs_th_pt_vs_ytt_abs mtt_vs_th_y_abs_vs_ytt_abs'
 
+systematics_filter=''
+#'bTagSF_DL1r_70_eigenvars_B1 CategoryReduction_JET_Pileup_RhoTopology'
+
 ######
 echo
 echo "Generate run configs"
-python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/createRun2Config.py \
-    --sample-dir ${sample_dir} \
-    --result-dir ${outdir} \
-    --config-name ${outdir}/configs/runCfg \
-    --subcampaigns $subcampaigns \
-    --observables $observables \
-    --run-list systematics \
-    --config-string '{"binning_config":"${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json"}' # explicitly specify binning config so that histograms are made right after unfolding
-    # -k bTagSF_DL1r_70_eigenvars_B1 CategoryReduction_JET_Pileup_RhoTopology
 
-######
+python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/run_uncertainties.py \
+    -k central ${systematics_filter} \
+    -r ${outdir} \
+    -v \
+    generate \
+    -e ${subcampaigns} # --config-string '{"match_dR":0.8}'
+
 echo
 echo "Run unfolding"
-python ${SOURCE_DIR}/run_unfold.py ${outdir}/configs/runCfg_syst.json
 
-# for computing percentage bin errors, no need to remake histograms with acceptance and efficiency corrections
+python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/run_uncertainties.py \
+    -k central ${systematics_filter} \
+    -r ${outdir} \
+    -v \
+    run
 
-#####
+echo
+echo "Make histograms"
+
+python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/run_uncertainties.py \
+    -k central ${systematics_filter} \
+    -r ${outdir} \
+    -v \
+    histogram
+
 echo
 echo "Evaluate uncertainties"
-echo "Absolute"
-python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/evaluate_uncertainties.py \
-    ${outdir}/central \
-    -s ${outdir} \
-    -o ${outdir}/uncertainties/abs \
-    -p
-    # -k bTagSF_DL1r_70_eigenvars_B1 CategoryReduction_JET_Pileup_RhoTopology
 
-echo "Relative"
-python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/evaluate_uncertainties.py \
-    ${outdir}/central \
-    -s ${outdir} \
-    -o ${outdir}/uncertainties/rel --normalize \
-    -p
+python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/run_uncertainties.py \
+    -k ${systematics_filter} \
+    -r ${outdir} \
+    -v \
+    evaluate \
+    -c central
