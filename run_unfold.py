@@ -74,6 +74,6 @@ if __name__ == "__main__":
 
     try:
         run_unfold(fpath_run_config)
-    except:
-        print("Error: unfold failed")
+    except Exception as ex:
+        print(f"[Error] unfold failed: {ex}")
         sys.exit(1)
