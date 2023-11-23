@@ -577,14 +577,16 @@ def write_config_stress_binned(
     print("Stress tests: binned reweighting")
     if not fpath_reweights:
         print("ERROR cannot generate run config for data induced stress test: no external weight files are provided.")
-    elif not os.path.isdir(fpath_reweights):
-        print(f"ERROR: {fpath_reweights} has to be a directory for the stress tests with binned reweighting")
     else:
         sig_nominal = get_samples_signal(sample_local_dir, category, subcampaigns)
 
         observables = common_cfg["observables"]
 
-        fname_rw = 'reweights.h5' # hard code for now
+        # output directory
+        if "stress_data_binned" in output_top_dir:
+            output_dir = output_top_dir
+        else:
+            output_dir = os.path.join(output_top_dir, f"stress_data_binned")
 
         cfg_list = []
 
@@ -599,8 +601,8 @@ def write_config_stress_binned(
                 "correct_acceptance": False,
                 "truth_known": True,
                 "observables": [obs],
-                "outputdir": os.path.join(output_top_dir, f"stress_data_binned", obs),
-                "weight_data": f"external:{os.path.join(fpath_reweights, obs, fname_rw)}",
+                "outputdir": os.path.join(output_dir, obs),
+                "weight_data": f"external:{','.join(fpath_reweights)}",
                 "weight_mc": "nominal"
             })
 
@@ -696,7 +698,7 @@ def createRun2Config(
 
     if 'stress_binned' in run_list:
         write_config_stress_binned(
-            fpath_reweights = external_reweights[0], # FIXME
+            fpath_reweights = external_reweights,
             **write_common_args
         )
 
