@@ -370,5 +370,8 @@ if __name__ == "__main__":
     try:
         args.func(args)
     except Exception as ex:
+        logger.setLevel(logging.DEBUG)
+        util.reportMemUsage(logger)
+        util.reportGPUMemUsage(logger)
         logger.error(ex)
         sys.exit(1)

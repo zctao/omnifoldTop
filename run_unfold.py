@@ -5,6 +5,9 @@ import itertools
 import util
 from unfoldv2 import getArgsParser, unfold
 
+import logging
+logger = logging.getLogger("run_unfold")
+
 def run_unfold(fpath_run_config):
     if not os.path.isfile(fpath_run_config):
         raise FileNotFoundError(f"Cannot find run config: {fpath_run_config}")
@@ -75,5 +78,8 @@ if __name__ == "__main__":
     try:
         run_unfold(fpath_run_config)
     except Exception as ex:
-        print(f"[Error] unfold failed: {ex}")
+        logger.setLevel(logging.DEBUG)
+        util.reportMemUsage(logger)
+        util.reportGPUMemUsage(logger)
+        logger.error(f"Unfold failed: {ex}")
         sys.exit(1)
