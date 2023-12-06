@@ -176,7 +176,7 @@ def get_model(input_shape, nclass=2, model_type='dense_100x3'):
 
     return model
 
-def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1):
+def _train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1):
 
     # initalize empty dictionaries
     train_dictionary, val_dictionary = {}, {}
@@ -210,6 +210,31 @@ def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epoc
     #     preds_train = model.predict(X_train_list, batch_size=batch_size)[:,1]
     #     preds_val = model.predict(X_val_list, batch_size=batch_size)[:,1]
     #     plotter.plot_training_vs_validation(figname, preds_train, Y_train, w_train, preds_val, Y_val, w_val)
+
+def train_model(model, X, Y, w, callbacks=[], figname='', batch_size=32768, epochs=100, verbose=1):
+    # initalize empty dictionaries
+    train_dictionary, val_dictionary = {}, {}
+    train_y_dictionary, val_y_dictionary = {}, {}
+
+    train_w, val_w = [], []
+
+    random_state = rng.integers(0, 2**16)
+    X_train, X_val, Y_train, Y_val = train_test_split(X, Y, random_state=random_state)
+
+    # prepare the dictionaries
+    with tf.device("CPU"):
+        for i in range(n_models_in_parallel):
+            w_train, w_val = train_test_split(w[i], random_state=random_state)
+
+            train_dictionary[_layer_name(i, "input")] = tf.convert_to_tensor(X_train)
+            val_dictionary[_layer_name(i, "input")] = tf.convert_to_tensor(X_val)
+            train_y_dictionary[_layer_name(i, "output")] = tf.convert_to_tensor(Y_train)
+            val_y_dictionary[_layer_name(i, "output")] = tf.convert_to_tensor(Y_val)
+            train_w.append(tf.convert_to_tensor(w_train))
+            val_w.append(tf.convert_to_tensor(w_val))
+
+    fitargs = {'callbacks': callbacks, 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
+    model.fit(train_dictionary, train_y_dictionary, sample_weight=train_w, validation_data=(val_dictionary, val_y_dictionary, val_w), **fitargs)
 
 def dense_net(input_shape, nnodes=[100, 100, 100], nclass=2):
     """
