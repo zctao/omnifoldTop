@@ -32,16 +32,18 @@ def get_callbacks(model_filepath=None):
     -------
     sequence of `tf.keras.callbacks.Callback`
     """
-    EarlyLockingCallback = EarlyLocking(monitor="val_loss", patience=10, verbose=1, restore_best_weights=True, n_models_in_parallel=n_models_in_parallel)
+    #EarlyLockingCallback = EarlyLocking(monitor="val_loss", patience=10, verbose=1, restore_best_weights=True, n_models_in_parallel=n_models_in_parallel)
 
     lr_callbacks = get_lr_scheduler().get_callbacks()
 
     if model_filepath:
         logger_fp = model_filepath + "_history.csv"
         CSVLogger = keras.callbacks.CSVLogger(filename=logger_fp, append=False)
-        return [CSVLogger, EarlyLockingCallback] + lr_callbacks
+        #return [CSVLogger, EarlyLockingCallback] + lr_callbacks
+        return [CSVLogger] + lr_callbacks
     else:
-        return [EarlyLockingCallback] + lr_callbacks
+        #return [EarlyLockingCallback] + lr_callbacks
+        return lr_callbacks
 
 def weighted_binary_crossentropy(y_true, y_pred):
     """

@@ -497,6 +497,7 @@ class OmniFoldTTbar():
                 fast_correction = fast_correction,
                 plot = plot_status and ir==0, # only make plots for the first run
                 batch_size = batch_size,
+                epochs = 20,
                 feature_names_sim = self.varnames_reco,
                 feature_names_gen = self.varnames_truth,
             )
