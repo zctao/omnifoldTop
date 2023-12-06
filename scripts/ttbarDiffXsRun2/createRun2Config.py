@@ -744,8 +744,8 @@ if __name__ == "__main__":
     common_cfg = {
         "observable_config" : "${SOURCE_DIR}/configs/observables/vars_ttbardiffXs_pseudotop.json",
         "binning_config" : "${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json",
-        "iterations" : 4,
-        "batch_size" : 20000,
+        "iterations" : 3,
+        "batch_size" : 500000,
         "normalize" : False,
         "nruns" : 7,
         "parallel_models" : 3,
