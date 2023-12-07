@@ -102,7 +102,7 @@ def generate(args):
         "observable_config" : "${SOURCE_DIR}/configs/observables/vars_ttbardiffXs_pseudotop.json",
         "binning_config" : "${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json",
         "iterations" : 3,
-        "batch_size" : 20000,
+        "batch_size" : 500000,
         "normalize" : False,
         "nruns" : 8,
         "parallel_models" : 3,
