@@ -2,8 +2,6 @@ import os
 import numpy as np
 import json
 from scipy.optimize import curve_fit
-from packaging import version
-import tensorflow as tf
 import logging
 import itertools
 import argparse
@@ -78,33 +76,6 @@ def addFileHandler(logger, filename):
     logger.addHandler(fhdr)
     if nodir:
         logger.info(f"Create directory {dirname}")
-
-def configGPUs(gpu=None, limit_gpu_mem=False, verbose=0):
-    assert(version.parse(tf.__version__) >= version.parse('2.0.0'))
-    # tensorflow configuration
-    # device placement
-    tf.config.set_soft_device_placement(True)
-    tf.debugging.set_log_device_placement(verbose > 0)
-
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if not gpus:
-        logging.error("No GPU found!")
-        raise RuntimeError("No GPU found!")
-
-    if gpu is not None:
-        tf.config.experimental.set_visible_devices(gpus[gpu], 'GPU')
-
-    # limit GPU memory growth
-    if limit_gpu_mem:
-        for g in gpus:
-            tf.config.experimental.set_memory_growth(g,True)
-
-def reportGPUMemUsage(logger):
-    gpus = tf.config.experimental.list_logical_devices('GPU')
-
-    for device in gpus:
-        info_d = tf.config.experimental.get_memory_info(device.name)
-        logger.debug(f"{device.name} mem usage: current = {info_d['current']*1e-6:.2f} MB peak = {info_d['peak']*1e-6:.2f} MB");
 
 # JSON encoder for numpy array
 # https://pynative.com/python-serialize-numpy-ndarray-into-json/

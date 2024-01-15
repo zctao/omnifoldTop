@@ -5,11 +5,11 @@ import tensorflow as tf
 
 from sklearn.model_selection import train_test_split
 
-from modelUtils import get_model, get_callbacks
+from modelUtils import get_model, get_callbacks, configGPUs
 
 from datahandler import DataHandler, DataToy
 import util
-from util import configGPUs, configRootLogger, expandFilePath, read_dict_from_json
+from util import configRootLogger, expandFilePath, read_dict_from_json
 from util import get_bins, write_chi2, write_ks, write_triangular_discriminators, ks_2samp_weighted
 import plotting
 from histogramming import calc_hist

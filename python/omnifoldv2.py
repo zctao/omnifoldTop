@@ -4,9 +4,8 @@ import matplotlib.pyplot as plt
 
 import plotter
 import modelUtils
+from modelUtils import reportGPUMemUsage
 from nnreweighter import train_and_reweight
-
-from util import reportGPUMemUsage
 
 import gc
 

@@ -2,8 +2,9 @@
 import os
 import sys
 import itertools
-import util
+from util import read_dict_from_json, reportMemUsage
 from unfoldv2 import getArgsParser, unfold
+from modelUtils import reportGPUMemUsage
 
 import logging
 logger = logging.getLogger("run_unfold")
@@ -12,7 +13,7 @@ def run_unfold(fpath_run_config):
     if not os.path.isfile(fpath_run_config):
         raise FileNotFoundError(f"Cannot find run config: {fpath_run_config}")
 
-    run_cfgs = util.read_dict_from_json(fpath_run_config)
+    run_cfgs = read_dict_from_json(fpath_run_config)
     if not run_cfgs:
         raise RuntimeError(f"Failed to load run config from {fpath_run_config}")
 
@@ -79,7 +80,7 @@ if __name__ == "__main__":
         run_unfold(fpath_run_config)
     except Exception as ex:
         logger.setLevel(logging.DEBUG)
-        util.reportMemUsage(logger)
-        util.reportGPUMemUsage(logger)
+        reportMemUsage(logger)
+        reportGPUMemUsage(logger)
         logger.error(f"Unfold failed: {ex}")
         sys.exit(1)

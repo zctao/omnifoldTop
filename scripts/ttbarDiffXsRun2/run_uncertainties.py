@@ -372,6 +372,11 @@ if __name__ == "__main__":
     except Exception as ex:
         logger.setLevel(logging.DEBUG)
         util.reportMemUsage(logger)
-        util.reportGPUMemUsage(logger)
+
+        # Report GPU usage only if it is needed
+        if args.func == run:
+            from modelUtils import reportGPUMemUsage
+            reportGPUMemUsage(logger)
+
         logger.error(ex)
         sys.exit(1)
