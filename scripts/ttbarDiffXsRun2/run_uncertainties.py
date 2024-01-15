@@ -4,11 +4,7 @@ import sys
 import json
 
 import util
-from ttbarDiffXsRun2.createRun2Config import createRun2Config
 from ttbarDiffXsRun2.systematics import get_systematics
-from run_unfold import run_unfold
-from make_histograms import make_histograms
-from evaluate_uncertainties import evaluate_uncertainties
 
 import logging
 logger = logging.getLogger("run_uncertainties")
@@ -79,6 +75,7 @@ def update_status(
 
 def generate(args):
     logger.info("Generate run configs")
+    from ttbarDiffXsRun2.createRun2Config import createRun2Config
 
     # config directory
     if not os.path.isabs(args.config_name):
@@ -134,6 +131,7 @@ def generate(args):
 
 def run(args):
     logger.info("Run unfolding")
+    from run_unfold import run_unfold
 
     # config directory
     config_dir = os.path.dirname(args.config_name)
@@ -162,6 +160,7 @@ def run(args):
 
 def histogram(args):
     logger.info("Make histograms")
+    from make_histograms import make_histograms
 
     # job status
     if not os.path.isfile(args.job_file):
@@ -190,6 +189,7 @@ def histogram(args):
 
 def evaluate(args):
     logger.info("Evaluate uncertainties")
+    from evaluate_uncertainties import evaluate_uncertainties
 
     # job status
     if not os.path.isfile(args.job_file):

@@ -1076,7 +1076,7 @@ if __name__ == "__main__":
                         help="List of observables to make histograms. If not provided, use the same ones from the unfolding results")
     parser.add_argument("--observables-multidim", nargs='+', default=[],
                         help="List of observables to make multi-dimension histograms.")
-    parser.add_argument("--observable_config", type=str, action=util.ParseEnvVar,
+    parser.add_argument("--observable-config", type=str, action=util.ParseEnvVar,
                         help="Path to the observable config file. If not provided, use the same one from the unfolding results")
     parser.add_argument("-i", "--iterations", type=int, nargs='+', default=[-1],
                         help="Use the results at the specified iteration")
