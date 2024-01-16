@@ -843,14 +843,13 @@ def make_histograms_from_unfolder(
 
     for obs in observables_multidim:
 
-        binned_corrections_d[obs].update(
-                bc.binned_corrections_observable_multidim(
+        if binned_corrections_d or recompute_corrections:
+            binned_corrections_d[obs] = bc.binned_corrections_observable_multidim(
                     obs,
                     histograms_d = binned_corrections_d,
                     handle_sim = unfolder.handle_sig,
                     obsConfig_d = obsConfig_d,
                     flow = not binned_noflow)
-            )
 
         histograms_dict[obs] = make_histograms_of_observables_multidim(
             unfolder,
