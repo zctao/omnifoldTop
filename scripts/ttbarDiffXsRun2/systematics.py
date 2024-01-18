@@ -95,3 +95,50 @@ def get_systematics(
         return syst_list, wtype_list
     else:
         return syst_list
+
+# systematic uncertainty groups
+syst_groups = {
+    "JES" : {
+        "label" : "JES/JER",
+        "filters" : ["CategoryReduction_JET_", "weight_jvt"],
+    },
+    "BTag" : {
+        "label" : "Flavor Tagging",
+        "filters" : [],
+    },
+    "Lepton" : {
+        "label" : "Lepton",
+        "filters" : [],
+    },
+    "MET" : {
+        "label" : "$E_{\text{T}}^{\text{miss}}$",
+    },
+    "Background" : {
+        "label" : "Background"
+    },
+    "Pileup" : {
+        "label" : "Pileup",
+        "filters": ["pileup_UP", "pileup_DOWN"],
+    },
+    "IFSR" : {
+        "label" : "IFSR",
+    },
+    "PDF" : {
+        "label" : "PDF",
+    },
+    "mc_stat": {
+        "label" : "MC Stat.",
+    },
+    "MTop" : {
+        "label" : "$m_{\text{t}}$",
+    },
+    "Hadronization" : {
+        "label" : "Hadronization"
+    },
+    "Unfolding" : {
+        "label" : "Unfolding"
+    },
+    "generator" : {
+
+    }
+}
