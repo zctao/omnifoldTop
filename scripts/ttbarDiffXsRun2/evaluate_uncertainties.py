@@ -47,7 +47,7 @@ def get_unfolded_histogram_from_dict(
             return None
 
         if nensembles > len(hists_allruns):
-            logger.warn(f"The required number of ensembles {nensembles} is larger than what is available: {len(hists_allruns)}")
+            logger.warning(f"The required number of ensembles {nensembles} is larger than what is available: {len(hists_allruns)}")
             nensembles = len(hists_allruns)
 
         # Use a subset of the histograms from all runs
@@ -136,10 +136,7 @@ def compute_total_uncertainty(
     logger.debug(f" Compute total uncertainty")
 
     # Initialize total_uncertainties_d
-    if group is None:
-        total_uncertainties_d = { obs : {} for obs in bin_uncertainties_d}
-    else:
-        total_uncertainties_d = { obs : {group : {}} for obs in bin_uncertainties_d}
+    total_uncertainties_d = { obs : {} for obs in bin_uncertainties_d}
 
     for obs in bin_uncertainties_d:
         bin_unc_obs_d = bin_uncertainties_d[obs] if group is None else bin_uncertainties_d[obs][group]
@@ -152,20 +149,20 @@ def compute_total_uncertainty(
                 unc_var1, unc_var2 = unc
                 hist_var1 = bin_unc_obs_d.get(unc_var1)
                 if hist_var1 is None:
-                    logger.error(f"Cannot find uncertainty: {unc_var1}")
+                    logger.warning(f"Cannot find uncertainty: {unc_var1}")
                     logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
                     continue
 
                 hist_var2 = bin_unc_obs_d.get(unc_var2)
                 if hist_var2 is None:
-                    logger.error(f"Cannot find uncertainty: {unc_var2}")
+                    logger.warning(f"Cannot find uncertainty: {unc_var2}")
                     logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
                     continue
             else:
                 # symmetric
                 hist_var1 = bin_unc_obs_d.get(unc)
                 if hist_var1 is None:
-                    logger.error(f"Cannot find uncertainty: {unc}")
+                    logger.warning(f"Cannot find uncertainty: {unc}")
                     logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
                     continue
 
@@ -175,16 +172,10 @@ def compute_total_uncertainty(
 
         h_total_up, h_total_down = compute_total_uncertainty_hist(hists_unc_obs)
 
-        if group is None:
-            total_uncertainties_d[obs].update({
-                f"{label}_up" : h_total_up,
-                f"{label}_down" : h_total_down
-            })
-        else:
-            total_uncertainties_d[obs][group].update({
-                f"{label}_up" : h_total_up,
-                f"{label}_down" : h_total_down
-            })
+        total_uncertainties_d[obs].update(
+            {f"{label}_up" : h_total_up, f"{label}_down" : h_total_down}
+        )
+
     # end of obs loop
 
     return total_uncertainties_d
@@ -243,7 +234,7 @@ def compute_systematic_uncertainties(
 
             if normalize:
                 if hist_key in ["absoluteDiffXs", "relativeDiffXs"]:
-                    logger.warn(f"Skip renormalizing histogram {hist_key}!")
+                    logger.warning(f"Skip renormalizing histogram {hist_key}!")
                 else:
                     myhu.renormalize_hist(h_syst, norm=myhu.get_hist_norm(h_nominal))
 
@@ -277,72 +268,133 @@ def compute_systematic_uncertainties(
 
     return syst_unc_d
 
+def compare_errors(errors1, errors2):
+    err1_up, err1_down = errors1
+    err2_up, err2_down = errors2
+
+    errsum1 = np.abs(np.asarray(err1_up) - np.asarray(err1_down)).sum()
+    errsum2 = np.abs(np.asarray(err2_up) - np.asarray(err2_down)).sum()
+
+    return errsum1 < errsum2
+
 def plot_fractional_uncertainties(
-    bin_uncertainties_dict,
-    uncertainties = [], # list of uncertainty labels to plot
-    outname_prefix = 'bin_uncertainties',
-    highlight = '' #TODO
+    figname,
+    hists_uncertainty_total,
+    hists_uncertainty_compoments,
+    label_total,
+    labels_component,
+    color_total = None,
+    colors_component = [],
+    highlight_dominant = False,
     ):
 
-    # for plotting
-    colors = plotter.get_default_colors(len(uncertainties))
+    errors_toplot = []
+    draw_opts = []
 
-    # loop over observables
-    for ob in bin_uncertainties_dict:
-        errors_toplot = []
-        draw_opts = []
+    # Total
+    h_grp_up, h_grp_down = hists_uncertainty_total
+    errors_toplot.append((
+        myhu.get_values_and_errors(h_grp_up)[0]*100.,
+        myhu.get_values_and_errors(h_grp_down)[0]*100.
+        ))
 
-        # loop over uncertainties
-        for unc, color in zip(uncertainties, colors):
-            if isinstance(unc, tuple):
-                # down, up variations
-                unc_var1, unc_var2 = unc
+    if color_total is None:
+        color_total = 'black'
 
-                hist_var1 = bin_uncertainties_dict[ob].get(unc_var1)
-                if hist_var1 is None:
-                    logger.error(f"No entry found for uncertainty {unc_var1}")
-                    continue
+    draw_opts.append({'label': label_total, 'edgecolor': color_total, "facecolor": 'none'})
 
-                hist_var2 = bin_uncertainties_dict[ob].get(unc_var2)
-                if hist_var2 is None:
-                    logger.error(f"No entry found for uncertainty {unc_var2}")
-                    continue
+    # components
+    if not colors_component:
+        colors_component = plotter.get_default_colors(len(hists_uncertainty_compoments))
 
-                component_name = os.path.commonprefix([unc_var1, unc_var2])
-            else:
-                # symmetric
-                hist_var1 = bin_uncertainties_dict[ob].get(unc)
-                if hist_var1 is None:
-                    logger.error(f"No entry found for uncertainty {unc}")
-                    continue
+    for (h_comp_up, h_comp_down), lcomp, ccomp in zip(hists_uncertainty_compoments, labels_component, colors_component):
+        relerrs_comp = (
+            myhu.get_values_and_errors(h_comp_up)[0]*100.,
+            myhu.get_values_and_errors(h_comp_down)[0]*100.
+            )
 
-                hist_var2 = hist_var1 * -1.
+        opt_comp = {'label':lcomp, 'edgecolor':ccomp, 'facecolor':'none'}
 
-                component_name = unc
+        if not highlight_dominant or len(errors_toplot) < 2: # first component
+            errors_toplot.append(relerrs_comp)
+            draw_opts.append(opt_comp)
+        else:
+            # make a comparison and replace if needed
+            if compare_errors(errors_toplot[-1], relerrs_comp):
+                errors_toplot[-1] = relerrs_comp
+                draw_opts[-1] = opt_comp
 
-            component_name = component_name.strip('_')
-
-            relerr_var1 = myhu.get_values_and_errors(hist_var1)[0] * 100.
-            relerr_var2 = myhu.get_values_and_errors(hist_var2)[0] * 100.
-
-            errors_toplot.append((relerr_var1, relerr_var2))
-            draw_opts.append({'label': component_name, 'edgecolor': color, "facecolor": 'none'})
-
-        figname = f"{outname_prefix}_{ob}"
-        logger.info(f"Make uncertainty plot: {figname}")
-
-        plotter.plot_uncertainties(
-            figname = figname,
-            bins = hist_var1.axes[0].edges,
-            uncertainties = errors_toplot,
-            draw_options = draw_opts,
-            xlabel = hist_var1.axes[0].label,
-            ylabel = 'Uncertainty [%]'
+    # plot
+    logger.info(f"Make uncertainty plot: {figname}")
+    plotter.plot_uncertainties(
+        figname = figname,
+        bins = h_grp_up.axes[0].edges,
+        uncertainties = errors_toplot,
+        draw_options = draw_opts,
+        xlabel = h_grp_up.axes[0].label,
+        ylabel = 'Uncertainty [%]'
         )
 
-def plot_uncertainties_from_file(fpath):
-    unc_d = myhu.read_histograms_dict_from_file(fpath)
-    plot_fractional_uncertainties(unc_d)
+def plot_uncertainties(
+    bin_uncertainties_dict,
+    outname_prefix = 'bin_uncertainties',
+    highlight_dominant=False # If True, only plot the dominant component, otherwise plot all components
+    ):
+
+    for obs in bin_uncertainties_dict:
+
+        groups = [grp for grp in bin_uncertainties_dict[obs] if grp != 'Total']
+
+        # Each uncertainty group
+        for group in groups:
+
+            if not group in syst_groups:
+                logger.debug(f"{group} not in syst_groups. Skip.")
+                continue
+
+            # group total
+            h_grp_up = bin_uncertainties_dict[obs]["Total"][f"{group}_up"]
+            h_grp_down = bin_uncertainties_dict[obs]["Total"][f"{group}_down"]
+
+            # components
+            hists_uncertainty_compoments = []
+            component_labels = []
+
+            components_grp = get_systematics(syst_groups[group]['filters'], list_of_tuples=True)
+            for comp_up, comp_down in components_grp:
+                h_comp_up = bin_uncertainties_dict[obs][group].get(comp_up)
+                h_comp_down = bin_uncertainties_dict[obs][group].get(comp_down)
+
+                if h_comp_up is None or h_comp_down is None:
+                    #logger.debug(f"No histograms found for {(comp_up, comp_down)}")
+                    continue
+                #else:
+                #    logger.debug(f"Add component {(comp_up, comp_down)}")
+
+                hists_uncertainty_compoments.append((h_comp_up, h_comp_down))
+                component_labels.append(os.path.commonprefix([comp_up, comp_down]).strip('_'))
+
+            plot_fractional_uncertainties(
+                figname = f"{outname_prefix}_{obs}_{group}",
+                hists_uncertainty_total = (h_grp_up, h_grp_down),
+                hists_uncertainty_compoments = hists_uncertainty_compoments,
+                label_total = group,
+                labels_component = component_labels,
+                color_total = syst_groups[group].get('color', 'black'),
+                highlight_dominant = highlight_dominant
+            )
+
+        # Total
+        plot_fractional_uncertainties(
+            figname = f"{outname_prefix}_{obs}_total",
+            hists_uncertainty_total = (bin_uncertainties_dict[obs]['Total']['total_up'], bin_uncertainties_dict[obs]['Total']['total_down']),
+            hists_uncertainty_compoments = [(bin_uncertainties_dict[obs]['Total'][f'{grp}_up'], bin_uncertainties_dict[obs]['Total'][f'{grp}_down']) for grp in groups],
+            label_total = "Syst. + Stat.",
+            labels_component = groups,
+            color_total = 'black',
+            colors_component = [], # [syst_groups[grp]['color'] for grp in groups]
+            highlight_dominant = False
+        )
 
 def evaluate_uncertainties(
     nominal_dir, # str, directory of the nominal unfolding results
@@ -472,8 +524,7 @@ def evaluate_uncertainties(
                 group = 'Total'
             )
 
-        for obs in bin_uncertainties_d:
-            bin_uncertainties_d[obs]['Total'].update(bin_err_syst_d[obs]['Total'])
+        update_dict_with_group_label(bin_uncertainties_d, bin_err_syst_d, "Total")
 
     ######
     # Statistical uncertainties
@@ -528,19 +579,36 @@ def evaluate_uncertainties(
 
         update_dict_with_group_label(bin_uncertainties_d, bin_err_stat_tot_d, "Total")
 
+    # Total syst+stat uncertainty
+    logger.info("Total uncertainty")
+    bin_err_tot_d = compute_total_uncertainty(
+        [('syst_total_up','syst_total_down'), ('stat_total_up','stat_total_down')],
+        bin_uncertainties_d,
+        label = 'total',
+        group = "Total"
+    )
+
+    update_dict_with_group_label(bin_uncertainties_d, bin_err_tot_d, "Total")
+
     ######
     # save to file
     output_name = os.path.join(output_dir, 'bin_uncertainties.root')
     logger.info(f"Write to output file {output_name}")
     myhu.write_histograms_dict_to_file(bin_uncertainties_d, output_name)
 
-    ### FIXME ###
-    #if plot:
-    if False:
-        plot_fractional_uncertainties(
+    if plot:
+        plot_uncertainties(
             bin_uncertainties_d,
-            uncertainties = uncertainties_all,
-            outname_prefix = os.path.splitext(output_name)[0]
+            outname_prefix = os.path.splitext(output_name)[0],
+            highlight_dominant=False
+        )
+
+def plot_uncertainties_from_file(fpath):
+    unc_d = myhu.read_histograms_dict_from_file(fpath)
+    plot_uncertainties(
+        unc_d,
+        outname_prefix = os.path.splitext(fpath)[0],
+        highlight_dominant=False
         )
 
 if __name__ == "__main__":
