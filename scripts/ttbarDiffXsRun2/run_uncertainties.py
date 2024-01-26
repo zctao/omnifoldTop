@@ -184,6 +184,7 @@ def histogram(args):
             args.binning_config,
             observables = args.observables,
             observables_multidim = args.observables_multidim,
+            observable_config = args.observable_config,
             include_ibu = True
         )
 
@@ -312,6 +313,11 @@ if __name__ == "__main__":
     parser_hist.add_argument(
         "--observables-multidim", nargs='+', default=[],
         help="List of observables to make multi-dimension histograms.")
+    parser_hist.add_argument(
+        "--observable-config", type=str, action=util.ParseEnvVar,
+        default="${SOURCE_DIR}/configs/observables/vars_ttbardiffXs_pseudotop.json",
+        help="Path to the observable config file"
+    )
     parser_hist.add_argument(
         "--binning-config", type=str, action=util.ParseEnvVar,
         default='${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json',
