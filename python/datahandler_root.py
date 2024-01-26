@@ -32,6 +32,41 @@ def MeVtoGeV(array):
         if isObjectVar or isPartonVar:
             array[fname] /= 1000.
 
+def filter_filepaths(file_paths, rescale_symbol='*'):
+    """
+    Check the list of file paths and extract the weight rescale factors
+
+    Example:
+    Input:
+        file_paths = [file1.root*1,2, 0.5*file2.root, file3.root]
+        rescale_symbol = '*'
+    Return:
+        [file1.root, file2.root, file3.root], [1.2, 0.5, 1.]
+    """
+    logger.debug("Filter file paths")
+
+    fpaths_new = []
+    factors_renorm = []
+
+    for fpath in file_paths:
+        logger.debug(f" {fpath}")
+
+        f_rescale = 1.
+
+        fpath_components = fpath.split(rescale_symbol)
+        for comp in fpath_components:
+            try:
+                f_rescale *= float(comp)
+            except ValueError:
+                fpaths_new.append(comp)
+
+        factors_renorm.append(f_rescale)
+
+    assert(len(fpaths_new)==len(file_paths))
+    assert(len(fpaths_new)==len(factors_renorm))
+
+    return fpaths_new, factors_renorm
+
 def load_arrays(
     file_names,
     tree_name,
@@ -120,7 +155,8 @@ def load_weights(
         file_names,
         tree_name,
         weight_name,
-        weight_type = 'nominal'
+        weight_type = 'nominal',
+        rescale_factors = 1.
     ):
     """
     Load event weights from ROOT files
@@ -135,6 +171,8 @@ def load_weights(
         Name of the TTree branch that stores the nominal event weights
     weight_type : str
         Type of the event weights variations. Default: nominal
+    rescale_factors : float or list of float
+        Factors to rescale the total weights of each file
 
     Returns
     -------
@@ -179,10 +217,15 @@ def load_weights(
     if isinstance(file_names, str):
         file_names = [file_names]
 
+    if not hasattr(rescale_factors, '__len__'):
+        rescale_factors = [rescale_factors] * len(file_names)
+    else:
+        assert(len(rescale_factors)==len(file_names))
+
     weights_arr = np.empty(shape=(0,))
 
     # read the weight array one file at a time because not all files contain the same type of weight arrays e.g. data-driven fakes do not have pileup weights 
-    for fname in file_names:
+    for fname, wfactor in zip(file_names, rescale_factors):
 
         weights_arr = np.concatenate([
             weights_arr,
@@ -193,7 +236,7 @@ def load_weights(
                 weight_component = weight_comp,
                 weight_variation = weight_syst,
                 weight_index = index_w
-            )
+            ) * wfactor
             ])
 
     return weights_arr
@@ -510,8 +553,8 @@ class DataHandlerROOT(DataHandlerBase):
     def __init__(
         self,
         filepaths,
-        variable_names=[],
-        variable_names_mc=[],
+        variable_names=None,
+        variable_names_mc=None,
         treename_reco='reco',
         treename_truth='parton',
         weight_name_nominal='normalized_weight',
@@ -525,14 +568,17 @@ class DataHandlerROOT(DataHandlerBase):
 
         ######
         # load data from root files
+        filepaths_clean, weight_rescale_factors = filter_filepaths(filepaths)
+
         logger.debug("Load data array from reco trees")
-        variable_names = filter_variable_names(variable_names)
-        self.data_reco = load_arrays(filepaths, treename_reco, variable_names)
+        if variable_names:
+            variable_names = filter_variable_names(variable_names)
+        self.data_reco = load_arrays(filepaths_clean, treename_reco, variable_names)
 
         if variable_names_mc:
             logger.debug("Load data array from truth trees")
             variable_names_mc = filter_variable_names(variable_names_mc)
-            self.data_truth = load_arrays(filepaths, treename_truth, variable_names_mc)
+            self.data_truth = load_arrays(filepaths_clean, treename_truth, variable_names_mc)
 
         ######
         # event weights
@@ -540,6 +586,9 @@ class DataHandlerROOT(DataHandlerBase):
 
         # Special case: load event weights from external files
         if weight_type.startswith("external:"):
+            if not np.all(weight_rescale_factors==1.):
+                logger.warn("Cannot apply weight rescale factors to external weights!")
+
             # "external:" is followed by a comma separated list of file paths
             wfiles = weight_type.replace("external:","",1).split(",")
             self.weights = load_external_weights_h5(wfiles, weight_name_nominal)
@@ -547,28 +596,30 @@ class DataHandlerROOT(DataHandlerBase):
                 raise RuntimeError(f"External weights are not of the same size as data")
         else:
             self.weights = load_weights(
-                filepaths, treename_reco,
-                weight_name = weight_name_nominal, weight_type = weight_type
+                filepaths_clean, treename_reco,
+                weight_name = weight_name_nominal,
+                weight_type = weight_type,
+                rescale_factors = weight_rescale_factors
             )
 
         if variable_names_mc:
             # event weights
             #self.weights_mc = load_weights(
-            #    filepaths, treename_truth,
+            #    filepaths_clean, treename_truth,
             #    weight_name = weight_name_nominal+'_mc', weight_type = weight_type
             #)
             self.weights_mc = self.weights.copy()
 
         ######
         # event selection flags
-        self.pass_reco = select_reco(filepaths, treename=treename_reco)
+        self.pass_reco = select_reco(filepaths_clean, treename=treename_reco)
         if variable_names_mc:
-            self.pass_truth = select_parton(filepaths, treename=treename_truth)
+            self.pass_truth = select_parton(filepaths_clean, treename=treename_truth)
 
         if match_dR is not None and self.pass_truth is not None:
             #self.pass_truth &= match_top_dR(
             self.pass_truth &= match_top_decays_dR(
-                filepaths,
+                filepaths_clean,
                 maxDR = match_dR,
                 treename_reco = treename_reco,
                 treename_truth = treename_truth,
@@ -577,9 +628,9 @@ class DataHandlerROOT(DataHandlerBase):
 
         if odd_or_even is not None:
             if odd_or_even == 'odd':
-                sel_evt = select_by_eventID(filepaths, select_odd=True)
+                sel_evt = select_by_eventID(filepaths_clean, select_odd=True)
             elif odd_or_even == 'even':
-                sel_evt = select_by_eventID(filepaths, select_odd=False)
+                sel_evt = select_by_eventID(filepaths_clean, select_odd=False)
             else:
                 logger.warn(f"Unknown value for the argument 'odd_or_even': {odd_or_even}. No selection is applied.")
                 sel_evt = None
