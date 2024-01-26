@@ -63,44 +63,44 @@ syst_dict.update({
     },
     #
     'singleTop_tW' : {
-        'type' : 'Modelling',
+        'type' : 'BackgroundModelling',
         'prefix' : 'singleTop',
         'uncertainties' : ['tW'],
         'variations' : ['DS']
     },
     'singleTop_norm' : {
-        'type' : 'Norm',
+        'type' : 'BackgroundNorm',
         'prefix' : 'singleTop',
         'uncertainties' : ['norm'],
         'variations' : [1.05],
     },
     #
     'VV_norm' : {
-        'type' : 'Norm',
+        'type' : 'BackgroundNorm',
         'prefix' : 'VV',
         'uncertainties' : ['norm'],
         'variations' : [1.06]
     },
     'ttV_norm' : {
-        'type' : 'Norm',
+        'type' : 'BackgroundNorm',
         'prefix' : 'ttV',
         'uncertainties' : ['norm'],
         'variations' : [1.13]
     },
     'Wjets_norm' : {
-        'type' : 'Norm',
+        'type' : 'BackgroundNorm',
         'prefix' : 'Wjets',
         'uncertainties' : ['norm'],
         'variations' : [1.5]
     },
     'Zjets_norm' : {
-        'type' : 'Norm',
+        'type' : 'BackgroundNorm',
         'prefix' : 'Zjets',
         'uncertainties' : ['norm'],
         'variations' : [1.5]
     },
     'fakes_norm' : {
-        'type' : 'Norm',
+        'type' : 'BackgroundNorm',
         'prefix' : 'fakes',
         'uncertainties' : ['norm'],
         'variations' : [1.5]
