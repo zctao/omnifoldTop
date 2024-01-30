@@ -7,7 +7,7 @@ import util
 import yaml
 
 # systematics
-from ttbarDiffXsRun2.systematics import get_systematics, get_gen_weight_index
+from ttbarDiffXsRun2.systematics import get_systematics, get_gen_weight_index, get_sum_weights_dict
 
 def subCampaigns_to_years(subcampaigns):
     years = []
@@ -348,17 +348,13 @@ def write_config_theory(
     outname_config =  'runConfig',
     common_cfg = {},
     write_single_file = False,
-    fpath_sumWeights = None
     ):
 
     cfg_theo_list = []
 
     # Read sum of weights for generator weight variations
-    sumWgts_d = dict()
-    if fpath_sumWeights is not None:
-        with open(fpath_sumWeights) as f_sumw:
-            sumWgts_d = yaml.load(f_sumw, yaml.FullLoader)
-    else:
+    sumWgts_d = get_sum_weights_dict()
+    if not sumWgts_d:
         print("WARNING: no file for sum of weight variations provided. Will not rescale total sample weights.")
 
     for syst, wtype in zip(*get_systematics(systematics_keywords, syst_type='GenWeight', get_weight_types=True)):
@@ -596,8 +592,7 @@ def write_config_systematics(
     output_top_dir = '.',
     outname_config =  'runConfig',
     common_cfg = {},
-    write_single_file = False,
-    fpath_sumWeights = None
+    write_single_file = False
     ):
 
     cfg_dict_list = []
@@ -700,8 +695,7 @@ def write_config_systematics(
         output_top_dir = output_top_dir,
         outname_config = outname_config,
         common_cfg = common_cfg,
-        write_single_file = write_single_file,
-        fpath_sumWeights = fpath_sumWeights
+        write_single_file = write_single_file
         )
 
     # Modelling uncertainties
@@ -914,8 +908,7 @@ def createRun2Config(
         run_list = None,
         systematics_keywords = [],
         external_reweights = [],
-        common_cfg = {},
-        fpath_sumWeights = None
+        common_cfg = {}
     ):
 
     # get the real paths of the sample directory and output directory
@@ -966,7 +959,6 @@ def createRun2Config(
     if 'systematics' in run_list:
         write_config_systematics(
             systematics_keywords = systematics_keywords,
-            fpath_sumWeights = fpath_sumWeights,
             **write_common_args
         )
 
@@ -1034,9 +1026,6 @@ if __name__ == "__main__":
     parser.add_argument("--config-string", type=str,
                         help="String in JSON format to be parsed for updating run configs")
 
-    parser.add_argument("--fpath-sumWeights", type=str,
-                        help="File path to the sum weight variation yaml config")
-
     args = parser.parse_args()
 
     # hard code common config here for now
@@ -1072,6 +1061,5 @@ if __name__ == "__main__":
         run_list = args.run_list,
         systematics_keywords = args.systematics_keywords,
         external_reweights = args.external_reweights,
-        common_cfg = common_cfg,
-        fpath_sumWeights = args.fpath_sumWeights
+        common_cfg = common_cfg
         )

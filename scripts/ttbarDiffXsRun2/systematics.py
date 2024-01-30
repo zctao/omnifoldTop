@@ -112,6 +112,16 @@ syst_dict.update({
     },
 })
 
+# sum weights variations
+def get_sum_weights_dict(url_sumw="https://raw.githubusercontent.com/zctao/ntuplerTT/master/configs/datasets/ttdiffxs361/sumWeights_variations_mcWAlt.yaml"):
+
+    try:
+        sumWeights_variations_d = yaml.load(urlopen(url_sumw), yaml.FullLoader)
+    except:
+        sumWeights_variations_d = {}
+
+    return sumWeights_variations_d
+
 # For now, taken from https://gitlab.cern.ch/ttbarDiffXs13TeV/pyTTbarDiffXs13TeV/-/blob/DM_ljets_resolved/python/MC_variations.py
 # Check from the sumWeights file instead?
 gen_weights_dict = {
