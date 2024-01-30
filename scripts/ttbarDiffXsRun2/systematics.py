@@ -51,16 +51,16 @@ syst_dict.update({
         'prefix' : 'ps',
         'variations' : ['hw'] # PWGH7
     },
-    'lineshape' : {
-        'type' : 'Modelling',
-        'prefix' : 'lineshape',
-        'variations' : ['madspin'] # TODO: PhP8MadSpin
-    },
-    'matching' : {
-        'type' : 'Modelling',
-        'prefix' : 'matching',
-        'variations' : ['pp8pthard'] # TODO: PP8pthard
-    },
+    #'lineshape' : {
+    #    'type' : 'Modelling',
+    #    'prefix' : 'lineshape',
+    #    'variations' : ['madspin'] # TODO: PhP8MadSpin
+    #},
+    #'matching' : {
+    #    'type' : 'Modelling',
+    #    'prefix' : 'matching',
+    #    'variations' : ['pp8pthard'] # TODO: PP8pthard
+    #},
     #
     'singleTop_tW' : {
         'type' : 'BackgroundModelling',
