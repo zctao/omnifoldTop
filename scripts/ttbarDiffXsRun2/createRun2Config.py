@@ -37,10 +37,10 @@ def get_samples_data(
 
     data = [os.path.join(sample_dir, f"obs/{y}/data_0_pseudotop_{c}.root") for c in category for y in years]
 
-    assert(data)
+    assert data, "Data sample empty"
     if check_exist:
         for d in data:
-            assert(os.path.isfile(d))
+            assert os.path.isfile(d), "Not all data sample files exist"
 
     return data
 
@@ -65,10 +65,10 @@ def get_samples_signal(
             s.sort()
             samples_sig += s
 
-    assert(samples_sig)
+    assert samples_sig, "Signal sample empty"
     if check_exist:
         for f in samples_sig:
-            assert(os.path.isfile(f))
+            assert os.path.isfile(f), "Not all signal sample files exist"
 
     return samples_sig
 
@@ -107,10 +107,10 @@ def get_samples_backgrounds(
                     samples_b += b
             samples_bkg += samples_b
 
-    assert(samples_bkg)
+    assert samples_bkg, "Background sample empty"
     if check_exist:
         for f in samples_bkg:
-            assert(os.path.isfile(f))
+            assert os.path.isfile(f), "Not all background sample files exist"
 
     return samples_bkg
 
@@ -459,6 +459,10 @@ def write_config_systematics_modelling(
 
     for syst in get_systematics(systematics_keywords, syst_type='Modelling'):
         print(syst)
+
+        # for now
+        if syst in ['lineshape_madspin', 'matching_pp8pthard']:
+            print(f"WARNING: {syst} not yet implemented")
 
         # alternative sample as the pseudo data
         signal_alt = get_samples_signal(
