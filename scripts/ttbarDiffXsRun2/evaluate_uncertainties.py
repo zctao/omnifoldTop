@@ -144,7 +144,7 @@ def compute_total_uncertainty(
         # collect histograms of this observable
         hists_unc_obs = []
         for unc in uncertainty_names:
-            if isinstance(unc, tuple):
+            if isinstance(unc, tuple) and len(unc)==2:
                 # up and down variation
                 unc_var1, unc_var2 = unc
                 hist_var1 = bin_unc_obs_d.get(unc_var1)
@@ -160,6 +160,8 @@ def compute_total_uncertainty(
                     continue
             else:
                 # symmetric
+                if isinstance(unc, tuple) and len(unc)==1:
+                    unc = unc[0]
                 hist_var1 = bin_unc_obs_d.get(unc)
                 if hist_var1 is None:
                     logger.warning(f"Cannot find uncertainty: {unc}")
@@ -195,13 +197,14 @@ def update_dict_with_group_label(target_dict, component_dict, group_label):
 def compute_systematic_uncertainties(
     uncertainty_list,
     systematics_topdir,
-    histograms_nominal_d,
+    histograms_nominal, # dict or "truth" or "prior"
     hist_filename = "histograms.root",
     every_run = False,
     ibu = False,
     hist_key = 'unfolded',
     normalize = False,
-    observables = []
+    observables = [],
+    scale_err = 1.
     ):
 
     syst_unc_d = dict()
@@ -221,7 +224,7 @@ def compute_systematic_uncertainties(
 
         # loop over observables
         if not observables:
-            observables = list(histograms_nominal_d.keys())
+            observables = list(hists_syst_d.keys())
 
         for ob in observables:
             logger.debug(f" {ob}")
@@ -230,7 +233,18 @@ def compute_systematic_uncertainties(
 
             # get the unfolded distributions
             h_syst = get_unfolded_histogram_from_dict(ob, hists_syst_d, ibu=ibu, hist_key=hist_key)
-            h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, ibu=ibu, hist_key=hist_key)
+
+            # get the central distributions
+            if histograms_nominal == 'truth':
+                h_nominal = hists_syst_d[ob].get('truth')
+            elif histograms_nominal == 'prior':
+                h_nominal = hists_syst_d[ob].get('prior')
+            else:
+                h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal, ibu=ibu, hist_key=hist_key)
+
+            if not h_nominal:
+                logger.error("No central distribtion for {ob}")
+                continue
 
             if normalize:
                 if hist_key in ["absoluteDiffXs", "relativeDiffXs"]:
@@ -239,7 +253,7 @@ def compute_systematic_uncertainties(
                     myhu.renormalize_hist(h_syst, norm=myhu.get_hist_norm(h_nominal))
 
             # compute relative bin errors
-            relerr_syst = h_syst.values() / h_nominal.values() - 1.
+            relerr_syst = (h_syst.values() / h_nominal.values() - 1.) * scale_err
 
             # store as a histogram
             syst_unc_d[ob][syst_variation] = h_syst.copy()
@@ -251,7 +265,7 @@ def compute_systematic_uncertainties(
                 syst_unc_d[ob][f"{syst_variation}_allruns"] = list()
 
                 h_syst_allruns = hists_syst_d[ob].get('unfolded_allruns')
-                h_nominal_allruns = histograms_nominal_d[ob].get('unfolded_allruns')
+                h_nominal_allruns = histograms_nominal[ob].get('unfolded_allruns')
 
                 for h_syst_i, h_nominal_i in zip(h_syst_allruns, h_nominal_allruns):
                     if normalize:
@@ -474,16 +488,26 @@ def evaluate_uncertainties(
                 grp_systs = list( set(grp_systs) & set(all_systs) )
                 grp_systs_pair = list( set(grp_systs_pair) & set(all_systs_pair) )
 
+            # central histograms for computing uncertainties
+            if grp in ["IFSR", "PDF", "hdamp", "Hadronization", "Generator"]:
+                # modelling uncertainties
+                h_central = "truth"
+            elif grp in ["MTop"]:
+                h_central = "prior"
+            else:
+                h_central = hists_nominal_d
+
             bin_err_grp_d = compute_systematic_uncertainties(
                 grp_systs,
                 systematics_topdir,
-                hists_nominal_d,
+                histograms_nominal = h_central,
                 hist_filename = hist_filename,
                 every_run = systematics_everyrun,
                 ibu = ibu,
                 hist_key = hist_key,
                 normalize = normalize,
-                observables = observables
+                observables = observables,
+                scale_err = 1/7. if grp in ["MTop"] else 1.
             )
 
             # Add the group uncertainties to bin_uncertainties_d
