@@ -29,11 +29,11 @@ syst_dict.update({
     'pdf' : {
         'type' : 'GenWeight',
         'prefix' : 'PDF4LHC15',
-        'variations' : [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
+        'uncertainties' : [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
     },
     'hdamp' : {
         'type' : 'Modelling',
-        'variations' : ['hdamp']
+        'uncertainties' : ['hdamp']
     },
     'mtop' : {
         'type' : 'Modelling',
@@ -43,72 +43,65 @@ syst_dict.update({
     'hard_scattering' : {
         'type' : 'Modelling',
         'prefix' : 'generator',
-        'variations' : ['amc'] # aMCatNLO
+        'uncertainties' : ['amc'] # aMCatNLO
     },
     # TODO alternative generator uncetainty: PP8pthard1, PP8pthard2
     'hadronization' : { # parton showering
         'type' : 'Modelling',
         'prefix' : 'ps',
-        'variations' : ['hw'] # PWGH7
+        'uncertainties' : ['hw'] # PWGH7
     },
     #'lineshape' : {
     #    'type' : 'Modelling',
     #    'prefix' : 'lineshape',
-    #    'variations' : ['madspin'] # TODO: PhP8MadSpin
+    #    'uncertainties' : ['madspin'] # TODO: PhP8MadSpin
     #},
     #'matching' : {
     #    'type' : 'Modelling',
     #    'prefix' : 'matching',
-    #    'variations' : ['pp8pthard'] # TODO: PP8pthard
+    #    'uncertainties' : ['pp8pthard'] # TODO: PP8pthard
     #},
     #
     'singleTop_tW' : {
         'type' : 'BackgroundModelling',
-        'prefix' : 'singleTop',
-        'uncertainties' : ['tW'],
-        'variations' : ['DS']
+        'prefix' : 'singleTop_tW',
+        'uncertainties' : ['DS']
     },
     'singleTop_norm' : {
         'type' : 'BackgroundNorm',
-        'prefix' : 'singleTop',
-        'uncertainties' : ['norm'],
-        'variations' : [1.05],
+        'prefix' : 'singleTop_norm',
+        'uncertainties' : [1.05],
     },
     #
     'VV_norm' : {
         'type' : 'BackgroundNorm',
-        'prefix' : 'VV',
-        'uncertainties' : ['norm'],
-        'variations' : [1.06]
+        'prefix' : 'VV_norm',
+        'uncertainties' : [1.06]
     },
     'ttV_norm' : {
         'type' : 'BackgroundNorm',
-        'prefix' : 'ttV',
-        'uncertainties' : ['norm'],
-        'variations' : [1.13]
+        'prefix' : 'ttV_norm',
+        'uncertainties' : [1.13]
     },
     'Wjets_norm' : {
         'type' : 'BackgroundNorm',
-        'prefix' : 'Wjets',
-        'uncertainties' : ['norm'],
-        'variations' : [1.5]
+        'prefix' : 'Wjets_norm',
+        'uncertainties' : [1.5]
     },
     'Zjets_norm' : {
         'type' : 'BackgroundNorm',
-        'prefix' : 'Zjets',
-        'uncertainties' : ['norm'],
-        'variations' : [1.5]
+        'prefix' : 'Zjets_norm',
+        'uncertainties' : [1.5]
     },
     'fakes_norm' : {
         'type' : 'BackgroundNorm',
-        'prefix' : 'fakes',
-        'uncertainties' : ['norm'],
-        'variations' : [1.5]
+        'prefix' : 'fakes_norm',
+        'uncertainties' : [1.5]
     },
     'lumi' : {
         'type' : 'Norm',
         'prefix' : 'lumi',
-        'variations' : [1.0083]
+        'uncertainties' : [1.0083]
     },
 })
 
@@ -203,12 +196,10 @@ def get_systematics(
         stype = syst_dict[k]['type']
 
         prefix = syst_dict[k].get('prefix','')
-        if prefix: # add a trailing underscore
-            prefix = f"{prefix}_"
 
         uncertainties = syst_dict[k].get('uncertainties', [""])
 
-        variations = syst_dict[k]['variations']
+        variations = syst_dict[k].get('variations', [""])
 
         if syst_type is not None and stype != syst_type:
             continue
@@ -222,18 +213,17 @@ def get_systematics(
                 sname, vector_length = list(s.items())[0]
 
                 for i in range(vector_length):
-                    syst_name = f"{prefix}{sname}{i+1}"
 
                     systs, wtypes = [], []
                     for v in variations:
-                        syst_var = f"{syst_name}_{v}"
+                        syst_var = '_'.join(filter(None, [prefix, f"{sname}{i+1}", f"{v}"]))
 
                         if not select_systematics(syst_var, name_filters):
                             continue
 
                         wtype_var = "nominal"
                         if stype == "ScaleFactor":
-                            wtype_var = f"weight_{prefix}{sname}_{v}:{i}"
+                            wtype_var = '_'.join(filter(None, ["weight", prefix, sname, f"{v}"]))+f":{i}"
                         elif stype == "GenWeight":
                             wtype_var = f"mc_generator_weights:{get_gen_weight_index(syst_var)}"
 
@@ -247,11 +237,10 @@ def get_systematics(
                         syst_list += systs
                         wtype_list += wtypes
             else:
-                syst_name = f"{prefix}{s}_" if s else f"{prefix}"
 
                 systs, wtypes = [], []
                 for v in variations:
-                    syst_var = f"{syst_name}{v}"
+                    syst_var = '_'.join(filter(None, [prefix, f"{s}", f"{v}"]))
 
                     if not select_systematics(syst_var, name_filters):
                         continue
