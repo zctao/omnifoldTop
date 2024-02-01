@@ -107,7 +107,8 @@ def load_arrays(
 
 def read_weight_array(
         filename, # str, name of the root file to read
-        tree_name, # str, name of TTree to read
+        treename_reco, # str, name of reco TTree to read
+        treename_truth, # str, name of truth TTree to read
         weight_nominal, # str, name of the nominal weight
         weight_component = None, # str, name of the weight component for normalization
         weight_variation = None, # str, name of the weight from systematic uncertainty variation
@@ -115,9 +116,10 @@ def read_weight_array(
     ):
 
     with uproot.open(filename) as f:
-        events = f[tree_name]
-
         # nominal event weights
+        treename_nominal = treename_truth if weight_nominal.endswith('_mc') else treename_reco
+
+        events = f[treename_nominal]
         if not weight_nominal in events:
             logger.error(f"Unkown branch {weight_nominal} in {filename}")
             return None
@@ -126,6 +128,9 @@ def read_weight_array(
 
         warr_comp = None
         if weight_component is not None:
+            treename_comp = treename_truth if weight_component in ['weight_mc'] else treename_reco
+
+            events = f[treename_comp]
             if not weight_component in events:
                 logger.warn(f"No branch {weight_component} in {filename}. Will use nominal event weights.")
             else:
@@ -134,6 +139,9 @@ def read_weight_array(
 
         warr_syst = None
         if weight_variation is not None:
+            treename_syst = treename_truth if weight_component in ['weight_mc'] else treename_reco
+
+            events = f[treename_syst]
             if not weight_variation in events:
                 logger.warn(f"No branch {weight_variation} in {filename}. Will use nominal event weights.")
             else:
@@ -153,7 +161,8 @@ def read_weight_array(
 
 def load_weights(
         file_names,
-        tree_name,
+        treename_reco,
+        treename_truth,
         weight_name,
         weight_type = 'nominal',
         rescale_factors = 1.
@@ -165,8 +174,10 @@ def load_weights(
     ----------
     file_names : str or file-like object; or sequence of str or file-like objects
         List of root files to load
-    tree_name : str
-        Name of the tree in root files
+    treename_reco : str
+        Name of the reco tree in root files
+    treename_truth : str
+        Name of the truth tree in root files
     weight_name : str
         Name of the TTree branch that stores the nominal event weights
     weight_type : str
@@ -231,7 +242,7 @@ def load_weights(
             weights_arr,
             read_weight_array(
                 fname,
-                tree_name,
+                treename_reco, treename_truth,
                 weight_nominal = weight_name,
                 weight_component = weight_comp,
                 weight_variation = weight_syst,
@@ -596,7 +607,7 @@ class DataHandlerROOT(DataHandlerBase):
                 raise RuntimeError(f"External weights are not of the same size as data")
         else:
             self.weights = load_weights(
-                filepaths_clean, treename_reco,
+                filepaths_clean, treename_reco, treename_truth,
                 weight_name = weight_name_nominal,
                 weight_type = weight_type,
                 rescale_factors = weight_rescale_factors
@@ -605,7 +616,7 @@ class DataHandlerROOT(DataHandlerBase):
         if variable_names_mc:
             # event weights
             #self.weights_mc = load_weights(
-            #    filepaths_clean, treename_truth,
+            #    filepaths_clean, treename_reco, treename_truth,
             #    weight_name = weight_name_nominal+'_mc', weight_type = weight_type
             #)
             self.weights_mc = self.weights.copy()
