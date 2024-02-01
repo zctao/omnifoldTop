@@ -31,18 +31,20 @@ def getDataHandler(
     Get and load a datahandler according to the input file type
     """
 
-    input_ext = util.getFilesExtension(filepaths)
+    #input_ext = util.getFilesExtension(filepaths)
 
     if use_toydata:
         dh = dhFactory.get('toy')
         dh.load_data(filepaths)
 
-    elif input_ext == ".root":
+    #elif input_ext == ".root":
+    elif ".root" in filepaths[0]:
         # ROOT files
         dh = dhFactory.get("root", filepaths, variables_reco, variables_truth, **kwargs)
 
     else:
-        raise ValueError(f"No data handler for files with extension {input_ext}")
+        #raise ValueError(f"No data handler for files with extension {input_ext}")
+        raise ValueError(f"No data handler for files e.g. {filepaths[0]}")
 
     if reweighter is not None:
         # TODO: check if variables required by reweighter are included
