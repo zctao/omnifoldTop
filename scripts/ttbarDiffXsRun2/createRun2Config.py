@@ -4,9 +4,10 @@ import glob
 import json
 import util
 
-# systematics dictionary
-from ttbarDiffXsRun2.systematics import get_systematics
-#from ttbarDiffXsRun2.systematics import syst_dict, select_systematics
+import yaml
+
+# systematics
+from ttbarDiffXsRun2.systematics import get_systematics, get_gen_weight_index, get_sum_weights_dict
 
 def subCampaigns_to_years(subcampaigns):
     years = []
@@ -36,10 +37,10 @@ def get_samples_data(
 
     data = [os.path.join(sample_dir, f"obs/{y}/data_0_pseudotop_{c}.root") for c in category for y in years]
 
-    assert(data)
+    assert data, "Data sample empty"
     if check_exist:
         for d in data:
-            assert(os.path.isfile(d))
+            assert os.path.isfile(d), "Not all data sample files exist"
 
     return data
 
@@ -64,10 +65,10 @@ def get_samples_signal(
             s.sort()
             samples_sig += s
 
-    assert(samples_sig)
+    assert samples_sig, "Signal sample empty"
     if check_exist:
         for f in samples_sig:
-            assert(os.path.isfile(f))
+            assert os.path.isfile(f), "Not all signal sample files exist"
 
     return samples_sig
 
@@ -97,12 +98,19 @@ def get_samples_backgrounds(
             else:
                 sample_name = f"{sample_type}/{bkg}_{sample_suffix}"
 
-            samples_bkg += [os.path.join(sample_dir, f"{sample_name}/{e}/{bkg}_0_pseudotop_{c}.root") for c in category for e in subcampaigns]
+            #samples_bkg += [os.path.join(sample_dir, f"{sample_name}/{e}/{bkg}_*_pseudotop_{c}.root") for c in category for e in subcampaigns]
+            samples_b = []
+            for e in subcampaigns:
+                for c in category:
+                    b = glob.glob(os.path.join(sample_dir, f"{sample_name}/{e}/{bkg}_*_pseudotop_{c}.root"))
+                    b.sort()
+                    samples_b += b
+            samples_bkg += samples_b
 
-    assert(samples_bkg)
+    assert samples_bkg, "Background sample empty"
     if check_exist:
         for f in samples_bkg:
-            assert(os.path.isfile(f))
+            assert os.path.isfile(f), "Not all background sample files exist"
 
     return samples_bkg
 
@@ -331,6 +339,251 @@ def write_config_closure_oddeven(
     outname_config_clos = f"{outname_config}_closure_oddeven.json"
     util.write_dict_to_json(mc_clos_cfg, outname_config_clos)
 
+def write_config_theory(
+    sample_local_dir,
+    systematics_keywords = [],
+    category = "ljets", # "ejets" or "mjets" or "ljets"
+    subcampaigns = ["mc16a", "mc16d", "mc16e"],
+    output_top_dir = '.',
+    outname_config =  'runConfig',
+    common_cfg = {},
+    write_single_file = False,
+    ):
+
+    cfg_theo_list = []
+
+    # Read sum of weights for generator weight variations
+    sumWgts_d = get_sum_weights_dict()
+    if not sumWgts_d:
+        print("WARNING: no file for sum of weight variations provided. Will not rescale total sample weights.")
+
+    for syst, wtype in zip(*get_systematics(systematics_keywords, syst_type='GenWeight', get_weight_types=True)):
+        print(syst)
+
+        windex = int(wtype.split(':')[-1])
+
+        samples_data, samples_signal = [], []
+
+        if 'PDF4LHC' in syst: # PDF uncertainty
+            weight_data = f"mc_generator_weights:{get_gen_weight_index('PDF4LHC15_0')}"
+            weight_mc = wtype
+
+            # loop over subcampaigns to rescale the sum of weights
+            for era in subcampaigns:
+                # signal sample
+                sig_era = get_samples_signal(
+                    sample_local_dir, category,
+                    subcampaigns = [era],
+                    sample_type = 'mcWAlt',
+                    sample_suffix = 'nominal'
+                    )
+
+                if sumWgts_d:
+                    rescale_sumw_data = sumWgts_d[410470][era][0] / sumWgts_d[410470][era][get_gen_weight_index('PDF4LHC15_0')]
+                    samples_data += [f"{sample}*{rescale_sumw_data}" for sample in sig_era]
+
+                    rescale_sumw_mc = sumWgts_d[410470][era][0] / sumWgts_d[410470][era][windex]
+                    samples_signal += [f"{sample}*{rescale_sumw_mc}" for sample in sig_era]
+                else:
+                    samples_data += sig_era
+                    samples_signal += sig_era
+
+        elif '_muR_' in syst or '_muF_' in syst or '_alphaS_' in syst: # ISR, FSR
+            weight_data = wtype
+            weight_mc = 'nominal'
+
+            # loop over subcampaigns to rescale the sum of weights
+            for era in subcampaigns:
+                # signal sample
+                sig_era = get_samples_signal(
+                    sample_local_dir, category,
+                    subcampaigns = [era],
+                    sample_type = 'mcWAlt',
+                    sample_suffix = 'nominal'
+                    )
+
+                if sumWgts_d:
+                    rescale_sumw = sumWgts_d[410470][era][0] / sumWgts_d[410470][era][windex]
+                    # Index 0 is the nominal sum of weights
+                    samples_data += [f"{sample}*{rescale_sumw}" for sample in sig_era]
+                else:
+                    samples_data += sig_era
+
+                samples_signal += sig_era
+        else:
+            print(f"ERROR: unknown systematic uncertainty {syst}")
+            continue
+
+        syst_cfg = common_cfg.copy()
+        syst_cfg.update({
+            "data": samples_data,
+            "signal": samples_signal,
+            "weight_data": weight_data,
+            "weight_mc": weight_mc,
+            "outputdir": os.path.join(output_top_dir, syst),
+            "correct_acceptance" : False,
+            "truth_known": True
+        })
+
+        cfg_theo_list.append(syst_cfg)
+
+        if not write_single_file:
+            outname_config_syst = f"{outname_config}_{syst}.json"
+            util.write_dict_to_json(syst_cfg, outname_config_syst)
+
+    return cfg_theo_list
+
+def write_config_systematics_modelling(
+    sample_local_dir,
+    systematics_keywords = [],
+    category = "ljets", # "ejets" or "mjets" or "ljets"
+    subcampaigns = ["mc16a", "mc16d", "mc16e"],
+    output_top_dir = '.',
+    outname_config =  'runConfig',
+    common_cfg = {},
+    write_single_file = False
+    ):
+
+    cfg_model_list = []
+
+    # nominal signal sample
+    signal_nom = get_samples_signal(
+        sample_local_dir, category, subcampaigns,
+        sample_type = 'mcWAlt',
+        sample_suffix = 'AFII_nominal'
+        )
+
+    for syst in get_systematics(systematics_keywords, syst_type='Modelling'):
+        print(syst)
+
+        # for now
+        if syst in ['lineshape_madspin', 'matching_pp8pthard']:
+            print(f"WARNING: {syst} not yet implemented")
+
+        # alternative sample as the pseudo data
+        signal_alt = get_samples_signal(
+            sample_local_dir, category, subcampaigns,
+            sample_type = 'mcWAlt',
+            sample_suffix = f"{syst.split('_')[-1]}_nominal"
+            )
+
+        syst_cfg = common_cfg.copy()
+        syst_cfg.update({
+            "data": signal_alt,
+            "signal": signal_nom,
+            "outputdir": os.path.join(output_top_dir, syst),
+            "correct_acceptance" : False,
+            "truth_known": True
+        })
+
+        cfg_model_list.append(syst_cfg)
+
+        if not write_single_file:
+            outname_config_syst = f"{outname_config}_{syst}.json"
+            util.write_dict_to_json(syst_cfg, outname_config_syst)
+
+    return cfg_model_list
+
+def write_config_systematics_background(
+    sample_local_dir,
+    systematics_keywords = [],
+    category = "ljets", # "ejets" or "mjets" or "ljets"
+    subcampaigns = ["mc16a", "mc16d", "mc16e"],
+    output_top_dir = '.',
+    outname_config =  'runConfig',
+    common_cfg = {},
+    write_single_file = False
+    ):
+
+    cfg_bkg_list = []
+
+    all_backgrounds = ['fakes', 'Wjets', 'Zjets', 'singleTop', 'ttH', 'ttV', 'VV']
+
+    # nominal signal and background samples
+    sig_nom = get_samples_signal(sample_local_dir, category, subcampaigns)
+
+    bkg_nom = get_samples_backgrounds(
+        sample_local_dir, category, subcampaigns,
+        backgrounds = all_backgrounds
+        )
+
+    # background modelling
+    for syst in get_systematics(systematics_keywords, syst_type="BackgroundModelling"):
+        # the prefix is the background name
+        bkg_name = syst.split('_')[0]
+        bkg_variation = syst.split('_')[-1]
+
+        # alternative background samples
+        bkg_alt = get_samples_backgrounds(
+            sample_local_dir, category, subcampaigns,
+            backgrounds = [bkg_name],
+            sample_type = 'mcWAlt',
+            sample_suffix = f"{bkg_variation}_nominal"
+        )
+
+        # background samples that are not affected by this systematic uncertainty
+        bkg_name_others = all_backgrounds.copy()
+        bkg_name_others.remove(bkg_name)
+        bkg_alt += get_samples_backgrounds(
+            sample_local_dir, category, subcampaigns,
+            backgrounds = bkg_name_others
+        )
+
+        syst_cfg = common_cfg.copy()
+        syst_cfg.update({
+            "data": sig_nom,
+            "bdata": bkg_alt,
+            "signal": sig_nom,
+            "background": bkg_nom,
+            "outputdir": os.path.join(output_top_dir, syst),
+            "correct_acceptance": False
+        })
+
+        cfg_bkg_list.append(syst_cfg)
+
+        if not write_single_file:
+            outname_config_syst = f"{outname_config}_{syst}.json"
+            util.write_dict_to_json(syst_cfg, outname_config_syst)
+
+    # background normalization
+    for syst in get_systematics(systematics_keywords, syst_type="BackgroundNorm"):
+        bkg_name = syst.split('_')[0]
+        f_rescale = float(syst.split('_')[-1])
+
+        # the background sample to rescale
+        bkg_rescale = get_samples_backgrounds(
+            sample_local_dir, category, subcampaigns,
+            backgrounds = [bkg_name]
+        )
+
+        bkg_alt = [f"{sample}*{f_rescale}" for sample in bkg_rescale]
+
+        # add the rest of the background samples
+        bkg_name_others = all_backgrounds.copy()
+        bkg_name_others.remove(bkg_name)
+        bkg_alt += get_samples_backgrounds(
+            sample_local_dir, category, subcampaigns,
+            backgrounds = bkg_name_others
+        )
+
+        syst_cfg = common_cfg.copy()
+        syst_cfg.update({
+            "data": sig_nom,
+            "bdata": bkg_alt,
+            "signal": sig_nom,
+            "background": bkg_nom,
+            "outputdir": os.path.join(output_top_dir, syst),
+            "correct_acceptance": False
+        })
+
+        cfg_bkg_list.append(syst_cfg)
+
+        if not write_single_file:
+            outname_config_syst = f"{outname_config}_{syst}.json"
+            util.write_dict_to_json(syst_cfg, outname_config_syst)
+
+    return cfg_bkg_list
+
 def write_config_systematics(
     sample_local_dir,
     systematics_keywords = [],
@@ -432,7 +685,42 @@ def write_config_systematics(
             outname_config_syst = f"{outname_config}_{syst}.json"
             util.write_dict_to_json(syst_cfg, outname_config_syst)
 
-    # TODO modelling uncertainties
+    # Theory uncertainties
+    # ISR,FSR, and PDF
+    cfg_dict_list += write_config_theory(
+        sample_local_dir,
+        systematics_keywords = systematics_keywords,
+        category = category,
+        subcampaigns = subcampaigns,
+        output_top_dir = output_top_dir,
+        outname_config = outname_config,
+        common_cfg = common_cfg,
+        write_single_file = write_single_file
+        )
+
+    # Modelling uncertainties
+    cfg_dict_list += write_config_systematics_modelling(
+        sample_local_dir,
+        systematics_keywords = systematics_keywords,
+        category = category,
+        subcampaigns = subcampaigns,
+        output_top_dir = output_top_dir,
+        outname_config = outname_config,
+        common_cfg = common_cfg,
+        write_single_file = write_single_file
+        )
+
+    # background uncertainties
+    cfg_dict_list += write_config_systematics_background(
+        sample_local_dir,
+        systematics_keywords = systematics_keywords,
+        category = category,
+        subcampaigns = subcampaigns,
+        output_top_dir = output_top_dir,
+        outname_config = outname_config,
+        common_cfg = common_cfg,
+        write_single_file = write_single_file
+        )
 
     print(f"Number of run configs for systematics: {len(cfg_dict_list)}")
 
