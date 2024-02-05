@@ -2,6 +2,7 @@
 Define model architectures.
 """
 # FIXME: Fix support for other types of networks, currently only default dense network works
+import os
 
 import tensorflow as tf
 from tensorflow import keras
@@ -19,7 +20,7 @@ rng = default_rng()
 import logging
 logger = logging.getLogger('model')
 
-def get_callbacks(model_filepath=None):
+def get_callbacks(model_filepath=None, tensorboard=False):
     """
     Set up a list of standard callbacks used while training the models.
 
@@ -39,7 +40,18 @@ def get_callbacks(model_filepath=None):
     if model_filepath:
         logger_fp = model_filepath + "_history.csv"
         CSVLogger = keras.callbacks.CSVLogger(filename=logger_fp, append=False)
-        return [CSVLogger, EarlyLockingCallback] + lr_callbacks
+        callback_list = [CSVLogger, EarlyLockingCallback] + lr_callbacks
+
+        if tensorboard:
+            log_dir = os.path.join(os.path.dirname(model_filepath), "tblogs", os.path.basename(model_filepath))
+            if not os.path.isdir(log_dir):
+                os.makedirs(log_dir)
+            logger.info(f"Tensorboard log directory: {log_dir}")
+            callback_list.append(
+                tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1, profile_batch=(1,5))
+                )
+
+        return callback_list
     else:
         return [EarlyLockingCallback] + lr_callbacks
 
