@@ -4,6 +4,7 @@ import os
 import histogramming as myhu
 import plotter
 import util
+import FlattenedHistogram as fh
 import numpy as np
 
 # systematic uncertainties
@@ -83,30 +84,64 @@ def extract_bin_uncertainties_from_histograms(
 
         h_uf = get_unfolded_histogram_from_dict(ob, hists_d, ibu, hist_key=hist_key)
 
-        values, sigmas = myhu.get_values_and_errors(h_uf)
+        if isinstance(h_uf, fh.FlattenedHistogram):
+            values, sigmas = myhu.get_values_and_errors(h_uf.flatten())
+        else:
+            values, sigmas = myhu.get_values_and_errors(h_uf)
 
         if histograms_nominal_d is not None:
             # get the nominal histogram values
             h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, ibu, hist_key=hist_key)
-            values = h_nominal.values()
+            if isinstance(h_nominal, fh.FlattenedHistogram):
+                values = h_nominal.flatten()
+            else:
+                values = h_nominal.values()
 
         # relative errors
         relerrs = sigmas / values
 
         # store as a histogram
         unc_d[ob][uncertainty_label] = h_uf.copy()
-        myhu.set_hist_contents(unc_d[ob][uncertainty_label], relerrs)
-        unc_d[ob][uncertainty_label].view()['variance'] = 0.
+        if isinstance(h_uf, fh.FlattenedHistogram):
+            unc_d[ob][uncertainty_label].fromFlatArray(relerrs)
+        else:
+            myhu.set_hist_contents(unc_d[ob][uncertainty_label], relerrs)
+            unc_d[ob][uncertainty_label].view()['variance'] = 0.
 
     return unc_d
+
+def compute_relative_errors(hist_var, hist_ref, scale_err=1.):
+    # TODO check hist_numer and hist_denom are of the same type
+    if isinstance(hist_var, fh.FlattenedHistogram):
+        hist_relerr = hist_var + (-1.*hist_ref)
+        hist_relerr.divide(hist_ref)
+        hist_relerr.scale(scale_err)
+    else:
+        relerr = (hist_var.values() / hist_ref.values() - 1.) * scale_err
+
+        hist_relerr = hist_var.copy()
+        myhu.set_hist_contents(hist_relerr, relerr)
+        hist_relerr.view()['variance'] = 0.
+
+    return hist_relerr
 
 def compute_total_uncertainty_hist(hists_tuple_list):
 
     var_up, var_down = 0., 0.
 
+    # total up and down variations as histograms
+    hist_total_up, hist_total_down = None, None
+    if len(hists_tuple_list) > 0:
+        hist_total_up = hists_tuple_list[0][0].copy()
+        hist_total_down = hists_tuple_list[0][1].copy()
+
     for hist_var1, hist_var2 in hists_tuple_list:
-        relerr_var1 = myhu.get_values_and_errors(hist_var1)[0]
-        relerr_var2 = myhu.get_values_and_errors(hist_var2)[0]
+        if isinstance(hist_total_up, fh.FlattenedHistogram):
+            relerr_var1 = hist_var1.flatten().values()
+            relerr_var2 = hist_var2.flatten().values()
+        else:
+            relerr_var1 = hist_var1.values()
+            relerr_var2 = hist_var2.values()
 
         relerr_up = np.max([relerr_var1, relerr_var2], axis=0)
         relerr_down = np.min([relerr_var1, relerr_var2], axis=0)
@@ -114,15 +149,15 @@ def compute_total_uncertainty_hist(hists_tuple_list):
         var_up += relerr_up ** 2
         var_down += relerr_down ** 2
 
-    # return total up and down variations as histograms
-    hist_total_up = hist_var1.copy()
-    hist_total_down = hist_var1.copy()
+    if isinstance(hist_total_up, fh.FlattenedHistogram):
+        hist_total_up.fromFlatArray(np.sqrt(var_up))
+        hist_total_down.fromFlatArray(-1*np.sqrt(var_down))
+    else:
+        myhu.set_hist_contents(hist_total_up, np.sqrt(var_up))
+        hist_total_up.view()['variance'] = 0.
 
-    myhu.set_hist_contents(hist_total_up, np.sqrt(var_up))
-    hist_total_up.view()['variance'] = 0.
-
-    myhu.set_hist_contents(hist_total_down, -1*np.sqrt(var_down))
-    hist_total_down.view()['variance'] = 0.
+        myhu.set_hist_contents(hist_total_down, -1*np.sqrt(var_down))
+        hist_total_down.view()['variance'] = 0.
 
     return hist_total_up, hist_total_down
 
@@ -204,7 +239,8 @@ def compute_systematic_uncertainties(
     hist_key = 'unfolded',
     normalize = False,
     observables = [],
-    scale_err = 1.
+    scale_err = 1.,
+    skip_missing = False
     ):
 
     syst_unc_d = dict()
@@ -232,7 +268,14 @@ def compute_systematic_uncertainties(
                 syst_unc_d[ob] = dict()
 
             # get the unfolded distributions
-            h_syst = get_unfolded_histogram_from_dict(ob, hists_syst_d, ibu=ibu, hist_key=hist_key)
+            try:
+                h_syst = get_unfolded_histogram_from_dict(ob, hists_syst_d, ibu=ibu, hist_key=hist_key)
+            except KeyError as ex:
+                logger.warning(f"Failed to find histogram {hist_key} for {ob} ")
+                if skip_missing:
+                    continue
+                else:
+                    raise KeyError(ex)
 
             # get the central distributions
             if histograms_nominal == 'truth':
@@ -250,16 +293,13 @@ def compute_systematic_uncertainties(
                 if hist_key in ["absoluteDiffXs", "relativeDiffXs"]:
                     logger.warning(f"Skip renormalizing histogram {hist_key}!")
                 else:
-                    myhu.renormalize_hist(h_syst, norm=myhu.get_hist_norm(h_nominal))
+                    if isinstance(h_syst, fh.FlattenedHistogram):
+                        h_syst.renormalize(norm=h_nominal.norm())
+                    else:
+                        myhu.renormalize_hist(h_syst, norm=myhu.get_hist_norm(h_nominal))
 
             # compute relative bin errors
-            relerr_syst = (h_syst.values() / h_nominal.values() - 1.) * scale_err
-
-            # store as a histogram
-            syst_unc_d[ob][syst_variation] = h_syst.copy()
-            myhu.set_hist_contents(syst_unc_d[ob][syst_variation], relerr_syst)
-            syst_unc_d[ob][syst_variation].view()['variance'] = 0.
-            # set name?
+            syst_unc_d[ob][syst_variation] = compute_relative_errors(h_syst, h_nominal, scale_err)
 
             if every_run: # compute the systematic variation for every run
                 syst_unc_d[ob][f"{syst_variation}_allruns"] = list()
@@ -269,16 +309,14 @@ def compute_systematic_uncertainties(
 
                 for h_syst_i, h_nominal_i in zip(h_syst_allruns, h_nominal_allruns):
                     if normalize:
-                        myhu.renormalize_hist(h_syst_i, norm=myhu.get_hist_norm(h_nominal_i))
+                        if isinstance(h_syst_i, fh.FlattenedHistogram):
+                            h_syst_i.renormalize(norm=h_nominal_i.norm())
+                        else:
+                            myhu.renormalize_hist(h_syst_i, norm=myhu.get_hist_norm(h_nominal_i))
 
-                    relerr_syst_i = h_syst_i.values() / h_nominal_i.values() - 1.
-
-                    # store as a histogram
-                    herrtmp_i = h_syst_i.copy()
-                    myhu.set_hist_contents(herrtmp_i, relerr_syst_i)
-                    herrtmp_i.view()['variance'] = 0.
-
-                    syst_unc_d[ob][f"{syst_variation}_allruns"].append(herrtmp_i)
+                    syst_unc_d[ob][f"{syst_variation}_allruns"].append(
+                        compute_relative_errors(h_syst_i, h_nominal_i, scale_err)
+                    )
 
     return syst_unc_d
 
@@ -307,6 +345,12 @@ def plot_fractional_uncertainties(
 
     # Total
     h_grp_up, h_grp_down = hists_uncertainty_total
+
+    if isinstance(h_grp_up, fh.FlattenedHistogram):
+        h_grp_up = h_grp_up.flatten()
+    if isinstance(h_grp_down, fh.FlattenedHistogram):
+        h_grp_down = h_grp_down.flatten()
+
     errors_toplot.append((
         myhu.get_values_and_errors(h_grp_up)[0]*100.,
         myhu.get_values_and_errors(h_grp_down)[0]*100.
@@ -322,6 +366,12 @@ def plot_fractional_uncertainties(
         colors_component = plotter.get_default_colors(len(hists_uncertainty_compoments))
 
     for (h_comp_up, h_comp_down), lcomp, ccomp in zip(hists_uncertainty_compoments, labels_component, colors_component):
+
+        if isinstance(h_comp_up, fh.FlattenedHistogram):
+            h_comp_up = h_comp_up.flatten()
+        if isinstance(h_comp_down, fh.FlattenedHistogram):
+            h_comp_down = h_comp_down.flatten()
+
         relerrs_comp = (
             myhu.get_values_and_errors(h_comp_up)[0]*100.,
             myhu.get_values_and_errors(h_comp_down)[0]*100.

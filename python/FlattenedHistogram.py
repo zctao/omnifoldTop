@@ -10,7 +10,10 @@ import logging
 logger = logging.getLogger('FlattenedHistogram')
 logger.setLevel(logging.INFO)
 
-class FlattenedHistogram2D():
+class FlattenedHistogram():
+    pass
+
+class FlattenedHistogram2D(FlattenedHistogram):
     def __init__(
         self,
         binning_d={}, # dict, binning dictionary
@@ -81,6 +84,29 @@ class FlattenedHistogram2D():
             self[ybin_label] += other_fh2d[ybin_label]
 
         return self
+
+    def __sub__(self, other_fh2d):
+        new_fh2d = self.copy()
+        new_fh2d._yhist -= other_fh2d._yhist
+
+        for ybin_label in self:
+            new_fh2d[ybin_label] -= other_fh2d[ybin_label]
+
+        return new_fh2d
+
+    def __mul__(self, other):
+        if isinstance(other, float) or isinstance(other, int):
+            new_fh2d = self.copy()
+            new_fh2d.scale(other)
+            return new_fh2d
+        elif type(other) is type(self):
+            new_fh2d = self.copy()
+            new_fh2d.multiply(other)
+            return new_fh2d
+        else:
+            raise ValueError(f"unsupported operand for type {type(other)}")
+
+    __rmul__ = __mul__
 
     def reset(self):
         self._yhist.reset()
@@ -223,9 +249,10 @@ class FlattenedHistogram2D():
 
         return hflat
 
-    def fromFlat(self, h_flat):
-        flat_bin_values = h_flat.values()
-        flat_bin_variances = h_flat.variances()
+    def fromFlatArray(self, flat_bin_values, flat_bin_variances=None):
+
+        if flat_bin_variances is None:
+            flat_bin_variances = np.zeros_like(flat_bin_values)
 
         y_bin_values = []
         y_bin_variances = []
@@ -251,6 +278,9 @@ class FlattenedHistogram2D():
 
         self._yhist.view()['value'] = y_bin_values
         self._yhist.view()['variance'] = y_bin_variances
+
+    def fromFlat(self, h_flat):
+        self.fromFlatArray(h_flat.values(), h_flat.variances())
 
     def scale(self, factor):
         self._yhist *= factor
@@ -550,7 +580,7 @@ class FlattenedHistogram2D():
                 # keep looking
                 FlattenedHistogram2D.convert_in_dict(hists_dict[k])
 
-class FlattenedHistogram3D():
+class FlattenedHistogram3D(FlattenedHistogram):
     def __init__(
         self,
         binning_d={}, # dict, binning dictionary
@@ -619,6 +649,29 @@ class FlattenedHistogram3D():
             self[zbin_label] += other_fh3d[zbin_label]
 
         return self
+
+    def __sub__(self, other_fh3d):
+        new_fh3d = self.copy()
+        new_fh3d._zhist -= other_fh3d._zhist
+
+        for zbin_label in new_fh3d:
+            new_fh3d[zbin_label] -= other_fh3d[zbin_label]
+
+        return new_fh3d
+
+    def __mul__(self, other):
+        if isinstance(other, float) or isinstance(other, int):
+            new_fh3d = self.copy()
+            new_fh3d.scale(other)
+            return new_fh3d
+        elif type(other) is type(self):
+            new_fh3d = self.copy()
+            new_fh3d.multiply(other)
+            return new_fh3d
+        else:
+            raise ValueError(f"unsupported operand for type {type(other)}")
+
+    __rmul__ = __mul__
 
     def reset(self):
         self._zhist.reset()
@@ -777,9 +830,10 @@ class FlattenedHistogram3D():
 
         return hflat
 
-    def fromFlat(self, h_flat):
-        flat_bin_values = h_flat.values()
-        flat_bin_variances = h_flat.variances()
+    def fromFlatArray(self, flat_bin_values, flat_bin_variances=None):
+
+        if flat_bin_variances is None:
+            flat_bin_variances = np.zeros_like(flat_bin_values)
 
         z_bin_values = []
         z_bin_variances = []
@@ -817,6 +871,9 @@ class FlattenedHistogram3D():
 
         self._zhist.view()['value'] = z_bin_values
         self._zhist.view()['variance'] = z_bin_variances
+
+    def fromFlat(self, h_flat):
+        self.fromFlatArray(h_flat.values(), h_flat.variances())
 
     def scale(self, factor):
         self._zhist *= factor
