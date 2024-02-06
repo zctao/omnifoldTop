@@ -12,7 +12,7 @@ from ttbarDiffXsRun2.systematics import get_systematics, syst_groups
 
 import logging
 logger = logging.getLogger('EvaluateUncertainties')
-util.configRootLogger()
+util.configRootLogger(filename="./evaluate_uncertainties.log")
 
 def get_unfolded_histogram_from_dict(
     observable, # str, observable name
@@ -136,6 +136,7 @@ def compute_total_uncertainty_hist(hists_tuple_list):
         hist_total_down = hists_tuple_list[0][1].copy()
     else:
         logger.error(f"No uncertainty components in the list!")
+        return hist_total_up, hist_total_down
 
     for hist_var1, hist_var2 in hists_tuple_list:
         if isinstance(hist_total_up, fh.FlattenedHistogram):
@@ -234,14 +235,16 @@ def compute_total_uncertainty(
                 unc_var1, unc_var2 = unc
                 hist_var1 = bin_unc_obs_d.get(unc_var1)
                 if hist_var1 is None:
-                    logger.warning(f"Cannot find uncertainty: {unc_var1}")
-                    logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
+                    logger.warning(f"No uncertainty: {unc_var1}")
+                    if not hist_var1 in bin_unc_obs_d:
+                        logger.debug(f" bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
                     continue
 
                 hist_var2 = bin_unc_obs_d.get(unc_var2)
                 if hist_var2 is None:
-                    logger.warning(f"Cannot find uncertainty: {unc_var2}")
-                    logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
+                    logger.warning(f"No uncertainty: {unc_var2}")
+                    if not hist_var2 in bin_unc_obs_d:
+                        logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
                     continue
 
                 if symmetrize:
@@ -265,8 +268,9 @@ def compute_total_uncertainty(
                     unc = unc[0]
                 hist_var1 = bin_unc_obs_d.get(unc)
                 if hist_var1 is None:
-                    logger.warning(f"Cannot find uncertainty: {unc}")
-                    logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
+                    logger.warning(f"No uncertainty: {unc}")
+                    if not hist_var1 in bin_unc_obs_d:
+                        logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
                     continue
 
                 # exclude uncertainty components lower than the threshold
@@ -312,7 +316,7 @@ def compute_systematic_uncertainties(
     normalize = False,
     observables = [],
     scale_err = 1.,
-    skip_missing = False
+    skip_missing = True
     ):
 
     syst_unc_d = dict()
@@ -418,6 +422,10 @@ def plot_fractional_uncertainties(
     # Total
     h_grp_up, h_grp_down = hists_uncertainty_total
 
+    if h_grp_up is None or h_grp_down is None:
+        logger.warning("Total uncertainty is None")
+        return
+
     if isinstance(h_grp_up, fh.FlattenedHistogram):
         h_grp_up = h_grp_up.flatten()
     if isinstance(h_grp_down, fh.FlattenedHistogram):
@@ -438,6 +446,10 @@ def plot_fractional_uncertainties(
         colors_component = plotter.get_default_colors(len(hists_uncertainty_compoments))
 
     for (h_comp_up, h_comp_down), lcomp, ccomp in zip(hists_uncertainty_compoments, labels_component, colors_component):
+
+        if h_comp_up is None or h_comp_down is None:
+            logger.debug(f"Component {lcomp} is None")
+            continue
 
         if isinstance(h_comp_up, fh.FlattenedHistogram):
             h_comp_up = h_comp_up.flatten()
@@ -492,6 +504,10 @@ def plot_uncertainties(
             h_grp_up = bin_uncertainties_dict[obs]["Total"][f"{group}_up"]
             h_grp_down = bin_uncertainties_dict[obs]["Total"][f"{group}_down"]
 
+            if h_grp_up is None or h_grp_down is None:
+                logger.debug(f"Group {group} total is None")
+                continue
+
             # components
             hists_uncertainty_compoments = []
             component_labels = []
@@ -519,24 +535,6 @@ def plot_uncertainties(
                 color_total = syst_groups[group].get('color', 'black'),
                 highlight_dominant = highlight_dominant
             )
-
-        # NN
-        h_nn_up = bin_uncertainties_dict[obs]["Total"].get("Network_up")
-        h_nn_down = bin_uncertainties_dict[obs]["Total"].get("Network_down")
-
-        if h_nn_up is not None and h_nn_down is not None:
-
-            plot_fractional_uncertainties(
-                figname = f"{outname_prefix}_{obs}_Network",
-                hists_uncertainty_total = (h_nn_up, h_nn_down),
-                hists_uncertainty_compoments = [],
-                label_total = "Network",
-                labels_component = [],
-                color_total = 'black',
-                highlight_dominant = highlight_dominant
-            )
-        else:
-            logger.debug("No Network uncertainty to plot")
 
         # Total
         plot_fractional_uncertainties(
@@ -652,14 +650,13 @@ def evaluate_uncertainties(
                 scale_err = 1/7. if grp in ["MTop"] else 1.
             )
 
-            # Add the group uncertainties to bin_uncertainties_d
-            update_dict_with_group_label(bin_uncertainties_d, bin_err_grp_d, grp)
-
             # Group total uncertainty
             bin_err_grp_tot_d = compute_total_uncertainty(
                 grp_systs_pair, bin_err_grp_d, label=grp,
                 symmetrize=symmetrize, skim_threshold=skim_threshold)
 
+            # Add the group uncertainties to bin_uncertainties_d
+            update_dict_with_group_label(bin_uncertainties_d, bin_err_grp_d, grp)
             update_dict_with_group_label(bin_uncertainties_d, bin_err_grp_tot_d, 'Total')
 
         # end of grp loop
@@ -678,10 +675,10 @@ def evaluate_uncertainties(
                 observables = observables
             )
 
-            update_dict_with_group_label(bin_uncertainties_d, bin_err_nn_d, 'Network')
-
             # Also add to sub-directory "Total"
             bin_err_nn_tot_d = compute_total_uncertainty(['network'], bin_err_nn_d, label='Network')
+
+            update_dict_with_group_label(bin_uncertainties_d, bin_err_nn_d, 'Network')
             update_dict_with_group_label(bin_uncertainties_d, bin_err_nn_tot_d, 'Total')
 
         # Compute the total systematic uncertainty
