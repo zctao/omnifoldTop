@@ -134,6 +134,8 @@ def compute_total_uncertainty_hist(hists_tuple_list):
     if len(hists_tuple_list) > 0:
         hist_total_up = hists_tuple_list[0][0].copy()
         hist_total_down = hists_tuple_list[0][1].copy()
+    else:
+        logger.error(f"No uncertainty components in the list!")
 
     for hist_var1, hist_var2 in hists_tuple_list:
         if isinstance(hist_total_up, fh.FlattenedHistogram):
@@ -161,14 +163,62 @@ def compute_total_uncertainty_hist(hists_tuple_list):
 
     return hist_total_up, hist_total_down
 
+def symmetrize_uncertainties(hist_var1, hist_var2):
+    if isinstance(hist_var1, fh.FlattenedHistogram):
+        hist_var1_flat, hist_var2_flat = symmetrize_uncertainties(hist_var1.flatten(), hist_var2.flatten())
+
+        hist_var1.fromFlat(hist_var1_flat)
+        hist_var2.fromFlat(hist_var2_flat)
+
+        return hist_var1, hist_var2
+    else:
+        values_var1 = hist_var1.values()
+        values_var2 = hist_var2.values()
+
+        # select entries of the same sign
+        sel_ss = values_var1 * values_var2 > 0
+
+        if not np.any(sel_ss): # no action needed
+            return hist_var1, hist_var2
+
+        # set var1 value to var2 * -1 if var1 is closer to 0
+        sel_var1 = np.abs(values_var1) < np.abs(values_var2)
+        flip_var1 = sel_ss & sel_var1
+        values_var1[flip_var1] = values_var2[flip_var1] * -1.
+        myhu.set_hist_contents(hist_var1, values_var1)
+
+        # set var2 value to var1 * -1 if var2 is closer to 0
+        flip_var2 = sel_ss & ~sel_var1
+        values_var2[flip_var2] = values_var1[flip_var2] * -1.
+        myhu.set_hist_contents(hist_var2, values_var2)
+
+        return hist_var1, hist_var2
+
+def skim_uncertainties(hist_uncertainty_list, threshold):
+    if not threshold:
+        return False
+
+    for hist_unc in hist_uncertainty_list:
+        if isinstance(hist_unc, fh.FlattenedHistogram):
+            hist_max = np.max(np.abs(hist_unc.flatten().values()))
+        else:
+            hist_max = np.max(np.abs(hist_unc.values()))
+
+        if hist_max >= threshold:
+            return False
+
+    return True
+
 def compute_total_uncertainty(
     uncertainty_names, # list of str or list of tuple of str
     bin_uncertainties_d, # dict
     label = 'total',
-    group = None
+    group = None,
+    symmetrize = False,
+    skim_threshold = 0.
     ):
 
-    logger.debug(f" Compute total uncertainty")
+    logger.debug(f"Compute total uncertainty")
 
     # Initialize total_uncertainties_d
     total_uncertainties_d = { obs : {} for obs in bin_uncertainties_d}
@@ -193,6 +243,22 @@ def compute_total_uncertainty(
                     logger.warning(f"Cannot find uncertainty: {unc_var2}")
                     logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
                     continue
+
+                if symmetrize:
+                    # in case the up and down variations are on the same side
+                    hist_var1, hist_var2 = symmetrize_uncertainties(hist_var1, hist_var2)
+
+                    # replace the original ones
+                    bin_unc_obs_d[unc_var1] = hist_var1
+                    bin_unc_obs_d[unc_var2] = hist_var2
+
+                # exclude uncertainty components lower than the threshold
+                if skim_uncertainties([hist_var1, hist_var2], skim_threshold):
+                    logger.debug(f"Exclude {unc} from total uncertainty")
+                    bin_unc_obs_d[f"[excl]{unc_var1}"] = bin_unc_obs_d.pop(unc_var1)
+                    bin_unc_obs_d[f"[excl]{unc_var2}"] = bin_unc_obs_d.pop(unc_var2)
+                    continue
+
             else:
                 # symmetric
                 if isinstance(unc, tuple) and len(unc)==1:
@@ -201,6 +267,12 @@ def compute_total_uncertainty(
                 if hist_var1 is None:
                     logger.warning(f"Cannot find uncertainty: {unc}")
                     logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
+                    continue
+
+                # exclude uncertainty components lower than the threshold
+                if skim_uncertainties([hist_var1], skim_threshold):
+                    logger.debug(f"Exclude {unc} from total uncertainty")
+                    bin_unc_obs_d[f"[excl]{unc}"] = bin_unc_obs_d.pop(unc)
                     continue
 
                 hist_var2 = hist_var1 * -1.
@@ -477,7 +549,9 @@ def evaluate_uncertainties(
     hist_key = 'unfolded',
     normalize = False,
     observables = [],
-    verbose = False
+    verbose = False,
+    symmetrize = False,
+    skim_threshold = 0.
     ):
 
     if verbose:
@@ -564,7 +638,9 @@ def evaluate_uncertainties(
             update_dict_with_group_label(bin_uncertainties_d, bin_err_grp_d, grp)
 
             # Group total uncertainty
-            bin_err_grp_tot_d = compute_total_uncertainty(grp_systs_pair, bin_err_grp_d, label=grp)
+            bin_err_grp_tot_d = compute_total_uncertainty(
+                grp_systs_pair, bin_err_grp_d, label=grp,
+                symmetrize=symmetrize, skim_threshold=skim_threshold)
 
             update_dict_with_group_label(bin_uncertainties_d, bin_err_grp_tot_d, 'Total')
 
@@ -723,6 +799,10 @@ if __name__ == "__main__":
                         help="List of observables to evaluate bin uncertainties")
     parser.add_argument("-v", "--verbose", action='store_true',
                         help="If True, set logging level to debug, else info")
+    parser.add_argument("-y", "--symmetrize", action='store_true',
+                        help="If True, make the bin uncertainty symmetric where the up and down variations are on the same side")
+    parser.add_argument("-e", "--skim-threshold", type=float, default=0.,
+                        help="Exclude the uncertainty component whose maximum is lower than the threshold")
 
     args = parser.parse_args()
 
