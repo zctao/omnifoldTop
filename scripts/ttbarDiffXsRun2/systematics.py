@@ -323,9 +323,9 @@ syst_groups = {
         "label" : "Luminosity",
         "filters" : ['lumi']
     },
-    "Unfolding" : {
-        "label" : "Unfolding",
-        "filters" : []
+    "Network" : {
+        "label" : "Network",
+        "filters" : ['network']
     },
     "MCStat": {
         "label" : "MC Stat.",
