@@ -757,7 +757,11 @@ def evaluate_uncertainties(
 
     ######
     # save to file
-    output_name = os.path.join(output_dir, 'bin_uncertainties.root')
+    if ibu:
+        output_name = os.path.join(output_dir, 'bin_uncertainties_ibu.root')
+    else:
+        output_name = os.path.join(output_dir, 'bin_uncertainties.root')
+
     logger.info(f"Write to output file {output_name}")
     myhu.write_histograms_dict_to_file(bin_uncertainties_d, output_name)
 
