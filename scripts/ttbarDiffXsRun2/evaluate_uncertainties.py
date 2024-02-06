@@ -520,6 +520,24 @@ def plot_uncertainties(
                 highlight_dominant = highlight_dominant
             )
 
+        # NN
+        h_nn_up = bin_uncertainties_dict[obs]["Total"].get("Network_up")
+        h_nn_down = bin_uncertainties_dict[obs]["Total"].get("Network_down")
+
+        if h_nn_up is not None and h_nn_down is not None:
+
+            plot_fractional_uncertainties(
+                figname = f"{outname_prefix}_{obs}_Network",
+                hists_uncertainty_total = (h_nn_up, h_nn_down),
+                hists_uncertainty_compoments = [],
+                label_total = "Network",
+                labels_component = [],
+                color_total = 'black',
+                highlight_dominant = highlight_dominant
+            )
+        else:
+            logger.debug("No Network uncertainty to plot")
+
         # Total
         plot_fractional_uncertainties(
             figname = f"{outname_prefix}_{obs}_total",
