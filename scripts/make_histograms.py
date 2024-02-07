@@ -454,7 +454,15 @@ def make_histograms_of_observables_multidim(
 
     ##
     # truth distributions if using pseudo data
-    # TODO?
+    if unfolder.handle_obs.data_truth is not None:
+        logger.debug(f" Truth distribution")
+        hists_multidim_d['truth'] = unfolder.handle_obs.get_histograms_flattened(
+            varnames_truth,
+            bins_truth_d,
+            density=False,
+            absoluteValues=absValues,
+            extra_cuts = inbins_obs_truth
+        )
 
     ##
     # IBU
