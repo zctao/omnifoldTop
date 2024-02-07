@@ -195,7 +195,7 @@ def symmetrize_uncertainties(hist_var1, hist_var2):
 
         return hist_var1, hist_var2
 
-def skim_uncertainties(hist_uncertainty_list, threshold):
+def trim_uncertainties(hist_uncertainty_list, threshold):
     if not threshold:
         return False
 
@@ -216,7 +216,7 @@ def compute_total_uncertainty(
     label = 'total',
     group = None,
     symmetrize = False,
-    skim_threshold = 0.
+    trim_threshold = 0.
     ):
 
     logger.debug(f"Compute total uncertainty")
@@ -256,7 +256,7 @@ def compute_total_uncertainty(
                     bin_unc_obs_d[unc_var2] = hist_var2
 
                 # exclude uncertainty components lower than the threshold
-                if skim_uncertainties([hist_var1, hist_var2], skim_threshold):
+                if trim_uncertainties([hist_var1, hist_var2], trim_threshold):
                     logger.debug(f"Exclude {unc} from total uncertainty")
                     bin_unc_obs_d[f"[excl]{unc_var1}"] = bin_unc_obs_d.pop(unc_var1)
                     bin_unc_obs_d[f"[excl]{unc_var2}"] = bin_unc_obs_d.pop(unc_var2)
@@ -274,7 +274,7 @@ def compute_total_uncertainty(
                     continue
 
                 # exclude uncertainty components lower than the threshold
-                if skim_uncertainties([hist_var1], skim_threshold):
+                if trim_uncertainties([hist_var1], trim_threshold):
                     logger.debug(f"Exclude {unc} from total uncertainty")
                     bin_unc_obs_d[f"[excl]{unc}"] = bin_unc_obs_d.pop(unc)
                     continue
@@ -362,7 +362,7 @@ def compute_systematic_uncertainties(
                 h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal, ibu=ibu, hist_key=hist_key)
 
             if not h_nominal:
-                logger.error("No central distribtion for {ob}")
+                logger.error(f"No central distribtion for {ob}")
                 continue
 
             if normalize:
@@ -485,6 +485,7 @@ def plot_fractional_uncertainties(
 
 def plot_uncertainties(
     bin_uncertainties_dict,
+    output_dir = '.',
     outname_prefix = 'bin_uncertainties',
     highlight_dominant=False # If True, only plot the dominant component, otherwise plot all components
     ):
@@ -527,7 +528,7 @@ def plot_uncertainties(
                 component_labels.append(os.path.commonprefix([comp_up, comp_down]).strip('_'))
 
             plot_fractional_uncertainties(
-                figname = f"{outname_prefix}_{obs}_{group}",
+                figname = os.path.join(output_dir, obs, f"{outname_prefix}_{obs}_{group}"),
                 hists_uncertainty_total = (h_grp_up, h_grp_down),
                 hists_uncertainty_compoments = hists_uncertainty_compoments,
                 label_total = group,
@@ -538,7 +539,7 @@ def plot_uncertainties(
 
         # Total
         plot_fractional_uncertainties(
-            figname = f"{outname_prefix}_{obs}_total",
+            figname = os.path.join(output_dir, obs, f"{outname_prefix}_{obs}_total"),
             hists_uncertainty_total = (bin_uncertainties_dict[obs]['Total']['total_up'], bin_uncertainties_dict[obs]['Total']['total_down']),
             hists_uncertainty_compoments = [(bin_uncertainties_dict[obs]['Total'][f'{grp}_up'], bin_uncertainties_dict[obs]['Total'][f'{grp}_down']) for grp in groups],
             label_total = "Syst. + Stat.",
@@ -567,7 +568,7 @@ def evaluate_uncertainties(
     observables = [],
     verbose = False,
     symmetrize = False,
-    skim_threshold = 0.
+    trim_threshold = 0.
     ):
 
     if verbose:
@@ -653,7 +654,7 @@ def evaluate_uncertainties(
             # Group total uncertainty
             bin_err_grp_tot_d = compute_total_uncertainty(
                 grp_systs_pair, bin_err_grp_d, label=grp,
-                symmetrize=symmetrize, skim_threshold=skim_threshold)
+                symmetrize=symmetrize, trim_threshold=trim_threshold)
 
             # Add the group uncertainties to bin_uncertainties_d
             update_dict_with_group_label(bin_uncertainties_d, bin_err_grp_d, grp)
@@ -768,7 +769,8 @@ def evaluate_uncertainties(
     if plot:
         plot_uncertainties(
             bin_uncertainties_d,
-            outname_prefix = os.path.splitext(output_name)[0],
+            output_dir = output_dir,
+            outname_prefix = os.path.basename(os.path.splitext(output_name)[0]),
             highlight_dominant=False
         )
 
@@ -776,6 +778,7 @@ def plot_uncertainties_from_file(fpath):
     unc_d = myhu.read_histograms_dict_from_file(fpath)
     plot_uncertainties(
         unc_d,
+        output_dir = os.path.dirname(fpath),
         outname_prefix = os.path.splitext(fpath)[0],
         highlight_dominant=False
         )
@@ -820,7 +823,7 @@ if __name__ == "__main__":
                         help="If True, set logging level to debug, else info")
     parser.add_argument("-y", "--symmetrize", action='store_true',
                         help="If True, make the bin uncertainty symmetric where the up and down variations are on the same side")
-    parser.add_argument("-e", "--skim-threshold", type=float, default=0.,
+    parser.add_argument("-e", "--trim-threshold", type=float, default=0.,
                         help="Exclude the uncertainty component whose maximum is lower than the threshold")
 
     args = parser.parse_args()
