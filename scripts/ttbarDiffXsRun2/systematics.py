@@ -285,7 +285,8 @@ syst_groups = {
         "filters" : ["MET_"],
     },
     "Background" : {
-        "label" : "Background"
+        "label" : "Background",
+        "filters": ["singleTop_", "VV_", "ttV_", "Wjets_", "Zjets_", "fakes_"],
     },
     "Pileup" : {
         "label" : "Pileup",
