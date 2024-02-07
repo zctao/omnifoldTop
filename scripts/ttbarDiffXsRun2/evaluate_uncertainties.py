@@ -113,6 +113,12 @@ def extract_bin_uncertainties_from_histograms(
 def compute_relative_errors(hist_var, hist_ref, scale_err=1.):
     # TODO check hist_numer and hist_denom are of the same type
     if isinstance(hist_var, fh.FlattenedHistogram):
+        # make sure the axis labels are consistent between h_syst and h_nominal
+        hist_ref.set_xlabel(hist_var.get_xlabel())
+        hist_ref.set_ylabel(hist_var.get_ylabel())
+        if isinstance(hist_var, fh.FlattenedHistogram3D):
+            hist_ref.set_zlabel(hist_var.get_zlabel())
+
         hist_relerr = hist_var + (-1.*hist_ref)
         hist_relerr.divide(hist_ref)
         hist_relerr.scale(scale_err)
