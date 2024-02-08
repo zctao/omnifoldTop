@@ -31,6 +31,7 @@ def plot_fractional_uncertainties(
     color_total = None,
     colors_component = [],
     highlight_dominant = False,
+    uncertainty_on_uncertainty = False
     ):
 
     errors_toplot = []
@@ -48,10 +49,22 @@ def plot_fractional_uncertainties(
     if isinstance(h_grp_down, fh.FlattenedHistogram):
         h_grp_down = h_grp_down.flatten()
 
-    errors_toplot.append((
-        myhu.get_values_and_errors(h_grp_up)[0]*100.,
-        myhu.get_values_and_errors(h_grp_down)[0]*100.
-        ))
+    val_grp_up, err_grp_up = myhu.get_values_and_errors(h_grp_up)
+    val_grp_up = val_grp_up * 100.
+    err_grp_up = err_grp_up * 100.
+
+    val_grp_down, err_grp_down = myhu.get_values_and_errors(h_grp_down)
+    val_grp_down = val_grp_down * 100.
+    err_grp_down = err_grp_down * 100.
+
+    if uncertainty_on_uncertainty:
+        errors_toplot.append((
+            val_grp_up, val_grp_down,
+            # uncertainty on uncertainty
+            err_grp_up, err_grp_down
+            ))
+    else:
+        errors_toplot.append((val_grp_up, val_grp_down))
     
     if color_total is None:
         color_total = 'black'
@@ -121,8 +134,8 @@ def plot_uncertainties_from_dict(
                 continue
 
             # group total
-            h_grp_up = bin_uncertainties_dict[obs]["Total"][f"{group}_up"]
-            h_grp_down = bin_uncertainties_dict[obs]["Total"][f"{group}_down"]
+            h_grp_up = bin_uncertainties_dict[obs]["Total"].get(f"{group}_up")
+            h_grp_down = bin_uncertainties_dict[obs]["Total"].get(f"{group}_down")
 
             if h_grp_up is None or h_grp_down is None:
                 logger.debug(f"Group {group} total is None")
@@ -164,7 +177,19 @@ def plot_uncertainties_from_dict(
                 label_total = group,
                 labels_component = component_labels,
                 color_total = syst_groups[group].get('color', 'black'),
-                highlight_dominant = True
+                highlight_dominant = True,
+                uncertainty_on_uncertainty = False
+            )
+
+            plot_fractional_uncertainties(
+                figname = os.path.join(output_dir, obs, f"{outname_prefix}_{obs}_{group}_err"),
+                hists_uncertainty_total = (h_grp_up, h_grp_down),
+                hists_uncertainty_compoments = hists_uncertainty_compoments,
+                label_total = group,
+                labels_component = component_labels,
+                color_total = syst_groups[group].get('color', 'black'),
+                highlight_dominant = True,
+                uncertainty_on_uncertainty = True
             )
 
             if plot_allcomponents:

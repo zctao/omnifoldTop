@@ -110,30 +110,38 @@ def extract_bin_uncertainties_from_histograms(
 
     return unc_d
 
-def compute_relative_errors(hist_var, hist_ref, scale_err=1.):
+def compute_relative_errors(hist_syst, hist_ref, scale_err=1.):
     # TODO check hist_numer and hist_denom are of the same type
-    if isinstance(hist_var, fh.FlattenedHistogram):
-        # make sure the axis labels are consistent between h_syst and h_nominal
-        hist_ref.set_xlabel(hist_var.get_xlabel())
-        hist_ref.set_ylabel(hist_var.get_ylabel())
-        if isinstance(hist_var, fh.FlattenedHistogram3D):
-            hist_ref.set_zlabel(hist_var.get_zlabel())
+    if isinstance(hist_syst, fh.FlattenedHistogram):
+        # convert to flat histograms and do calculations
+        hist_relerr_flat = compute_relative_errors(
+            hist_syst.flatten(), hist_ref.flatten(), scale_err
+            )
 
-        hist_relerr = hist_var + (-1.*hist_ref)
-        hist_relerr.divide(hist_ref)
-        hist_relerr.scale(scale_err)
+        # convert it back to fh.FlattenedHistogram
+        hist_relerr = hist_syst.copy()
+        hist_relerr.fromFlat(hist_relerr_flat)
+
+        return hist_relerr
     else:
-        relerr = (hist_var.values() / hist_ref.values() - 1.) * scale_err
+        relerr = (hist_syst.values() / hist_ref.values() - 1.) * scale_err
 
-        hist_relerr = hist_var.copy()
+        # uncertainty on the uncertainty
+        # do not include hist_ref variance
+        relerr_var = hist_syst.variances() * scale_err**2 / hist_ref.values()**2
+
+        hist_relerr = hist_syst.copy()
         myhu.set_hist_contents(hist_relerr, relerr)
-        hist_relerr.view()['variance'] = 0.
+        hist_relerr.view()['variance'] = relerr_var
 
-    return hist_relerr
+        return hist_relerr
 
 def compute_total_uncertainty_hist(hists_tuple_list):
 
     var_up, var_down = 0., 0.
+
+    # uncertainty on uncertainty
+    var_var_up, var_var_down = 0., 0.
 
     # total up and down variations as histograms
     hist_total_up, hist_total_down = None, None
@@ -146,11 +154,19 @@ def compute_total_uncertainty_hist(hists_tuple_list):
 
     for hist_var1, hist_var2 in hists_tuple_list:
         if isinstance(hist_total_up, fh.FlattenedHistogram):
-            relerr_var1 = hist_var1.flatten().values()
-            relerr_var2 = hist_var2.flatten().values()
+            hist_flat_var1 = hist_var1.flatten()
+            hist_flat_var2 = hist_var2.flatten()
+            relerr_var1 = hist_flat_var1.values()
+            relerr_var2 = hist_flat_var2.values()
+
+            relerr_var1_var = hist_flat_var1.variances()
+            relerr_var2_var = hist_flat_var2.variances()
         else:
             relerr_var1 = hist_var1.values()
             relerr_var2 = hist_var2.values()
+
+            relerr_var1_var = hist_var1.variances()
+            relerr_var2_var = hist_var2.variances()
 
         relerr_up = np.max([relerr_var1, relerr_var2], axis=0)
         relerr_down = np.min([relerr_var1, relerr_var2], axis=0)
@@ -158,15 +174,25 @@ def compute_total_uncertainty_hist(hists_tuple_list):
         var_up += relerr_up ** 2
         var_down += relerr_down ** 2
 
+        # variance of relerr_up and relerr_down
+        relerr_up_var = np.where(relerr_var1 > relerr_var2, relerr_var1_var, relerr_var2_var)
+        relerr_down_var = np.where(relerr_var1 <= relerr_var2, relerr_var1_var, relerr_var2_var)
+
+        var_var_up += relerr_up**2 * relerr_up_var
+        var_var_down += relerr_down**2 * relerr_down_var
+
+    var_var_up /= var_up
+    var_var_down /= var_down
+
     if isinstance(hist_total_up, fh.FlattenedHistogram):
-        hist_total_up.fromFlatArray(np.sqrt(var_up))
-        hist_total_down.fromFlatArray(-1*np.sqrt(var_down))
+        hist_total_up.fromFlatArray(np.sqrt(var_up), var_var_up)
+        hist_total_down.fromFlatArray(-1*np.sqrt(var_down), var_var_down)
     else:
         myhu.set_hist_contents(hist_total_up, np.sqrt(var_up))
-        hist_total_up.view()['variance'] = 0.
+        hist_total_up.view()['variance'] = var_var_up
 
         myhu.set_hist_contents(hist_total_down, -1*np.sqrt(var_down))
-        hist_total_down.view()['variance'] = 0.
+        hist_total_down.view()['variance'] = var_var_down
 
     return hist_total_up, hist_total_down
 

@@ -1354,15 +1354,24 @@ def plot_uncertainties(
         else:
             err_t = err
 
-        assert(len(err_t)==2)
-
+        assert len(err_t)>=2
         if len(err_t[0]) == len(bins) - 1:
             # append the error array with its last entry
-            err_t = ( np.append(err_t[0], err_t[0][-1]),
-                      np.append(err_t[1], err_t[1][-1]) )
+            err_t = tuple(np.append(e, e[-1]) for e in err_t)
 
         # draw
-        ax.fill_between(bins, *err_t, step='post', **opt)
+        # error band if needed
+        if len(err) > 2:
+            err_1 = err_t[2]
+            if len(err) > 3:
+                err_2 = err_t[3]
+            else:
+                err_2 = err_1
+
+            ax.fill_between(bins, err_t[0]-err_1, err_t[0]+err_1, step='post', facecolor='none', edgecolor='gray', hatch='///', alpha=0.5)
+            ax.fill_between(bins, err_t[1]-err_2, err_t[1]+err_2, step='post', facecolor='none', edgecolor='gray', hatch='///', alpha=0.5)
+
+        ax.fill_between(bins, err_t[0], err_t[1], step='post', **opt)
 
     # horizontal line at zero
     ax.axhline(y=0., color='black', linestyle='--', alpha=0.3)
