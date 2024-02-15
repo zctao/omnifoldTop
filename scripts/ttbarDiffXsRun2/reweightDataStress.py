@@ -19,6 +19,7 @@ def reweightDataStress(
     args_list += ['-v']
     args_list += ['-pp']
     args_list += ['-r', 'histogram'] # or 'direct'
+    args_list += ['-d', '3'] # polynomial degree
 
     rw_args = rws.getArgsParser(args_list)
 

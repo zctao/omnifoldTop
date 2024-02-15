@@ -171,6 +171,7 @@ def reweight_samples(**parsed_args):
             batch_size = parsed_args['batch_size'],
             epochs = 100,
             calibrate = parsed_args['reweight_method']=='histogram',
+            fit_polynomial_deg = parsed_args['polynomial_deg'],
             verbose= parsed_args['verbose'],
             plot = parsed_args['plot_verbosity'] > 0
         )[0]
@@ -284,6 +285,8 @@ def getArgsParser(arguments_list=None, print_help=False):
                         help="If True, set logging level to DEBUG else INFO")
     parser.add_argument('-r', '--reweight-method', choices=['direct','histogram'],
                         default='histogram', help="Method to reweight source to target")
+    parser.add_argument('-d', '--polynomial-deg', type=int, default=None,
+                        help="Degree of polynomial to fit the ratio distribution")
     parser.add_argument('-p', '--plot-verbosity', action='count', default=0,
                         help="Plot verbosity level")
     parser.add_argument('-w', '--weights-file', type=str,

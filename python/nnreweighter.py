@@ -166,6 +166,7 @@ def train_and_reweight(
     epochs = 100,
     # Reweight
     calibrate=False,
+    fit_polynomial_deg=None,
     clip_weights=False,
     # Logging
     verbose=False,
@@ -301,11 +302,31 @@ def train_and_reweight(
         rw = np.empty_like(preds_out)
         for i in range(modelUtils.n_models_in_parallel):
             histogram_r = myhu.divide(histogram_1[i], histogram_0[i])
-            rw[i] = myhu.read_histogram_at_locations(preds_out[i], histogram_r)
+
+            if fit_polynomial_deg is not None:
+                # fit the binned ratio with a polynomial
+                # only fit the bins where there are NN outputs 
+                fit_region = (histogram_1[i].values()!=0) & (histogram_0[i].values()!=0)
+                values_r = histogram_r.values()[fit_region]
+                errors_r = np.sqrt(histogram_r.variances())[fit_region]
+                bincenters = histogram_r.axes.centers[0][fit_region]
+
+                poly_fitted = np.polynomial.Polynomial.fit(
+                    x = bincenters,
+                    y = values_r,
+                    w = 1 / errors_r,
+                    deg = fit_polynomial_deg
+                )
+
+                rw[i] = poly_fitted(preds_out[i])
+
+            else:
+                # read directly from the binned ratio
+                rw[i] = myhu.read_histogram_at_locations(preds_out[i], histogram_r)
 
             if plot and model_filepath_save:
                 plotter.plot_histograms_and_ratios(
-                    figname = f"{model_filepath_save}_preds_{i}",
+                    figname = f"{model_filepath_save}_{i}_preds",
                     hists_numerator = [histogram_1[i]],
                     hist_denominator = histogram_0[i],
                     draw_options_numerator = [{'label':'Target'}],
@@ -313,6 +334,25 @@ def train_and_reweight(
                     xlabel = 'NN Output',
                     ylabel_ratio = 'Target / Source'
                 )
+
+                if fit_polynomial_deg is not None:
+                    # plot ratio and fit function
+                    valid_bins = np.argwhere(fit_region==True).ravel()
+                    histogram_r_valid = histogram_r[int(np.min(valid_bins)) : int(np.max(valid_bins))+1]
+
+                    # limit the digits of coefficients that are shown in the plot
+                    #ploy_plot = poly_fitted.copy()
+                    #ploy_plot.coef = np.round(ploy_plot.coef,4)
+
+                    plotter.plot_histogram_and_function(
+                        figname = f"{model_filepath_save}_{i}_ratio",
+                        histogram = histogram_r_valid,
+                        draw_option_histogram = {'color':'grey', 'histtype':'errorbar', 'markersize':1},
+                        function = poly_fitted,
+                        draw_option_function = {'color':'tab:red', 'linestyle':'-'},
+                        xlabel = 'NN Output',
+                        ylabel = "Target / Source",
+                    )
     else:
         # direct reweighting
         rw = reweight(preds_out)
