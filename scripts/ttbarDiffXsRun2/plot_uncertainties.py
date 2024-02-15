@@ -28,8 +28,8 @@ def plot_fractional_uncertainties(
     hists_uncertainty_compoments,
     label_total,
     labels_component,
-    color_total = None,
-    colors_component = [],
+    draw_opt_total = {},
+    draw_opts_comp = [],
     highlight_dominant = False,
     uncertainty_on_uncertainty = False
     ):
@@ -66,16 +66,20 @@ def plot_fractional_uncertainties(
     else:
         errors_toplot.append((val_grp_up, val_grp_down))
     
-    if color_total is None:
-        color_total = 'black'
+    if not draw_opt_total:
+        draw_opt_total = {'edgecolor': 'black', "facecolor": 'none', 'label': label_total}
+    else:
+        draw_opt_total.update({'label': label_total})
 
-    draw_opts.append({'label': label_total, 'edgecolor': color_total, "facecolor": 'none'})
+    draw_opts.append(draw_opt_total)
 
     # components
-    if not colors_component:
-        colors_component = plotter.get_default_colors(len(hists_uncertainty_compoments))
+    colors_iter = iter(plotter.get_default_colors(len(hists_uncertainty_compoments)))
 
-    for (h_comp_up, h_comp_down), lcomp, ccomp in zip(hists_uncertainty_compoments, labels_component, colors_component):
+    if not draw_opts_comp:
+        draw_opts_comp = [{}] * len(hists_uncertainty_compoments)
+
+    for (h_comp_up, h_comp_down), lcomp, ocomp in zip(hists_uncertainty_compoments, labels_component, draw_opts_comp):
 
         if h_comp_up is None or h_comp_down is None:
             logger.debug(f"Component {lcomp} is None")
@@ -91,7 +95,11 @@ def plot_fractional_uncertainties(
             myhu.get_values_and_errors(h_comp_down)[0]*100.
             )
 
-        opt_comp = {'label':lcomp, 'edgecolor':ccomp, 'facecolor':'none'}
+        opt_comp = {'label':lcomp}
+        opt_comp.update(ocomp)
+
+        if not 'color' in opt_comp and not 'edgecolor' in opt_comp:
+            opt_comp.update({'edgecolor':next(colors_iter), 'facecolor':'none'})
 
         if not highlight_dominant or len(errors_toplot) < 2: # first component
             errors_toplot.append(relerrs_comp)
@@ -176,7 +184,6 @@ def plot_uncertainties_from_dict(
                 hists_uncertainty_compoments = hists_uncertainty_compoments,
                 label_total = group,
                 labels_component = component_labels,
-                color_total = syst_groups[group].get('color', 'black'),
                 highlight_dominant = True,
                 uncertainty_on_uncertainty = False
             )
@@ -187,7 +194,6 @@ def plot_uncertainties_from_dict(
                 hists_uncertainty_compoments = hists_uncertainty_compoments,
                 label_total = group,
                 labels_component = component_labels,
-                color_total = syst_groups[group].get('color', 'black'),
                 highlight_dominant = True,
                 uncertainty_on_uncertainty = True
             )
@@ -199,7 +205,6 @@ def plot_uncertainties_from_dict(
                 hists_uncertainty_compoments = hists_uncertainty_compoments,
                 label_total = group,
                 labels_component = component_labels,
-                color_total = syst_groups[group].get('color', 'black'),
                 highlight_dominant = False
             )
 
@@ -210,8 +215,8 @@ def plot_uncertainties_from_dict(
             hists_uncertainty_compoments = [(bin_uncertainties_dict[obs]['Total'][f'{grp}_up'], bin_uncertainties_dict[obs]['Total'][f'{grp}_down']) for grp in groups],
             label_total = "Total Syst.", #"Syst. + Stat.",
             labels_component = groups,
-            color_total = 'black',
-            colors_component = [], # [syst_groups[grp]['color'] for grp in groups]
+            #draw_opt_total = {},
+            draw_opts_comp = [syst_groups[grp].get('style',{}) for grp in groups],
             highlight_dominant = False
         )
 

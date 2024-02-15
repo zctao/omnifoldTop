@@ -271,65 +271,106 @@ syst_groups = {
     "JES" : {
         "label" : "JES/JER",
         "filters" : ["CategoryReduction_JET_", "weight_jvt"],
+        "style" : {
+            "edgecolor" : "red", "facecolor": "none", "linestyle": "-"
+        }
     },
     "BTag" : {
         "label" : "Flavor Tagging",
         "filters" : ["bTagSF_DL1r_"],
+        "style" : {
+            "edgecolor" : "grey", "facecolor": "none", "linestyle": "-"
+        }
     },
     "Lepton" : {
         "label" : "Lepton",
         "filters" : ["EG_", "MUON_", "leptonSF_"],
+        "style" : {
+            "edgecolor" : "red", "facecolor": "none", "linestyle": ":"
+        }
     },
     "MET" : {
         "label" : "$E_{\text{T}}^{\text{miss}}$",
         "filters" : ["MET_"],
+        "style" : {
+            "edgecolor" : "orange", "facecolor": "none", "linestyle": ":"
+        }
     },
-    "Background" : {
-        "label" : "Background",
-        "filters": ["singleTop_", "VV_", "ttV_", "Wjets_", "Zjets_", "fakes_"],
+    "Backgrounds" : {
+        "label" : "Backgrounds",
+        "filters" : ['singleTop_', 'VV_', 'ttV_', 'Wjets_', 'Zjets_', 'fakes_'],
+        "style" : {
+            "edgecolor" : "tab:cyan", "facecolor": "none", "linestyle": "-"
+        }
     },
     "Pileup" : {
         "label" : "Pileup",
-        "filters": ["pileup_UP", "pileup_DOWN"],
+        "filters" : ["pileup_UP", "pileup_DOWN"],
+        "style" : {
+            "edgecolor" : "tan", "facecolor": "none", "linestyle": "-"
+        }
     },
     "IFSR" : {
         "label" : "IFSR",
         "filters" : ['scale_mu','isr_','fsr_'],
+        "style" : {
+            "edgecolor" : "tab:purple", "facecolor": "none", "linestyle": "-."
+        }
     },
     "PDF" : {
         "label" : "PDF",
-        "filters" : ['PDF4LHC15_']
+        "filters" : ['PDF4LHC15_'],
+        "style" : {
+            "edgecolor" : "purple", "facecolor": "none", "linestyle": "-."
+        }
     },
     "MTop" : {
         "label" : "$m_{\text{t}}$",
-        "filters" : ["mtop_"]
+        "filters" : ["mtop_"],
+        "style" : {
+            "edgecolor" : "yellow", "facecolor": "none", "linestyle": "-"
+        }
     },
     "hdamp" : {
         "label" : "$h_{\text{damp}}$ variation",
-        "filters" : ["hdamp"]
+        "filters" : ["hdamp"],
+        "style" : {
+            "edgecolor" : "purple", "facecolor": "none", "linestyle": "--"
+        }
     },
     "Hadronization" : {
         "label" : "Hadronization",
-        "filters" : ["ps_hw"]
+        "filters" : ["ps_hw"],
+        "style" : {
+            "edgecolor" : "green", "facecolor": "none", "linestyle": "--"
+        }
     },
     "Generator" : {
         "label" : "Hard Scattering",
-        "filters" : ['generator_amc']
-    },
-    "Backgrounds" : {
-        "label" : "Backgrounds",
-        "filters" : ['singleTop_tW', 'singleTop_norm', 'VV_norm', 'ttV_norm', 'Wjets_norm', 'Zjets_norm', 'fakes_norm'],
+        "filters" : ['generator_amc'],
+        "style" : {
+            "edgecolor" : "blue", "facecolor": "none", "linestyle": "--"
+        }
     },
     "Lumi" : {
         "label" : "Luminosity",
-        "filters" : ['lumi']
+        "filters" : ['lumi'],
+        "style" : {
+            "edgecolor" : "yellow", "facecolor": "none", "linestyle": "-."
+        }
     },
     "Network" : {
         "label" : "Network",
-        "filters" : ['network']
+        "filters" : ['network'],
+        "style" : {
+            "edgecolor" : "tan", "facecolor": "none", "linestyle": "--"
+        }
     },
     "MCStat": {
         "label" : "MC Stat.",
+        "style" : {
+            "edgecolor" : "darkviolet", "facecolor": "none", "linestyle": "--"
+        }
     },
     # combined
     "Lepton+MET" : {
