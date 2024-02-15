@@ -1380,10 +1380,10 @@ def plot_uncertainties(
     # horizontal line at zero
     ax.axhline(y=0., color='black', linestyle='--', alpha=0.3)
 
-    ax.legend(loc='upper left')
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     if not os.path.isdir(os.path.dirname(figname)):
         os.makedirs(os.path.dirname(figname))
 
-    fig.savefig(figname+'.png', dpi=300)
+    fig.savefig(figname+'.png', dpi=300, bbox_inches="tight")
     plt.close(fig)
