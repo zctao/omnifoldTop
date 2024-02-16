@@ -8,7 +8,6 @@ import plotter
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
-from matplotlib.offsetbox import AnchoredText
 
 util.configRootLogger()
 logger = logging.getLogger("plotDiffXs")
