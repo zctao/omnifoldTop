@@ -247,6 +247,9 @@ class FlattenedHistogram2D(FlattenedHistogram):
         hflat.view()['value'] = flat_bin_values
         hflat.view()['variance'] = flat_bin_variances
 
+        # set axis label
+        hflat.axes[0].label = f"{self.get_xlabel()}_vs_{self.get_ylabel()}"
+
         return hflat
 
     def fromFlatArray(self, flat_bin_values, flat_bin_variances=None):
@@ -281,6 +284,25 @@ class FlattenedHistogram2D(FlattenedHistogram):
 
     def fromFlat(self, h_flat):
         self.fromFlatArray(h_flat.values(), h_flat.variances())
+
+    def get_x_category_labels(self):
+        categories_x = []
+        xname = self.get_xlabel()
+
+        for ybin in self:
+            xbin_edges = self.get_xbin_edges(ybin)
+            categories_x.append( [f"{xlow}$\leq${xname}$<${xhigh}" for xlow, xhigh in zip(xbin_edges[:-1], xbin_edges[1:])] )
+            #x_categories.append( [f"{xlow} - {xhigh}" for xlow, xhigh in zip(xbin_edges[:-1], xbin_edges[1:])] )
+
+        return categories_x
+
+    def get_y_category_labels(self):
+        ybin_edges = self.get_ybin_edges()
+        yname = self.get_ylabel()
+
+        categories_y = [f"{ylow}$\leq${yname}$<${yhigh}" for ylow, yhigh in zip(ybin_edges[:-1], ybin_edges[1:])]
+
+        return categories_y
 
     def scale(self, factor):
         self._yhist *= factor
@@ -828,6 +850,9 @@ class FlattenedHistogram3D(FlattenedHistogram):
         hflat.view()['value'] = flat_bin_values
         hflat.view()['variance'] = flat_bin_variances
 
+        # set axis label
+        hflat.axes[0].label = f"{self.get_xlabel()}_vs_{self.get_ylabel()}_vs_{self.get_zlabel()}"
+
         return hflat
 
     def fromFlatArray(self, flat_bin_values, flat_bin_variances=None):
@@ -874,6 +899,34 @@ class FlattenedHistogram3D(FlattenedHistogram):
 
     def fromFlat(self, h_flat):
         self.fromFlatArray(h_flat.values(), h_flat.variances())
+
+    def get_x_category_labels(self):
+        categories_x = []
+
+        for zbin in self:
+            categories_x.append(
+                self[zbin].get_x_category_labels()
+                )
+
+        return categories_x
+
+    def get_y_category_labels(self):
+        categories_y = []
+
+        for zbin in self:
+            categories_y.append(
+                self[zbin].get_y_category_labels()
+                )
+
+        return categories_y
+
+    def get_z_category_labels(self):
+        zbin_edges = self.get_zbin_edges()
+        zname = self.get_zlabel()
+
+        categories_z = [f"{zlow}$\leq${zname}$<${zhigh}" for zlow, zhigh in zip(zbin_edges[:-1], zbin_edges[1:])]
+
+        return categories_z
 
     def scale(self, factor):
         self._zhist *= factor
