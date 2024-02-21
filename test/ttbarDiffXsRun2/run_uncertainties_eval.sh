@@ -19,9 +19,9 @@ run_eval() {
 }
 
 # absolute
-run_eval abs
+#run_eval abs
 # relative
-run_eval rel --normalize
+#run_eval rel --normalize
 
 ### symmetrize
 # absolute
@@ -30,12 +30,12 @@ run_eval abs_sym --symmetrize
 run_eval rel_sym --normalize --symmetrize
 
 ### trim
-run_eval abs_trim_p005 --trim-threshold 0.005
+#run_eval abs_trim_p005 --trim-threshold 0.005
 # relative
-run_eval rel_trim_p001 --normalize --trim-threshold 0.001
+#run_eval rel_trim_p001 --normalize --trim-threshold 0.001
 
 ### trim and symmetrize
 # absolute
-run_eval abs_sym_trim_p005 --symmetrize --trim-threshold 0.005
+#run_eval abs_sym_trim_p005 --symmetrize --trim-threshold 0.005
 # relative
-run_eval rel_sym_trim_p001 --normalize --symmetrize --trim-threshold 0.001
+#run_eval rel_sym_trim_p001 --normalize --symmetrize --trim-threshold 0.001
