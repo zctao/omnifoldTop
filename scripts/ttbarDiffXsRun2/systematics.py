@@ -373,6 +373,20 @@ syst_groups = {
             "edgecolor" : "darkviolet", "facecolor": "none", "linestyle": "--"
         }
     },
+    "stat_total" : {
+        "label" : "Stat. Unc.",
+        "filters" : ['stat_total'],
+        "style" : {
+            "edgecolor" : "none", "facecolor": "black", "alpha": 0.25, "zorder" : -1
+        }
+    },
+    "Total" : {
+        "label" : "Syst.+Stat. Unc.",
+        "filters" : ['total'],
+        "style" : {
+            "edgecolor" : "none", "facecolor": "black", "alpha": 0.1, "zorder" : -2
+        }
+    },
     # combined
     "Lepton+MET" : {
         "label": "Lepton, $E_{\text{T}}^{\text{miss}}$",

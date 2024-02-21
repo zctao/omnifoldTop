@@ -266,6 +266,7 @@ def plot_uncertainties_from_dict(
 
         # For each uncertainty group
         for group in groups:
+            logger.info(f"Plot uncertainties: {group}")
 
             if not group in syst_groups:
                 logger.debug(f"{group} not in syst_groups. Skip.")
@@ -312,7 +313,7 @@ def plot_uncertainties_from_dict(
                 figname = os.path.join(output_dir, obs, f"{outname_prefix}_{obs}_{group}"),
                 hists_uncertainty_total = (h_grp_up, h_grp_down),
                 hists_uncertainty_compoments = hists_uncertainty_compoments,
-                label_total = group,
+                label_total = syst_groups[group].get('label', group),
                 labels_component = component_labels,
                 highlight_dominant = True,
                 uncertainty_on_uncertainty = False
@@ -322,7 +323,7 @@ def plot_uncertainties_from_dict(
                 figname = os.path.join(output_dir, obs, f"{outname_prefix}_{obs}_{group}_err"),
                 hists_uncertainty_total = (h_grp_up, h_grp_down),
                 hists_uncertainty_compoments = hists_uncertainty_compoments,
-                label_total = group,
+                label_total = syst_groups[group].get('label', group),
                 labels_component = component_labels,
                 highlight_dominant = True,
                 uncertainty_on_uncertainty = True
@@ -333,7 +334,7 @@ def plot_uncertainties_from_dict(
                 figname = os.path.join(output_dir, obs, f"{outname_prefix}_{obs}_{group}_allcomp"),
                 hists_uncertainty_total = (h_grp_up, h_grp_down),
                 hists_uncertainty_compoments = hists_uncertainty_compoments,
-                label_total = group,
+                label_total = syst_groups[group].get('label',group),
                 labels_component = component_labels,
                 highlight_dominant = False
             )
@@ -343,9 +344,9 @@ def plot_uncertainties_from_dict(
             figname = os.path.join(output_dir, obs, f"{outname_prefix}_{obs}_total"),
             hists_uncertainty_total = (bin_uncertainties_dict[obs]['Total']['total_up'], bin_uncertainties_dict[obs]['Total']['total_down']),
             hists_uncertainty_compoments = [(bin_uncertainties_dict[obs]['Total'][f'{grp}_up'], bin_uncertainties_dict[obs]['Total'][f'{grp}_down']) for grp in groups],
-            label_total = "Total Syst.", #"Syst. + Stat.",
-            labels_component = groups,
-            #draw_opt_total = {},
+            label_total = syst_groups['Total'].get('label','Total Unc.'),#"Total Syst."
+            labels_component = [syst_groups[grp].get('label',grp) for grp in groups],
+            draw_opt_total = syst_groups['Total'].get('style',{}),
             draw_opts_comp = [syst_groups[grp].get('style',{}) for grp in groups],
             highlight_dominant = False
         )

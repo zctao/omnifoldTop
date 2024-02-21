@@ -340,7 +340,7 @@ def update_dict_with_group_label(target_dict, component_dict, group_label):
 def compute_systematic_uncertainties(
     uncertainty_list,
     systematics_topdir,
-    histograms_nominal, # dict or "truth" or "prior"
+    histograms_central, # dict or "truth" or "prior"
     hist_filename = "histograms.root",
     every_run = False,
     ibu = False,
@@ -427,6 +427,80 @@ def compute_systematic_uncertainties(
                     )
 
     return syst_unc_d
+
+def compute_bootstrap_uncertainties(
+    bootstrap_topdir,
+    histograms_nominal_d = {}, # dict
+    uncertainty_label = 'stat',
+    hist_filename = "histograms.root",
+    ibu = False,
+    hist_key = 'unfolded',
+    observables = [],
+    boostrap_prefix = 'resamples',
+    nruns = None, # int; if None, take all available
+    ):
+
+    stat_unc_d = dict()
+
+    # Collect histograms from bootstraping
+    logger.debug(f" Collect histograms from {bootstrap_topdir}")
+    if nruns is None:
+        fpaths_hists = [os.path.join(bootstrap_topdir, dir_rs, hist_filename) for dir_rs in os.listdir(bootstrap_topdir) if os.path.isdir(os.path.join(bootstrap_topdir,dir_rs)) and boostrap_prefix in dir_rs]
+    else:
+        fpaths_hists = [os.path.join(bootstrap_topdir, f"{boostrap_prefix}{i}", hist_filename) for i in range(nruns)]
+
+    if not fpaths_hists:
+        logger.error(f" No histogram found under '{bootstrap_topdir}' with subdirectory prefix '{boostrap_prefix}' and histogram name '{hist_filename}'")
+        return stat_unc_d
+
+    hists_dict_bootstrap = [myhu.read_histograms_dict_from_file(fpath) for fpath in fpaths_hists]
+
+    def extract_relative_errors(ahist, refhist=None):
+        if refhist:
+            relerr = np.sqrt(ahist.variances()) / refhist.values()
+        else:
+            relerr = np.sqrt(ahist.variances()) / ahist.values()
+
+        hist_relerr = ahist.copy()
+        myhu.set_hist_contents(hist_relerr, relerr)
+        hist_relerr.view()['variance'] = 0.
+
+        return hist_relerr
+
+    # loop over observables
+    if not observables:
+        observables = list(hists_dict_bootstrap[0].keys())
+
+    for obs in observables:
+        logger.debug(f" {obs}")
+        if not obs in stat_unc_d:
+            stat_unc_d[obs] = dict()
+
+        # get the unfolded distributions
+        hists_rs = [get_unfolded_histogram_from_dict(obs, h_dict, ibu=ibu, hist_key=hist_key) for h_dict in hists_dict_bootstrap]
+
+        # compute bin standard deviation
+        h_ref = get_unfolded_histogram_from_dict(obs, histograms_nominal_d, ibu=ibu, hist_key=hist_key) if histograms_nominal_d else None
+
+        if isinstance(hists_rs[0], fh.FlattenedHistogram):
+            hist_average = fh.average_histograms(hists_rs, standard_error_of_the_mean=False)
+
+            hist_relerr_flat = extract_relative_errors(
+                hist_average.flatten(), h_ref.flatten()
+                )
+
+            hist_relerr = hist_average.copy()
+            hist_relerr.fromFlat(hist_relerr_flat)
+            stat_unc_d[obs][uncertainty_label] = hist_relerr
+
+        else:
+            hist_average = myhu.average_histograms(hists_rs, standard_error_of_the_mean=False)
+
+            stat_unc_d[obs][uncertainty_label] = extract_relative_errors(
+                hist_average, h_ref
+                )
+
+    return stat_unc_d
 
 def evaluate_uncertainties(
     nominal_dir, # str, directory of the nominal unfolding results
@@ -579,10 +653,10 @@ def evaluate_uncertainties(
     if bootstrap_topdir:
         logger.info(f"Uncertainty: Data stat.")
 
-        bin_errors_Dstat_d = extract_bin_uncertainties_from_histograms(
+        bin_errors_Dstat_d = compute_bootstrap_uncertainties(
             bootstrap_topdir,
             uncertainty_label = "data_stat",
-            histograms_nominal_d = None,
+            histograms_nominal_d = None, # TODO?
             hist_filename = hist_filename,
             ibu = ibu,
             hist_key = hist_key,
@@ -599,10 +673,10 @@ def evaluate_uncertainties(
     if bootstrap_mc_topdir:
         logger.info(f"Uncertainty: MC stat.")
 
-        bin_errors_MCstat_d = extract_bin_uncertainties_from_histograms(
+        bin_errors_MCstat_d = compute_bootstrap_uncertainties(
             bootstrap_mc_topdir,
             uncertainty_label = "mc_stat",
-            histograms_nominal_d = None,
+            histograms_nominal_d = None, # TODO?
             hist_filename = hist_filename,
             ibu = ibu,
             hist_key = hist_key,
@@ -616,7 +690,7 @@ def evaluate_uncertainties(
 
         stat_unc_comp.append("mc_stat")
 
-    update_dict_with_group_label(bin_uncertainties_d, bin_err_stat_d, "Stat")
+    update_dict_with_group_label(bin_uncertainties_d, bin_err_stat_d, "stat_total")
 
     # Total stat uncertainty
     if stat_unc_comp:
