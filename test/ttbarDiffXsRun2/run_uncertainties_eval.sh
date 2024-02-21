@@ -4,8 +4,7 @@ fpath_syst="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2023Dec06/"
 fpath_network="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2023Dec06/central/"
 output_topdir="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2023Dec06/uncertainties"
 
-#groups="JES BTag Lepton MET Pileup IFSR MTop"
-groups="JES BTag Lepton MET Pileup IFSR MTop hdamp Hadronization Generator Backgrounds"
+groups="JES BTag Lepton MET Pileup IFSR PDF MTop hdamp Hadronization Generator Backgrounds"
 
 #common_args="${fpath_central} -s ${fpath_syst} -t ${fpath_network} -p -v -g ${groups} --observables th_pt th_y tl_pt tl_y mtt ptt ytt ytt_abs th_y_abs"
 common_args="${fpath_central} -s ${fpath_syst} -t ${fpath_network} -p -v -g ${groups}"
