@@ -1035,7 +1035,7 @@ if __name__ == "__main__":
         "iterations" : 3,
         "batch_size" : 500000,
         "normalize" : False,
-        "nruns" : 7,
+        "nruns" : 8,
         "parallel_models" : 3,
         "resample_data" : False,
         "correct_acceptance" : True,
