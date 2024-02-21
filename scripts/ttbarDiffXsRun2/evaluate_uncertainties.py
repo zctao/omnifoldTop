@@ -93,7 +93,7 @@ def extract_bin_uncertainties_from_histograms(
             # get the nominal histogram values
             h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, ibu, hist_key=hist_key)
             if isinstance(h_nominal, fh.FlattenedHistogram):
-                values = h_nominal.flatten()
+                values = h_nominal.flatten().values()
             else:
                 values = h_nominal.values()
 
@@ -386,12 +386,12 @@ def compute_systematic_uncertainties(
                     raise KeyError(ex)
 
             # get the central distributions
-            if histograms_nominal == 'truth':
+            if histograms_central == 'truth':
                 h_nominal = hists_syst_d[ob].get('truth')
-            elif histograms_nominal == 'prior':
+            elif histograms_central == 'prior':
                 h_nominal = hists_syst_d[ob].get('prior')
             else:
-                h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal, ibu=ibu, hist_key=hist_key)
+                h_nominal = get_unfolded_histogram_from_dict(ob, histograms_central, ibu=ibu, hist_key=hist_key)
 
             if not h_nominal:
                 logger.error(f"No central distribtion for {ob}")
@@ -413,7 +413,7 @@ def compute_systematic_uncertainties(
                 syst_unc_d[ob][f"{syst_variation}_allruns"] = list()
 
                 h_syst_allruns = hists_syst_d[ob].get('unfolded_allruns')
-                h_nominal_allruns = histograms_nominal[ob].get('unfolded_allruns')
+                h_nominal_allruns = histograms_central[ob].get('unfolded_allruns')
 
                 for h_syst_i, h_nominal_i in zip(h_syst_allruns, h_nominal_allruns):
                     if normalize:
@@ -520,7 +520,7 @@ def evaluate_uncertainties(
             bin_err_grp_d = compute_systematic_uncertainties(
                 grp_systs,
                 systematics_topdir,
-                histograms_nominal = h_central,
+                histograms_central = h_central,
                 hist_filename = hist_filename,
                 every_run = systematics_everyrun,
                 ibu = ibu,
