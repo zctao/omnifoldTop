@@ -42,12 +42,17 @@ python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/run_uncertainties.py \
     histogram \
     --observables-multidim ${observables_multidim}
 
-echo
-echo "Evaluate uncertainties"
+#####
+#echo
+#echo "Evaluate uncertainties"
+#python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/run_uncertainties.py \
+#    -k ${systematics_filter} \
+#    -r ${outdir} \
+#    -v \
+#    evaluate \
+#    -c central
 
-python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/run_uncertainties.py \
-    -k ${systematics_filter} \
-    -r ${outdir} \
-    -v \
-    evaluate \
-    -c central
+# Instead run 
+# test/ttbarDiffXsRun2/run_uncertainties_eval.sh
+# and 
+# test/ttbarDiffXsRun2/run_uncertainties_replot.sh

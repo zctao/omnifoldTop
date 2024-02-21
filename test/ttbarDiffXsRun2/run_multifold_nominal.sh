@@ -56,6 +56,6 @@ python ${SOURCE_DIR}/scripts/make_histograms.py ${result_dir} \
     --binning-config ${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json \
     --observables $observables \
     --binned-correction ${fpath_histogram} --recompute-corrections \
-    --include-ibu --compute-metrics -pp -v
+    --include-ibu --compute-metrics -pp -v \
+    --observables-multidim ${observables_multidim}
     # --binned-noflow
-    # --observables-multidim ${observables_multidim}
