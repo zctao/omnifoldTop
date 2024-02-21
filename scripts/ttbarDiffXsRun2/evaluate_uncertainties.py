@@ -525,7 +525,7 @@ def evaluate_uncertainties(
                 every_run = systematics_everyrun,
                 ibu = ibu,
                 hist_key = hist_key,
-                normalize = normalize,
+                normalize = normalize or syst_groups[grp].get("shape_only", False),
                 observables = observables,
                 scale_err = 1/7. if grp in ["MTop"] else 1.
             )

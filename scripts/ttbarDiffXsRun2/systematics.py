@@ -322,7 +322,8 @@ syst_groups = {
         "filters" : ['PDF4LHC15_'],
         "style" : {
             "edgecolor" : "purple", "facecolor": "none", "linestyle": "-."
-        }
+        },
+        "shape_only" : True
     },
     "MTop" : {
         "label" : "$m_{\text{t}}$",
