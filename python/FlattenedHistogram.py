@@ -572,7 +572,7 @@ class FlattenedHistogram2D(FlattenedHistogram):
         return h_inst
 
     @staticmethod
-    def average(histograms_list):
+    def average(histograms_list, standard_error_of_the_mean=True):
         if not histograms_list:
             return None
 
@@ -582,10 +582,10 @@ class FlattenedHistogram2D(FlattenedHistogram):
         else:
             h_average = histograms_list[0].copy()
 
-            h_average._yhist = myhu.average_histograms([h._yhist for h in histograms_list])
+            h_average._yhist = myhu.average_histograms([h._yhist for h in histograms_list], standard_error_of_the_mean)
 
             for ybin_label in h_average._xhists:
-                h_average._xhists[ybin_label] = myhu.average_histograms([h._xhists[ybin_label] for h in histograms_list])
+                h_average._xhists[ybin_label] = myhu.average_histograms([h._xhists[ybin_label] for h in histograms_list], standard_error_of_the_mean)
 
             return h_average
 
@@ -1135,7 +1135,7 @@ class FlattenedHistogram3D(FlattenedHistogram):
         return h_inst
 
     @staticmethod
-    def average(histograms_list):
+    def average(histograms_list, standard_error_of_the_mean=True):
         if not histograms_list:
             return None
 
@@ -1145,10 +1145,10 @@ class FlattenedHistogram3D(FlattenedHistogram):
         else:
             h_average = histograms_list[0].copy()
 
-            h_average._zhist = myhu.average_histograms([h._zhist for h in histograms_list])
+            h_average._zhist = myhu.average_histograms([h._zhist for h in histograms_list], standard_error_of_the_mean)
 
             for zbin_label in h_average._xyhists:
-                h_average._xyhists[zbin_label] = FlattenedHistogram2D.average([h._xyhists[zbin_label] for h in histograms_list])
+                h_average._xyhists[zbin_label] = FlattenedHistogram2D.average([h._xyhists[zbin_label] for h in histograms_list], standard_error_of_the_mean)
 
             return h_average
 
@@ -1230,14 +1230,14 @@ class FlattenedResponse():
 
         return h_inst
 
-def average_histograms(histograms_list):
+def average_histograms(histograms_list, standard_error_of_the_mean=True):
     if not histograms_list:
         return None
     elif len(histograms_list) == 1:
         return histograms_list[0]
     elif all([isinstance(h, FlattenedHistogram2D) for h in histograms_list]):
-        return FlattenedHistogram2D.average(histograms_list)
+        return FlattenedHistogram2D.average(histograms_list, standard_error_of_the_mean)
     elif all([isinstance(h, FlattenedHistogram3D) for h in histograms_list]):
-        return FlattenedHistogram3D.average(histograms_list)
+        return FlattenedHistogram3D.average(histograms_list, standard_error_of_the_mean)
     else:
         raise RuntimeError("Don't know how to average")
