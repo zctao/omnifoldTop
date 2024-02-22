@@ -266,8 +266,8 @@ def get_systematics(
     else:
         return syst_list
 
-# systematic uncertainty groups
-syst_groups = {
+# uncertainty groups
+uncertainty_groups = {
     "JES" : {
         "label" : "JES/JER",
         "filters" : ["CategoryReduction_JET_", "weight_jvt"],

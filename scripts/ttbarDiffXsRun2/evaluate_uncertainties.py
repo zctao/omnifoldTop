@@ -8,7 +8,7 @@ import FlattenedHistogram as fh
 from ttbarDiffXsRun2.plot_uncertainties import plot_uncertainties_from_dict
 
 # systematic uncertainties
-from ttbarDiffXsRun2.systematics import get_systematics, syst_groups
+from ttbarDiffXsRun2.systematics import get_systematics, uncertainty_groups
 
 import logging
 logger = logging.getLogger('EvaluateUncertainties')
@@ -564,18 +564,18 @@ def evaluate_uncertainties(
 
         # Compute syst uncertainties in groups
         if not systematics_groups:
-            systematics_groups = list(syst_groups.keys())
+            systematics_groups = list(uncertainty_groups.keys())
 
         for grp in systematics_groups:
-            if not grp in syst_groups:
+            if not grp in uncertainty_groups:
                 logger.error(f"Unknow uncertainty group {grp}")
                 continue
 
             logger.info(f"Uncertainty group: {grp}")
 
             # Use the keyword filters of the group to select the uncertainties
-            grp_systs = get_systematics(syst_groups[grp]["filters"])
-            grp_systs_pair = get_systematics(syst_groups[grp]["filters"], list_of_tuples=True)
+            grp_systs = get_systematics(uncertainty_groups[grp]["filters"])
+            grp_systs_pair = get_systematics(uncertainty_groups[grp]["filters"], list_of_tuples=True)
 
             # In case there is a global keyword list, take the intersection
             if all_systs is not None:
@@ -599,7 +599,7 @@ def evaluate_uncertainties(
                 every_run = systematics_everyrun,
                 ibu = ibu,
                 hist_key = hist_key,
-                normalize = normalize or syst_groups[grp].get("shape_only", False),
+                normalize = normalize or uncertainty_groups[grp].get("shape_only", False),
                 observables = observables,
                 scale_err = 1/7. if grp in ["MTop"] else 1.
             )

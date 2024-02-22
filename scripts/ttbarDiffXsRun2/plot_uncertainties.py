@@ -8,7 +8,7 @@ import histogramming as myhu
 import FlattenedHistogram as fh
 
 # systematic uncertainties
-from ttbarDiffXsRun2.systematics import get_systematics, syst_groups
+from ttbarDiffXsRun2.systematics import get_systematics, uncertainty_groups
 
 import logging
 logger = logging.getLogger('PlotUncertainties')
@@ -268,8 +268,8 @@ def plot_uncertainties_from_dict(
         for group in groups:
             logger.info(f"Plot uncertainties: {group}")
 
-            if not group in syst_groups:
-                logger.debug(f"{group} not in syst_groups. Skip.")
+            if not group in uncertainty_groups:
+                logger.debug(f"{group} not in uncertainty_groups. Skip.")
                 continue
 
             # group total
@@ -284,7 +284,7 @@ def plot_uncertainties_from_dict(
             hists_uncertainty_compoments = []
             component_labels = []
 
-            for comp_unc in get_systematics(syst_groups[group]['filters'], list_of_tuples=True):
+            for comp_unc in get_systematics(uncertainty_groups[group]['filters'], list_of_tuples=True):
                 if len(comp_unc) == 1:
                     # symmetric
                     comp_var = comp_unc[0]
@@ -313,7 +313,7 @@ def plot_uncertainties_from_dict(
                 figname = os.path.join(output_dir, obs, f"{outname_prefix}_{obs}_{group}"),
                 hists_uncertainty_total = (h_grp_up, h_grp_down),
                 hists_uncertainty_compoments = hists_uncertainty_compoments,
-                label_total = syst_groups[group].get('label', group),
+                label_total = uncertainty_groups[group].get('label', group),
                 labels_component = component_labels,
                 highlight_dominant = True,
                 uncertainty_on_uncertainty = False
@@ -323,7 +323,7 @@ def plot_uncertainties_from_dict(
                 figname = os.path.join(output_dir, obs, f"{outname_prefix}_{obs}_{group}_err"),
                 hists_uncertainty_total = (h_grp_up, h_grp_down),
                 hists_uncertainty_compoments = hists_uncertainty_compoments,
-                label_total = syst_groups[group].get('label', group),
+                label_total = uncertainty_groups[group].get('label', group),
                 labels_component = component_labels,
                 highlight_dominant = True,
                 uncertainty_on_uncertainty = True
@@ -334,7 +334,7 @@ def plot_uncertainties_from_dict(
                 figname = os.path.join(output_dir, obs, f"{outname_prefix}_{obs}_{group}_allcomp"),
                 hists_uncertainty_total = (h_grp_up, h_grp_down),
                 hists_uncertainty_compoments = hists_uncertainty_compoments,
-                label_total = syst_groups[group].get('label',group),
+                label_total = uncertainty_groups[group].get('label',group),
                 labels_component = component_labels,
                 highlight_dominant = False
             )
@@ -344,10 +344,10 @@ def plot_uncertainties_from_dict(
             figname = os.path.join(output_dir, obs, f"{outname_prefix}_{obs}_total"),
             hists_uncertainty_total = (bin_uncertainties_dict[obs]['Total']['total_up'], bin_uncertainties_dict[obs]['Total']['total_down']),
             hists_uncertainty_compoments = [(bin_uncertainties_dict[obs]['Total'][f'{grp}_up'], bin_uncertainties_dict[obs]['Total'][f'{grp}_down']) for grp in groups],
-            label_total = syst_groups['Total'].get('label','Total Unc.'),#"Total Syst."
-            labels_component = [syst_groups[grp].get('label',grp) for grp in groups],
-            draw_opt_total = syst_groups['Total'].get('style',{}),
-            draw_opts_comp = [syst_groups[grp].get('style',{}) for grp in groups],
+            label_total = uncertainty_groups['Total'].get('label','Total Unc.'),#"Total Syst."
+            labels_component = [uncertainty_groups[grp].get('label',grp) for grp in groups],
+            draw_opt_total = uncertainty_groups['Total'].get('style',{}),
+            draw_opts_comp = [uncertainty_groups[grp].get('style',{}) for grp in groups],
             highlight_dominant = False
         )
 
