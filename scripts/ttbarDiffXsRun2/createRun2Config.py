@@ -823,11 +823,14 @@ def write_config_stress(
     if not fpath_reweights:
         print("WARNING cannot generate run config for data induced stress test: no external weight files are provided.")
     else:
+        # get the real paths
+        fpath_reweights_real = [os.path.realpath(fp) for fp in fpath_reweights]
+
         # reweighted signal MC as pseudo-data
         stress_data_cfg = stress_common_cfg.copy()
         stress_data_cfg.update({
             "outputdir": os.path.join(output_top_dir, f"stress_data"),
-            "weight_data": f"external:{','.join(fpath_reweights)}",
+            "weight_data": f"external:{','.join(fpath_reweights_real)}",
             "weight_mc": "nominal"
         })
 
@@ -846,7 +849,7 @@ def write_config_stress(
             "correct_acceptance": True,
             "truth_known": False,
             "weight_data": "nominal",
-            "weight_mc": f"external:{','.join(fpath_reweights)}"
+            "weight_mc": f"external:{','.join(fpath_reweights_real)}"
         })
 
         # write run config to file
@@ -866,6 +869,9 @@ def write_config_stress_binned(
     if not fpath_reweights:
         print("ERROR cannot generate run config for data induced stress test: no external weight files are provided.")
     else:
+        # get the real paths
+        fpath_reweights_real = [os.path.realpath(fp) for fp in fpath_reweights]
+
         sig_nominal = get_samples_signal(sample_local_dir, category, subcampaigns)
 
         observables = common_cfg["observables"]
@@ -890,7 +896,7 @@ def write_config_stress_binned(
                 "truth_known": True,
                 "observables": [obs],
                 "outputdir": os.path.join(output_dir, obs),
-                "weight_data": f"external:{','.join(fpath_reweights)}",
+                "weight_data": f"external:{','.join(fpath_reweights_real)}",
                 "weight_mc": "nominal"
             })
 
@@ -1035,7 +1041,7 @@ if __name__ == "__main__":
         "iterations" : 3,
         "batch_size" : 500000,
         "normalize" : False,
-        "nruns" : 7,
+        "nruns" : 8,
         "parallel_models" : 3,
         "resample_data" : False,
         "correct_acceptance" : True,

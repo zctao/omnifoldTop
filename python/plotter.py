@@ -137,7 +137,11 @@ def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045, **opts):
             ax.text(x, y-i*dy, txt, **textopts)
 
 def draw_text(ax, texts, loc='center', prop={'size':5}, frameon=False, **kwargs):
-    txt_str = '\n'.join(texts)
+    if isinstance(texts, list):
+        txt_str = '\n'.join(texts)
+    else:
+        txt_str = texts
+
     at = AnchoredText(txt_str, loc=loc, prop=prop, frameon=frameon, **kwargs)
     ax.add_artist(at)
 
@@ -1327,16 +1331,95 @@ def plot_response(figname, histogram2d, variable, title='Detector Response', per
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
 
-def plot_uncertainties(
-    figname,
-    bins, # bin edges
-    uncertainties, # list of (error_up, error_donw) for uncertainties
+def draw_uncertainties_hist(
+    ax,
+    hists_uncertainty, # list of tuple of hist.Hist
     draw_options=None,
+    bin_labels=None,
     xlabel=None,
-    ylabel=None
+    ylabel=None,
+    stamps=[],
+    draw_legend=True,
+    draw_error_on_error=False
     ):
 
-    fig, ax = plt.subplots()
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
+    if ylabel is not None:
+        ax.set_ylabel(ylabel)
+
+    if not draw_options:
+        draw_options = [{}]*len(hists_uncertainty)
+
+    if not hasattr(draw_error_on_error, '__len__'):
+        draw_error_on_error = [draw_error_on_error] * len(hists_uncertainty)
+    else:
+        assert len(draw_error_on_error) == len(hists_uncertainty)
+
+    for hist_err, opt, draw_err in zip(hists_uncertainty, draw_options, draw_error_on_error):
+        if not isinstance(hist_err, tuple):
+            # if symmetric
+            h_err_t = (hist_err, -1*hist_err)
+        else:
+            h_err_t = hist_err
+
+        err1 = h_err_t[0].values()
+        err2 = h_err_t[1].values()
+        if draw_err:
+            err1_err = np.sqrt(h_err_t[0].variances())
+            err2_err = np.sqrt(h_err_t[1].variances())
+
+        # append the error array with its last entry
+        err1 = np.append(err1, err1[-1])
+        err2 = np.append(err2, err2[-1])
+        if draw_err:
+            err1_err = np.append(err1_err, err1_err[-1])
+            err2_err = np.append(err2_err, err2_err[-1])
+
+        if bin_labels is None:
+            xpoints = h_err_t[0].axes[0].edges
+        else:
+            # equal bin size
+            xpoints = np.array(range(len(bin_labels)+1))
+
+        if draw_err:
+            ax.fill_between(xpoints, err1-err1_err, err1+err1_err, step='post', facecolor='none', edgecolor='gray', hatch='///', alpha=0.5)
+            ax.fill_between(xpoints, err2-err2_err, err2+err2_err, step='post', facecolor='none', edgecolor='gray', hatch='///', alpha=0.5)
+
+        ax.fill_between(xpoints, err1, err2, step='post', **opt)
+
+    # horizontal line at zero
+    ax.axhline(y=0., color='black', linestyle='--', alpha=0.3)
+
+    if draw_legend:
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+    if stamps:
+        draw_text(ax, stamps, prop={'size':7}, loc='upper left')
+
+    if bin_labels:
+        # Hide original major tick labels
+        ax.set_xticklabels('')
+        # Add the bin labels as minor tick labels at the center of each bin
+        ax.set_xticks(
+            xpoints[:-1] + (xpoints[1:]-xpoints[:-1])/2,
+            labels = bin_labels,
+            minor = True,
+            rotation = 90,
+            fontsize=7
+            )
+
+    return ax
+
+def draw_uncertainties(
+    ax,
+    bins,
+    uncertainties,
+    draw_options=None,
+    xlabel=None,
+    ylabel=None,
+    stamps=[]
+    ):
 
     if xlabel is not None:
         ax.set_xlabel(xlabel)
@@ -1354,23 +1437,57 @@ def plot_uncertainties(
         else:
             err_t = err
 
-        assert(len(err_t)==2)
-
+        assert len(err_t)>=2
         if len(err_t[0]) == len(bins) - 1:
             # append the error array with its last entry
-            err_t = ( np.append(err_t[0], err_t[0][-1]),
-                      np.append(err_t[1], err_t[1][-1]) )
+            err_t = tuple(np.append(e, e[-1]) for e in err_t)
 
         # draw
-        ax.fill_between(bins, *err_t, step='post', **opt)
+        # error band if needed
+        if len(err) > 2:
+            err_1 = err_t[2]
+            if len(err) > 3:
+                err_2 = err_t[3]
+            else:
+                err_2 = err_1
+
+            ax.fill_between(bins, err_t[0]-err_1, err_t[0]+err_1, step='post', facecolor='none', edgecolor='gray', hatch='///', alpha=0.5)
+            ax.fill_between(bins, err_t[1]-err_2, err_t[1]+err_2, step='post', facecolor='none', edgecolor='gray', hatch='///', alpha=0.5)
+
+        ax.fill_between(bins, err_t[0], err_t[1], step='post', **opt)
 
     # horizontal line at zero
     ax.axhline(y=0., color='black', linestyle='--', alpha=0.3)
 
-    ax.legend(loc='upper left')
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+    if stamps:
+        draw_text(ax, stamps, loc='lower right')
+
+    return ax
+
+def plot_uncertainties(
+    figname,
+    bins, # bin edges
+    uncertainties, # list of (error_up, error_donw) for uncertainties
+    draw_options=None,
+    xlabel=None,
+    ylabel=None,
+    stamps=[]
+    ):
+
+    fig, ax = plt.subplots()
+
+    draw_uncertainties(
+        ax, bins, uncertainties,
+        draw_options=draw_options,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        stamps=stamps
+        )
 
     if not os.path.isdir(os.path.dirname(figname)):
         os.makedirs(os.path.dirname(figname))
 
-    fig.savefig(figname+'.png', dpi=300)
+    fig.savefig(figname+'.png', dpi=300, bbox_inches="tight")
     plt.close(fig)

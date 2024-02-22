@@ -10,7 +10,10 @@ import logging
 logger = logging.getLogger('FlattenedHistogram')
 logger.setLevel(logging.INFO)
 
-class FlattenedHistogram2D():
+class FlattenedHistogram():
+    pass
+
+class FlattenedHistogram2D(FlattenedHistogram):
     def __init__(
         self,
         binning_d={}, # dict, binning dictionary
@@ -81,6 +84,29 @@ class FlattenedHistogram2D():
             self[ybin_label] += other_fh2d[ybin_label]
 
         return self
+
+    def __sub__(self, other_fh2d):
+        new_fh2d = self.copy()
+        new_fh2d._yhist -= other_fh2d._yhist
+
+        for ybin_label in self:
+            new_fh2d[ybin_label] -= other_fh2d[ybin_label]
+
+        return new_fh2d
+
+    def __mul__(self, other):
+        if isinstance(other, float) or isinstance(other, int):
+            new_fh2d = self.copy()
+            new_fh2d.scale(other)
+            return new_fh2d
+        elif type(other) is type(self):
+            new_fh2d = self.copy()
+            new_fh2d.multiply(other)
+            return new_fh2d
+        else:
+            raise ValueError(f"unsupported operand for type {type(other)}")
+
+    __rmul__ = __mul__
 
     def reset(self):
         self._yhist.reset()
@@ -221,11 +247,15 @@ class FlattenedHistogram2D():
         hflat.view()['value'] = flat_bin_values
         hflat.view()['variance'] = flat_bin_variances
 
+        # set axis label
+        hflat.axes[0].label = f"{self.get_xlabel()}_vs_{self.get_ylabel()}"
+
         return hflat
 
-    def fromFlat(self, h_flat):
-        flat_bin_values = h_flat.values()
-        flat_bin_variances = h_flat.variances()
+    def fromFlatArray(self, flat_bin_values, flat_bin_variances=None):
+
+        if flat_bin_variances is None:
+            flat_bin_variances = np.zeros_like(flat_bin_values)
 
         y_bin_values = []
         y_bin_variances = []
@@ -251,6 +281,28 @@ class FlattenedHistogram2D():
 
         self._yhist.view()['value'] = y_bin_values
         self._yhist.view()['variance'] = y_bin_variances
+
+    def fromFlat(self, h_flat):
+        self.fromFlatArray(h_flat.values(), h_flat.variances())
+
+    def get_x_category_labels(self):
+        categories_x = []
+        xname = self.get_xlabel()
+
+        for ybin in self:
+            xbin_edges = self.get_xbin_edges(ybin)
+            categories_x.append( [f"{xlow}$\leq${xname}$<${xhigh}" for xlow, xhigh in zip(xbin_edges[:-1], xbin_edges[1:])] )
+            #x_categories.append( [f"{xlow} - {xhigh}" for xlow, xhigh in zip(xbin_edges[:-1], xbin_edges[1:])] )
+
+        return categories_x
+
+    def get_y_category_labels(self):
+        ybin_edges = self.get_ybin_edges()
+        yname = self.get_ylabel()
+
+        categories_y = [f"{ylow}$\leq${yname}$<${yhigh}" for ylow, yhigh in zip(ybin_edges[:-1], ybin_edges[1:])]
+
+        return categories_y
 
     def scale(self, factor):
         self._yhist *= factor
@@ -520,7 +572,7 @@ class FlattenedHistogram2D():
         return h_inst
 
     @staticmethod
-    def average(histograms_list):
+    def average(histograms_list, standard_error_of_the_mean=True):
         if not histograms_list:
             return None
 
@@ -530,10 +582,10 @@ class FlattenedHistogram2D():
         else:
             h_average = histograms_list[0].copy()
 
-            h_average._yhist = myhu.average_histograms([h._yhist for h in histograms_list])
+            h_average._yhist = myhu.average_histograms([h._yhist for h in histograms_list], standard_error_of_the_mean)
 
             for ybin_label in h_average._xhists:
-                h_average._xhists[ybin_label] = myhu.average_histograms([h._xhists[ybin_label] for h in histograms_list])
+                h_average._xhists[ybin_label] = myhu.average_histograms([h._xhists[ybin_label] for h in histograms_list], standard_error_of_the_mean)
 
             return h_average
 
@@ -550,7 +602,7 @@ class FlattenedHistogram2D():
                 # keep looking
                 FlattenedHistogram2D.convert_in_dict(hists_dict[k])
 
-class FlattenedHistogram3D():
+class FlattenedHistogram3D(FlattenedHistogram):
     def __init__(
         self,
         binning_d={}, # dict, binning dictionary
@@ -619,6 +671,29 @@ class FlattenedHistogram3D():
             self[zbin_label] += other_fh3d[zbin_label]
 
         return self
+
+    def __sub__(self, other_fh3d):
+        new_fh3d = self.copy()
+        new_fh3d._zhist -= other_fh3d._zhist
+
+        for zbin_label in new_fh3d:
+            new_fh3d[zbin_label] -= other_fh3d[zbin_label]
+
+        return new_fh3d
+
+    def __mul__(self, other):
+        if isinstance(other, float) or isinstance(other, int):
+            new_fh3d = self.copy()
+            new_fh3d.scale(other)
+            return new_fh3d
+        elif type(other) is type(self):
+            new_fh3d = self.copy()
+            new_fh3d.multiply(other)
+            return new_fh3d
+        else:
+            raise ValueError(f"unsupported operand for type {type(other)}")
+
+    __rmul__ = __mul__
 
     def reset(self):
         self._zhist.reset()
@@ -775,11 +850,15 @@ class FlattenedHistogram3D():
         hflat.view()['value'] = flat_bin_values
         hflat.view()['variance'] = flat_bin_variances
 
+        # set axis label
+        hflat.axes[0].label = f"{self.get_xlabel()}_vs_{self.get_ylabel()}_vs_{self.get_zlabel()}"
+
         return hflat
 
-    def fromFlat(self, h_flat):
-        flat_bin_values = h_flat.values()
-        flat_bin_variances = h_flat.variances()
+    def fromFlatArray(self, flat_bin_values, flat_bin_variances=None):
+
+        if flat_bin_variances is None:
+            flat_bin_variances = np.zeros_like(flat_bin_values)
 
         z_bin_values = []
         z_bin_variances = []
@@ -817,6 +896,37 @@ class FlattenedHistogram3D():
 
         self._zhist.view()['value'] = z_bin_values
         self._zhist.view()['variance'] = z_bin_variances
+
+    def fromFlat(self, h_flat):
+        self.fromFlatArray(h_flat.values(), h_flat.variances())
+
+    def get_x_category_labels(self):
+        categories_x = []
+
+        for zbin in self:
+            categories_x.append(
+                self[zbin].get_x_category_labels()
+                )
+
+        return categories_x
+
+    def get_y_category_labels(self):
+        categories_y = []
+
+        for zbin in self:
+            categories_y.append(
+                self[zbin].get_y_category_labels()
+                )
+
+        return categories_y
+
+    def get_z_category_labels(self):
+        zbin_edges = self.get_zbin_edges()
+        zname = self.get_zlabel()
+
+        categories_z = [f"{zlow}$\leq${zname}$<${zhigh}" for zlow, zhigh in zip(zbin_edges[:-1], zbin_edges[1:])]
+
+        return categories_z
 
     def scale(self, factor):
         self._zhist *= factor
@@ -1025,7 +1135,7 @@ class FlattenedHistogram3D():
         return h_inst
 
     @staticmethod
-    def average(histograms_list):
+    def average(histograms_list, standard_error_of_the_mean=True):
         if not histograms_list:
             return None
 
@@ -1035,10 +1145,10 @@ class FlattenedHistogram3D():
         else:
             h_average = histograms_list[0].copy()
 
-            h_average._zhist = myhu.average_histograms([h._zhist for h in histograms_list])
+            h_average._zhist = myhu.average_histograms([h._zhist for h in histograms_list], standard_error_of_the_mean)
 
             for zbin_label in h_average._xyhists:
-                h_average._xyhists[zbin_label] = FlattenedHistogram2D.average([h._xyhists[zbin_label] for h in histograms_list])
+                h_average._xyhists[zbin_label] = FlattenedHistogram2D.average([h._xyhists[zbin_label] for h in histograms_list], standard_error_of_the_mean)
 
             return h_average
 
@@ -1120,14 +1230,14 @@ class FlattenedResponse():
 
         return h_inst
 
-def average_histograms(histograms_list):
+def average_histograms(histograms_list, standard_error_of_the_mean=True):
     if not histograms_list:
         return None
     elif len(histograms_list) == 1:
         return histograms_list[0]
     elif all([isinstance(h, FlattenedHistogram2D) for h in histograms_list]):
-        return FlattenedHistogram2D.average(histograms_list)
+        return FlattenedHistogram2D.average(histograms_list, standard_error_of_the_mean)
     elif all([isinstance(h, FlattenedHistogram3D) for h in histograms_list]):
-        return FlattenedHistogram3D.average(histograms_list)
+        return FlattenedHistogram3D.average(histograms_list, standard_error_of_the_mean)
     else:
         raise RuntimeError("Don't know how to average")

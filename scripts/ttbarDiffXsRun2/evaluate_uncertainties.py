@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 import os
-
-import histogramming as myhu
-import plotter
-import util
 import numpy as np
 
+import histogramming as myhu
+import util
+import FlattenedHistogram as fh
+from ttbarDiffXsRun2.plot_uncertainties import plot_uncertainties_from_dict
+
 # systematic uncertainties
-from ttbarDiffXsRun2.systematics import get_systematics, syst_groups
+from ttbarDiffXsRun2.systematics import get_systematics, uncertainty_groups
 
 import logging
 logger = logging.getLogger('EvaluateUncertainties')
-util.configRootLogger()
+util.configRootLogger(filename="./evaluate_uncertainties.log")
 
 def get_unfolded_histogram_from_dict(
     observable, # str, observable name
@@ -83,30 +84,89 @@ def extract_bin_uncertainties_from_histograms(
 
         h_uf = get_unfolded_histogram_from_dict(ob, hists_d, ibu, hist_key=hist_key)
 
-        values, sigmas = myhu.get_values_and_errors(h_uf)
+        if isinstance(h_uf, fh.FlattenedHistogram):
+            values, sigmas = myhu.get_values_and_errors(h_uf.flatten())
+        else:
+            values, sigmas = myhu.get_values_and_errors(h_uf)
 
         if histograms_nominal_d is not None:
             # get the nominal histogram values
             h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal_d, ibu, hist_key=hist_key)
-            values = h_nominal.values()
+            if isinstance(h_nominal, fh.FlattenedHistogram):
+                values = h_nominal.flatten().values()
+            else:
+                values = h_nominal.values()
 
         # relative errors
         relerrs = sigmas / values
 
         # store as a histogram
         unc_d[ob][uncertainty_label] = h_uf.copy()
-        myhu.set_hist_contents(unc_d[ob][uncertainty_label], relerrs)
-        unc_d[ob][uncertainty_label].view()['variance'] = 0.
+        if isinstance(h_uf, fh.FlattenedHistogram):
+            unc_d[ob][uncertainty_label].fromFlatArray(relerrs)
+        else:
+            myhu.set_hist_contents(unc_d[ob][uncertainty_label], relerrs)
+            unc_d[ob][uncertainty_label].view()['variance'] = 0.
 
     return unc_d
+
+def compute_relative_errors(hist_syst, hist_ref, scale_err=1.):
+    # TODO check hist_numer and hist_denom are of the same type
+    if isinstance(hist_syst, fh.FlattenedHistogram):
+        # convert to flat histograms and do calculations
+        hist_relerr_flat = compute_relative_errors(
+            hist_syst.flatten(), hist_ref.flatten(), scale_err
+            )
+
+        # convert it back to fh.FlattenedHistogram
+        hist_relerr = hist_syst.copy()
+        hist_relerr.fromFlat(hist_relerr_flat)
+
+        return hist_relerr
+    else:
+        relerr = (hist_syst.values() / hist_ref.values() - 1.) * scale_err
+
+        # uncertainty on the uncertainty
+        # do not include hist_ref variance
+        relerr_var = hist_syst.variances() * scale_err**2 / hist_ref.values()**2
+
+        hist_relerr = hist_syst.copy()
+        myhu.set_hist_contents(hist_relerr, relerr)
+        hist_relerr.view()['variance'] = relerr_var
+
+        return hist_relerr
 
 def compute_total_uncertainty_hist(hists_tuple_list):
 
     var_up, var_down = 0., 0.
 
+    # uncertainty on uncertainty
+    var_var_up, var_var_down = 0., 0.
+
+    # total up and down variations as histograms
+    hist_total_up, hist_total_down = None, None
+    if len(hists_tuple_list) > 0:
+        hist_total_up = hists_tuple_list[0][0].copy()
+        hist_total_down = hists_tuple_list[0][1].copy()
+    else:
+        logger.error(f"No uncertainty components in the list!")
+        return hist_total_up, hist_total_down
+
     for hist_var1, hist_var2 in hists_tuple_list:
-        relerr_var1 = myhu.get_values_and_errors(hist_var1)[0]
-        relerr_var2 = myhu.get_values_and_errors(hist_var2)[0]
+        if isinstance(hist_total_up, fh.FlattenedHistogram):
+            hist_flat_var1 = hist_var1.flatten()
+            hist_flat_var2 = hist_var2.flatten()
+            relerr_var1 = hist_flat_var1.values()
+            relerr_var2 = hist_flat_var2.values()
+
+            relerr_var1_var = hist_flat_var1.variances()
+            relerr_var2_var = hist_flat_var2.variances()
+        else:
+            relerr_var1 = hist_var1.values()
+            relerr_var2 = hist_var2.values()
+
+            relerr_var1_var = hist_var1.variances()
+            relerr_var2_var = hist_var2.variances()
 
         relerr_up = np.max([relerr_var1, relerr_var2], axis=0)
         relerr_down = np.min([relerr_var1, relerr_var2], axis=0)
@@ -114,26 +174,84 @@ def compute_total_uncertainty_hist(hists_tuple_list):
         var_up += relerr_up ** 2
         var_down += relerr_down ** 2
 
-    # return total up and down variations as histograms
-    hist_total_up = hist_var1.copy()
-    hist_total_down = hist_var1.copy()
+        # variance of relerr_up and relerr_down
+        relerr_up_var = np.where(relerr_var1 > relerr_var2, relerr_var1_var, relerr_var2_var)
+        relerr_down_var = np.where(relerr_var1 <= relerr_var2, relerr_var1_var, relerr_var2_var)
 
-    myhu.set_hist_contents(hist_total_up, np.sqrt(var_up))
-    hist_total_up.view()['variance'] = 0.
+        var_var_up += relerr_up**2 * relerr_up_var
+        var_var_down += relerr_down**2 * relerr_down_var
 
-    myhu.set_hist_contents(hist_total_down, -1*np.sqrt(var_down))
-    hist_total_down.view()['variance'] = 0.
+    var_var_up /= var_up
+    var_var_down /= var_down
+
+    if isinstance(hist_total_up, fh.FlattenedHistogram):
+        hist_total_up.fromFlatArray(np.sqrt(var_up), var_var_up)
+        hist_total_down.fromFlatArray(-1*np.sqrt(var_down), var_var_down)
+    else:
+        myhu.set_hist_contents(hist_total_up, np.sqrt(var_up))
+        hist_total_up.view()['variance'] = var_var_up
+
+        myhu.set_hist_contents(hist_total_down, -1*np.sqrt(var_down))
+        hist_total_down.view()['variance'] = var_var_down
 
     return hist_total_up, hist_total_down
+
+def symmetrize_uncertainties(hist_var1, hist_var2):
+    if isinstance(hist_var1, fh.FlattenedHistogram):
+        hist_var1_flat, hist_var2_flat = symmetrize_uncertainties(hist_var1.flatten(), hist_var2.flatten())
+
+        hist_var1.fromFlat(hist_var1_flat)
+        hist_var2.fromFlat(hist_var2_flat)
+
+        return hist_var1, hist_var2
+    else:
+        values_var1 = hist_var1.values()
+        values_var2 = hist_var2.values()
+
+        # select entries of the same sign
+        sel_ss = values_var1 * values_var2 > 0
+
+        if not np.any(sel_ss): # no action needed
+            return hist_var1, hist_var2
+
+        # set var1 value to var2 * -1 if var1 is closer to 0
+        sel_var1 = np.abs(values_var1) < np.abs(values_var2)
+        flip_var1 = sel_ss & sel_var1
+        values_var1[flip_var1] = values_var2[flip_var1] * -1.
+        myhu.set_hist_contents(hist_var1, values_var1)
+
+        # set var2 value to var1 * -1 if var2 is closer to 0
+        flip_var2 = sel_ss & ~sel_var1
+        values_var2[flip_var2] = values_var1[flip_var2] * -1.
+        myhu.set_hist_contents(hist_var2, values_var2)
+
+        return hist_var1, hist_var2
+
+def trim_uncertainties(hist_uncertainty_list, threshold):
+    if not threshold:
+        return False
+
+    for hist_unc in hist_uncertainty_list:
+        if isinstance(hist_unc, fh.FlattenedHistogram):
+            hist_max = np.max(np.abs(hist_unc.flatten().values()))
+        else:
+            hist_max = np.max(np.abs(hist_unc.values()))
+
+        if hist_max >= threshold:
+            return False
+
+    return True
 
 def compute_total_uncertainty(
     uncertainty_names, # list of str or list of tuple of str
     bin_uncertainties_d, # dict
     label = 'total',
-    group = None
+    group = None,
+    symmetrize = False,
+    trim_threshold = 0.
     ):
 
-    logger.debug(f" Compute total uncertainty")
+    logger.debug(f"Compute total uncertainty")
 
     # Initialize total_uncertainties_d
     total_uncertainties_d = { obs : {} for obs in bin_uncertainties_d}
@@ -149,23 +267,48 @@ def compute_total_uncertainty(
                 unc_var1, unc_var2 = unc
                 hist_var1 = bin_unc_obs_d.get(unc_var1)
                 if hist_var1 is None:
-                    logger.warning(f"Cannot find uncertainty: {unc_var1}")
-                    logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
+                    logger.warning(f"No uncertainty: {unc_var1}")
+                    if not hist_var1 in bin_unc_obs_d:
+                        logger.debug(f" bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
                     continue
 
                 hist_var2 = bin_unc_obs_d.get(unc_var2)
                 if hist_var2 is None:
-                    logger.warning(f"Cannot find uncertainty: {unc_var2}")
-                    logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
+                    logger.warning(f"No uncertainty: {unc_var2}")
+                    if not hist_var2 in bin_unc_obs_d:
+                        logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
                     continue
+
+                if symmetrize:
+                    # in case the up and down variations are on the same side
+                    hist_var1, hist_var2 = symmetrize_uncertainties(hist_var1, hist_var2)
+
+                    # replace the original ones
+                    bin_unc_obs_d[unc_var1] = hist_var1
+                    bin_unc_obs_d[unc_var2] = hist_var2
+
+                # exclude uncertainty components lower than the threshold
+                if trim_uncertainties([hist_var1, hist_var2], trim_threshold):
+                    logger.debug(f"Exclude {unc} from total uncertainty")
+                    bin_unc_obs_d[f"[excl]{unc_var1}"] = bin_unc_obs_d.pop(unc_var1)
+                    bin_unc_obs_d[f"[excl]{unc_var2}"] = bin_unc_obs_d.pop(unc_var2)
+                    continue
+
             else:
                 # symmetric
                 if isinstance(unc, tuple) and len(unc)==1:
                     unc = unc[0]
                 hist_var1 = bin_unc_obs_d.get(unc)
                 if hist_var1 is None:
-                    logger.warning(f"Cannot find uncertainty: {unc}")
-                    logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
+                    logger.warning(f"No uncertainty: {unc}")
+                    if not hist_var1 in bin_unc_obs_d:
+                        logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
+                    continue
+
+                # exclude uncertainty components lower than the threshold
+                if trim_uncertainties([hist_var1], trim_threshold):
+                    logger.debug(f"Exclude {unc} from total uncertainty")
+                    bin_unc_obs_d[f"[excl]{unc}"] = bin_unc_obs_d.pop(unc)
                     continue
 
                 hist_var2 = hist_var1 * -1.
@@ -197,14 +340,15 @@ def update_dict_with_group_label(target_dict, component_dict, group_label):
 def compute_systematic_uncertainties(
     uncertainty_list,
     systematics_topdir,
-    histograms_nominal, # dict or "truth" or "prior"
+    histograms_central, # dict or "truth" or "prior"
     hist_filename = "histograms.root",
     every_run = False,
     ibu = False,
     hist_key = 'unfolded',
     normalize = False,
     observables = [],
-    scale_err = 1.
+    scale_err = 1.,
+    skip_missing = True
     ):
 
     syst_unc_d = dict()
@@ -232,183 +376,131 @@ def compute_systematic_uncertainties(
                 syst_unc_d[ob] = dict()
 
             # get the unfolded distributions
-            h_syst = get_unfolded_histogram_from_dict(ob, hists_syst_d, ibu=ibu, hist_key=hist_key)
+            try:
+                h_syst = get_unfolded_histogram_from_dict(ob, hists_syst_d, ibu=ibu, hist_key=hist_key)
+            except KeyError as ex:
+                logger.warning(f"Failed to find histogram {hist_key} for {ob} ")
+                if skip_missing:
+                    continue
+                else:
+                    raise KeyError(ex)
 
             # get the central distributions
-            if histograms_nominal == 'truth':
+            if histograms_central == 'truth':
                 h_nominal = hists_syst_d[ob].get('truth')
-            elif histograms_nominal == 'prior':
+            elif histograms_central == 'prior':
                 h_nominal = hists_syst_d[ob].get('prior')
             else:
-                h_nominal = get_unfolded_histogram_from_dict(ob, histograms_nominal, ibu=ibu, hist_key=hist_key)
+                h_nominal = get_unfolded_histogram_from_dict(ob, histograms_central, ibu=ibu, hist_key=hist_key)
 
             if not h_nominal:
-                logger.error("No central distribtion for {ob}")
+                logger.error(f"No central distribtion for {ob}")
                 continue
 
             if normalize:
                 if hist_key in ["absoluteDiffXs", "relativeDiffXs"]:
                     logger.warning(f"Skip renormalizing histogram {hist_key}!")
                 else:
-                    myhu.renormalize_hist(h_syst, norm=myhu.get_hist_norm(h_nominal))
+                    if isinstance(h_syst, fh.FlattenedHistogram):
+                        h_syst.renormalize(norm=h_nominal.norm())
+                    else:
+                        myhu.renormalize_hist(h_syst, norm=myhu.get_hist_norm(h_nominal))
 
             # compute relative bin errors
-            relerr_syst = (h_syst.values() / h_nominal.values() - 1.) * scale_err
-
-            # store as a histogram
-            syst_unc_d[ob][syst_variation] = h_syst.copy()
-            myhu.set_hist_contents(syst_unc_d[ob][syst_variation], relerr_syst)
-            syst_unc_d[ob][syst_variation].view()['variance'] = 0.
-            # set name?
+            syst_unc_d[ob][syst_variation] = compute_relative_errors(h_syst, h_nominal, scale_err)
 
             if every_run: # compute the systematic variation for every run
                 syst_unc_d[ob][f"{syst_variation}_allruns"] = list()
 
                 h_syst_allruns = hists_syst_d[ob].get('unfolded_allruns')
-                h_nominal_allruns = histograms_nominal[ob].get('unfolded_allruns')
+                h_nominal_allruns = histograms_central[ob].get('unfolded_allruns')
 
                 for h_syst_i, h_nominal_i in zip(h_syst_allruns, h_nominal_allruns):
                     if normalize:
-                        myhu.renormalize_hist(h_syst_i, norm=myhu.get_hist_norm(h_nominal_i))
+                        if isinstance(h_syst_i, fh.FlattenedHistogram):
+                            h_syst_i.renormalize(norm=h_nominal_i.norm())
+                        else:
+                            myhu.renormalize_hist(h_syst_i, norm=myhu.get_hist_norm(h_nominal_i))
 
-                    relerr_syst_i = h_syst_i.values() / h_nominal_i.values() - 1.
-
-                    # store as a histogram
-                    herrtmp_i = h_syst_i.copy()
-                    myhu.set_hist_contents(herrtmp_i, relerr_syst_i)
-                    herrtmp_i.view()['variance'] = 0.
-
-                    syst_unc_d[ob][f"{syst_variation}_allruns"].append(herrtmp_i)
+                    syst_unc_d[ob][f"{syst_variation}_allruns"].append(
+                        compute_relative_errors(h_syst_i, h_nominal_i, scale_err)
+                    )
 
     return syst_unc_d
 
-def compare_errors(errors1, errors2):
-    err1_up, err1_down = errors1
-    err2_up, err2_down = errors2
-
-    errsum1 = np.abs(np.asarray(err1_up) - np.asarray(err1_down)).sum()
-    errsum2 = np.abs(np.asarray(err2_up) - np.asarray(err2_down)).sum()
-
-    return errsum1 < errsum2
-
-def plot_fractional_uncertainties(
-    figname,
-    hists_uncertainty_total,
-    hists_uncertainty_compoments,
-    label_total,
-    labels_component,
-    color_total = None,
-    colors_component = [],
-    highlight_dominant = False,
+def compute_bootstrap_uncertainties(
+    bootstrap_topdir,
+    histograms_nominal_d = {}, # dict
+    uncertainty_label = 'stat',
+    hist_filename = "histograms.root",
+    ibu = False,
+    hist_key = 'unfolded',
+    observables = [],
+    boostrap_prefix = 'resamples',
+    nruns = None, # int; if None, take all available
     ):
 
-    errors_toplot = []
-    draw_opts = []
+    stat_unc_d = dict()
 
-    # Total
-    h_grp_up, h_grp_down = hists_uncertainty_total
-    errors_toplot.append((
-        myhu.get_values_and_errors(h_grp_up)[0]*100.,
-        myhu.get_values_and_errors(h_grp_down)[0]*100.
-        ))
+    # Collect histograms from bootstraping
+    logger.debug(f" Collect histograms from {bootstrap_topdir}")
+    if nruns is None:
+        fpaths_hists = [os.path.join(bootstrap_topdir, dir_rs, hist_filename) for dir_rs in os.listdir(bootstrap_topdir) if os.path.isdir(os.path.join(bootstrap_topdir,dir_rs)) and boostrap_prefix in dir_rs]
+    else:
+        fpaths_hists = [os.path.join(bootstrap_topdir, f"{boostrap_prefix}{i}", hist_filename) for i in range(nruns)]
 
-    if color_total is None:
-        color_total = 'black'
+    if not fpaths_hists:
+        logger.error(f" No histogram found under '{bootstrap_topdir}' with subdirectory prefix '{boostrap_prefix}' and histogram name '{hist_filename}'")
+        return stat_unc_d
 
-    draw_opts.append({'label': label_total, 'edgecolor': color_total, "facecolor": 'none'})
+    hists_dict_bootstrap = [myhu.read_histograms_dict_from_file(fpath) for fpath in fpaths_hists]
 
-    # components
-    if not colors_component:
-        colors_component = plotter.get_default_colors(len(hists_uncertainty_compoments))
-
-    for (h_comp_up, h_comp_down), lcomp, ccomp in zip(hists_uncertainty_compoments, labels_component, colors_component):
-        relerrs_comp = (
-            myhu.get_values_and_errors(h_comp_up)[0]*100.,
-            myhu.get_values_and_errors(h_comp_down)[0]*100.
-            )
-
-        opt_comp = {'label':lcomp, 'edgecolor':ccomp, 'facecolor':'none'}
-
-        if not highlight_dominant or len(errors_toplot) < 2: # first component
-            errors_toplot.append(relerrs_comp)
-            draw_opts.append(opt_comp)
+    def extract_relative_errors(ahist, refhist=None):
+        if refhist:
+            relerr = np.sqrt(ahist.variances()) / refhist.values()
         else:
-            # make a comparison and replace if needed
-            if compare_errors(errors_toplot[-1], relerrs_comp):
-                errors_toplot[-1] = relerrs_comp
-                draw_opts[-1] = opt_comp
+            relerr = np.sqrt(ahist.variances()) / ahist.values()
 
-    # plot
-    logger.info(f"Make uncertainty plot: {figname}")
-    plotter.plot_uncertainties(
-        figname = figname,
-        bins = h_grp_up.axes[0].edges,
-        uncertainties = errors_toplot,
-        draw_options = draw_opts,
-        xlabel = h_grp_up.axes[0].label,
-        ylabel = 'Uncertainty [%]'
-        )
+        hist_relerr = ahist.copy()
+        myhu.set_hist_contents(hist_relerr, relerr)
+        hist_relerr.view()['variance'] = 0.
 
-def plot_uncertainties(
-    bin_uncertainties_dict,
-    outname_prefix = 'bin_uncertainties',
-    highlight_dominant=False # If True, only plot the dominant component, otherwise plot all components
-    ):
+        return hist_relerr
 
-    for obs in bin_uncertainties_dict:
+    # loop over observables
+    if not observables:
+        observables = list(hists_dict_bootstrap[0].keys())
 
-        groups = [grp for grp in bin_uncertainties_dict[obs] if grp != 'Total']
+    for obs in observables:
+        logger.debug(f" {obs}")
+        if not obs in stat_unc_d:
+            stat_unc_d[obs] = dict()
 
-        # Each uncertainty group
-        for group in groups:
+        # get the unfolded distributions
+        hists_rs = [get_unfolded_histogram_from_dict(obs, h_dict, ibu=ibu, hist_key=hist_key) for h_dict in hists_dict_bootstrap]
 
-            if not group in syst_groups:
-                logger.debug(f"{group} not in syst_groups. Skip.")
-                continue
+        # compute bin standard deviation
+        h_ref = get_unfolded_histogram_from_dict(obs, histograms_nominal_d, ibu=ibu, hist_key=hist_key) if histograms_nominal_d else None
 
-            # group total
-            h_grp_up = bin_uncertainties_dict[obs]["Total"][f"{group}_up"]
-            h_grp_down = bin_uncertainties_dict[obs]["Total"][f"{group}_down"]
+        if isinstance(hists_rs[0], fh.FlattenedHistogram):
+            hist_average = fh.average_histograms(hists_rs, standard_error_of_the_mean=False)
 
-            # components
-            hists_uncertainty_compoments = []
-            component_labels = []
+            hist_relerr_flat = extract_relative_errors(
+                hist_average.flatten(), h_ref.flatten()
+                )
 
-            components_grp = get_systematics(syst_groups[group]['filters'], list_of_tuples=True)
-            for comp_up, comp_down in components_grp:
-                h_comp_up = bin_uncertainties_dict[obs][group].get(comp_up)
-                h_comp_down = bin_uncertainties_dict[obs][group].get(comp_down)
+            hist_relerr = hist_average.copy()
+            hist_relerr.fromFlat(hist_relerr_flat)
+            stat_unc_d[obs][uncertainty_label] = hist_relerr
 
-                if h_comp_up is None or h_comp_down is None:
-                    #logger.debug(f"No histograms found for {(comp_up, comp_down)}")
-                    continue
-                #else:
-                #    logger.debug(f"Add component {(comp_up, comp_down)}")
+        else:
+            hist_average = myhu.average_histograms(hists_rs, standard_error_of_the_mean=False)
 
-                hists_uncertainty_compoments.append((h_comp_up, h_comp_down))
-                component_labels.append(os.path.commonprefix([comp_up, comp_down]).strip('_'))
+            stat_unc_d[obs][uncertainty_label] = extract_relative_errors(
+                hist_average, h_ref
+                )
 
-            plot_fractional_uncertainties(
-                figname = f"{outname_prefix}_{obs}_{group}",
-                hists_uncertainty_total = (h_grp_up, h_grp_down),
-                hists_uncertainty_compoments = hists_uncertainty_compoments,
-                label_total = group,
-                labels_component = component_labels,
-                color_total = syst_groups[group].get('color', 'black'),
-                highlight_dominant = highlight_dominant
-            )
-
-        # Total
-        plot_fractional_uncertainties(
-            figname = f"{outname_prefix}_{obs}_total",
-            hists_uncertainty_total = (bin_uncertainties_dict[obs]['Total']['total_up'], bin_uncertainties_dict[obs]['Total']['total_down']),
-            hists_uncertainty_compoments = [(bin_uncertainties_dict[obs]['Total'][f'{grp}_up'], bin_uncertainties_dict[obs]['Total'][f'{grp}_down']) for grp in groups],
-            label_total = "Syst. + Stat.",
-            labels_component = groups,
-            color_total = 'black',
-            colors_component = [], # [syst_groups[grp]['color'] for grp in groups]
-            highlight_dominant = False
-        )
+    return stat_unc_d
 
 def evaluate_uncertainties(
     nominal_dir, # str, directory of the nominal unfolding results
@@ -427,7 +519,9 @@ def evaluate_uncertainties(
     hist_key = 'unfolded',
     normalize = False,
     observables = [],
-    verbose = False
+    verbose = False,
+    symmetrize = False,
+    trim_threshold = 0.
     ):
 
     if verbose:
@@ -470,18 +564,18 @@ def evaluate_uncertainties(
 
         # Compute syst uncertainties in groups
         if not systematics_groups:
-            systematics_groups = list(syst_groups.keys())
+            systematics_groups = list(uncertainty_groups.keys())
 
         for grp in systematics_groups:
-            if not grp in syst_groups:
+            if not grp in uncertainty_groups:
                 logger.error(f"Unknow uncertainty group {grp}")
                 continue
 
             logger.info(f"Uncertainty group: {grp}")
 
             # Use the keyword filters of the group to select the uncertainties
-            grp_systs = get_systematics(syst_groups[grp]["filters"])
-            grp_systs_pair = get_systematics(syst_groups[grp]["filters"], list_of_tuples=True)
+            grp_systs = get_systematics(uncertainty_groups[grp]["filters"])
+            grp_systs_pair = get_systematics(uncertainty_groups[grp]["filters"], list_of_tuples=True)
 
             # In case there is a global keyword list, take the intersection
             if all_systs is not None:
@@ -500,22 +594,23 @@ def evaluate_uncertainties(
             bin_err_grp_d = compute_systematic_uncertainties(
                 grp_systs,
                 systematics_topdir,
-                histograms_nominal = h_central,
+                histograms_central = h_central,
                 hist_filename = hist_filename,
                 every_run = systematics_everyrun,
                 ibu = ibu,
                 hist_key = hist_key,
-                normalize = normalize,
+                normalize = normalize or uncertainty_groups[grp].get("shape_only", False),
                 observables = observables,
                 scale_err = 1/7. if grp in ["MTop"] else 1.
             )
 
+            # Group total uncertainty
+            bin_err_grp_tot_d = compute_total_uncertainty(
+                grp_systs_pair, bin_err_grp_d, label=grp,
+                symmetrize=symmetrize, trim_threshold=trim_threshold)
+
             # Add the group uncertainties to bin_uncertainties_d
             update_dict_with_group_label(bin_uncertainties_d, bin_err_grp_d, grp)
-
-            # Group total uncertainty
-            bin_err_grp_tot_d = compute_total_uncertainty(grp_systs_pair, bin_err_grp_d, label=grp)
-
             update_dict_with_group_label(bin_uncertainties_d, bin_err_grp_tot_d, 'Total')
 
         # end of grp loop
@@ -534,10 +629,10 @@ def evaluate_uncertainties(
                 observables = observables
             )
 
-            update_dict_with_group_label(bin_uncertainties_d, bin_err_nn_d, 'Network')
-
             # Also add to sub-directory "Total"
             bin_err_nn_tot_d = compute_total_uncertainty(['network'], bin_err_nn_d, label='Network')
+
+            update_dict_with_group_label(bin_uncertainties_d, bin_err_nn_d, 'Network')
             update_dict_with_group_label(bin_uncertainties_d, bin_err_nn_tot_d, 'Total')
 
         # Compute the total systematic uncertainty
@@ -558,10 +653,10 @@ def evaluate_uncertainties(
     if bootstrap_topdir:
         logger.info(f"Uncertainty: Data stat.")
 
-        bin_errors_Dstat_d = extract_bin_uncertainties_from_histograms(
+        bin_errors_Dstat_d = compute_bootstrap_uncertainties(
             bootstrap_topdir,
             uncertainty_label = "data_stat",
-            histograms_nominal_d = None,
+            histograms_nominal_d = None, # TODO?
             hist_filename = hist_filename,
             ibu = ibu,
             hist_key = hist_key,
@@ -578,10 +673,10 @@ def evaluate_uncertainties(
     if bootstrap_mc_topdir:
         logger.info(f"Uncertainty: MC stat.")
 
-        bin_errors_MCstat_d = extract_bin_uncertainties_from_histograms(
+        bin_errors_MCstat_d = compute_bootstrap_uncertainties(
             bootstrap_mc_topdir,
             uncertainty_label = "mc_stat",
-            histograms_nominal_d = None,
+            histograms_nominal_d = None, # TODO?
             hist_filename = hist_filename,
             ibu = ibu,
             hist_key = hist_key,
@@ -595,7 +690,7 @@ def evaluate_uncertainties(
 
         stat_unc_comp.append("mc_stat")
 
-    update_dict_with_group_label(bin_uncertainties_d, bin_err_stat_d, "Stat")
+    update_dict_with_group_label(bin_uncertainties_d, bin_err_stat_d, "stat_total")
 
     # Total stat uncertainty
     if stat_unc_comp:
@@ -616,23 +711,20 @@ def evaluate_uncertainties(
 
     ######
     # save to file
-    output_name = os.path.join(output_dir, 'bin_uncertainties.root')
+    if ibu:
+        output_name = os.path.join(output_dir, 'bin_uncertainties_ibu.root')
+    else:
+        output_name = os.path.join(output_dir, 'bin_uncertainties.root')
+
     logger.info(f"Write to output file {output_name}")
     myhu.write_histograms_dict_to_file(bin_uncertainties_d, output_name)
 
     if plot:
-        plot_uncertainties(
+        plot_uncertainties_from_dict(
             bin_uncertainties_d,
-            outname_prefix = os.path.splitext(output_name)[0],
-            highlight_dominant=False
-        )
-
-def plot_uncertainties_from_file(fpath):
-    unc_d = myhu.read_histograms_dict_from_file(fpath)
-    plot_uncertainties(
-        unc_d,
-        outname_prefix = os.path.splitext(fpath)[0],
-        highlight_dominant=False
+            output_dir = output_dir,
+            outname_prefix = os.path.basename(os.path.splitext(output_name)[0]),
+            plot_allcomponents = True
         )
 
 if __name__ == "__main__":
@@ -673,6 +765,10 @@ if __name__ == "__main__":
                         help="List of observables to evaluate bin uncertainties")
     parser.add_argument("-v", "--verbose", action='store_true',
                         help="If True, set logging level to debug, else info")
+    parser.add_argument("-y", "--symmetrize", action='store_true',
+                        help="If True, make the bin uncertainty symmetric where the up and down variations are on the same side")
+    parser.add_argument("-e", "--trim-threshold", type=float, default=0.,
+                        help="Exclude the uncertainty component whose maximum is lower than the threshold")
 
     args = parser.parse_args()
 
