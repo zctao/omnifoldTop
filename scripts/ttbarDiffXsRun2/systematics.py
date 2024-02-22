@@ -367,6 +367,13 @@ uncertainty_groups = {
             "edgecolor" : "tan", "facecolor": "none", "linestyle": "--"
         }
     },
+    "Unfold" : {
+        "label" : "Unfold",
+        "filters" : ['unfold'],
+        "style" : {
+            "edgecolor" : "tab:brown", "facecolor": "none", "linestyle": "-."
+        }
+    },
     "MCStat": {
         "label" : "MC Stat.",
         "style" : {

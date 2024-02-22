@@ -502,12 +502,58 @@ def compute_bootstrap_uncertainties(
 
     return stat_unc_d
 
+def compute_unfolding_uncertainty(
+    stress_test_dir,
+    uncertainty_label = "Unfold",
+    hist_filename = "histograms.root",
+    ibu = False,
+    hist_key = 'unfolded',
+    hist_key_target = 'truth',
+    observables = [],
+    normalize = False
+    ):
+
+    fpath_stress_hists = os.path.join(stress_test_dir, hist_filename)
+    logger.debug(f" Read histograms from {fpath_stress_hists}")
+    hists_stress_d = myhu.read_histograms_dict_from_file(fpath_stress_hists)
+
+    # bin uncertainties
+    uf_unc_d = dict()
+
+    # loop over observables
+    if not observables:
+        observables = list(hists_stress_d.keys())
+
+    for obs in observables:
+        logger.debug(f" {obs}")
+        uf_unc_d[obs] = dict()
+
+        h_unfold = get_unfolded_histogram_from_dict(
+            obs, hists_stress_d, ibu=ibu, hist_key=hist_key)
+
+        h_target = hists_stress_d[obs].get(hist_key_target)
+
+        if normalize:
+            if hist_key in ["absoluteDiffXs", "relativeDiffXs"]:
+                logger.warning(f"Skip renormalizing histogram {hist_key}!")
+            else:
+                if isinstance(h_unfold, fh.FlattenedHistogram):
+                    h_unfold.renormalize(norm=h_target.norm())
+                else:
+                    myhu.renormalize_hist(h_unfold, norm=myhu.get_hist_norm(h_target))
+
+        # compute relative bin errors
+        uf_unc_d[obs][uncertainty_label] = compute_relative_errors(h_unfold, h_target)
+
+    return uf_unc_d
+
 def evaluate_uncertainties(
     nominal_dir, # str, directory of the nominal unfolding results
     bootstrap_topdir = None, # str, top directory of the results for bootstraping
     bootstrap_mc_topdir = None, # str, top directory of MC bootstraping results
     systematics_topdir = None, # str, top directory of the results for systemaic uncertainties
     network_error_dir = None, # str, directory to extract network uncertainty
+    unfolding_error_dir = None, # str, directory of unfolding stress test
     output_dir = '.', # str, output directory
     nensembles_network = None, # int, number of runs to compute bin uncertainties. If None, use all available
     systematics_groups = [], # list of str, systematic groups
@@ -615,7 +661,7 @@ def evaluate_uncertainties(
 
         # end of grp loop
 
-        # Special cases
+        ### Special cases
         # Network uncertainty
         if not ibu and network_error_dir is not None:
             logger.info("Uncertainty: Network")
@@ -629,15 +675,34 @@ def evaluate_uncertainties(
                 observables = observables
             )
 
-            # Also add to sub-directory "Total"
+            # Also add to directory "Total"
             bin_err_nn_tot_d = compute_total_uncertainty(['network'], bin_err_nn_d, label='Network')
 
             update_dict_with_group_label(bin_uncertainties_d, bin_err_nn_d, 'Network')
             update_dict_with_group_label(bin_uncertainties_d, bin_err_nn_tot_d, 'Total')
 
+        # Unfolding uncertainty from stress tests
+        if not ibu and unfolding_error_dir is not None:
+            logger.info("Uncertainty: Unfolding")
+
+            bin_err_uf_d = compute_unfolding_uncertainty(
+                unfolding_error_dir,
+                uncertainty_label = "unfold",
+                hist_filename = hist_filename,
+                hist_key = hist_key,
+                observables = observables,
+                normalize = normalize
+            )
+
+            # Add to directory "Total"
+            bin_err_uf_tot_d = compute_total_uncertainty(['unfold'], bin_err_uf_d, label='Unfold')
+
+            update_dict_with_group_label(bin_uncertainties_d, bin_err_uf_d, 'Unfold')
+            update_dict_with_group_label(bin_uncertainties_d, bin_err_uf_tot_d, 'Total')
+
         # Compute the total systematic uncertainty
         bin_err_syst_d = compute_total_uncertainty(
-                [(f"{grp}_up", f"{grp}_down") for grp in systematics_groups] + [('Network_up', 'Network_down')],
+                [(f"{grp}_up", f"{grp}_down") for grp in systematics_groups] + [('Network_up', 'Network_down'), ('Unfold_up', 'Unfold_down')],
                 bin_uncertainties_d,
                 label = 'syst_total',
                 group = 'Total'
@@ -743,6 +808,8 @@ if __name__ == "__main__":
                         help="Top directory of the unfolding results for systematic uncertainty variations")
     parser.add_argument("-t", "--network-error-dir", type=str,
                         help="Directory of unfolding results to extract uncertainty from network initialization and training.")
+    parser.add_argument("-u", "--unfolding-error-dir", type=str,
+                        help="Directory of unfolding stress tests")
     parser.add_argument("-o", "--output-dir", type=str, default=".",
                         help="Output directory")
     parser.add_argument("-n", "--nensembles-network", type=int,

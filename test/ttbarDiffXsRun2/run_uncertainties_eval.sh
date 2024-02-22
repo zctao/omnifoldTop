@@ -3,12 +3,13 @@ fpath_central="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2023Dec06/
 fpath_syst="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2023Dec06/"
 fpath_network="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2023Dec06/central/"
 fpath_stat="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2024Feb20/bootstrap/"
-fpaht_stat_mc="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2024Feb20/bootstrap_mc/"
+fpath_stat_mc="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2024Feb20/bootstrap_mc/"
+fpath_unfold="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/StressTests/2024Feb14_nomatch/stress_data/"
 output_topdir="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/uncertainties"
 
 groups="JES BTag Lepton MET Pileup IFSR PDF MTop hdamp Hadronization Generator Backgrounds"
 
-common_args="${fpath_central} -s ${fpath_syst} -t ${fpath_network} -b ${fpath_stat} -m ${fpaht_stat_mc} -p -v -g ${groups}"
+common_args="${fpath_central} -s ${fpath_syst} -t ${fpath_network} -b ${fpath_stat} -m ${fpath_stat_mc} -u ${fpath_unfold} -p -v -g ${groups}"
 
 run_eval() {
     dname="$1"
