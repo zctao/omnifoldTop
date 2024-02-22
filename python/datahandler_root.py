@@ -597,7 +597,7 @@ class DataHandlerROOT(DataHandlerBase):
 
         # Special case: load event weights from external files
         if weight_type.startswith("external:"):
-            if not np.all(weight_rescale_factors==1.):
+            if not np.all(np.asarray(weight_rescale_factors)==1.):
                 logger.warn("Cannot apply weight rescale factors to external weights!")
 
             # "external:" is followed by a comma separated list of file paths
