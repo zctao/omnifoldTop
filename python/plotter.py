@@ -145,6 +145,100 @@ def draw_text(ax, texts, loc='center', prop={'size':5}, frameon=False, **kwargs)
     at = AnchoredText(txt_str, loc=loc, prop=prop, frameon=frameon, **kwargs)
     ax.add_artist(at)
 
+def draw_error_band(
+    ax,
+    h_central, # hist.Hist
+    binerrors, # numpy.ndarray
+    **draw_options
+    ):
+
+    bin_edges = h_central.axes[0].edges
+
+    if binerrors.ndim == 2:
+        binerrors_up = binerrors[1]
+        binerrors_down = binerrors[0]
+    elif binerrors.ndim == 1:
+        binerrors_up = binerrors
+        binerrors_down = binerrors * -1.
+    else:
+        raise RuntimeError(f"Cannot handle bin errors of shape: {binerrors.shape()}")
+
+    values_up = h_central.values() + binerrors_up
+    values_down = h_central.values() + binerrors_down
+
+    values_up = np.append(values_up, values_up[-1])
+    assert len(values_up)==len(bin_edges)
+
+    values_down = np.append(values_down, values_down[-1])
+    assert len(values_down)==len(bin_edges)
+
+    ax.fill_between(bin_edges, values_down, values_up, step='post', **draw_options)
+
+    return ax
+
+def draw_ratio_new(
+    ax,
+    histogram_denom,
+    histograms_numer,
+    draw_option_denom={},
+    draw_optinos_numer=[],
+    xlabel = None,
+    ylabel = None
+    ):
+
+    ax.yaxis.grid()
+
+    hists_ratio = []
+    draw_options_ratio = []
+
+    histogram_ref = histogram_denom.copy()
+    # set variance to 0: the error on the ratio plot = original error / denominator
+    histogram_ref.view()['variance'] = 0.
+
+    # draw denominator error bar
+    hists_ratio.append(myhu.divide(histogram_denom, histogram_ref))
+
+    draw_options_ratio.append(draw_option_denom.copy())
+    # update yerr if needed
+    if 'yerr' in draw_options_ratio[-1] and draw_options_ratio[-1]['yerr'] is not None:
+        draw_options_ratio[-1]['yerr'] = draw_options_ratio[-1]['yerr'] / histogram_ref.values()
+
+    if not 'style_error_band' in draw_options_ratio[-1]:
+        draw_options_ratio[-1]['style_error_band'] = {
+            'edgecolor':'none',
+            'facecolor': get_color_from_draw_options(draw_options_ratio[-1]),
+            'alpha' : 0.3
+        }
+
+    # do not draw donominator central
+    draw_options_ratio[-1]['skip_central'] = True
+
+    # numerators
+    if not draw_optinos_numer:
+        draw_optinos_numer = [{}] * len(histograms_numer)
+
+    for hist_numer, draw_opt in zip(histograms_numer, draw_optinos_numer):
+        hists_ratio.append(myhu.divide(hist_numer, histogram_ref))
+
+        dopt = draw_opt.copy()
+        if 'yerr' in dopt and dopt['yerr'] is not None:
+            dopt['yerr'] = dopt['yerr'] / histogram_ref.values()
+        dopt.update(error_style)
+        dopt['histtype'] = 'errorbar'
+        dopt['xerr'] = True
+        draw_options_ratio.append(dopt)
+
+    draw_histograms(
+        ax,
+        hists_ratio,
+        draw_options_ratio,
+        xlabel = xlabel,
+        ylabel = ylabel,
+        legend_loc = None # do not draw legend on the ratio plot
+    )
+
+    return ax
+
 def draw_histograms(
     ax,
     histograms, # list of Hist
@@ -178,12 +272,23 @@ def draw_histograms(
         hep.histplot(histograms, yerr=False, stack=True, ax=ax, **style_stack)
     else:
         for h, opt in zip(histograms, draw_options):
-            # use 'yerr' in opt if provided, otherwise extract from h
-            if 'yerr' in opt:
-                hep.histplot(h, ax=ax, **opt)
+            opt_tmp = opt.copy()
+
+            # bin errors: use 'yerr' in opt if provided, otherwise extract from h
+            binerrs = opt_tmp.pop('yerr', myhu.get_values_and_errors(h)[1])
+
+            # error bar style
+            error_band_style = opt_tmp.pop('style_error_band', {})
+            if error_band_style:
+                # draw error band
+                draw_error_band(ax, h, binerrs, **error_band_style)
+
+                # draw central
+                if not opt_tmp.pop('skip_central', False):
+                    hep.histplot(h, ax=ax, yerr=False, **opt_tmp)
             else:
-                yerr_n = myhu.get_values_and_errors(h)[1]
-                hep.histplot(h, ax=ax, yerr=yerr_n, **opt)
+                # draw normally
+                hep.histplot(h, ax=ax, yerr=binerrs, **opt_tmp)
 
     if xlabel is not None:
         ax.set_xlabel(xlabel)
@@ -577,25 +682,28 @@ def plot_histograms_and_ratios(
         if log_xscale:
             ax_ratio.set_xscale('log')
 
-        hists_num_ratio = [functools.reduce(lambda x,y: x+y, hists_numerator)] if stack_numerators else hists_numerator
+        # denominator
+        draw_opt_den_r = draw_option_denominator.copy()
 
-        colors_num_ratio = [get_color_from_draw_options(opt) for opt in draw_options_numerator]
+        # numerator
         if stack_numerators:
-            colors_num_ratio = [colors_num_ratio[-1]]
+            hists_num_r = [functools.reduce(lambda x,y: x+y, hists_numerator)]
+            draw_opt_num_r = [draw_options_numerator[-1].copy()]
+            # stack yerr
+            yerrs_num = [opt.get('yerr') for opt in draw_options_numerator]
+            yerrs_tot_num = functools.reduce(lambda x,y: np.sqrt(x*x+y*y), yerrs_num) if not any(e is None for e in yerrs_num) else None
+            draw_opt_num_r[-1]['yerr'] = yerrs_tot_num
+        else:
+            hists_num_r = hists_numerator
+            draw_opt_num_r = draw_options_numerator.copy()
 
-        yerrs_numer = [opt.get('yerr') for opt in draw_options_numerator]
-        if stack_numerators:
-            yerrs_numer = [functools.reduce(lambda x,y: np.sqrt(x*x+y*y), yerrs_numer)] if not any(e is None for e in yerrs_numer) else [None]
-
-        draw_ratio(
+        draw_ratio_new(
             ax_ratio,
             hist_denominator,
-            hists_num_ratio,
-            get_color_from_draw_options(draw_option_denominator),
-            colors_num_ratio,
-            yerr_denom = draw_option_denominator.get('yerr'),
-            yerrs_numer = yerrs_numer
-            )
+            hists_num_r,
+            draw_opt_den_r,
+            draw_opt_num_r
+        )
 
     # save plot
     if not os.path.isdir(os.path.dirname(figname)):

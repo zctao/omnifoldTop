@@ -7,7 +7,8 @@ import histogramming as myhu
 import plotter
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
-import matplotlib.patches as mpatches
+
+from ttbarDiffXsRun2.systematics import uncertainty_groups
 
 util.configRootLogger()
 logger = logging.getLogger("plotDiffXs")
@@ -20,20 +21,21 @@ rescale_oom = {
 }
 
 ATLAS_stamp = [
-    "ATLAS WIP",
+#    "ATLAS WIP",
+    "OmniFold",
     "$\sqrt{s}=13$ TeV, 140 fb$^{-1}$",
     "Full phase space"
 ]
 
 def get_error_arrays(hist_unc_down, hist_unc_up, hist_central=None):
     if hist_unc_up is not None and hist_unc_down is None:
-        hist_unc_down = hist_unc_up
+        hist_unc_down = hist_unc_up * -1.
     elif hist_unc_up is None and hist_unc_down is not None:
-        hist_unc_up = hist_unc_down
+        hist_unc_up = hist_unc_down * -1.
 
     if hist_unc_up is not None and hist_unc_down is not None:
         unc_arr = np.stack([
-            np.abs(hist_unc_down.values()), np.abs(hist_unc_up.values())
+            hist_unc_down.values(), hist_unc_up.values()
             ])
         if hist_central is None:
             return unc_arr
@@ -45,9 +47,9 @@ def get_error_arrays(hist_unc_down, hist_unc_up, hist_central=None):
 
 def get_error_arrays_2D(fhist_unc_down, fhist_unc_up, fhist_central=None):
     if fhist_unc_up is not None and fhist_unc_down is None:
-        fhist_unc_down = fhist_unc_up
+        fhist_unc_down = fhist_unc_up * -1.
     elif fhist_unc_up is None and fhist_unc_down is not None:
-        fhist_unc_up = fhist_unc_down
+        fhist_unc_up = fhist_unc_down * -1.
 
     if fhist_unc_up is not None and fhist_unc_down is not None:
         assert(len(fhist_unc_up)==len(fhist_unc_down))
@@ -55,8 +57,7 @@ def get_error_arrays_2D(fhist_unc_down, fhist_unc_up, fhist_central=None):
         for ybin in fhist_unc_down:
             errors.append(
                 np.stack([
-                    np.abs(fhist_unc_down[ybin].values()),
-                    np.abs(fhist_unc_up[ybin].values())
+                    fhist_unc_down[ybin].values(), fhist_unc_up[ybin].values()
                 ])
             )
 
@@ -74,8 +75,8 @@ def plot_diffXs_1D(
     histograms_mc,
     label_nominal,
     labels_mc,
-    hist_unc_up = None,
-    hist_unc_down = None,
+    hist_relerrs_total = None,
+    hist_relerrs_stat = None,
     ylabel = '',
     ylabel_ratio = '',
     log_obs = False,
@@ -86,12 +87,45 @@ def plot_diffXs_1D(
     # unfolded measurement
     draw_opt_data = {
         'label': label_nominal, 'color': 'black', 'histtype': 'errorbar',
-        'marker': 'o', 'markersize': 3, 'xerr': True
+        'marker': 'o', 'markersize': 3, 'xerr': True, 'yerr': False
     }
 
-    errors = get_error_arrays(hist_unc_down, hist_unc_up, histogram_data)
-    if errors is not None:
-        draw_opt_data['yerr'] = errors
+    histograms_werr = []
+    draw_opt_werr = []
+
+    # total uncertainty
+    if hist_relerrs_total:
+        h_relerrs_tot_up, h_relerrs_tot_down = hist_relerrs_total
+        errors_tot = get_error_arrays(h_relerrs_tot_up, h_relerrs_tot_down, histogram_data)
+
+        if errors_tot is None:
+            logger.warning("No Total Uncertainty")
+        else:
+            histograms_werr.append(histogram_data)
+
+            error_band_tot_opt = {'label': uncertainty_groups['Total'].get('label')}
+            error_band_tot_opt.update(uncertainty_groups['Total'].get('style'))
+            draw_opt_werr.append({
+                'yerr' : errors_tot,
+                'style_error_band' : error_band_tot_opt,
+                'skip_central' : True
+            })
+
+    if hist_relerrs_stat:
+        h_relerrs_stat_up, h_relerrs_stat_down = hist_relerrs_stat
+        errors_stat = get_error_arrays(h_relerrs_stat_up, h_relerrs_stat_down, histogram_data)
+        if errors_stat is None:
+            logger.warning("No Stat. Uncertainty")
+        else:
+            histograms_werr.append(histogram_data)
+
+            error_band_stat_opt = {'label' : uncertainty_groups['stat_total'].get('label')}
+            error_band_stat_opt.update(uncertainty_groups['stat_total'].get('style'))
+            draw_opt_werr.append({
+                'yerr' : errors_stat,
+                'style_error_band' : error_band_stat_opt,
+                'skip_central' : True
+            })
 
     # MC truth
     colors_mc = plotter.get_default_colors(len(histograms_mc))
@@ -104,9 +138,9 @@ def plot_diffXs_1D(
 
     plotter.plot_histograms_and_ratios(
         figname,
-        hists_numerator = histograms_mc,
+        hists_numerator = histograms_werr + histograms_mc,
         hist_denominator = histogram_data,
-        draw_options_numerator = draw_opts_mc,
+        draw_options_numerator = draw_opt_werr + draw_opts_mc,
         draw_option_denominator = draw_opt_data,
         xlabel = xlabel,
         ylabel = ylabel,
@@ -126,14 +160,44 @@ def get_color_sequence(colormap, ncolors):
 def get_color_for_legend(colormap):
     return colormap(0.7)
 
+def draw_error_band_2D(
+    ax,
+    fhist_relerrs,
+    fhist_central,
+    error_group,
+    rescales_order_of_magnitude = None,
+    legend_off = True
+    ):
+    if fhist_relerrs is None:
+        return
+
+    fhist_relerrs_up, fhist_relerrs_down = fhist_relerrs
+    errors_arr = get_error_arrays_2D(fhist_relerrs_up, fhist_relerrs_down, fhist_central)
+
+    if errors_arr is None:
+        logger.warning(f"No {error_group} Uncertainty")
+    else:
+        error_band_opt = {'label': uncertainty_groups[error_group].get('label')}
+        error_band_opt.update(uncertainty_groups[error_group].get('style'))
+
+        fhist_central.draw(
+            ax,
+            common_styles = {
+                'style_error_band' : error_band_opt, 'skip_central' : True
+            },
+            rescales_order_of_magnitude = rescales_order_of_magnitude,
+            errors = errors_arr,
+            legend_off = legend_off
+        )
+
 def draw_diffXs_distr_2D(
     ax,
     fhistogram_data,
     fhistograms_mc,
     label_nominal,
     labels_mc,
-    fhist_unc_up = None,
-    fhist_unc_down = None,
+    fhist_relerrs_total = None,
+    fhist_relerrs_stat = None,
     xlabel = '',
     ylabel = '',
     title = '',
@@ -143,17 +207,17 @@ def draw_diffXs_distr_2D(
     stamp_texts = []
     ):
 
-    # errors
-    errors = get_error_arrays_2D(fhist_unc_down, fhist_unc_up, fhistogram_data)
-
     fhistogram_data.draw(
         ax,
         markers = default_markers[:len(fhistogram_data)],
         colors = 'black',
         common_styles = {'histtype': 'errorbar'},
         rescales_order_of_magnitude = rescales_order_of_magnitude,
-        errors = errors,
-        legend_off = True
+        errors = None,
+        legend_off = True,
+        stamp_texts = stamp_texts,
+        stamp_loc = 'upper left',
+        stamp_opt = {"prop":{"fontsize":"medium"}}
     )
 
     leg_handles, leg_labels = ax.get_legend_handles_labels()
@@ -170,10 +234,7 @@ def draw_diffXs_distr_2D(
             colors = colors_mc,
             common_styles = {'histtype': 'step'},
             rescales_order_of_magnitude = rescales_order_of_magnitude,
-            legend_off = True,
-            stamp_texts = stamp_texts,
-            stamp_loc = 'upper left',
-            stamp_opt = {"prop":{"fontsize":"medium"}}
+            legend_off = True
         )
 
     if title:
@@ -224,8 +285,8 @@ def draw_diffXs_ratio_2D(
     fhistograms_mc,
     label_nominal,
     labels_mc,
-    fhist_unc_up = None,
-    fhist_unc_down = None,
+    fhist_relerrs_total = None,
+    fhist_relerrs_stat = None,
     xlabel = '',
     ylabel = '',
     log_xscale = False,
@@ -248,60 +309,23 @@ def draw_diffXs_ratio_2D(
     if ylabel:
         axes[0].set_ylabel(ylabel)
 
-    # legend
-    handles, labels = [], []
-
-    # errors
-    if fhist_unc_up is not None:
-        ratio_unc_up = fhist_unc_up.copy()
-    elif fhist_unc_down is not None:
-        ratio_unc_up = fhist_unc_down.copy().scale(-1.)
-    else:
-        ratio_unc_up = None
-
-    if ratio_unc_up is not None:
-        ratio_unc_up.divide(fhistogram_data)
-        ratio_unc_up.draw(
-            axes,
-            colors = 'grey',
-            common_styles = {'histtype':'fill'},
-            legend_off = True
-        )
-
-    if fhist_unc_down is not None:
-        ratio_unc_down = fhist_unc_down.copy()
-    elif fhist_unc_up is not None:
-        ratio_unc_down = fhist_unc_up.copy().scale(-1.)
-    else:
-        ratio_unc_down = None
-
-    if ratio_unc_down is not None:
-        ratio_unc_down.divide(fhistogram_data)
-        ratio_unc_down.draw(
-            axes,
-            colors = 'grey',
-            common_styles = {'histtype':'fill'},
-            legend_off = True
-        )
-
-    if ratio_unc_up is not None or ratio_unc_down is not None:
-        handles.append(mpatches.Patch(color='grey'))
-        labels.append("Syst")
-
-    # data
     ratio_one = fhistogram_data.copy()
     ratio_one.divide(fhistogram_data)
-    ratio_one.draw(
-        axes,
-        colors = "black",
-        common_styles = {'histtype':'step', 'yerr':False},
-        stamp_texts = [] if outer_bin_label is None else [outer_bin_label],
-        stamp_loc = "lower right",
-        stamp_opt = {"prop":{"fontsize":"medium"}}
-    )
 
-    handles.append(mlines.Line2D([], [], color="black"))
-    labels.append(label_nominal)
+    # errors
+    draw_error_band_2D(
+        axes,
+        fhist_relerrs_total,
+        ratio_one,
+        "Total"
+        )
+
+    draw_error_band_2D(
+        axes,
+        fhist_relerrs_stat,
+        ratio_one,
+        "stat_total"
+        )
 
     # MC
     cmaps_mc = plotter.get_default_colormaps(len(fhistograms_mc))
@@ -313,14 +337,28 @@ def draw_diffXs_ratio_2D(
         ratio_mc.draw(
             axes,
             colors = cm_mc(0.7),
-            common_styles = {'histtype':'step'},
+            common_styles = {'histtype':'step', 'yerr':False, 'label': l_mc},
             legend_off = True
             )
 
-        handles.append(mlines.Line2D([], [], color=cm_mc(0.7)))
-        labels.append(l_mc)
+    # data
+    ratio_one.draw(
+        axes,
+        colors = "black",
+        common_styles = {'histtype':'step', 'yerr':False},
+        stamp_texts = [] if outer_bin_label is None else [outer_bin_label],
+        stamp_loc = "lower right",
+        stamp_opt = {"prop":{"fontsize":"medium"}},
+        legend_off = False
+    )
 
     if not legend_off:
+        handles, labels = axes[-1].get_legend_handles_labels()
+
+        # append the legend for data
+        handles.append(mlines.Line2D([], [], color="black"))
+        labels.append(label_nominal)
+
         axes[-1].legend(handles, labels, loc='lower right', fontsize='medium', ncols=2, bbox_to_anchor=(1,1))
 
     if stamp_texts:
@@ -333,8 +371,8 @@ def plot_diffXs_2D(
     fhistograms_mc,
     label_nominal,
     labels_mc,
-    fhist_unc_up = None,
-    fhist_unc_down = None,
+    fhist_relerrs_total = None,
+    fhist_relerrs_stat = None,
     ylabel = '',
     ylabel_ratio = '',
     log_obs = False,
@@ -364,8 +402,8 @@ def plot_diffXs_2D(
         fhistograms_mc,
         label_nominal,
         labels_mc,
-        fhist_unc_up = fhist_unc_up,
-        fhist_unc_down = fhist_unc_down,
+        fhist_relerrs_total = fhist_relerrs_total,
+        fhist_relerrs_stat = fhist_relerrs_stat,
         xlabel = xlabel,
         ylabel = ylabel,
         title = title,
@@ -396,8 +434,8 @@ def plot_diffXs_2D(
         fhistograms_mc,
         label_nominal,
         labels_mc,
-        fhist_unc_up = fhist_unc_up,
-        fhist_unc_down = fhist_unc_down,
+        fhist_relerrs_total = fhist_relerrs_total,
+        fhist_relerrs_stat = fhist_relerrs_stat,
         xlabel = xlabel,
         ylabel = ylabel_ratio,
         log_xscale = log_obs,
@@ -415,8 +453,8 @@ def plot_diffXs_3D(
     fhistograms_mc,
     label_nominal,
     labels_mc,
-    fhist_unc_up = None,
-    fhist_unc_down = None,
+    fhist_relerrs_total = None,
+    fhist_relerrs_stat = None,
     ylabel = '',
     ylabel_ratio = '',
     log_obs = False,
@@ -454,6 +492,16 @@ def plot_diffXs_3D(
     zbin_edges = fhistogram_data.get_zbin_edges()
     zobs = observable_labels[2]
 
+    def get_fhist_relerrs_zbin(fhist_relerrs, zbin):
+        if fhist_relerrs is None:
+            return None
+
+        fhist_relerrs_up, fhist_relerrs_down = fhist_relerrs
+        if fhist_relerrs_up is None or fhist_relerrs_down is None:
+            return None
+
+        return (fhist_relerrs_up[zbin], fhist_relerrs_down[zbin])
+
     for i, zbin_label in enumerate(fhistogram_data):
 
         ax = subfigs[i].subplots(1)
@@ -466,8 +514,8 @@ def plot_diffXs_3D(
             [fhist_mc[zbin_label] for fhist_mc in fhistograms_mc],
             label_nominal,
             labels_mc,
-            fhist_unc_up = fhist_unc_up[zbin_label] if fhist_unc_up is not None else None,
-            fhist_unc_down = fhist_unc_down[zbin_label] if fhist_unc_down is not None else None,
+            fhist_relerrs_total = get_fhist_relerrs_zbin(fhist_relerrs_total, zbin_label),
+            fhist_relerrs_stat = get_fhist_relerrs_zbin(fhist_relerrs_stat, zbin_label),
             xlabel = xlabel,
             ylabel = ylabel if i==0 else '',
             log_xscale = log_obs,
@@ -502,8 +550,8 @@ def plot_diffXs_3D(
             [fhist_mc[zbin_label] for fhist_mc in fhistograms_mc],
             label_nominal,
             labels_mc,
-            fhist_unc_up = fhist_unc_up[zbin_label] if fhist_unc_up is not None else None,
-            fhist_unc_down = fhist_unc_down[zbin_label] if fhist_unc_down is not None else None,
+            fhist_relerrs_total = get_fhist_relerrs_zbin(fhist_relerrs_total, zbin_label),
+            fhist_relerrs_stat = get_fhist_relerrs_zbin(fhist_relerrs_stat, zbin_label),
             xlabel = xlabel,
             ylabel = ylabel_ratio,
             log_xscale = log_obs,
@@ -565,6 +613,7 @@ def plotDiffXs(
         logger.debug(f"Read uncertainties from {fpath_uncertainties}")
         unc_d = myhu.read_histograms_dict_from_file(fpath_uncertainties)
     else:
+        logger.warning(f"No uncertainty is provided")
         unc_d = {}
 
     # histogram name
@@ -590,14 +639,21 @@ def plotDiffXs(
         hist_meas = hists_nominal[obs][histname]
 
         # uncertainties
-        hist_unc_up, hist_unc_down = None, None
+        hist_relerr_tot_up, hist_relerr_tot_down = None, None
+        hist_relerr_stat_up, hist_relerr_stat_down = None, None
         if unc_d:
-            # for now
             if not obs in unc_d:
                 logger.warning(f"No uncertainties found for observable {obs}")
+            elif not 'Total' in unc_d[obs]:
+                logger.warning(f"Total uncertainties not available for observable {obs}")
             else:
-                hist_unc_up = unc_d[obs]['total_up']
-                hist_unc_down = unc_d[obs]['total_down']
+                # systematic + statistical
+                hist_relerr_tot_up = unc_d[obs]['Total'].get('total_up')
+                hist_relerr_tot_down = unc_d[obs]['Total'].get('total_down')
+
+                # statistical
+                hist_relerr_stat_up = unc_d[obs]['Total'].get('stat_total_up')
+                hist_relerr_stat_down = unc_d[obs]['Total'].get('stat_total_down')
 
         # plot
         obs_list = obs.split('_vs_')
@@ -632,8 +688,8 @@ def plotDiffXs(
             hists_MC,
             'Data',
             labels_MC,
-            hist_unc_up,
-            hist_unc_down,
+            (hist_relerr_tot_up, hist_relerr_tot_down),
+            (hist_relerr_stat_up, hist_relerr_stat_down),
             ylabel = ylabel,
             ylabel_ratio = ylabel_ratio,
             log_obs = False, # for now
