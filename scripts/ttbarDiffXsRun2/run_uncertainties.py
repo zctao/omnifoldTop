@@ -4,11 +4,7 @@ import sys
 import json
 
 import util
-from ttbarDiffXsRun2.createRun2Config import createRun2Config
 from ttbarDiffXsRun2.systematics import get_systematics
-from run_unfold import run_unfold
-from make_histograms import make_histograms
-from evaluate_uncertainties import evaluate_uncertainties
 
 import logging
 logger = logging.getLogger("run_uncertainties")
@@ -79,6 +75,7 @@ def update_status(
 
 def generate(args):
     logger.info("Generate run configs")
+    from ttbarDiffXsRun2.createRun2Config import createRun2Config
 
     # config directory
     if not os.path.isabs(args.config_name):
@@ -134,6 +131,7 @@ def generate(args):
 
 def run(args):
     logger.info("Run unfolding")
+    from run_unfold import run_unfold
 
     # config directory
     config_dir = os.path.dirname(args.config_name)
@@ -162,6 +160,7 @@ def run(args):
 
 def histogram(args):
     logger.info("Make histograms")
+    from make_histograms import make_histograms
 
     # job status
     if not os.path.isfile(args.job_file):
@@ -185,11 +184,13 @@ def histogram(args):
             args.binning_config,
             observables = args.observables,
             observables_multidim = args.observables_multidim,
+            observable_config = args.observable_config,
             include_ibu = True
         )
 
 def evaluate(args):
     logger.info("Evaluate uncertainties")
+    from evaluate_uncertainties import evaluate_uncertainties
 
     # job status
     if not os.path.isfile(args.job_file):
@@ -313,6 +314,11 @@ if __name__ == "__main__":
         "--observables-multidim", nargs='+', default=[],
         help="List of observables to make multi-dimension histograms.")
     parser_hist.add_argument(
+        "--observable-config", type=str, action=util.ParseEnvVar,
+        default="${SOURCE_DIR}/configs/observables/vars_ttbardiffXs_pseudotop.json",
+        help="Path to the observable config file"
+    )
+    parser_hist.add_argument(
         "--binning-config", type=str, action=util.ParseEnvVar,
         default='${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json',
         help="Path to the binning config file for variables.")
@@ -372,6 +378,11 @@ if __name__ == "__main__":
     except Exception as ex:
         logger.setLevel(logging.DEBUG)
         util.reportMemUsage(logger)
-        util.reportGPUMemUsage(logger)
+
+        # Report GPU usage only if it is needed
+        if args.func == run:
+            from modelUtils import reportGPUMemUsage
+            reportGPUMemUsage(logger)
+
         logger.error(ex)
         sys.exit(1)

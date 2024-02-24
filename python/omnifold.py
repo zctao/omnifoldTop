@@ -3,10 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import plotter
-from modelUtils import get_model, get_callbacks, train_model
+from modelUtils import get_model, get_callbacks, train_model, reportGPUMemUsage
 import modelUtils
-
-from util import reportGPUMemUsage
 
 import gc
 

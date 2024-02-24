@@ -10,8 +10,6 @@ import reweight
 import histogramming as myhu
 import FlattenedHistogram as fh
 from datahandler import getDataHandler
-from omnifoldv2 import omnifold
-import modelUtils
 
 import logging
 logger = logging.getLogger('OmniFoldTTbar')
@@ -399,6 +397,8 @@ class OmniFoldTTbar():
         """
         Run unfolding
         """
+        import modelUtils
+        from omnifoldv2 import omnifold
 
         # data and weight arrays
         X_data, X_sim, X_gen, X_bkg = self._get_input_arrays()

@@ -90,7 +90,7 @@ def unfold(**parsed_args):
         unfolder.load(parsed_args['unfolded_weights'])
     else:
         # configure GPU
-        util.configGPUs(parsed_args['gpu'], verbose=parsed_args['verbose'])
+        modelUtils.configGPUs(parsed_args['gpu'], verbose=parsed_args['verbose'])
 
         # run unfolding
         unfolder.run(

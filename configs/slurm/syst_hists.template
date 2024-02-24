@@ -1,0 +1,27 @@
+#!/bin/bash
+#SBATCH --mem=24G
+#SBATCH --time=12:00:00
+#SBATCH --export=All
+#SBATCH --output=%j.%x.out
+#SBATCH --job-name=@@SYSTFILERS@@
+kwsyst=@@SYSTFILERS@@
+topdir=@@SYSTOUTDIR@@
+
+# container
+CONTAINER="${HOME}/data/containers/topOmniFold_tf_2_7_0_mpl373.sif"
+
+# set up environment
+if [[ ! -v SOURCE_DIR ]]; then
+    source ${HOME}/topUnfolding/omnifoldTop/setup.sh
+fi
+
+echo HOSTNAME=${HOSTNAME}
+echo "SOURCE_DIR=${SOURCE_DIR}"
+echo "DATA_DIR=${DATA_DIR}"
+
+observables='mtt ptt th_pt tl_pt ytt th_y tl_y'
+observables_multidim='ptt_vs_mtt th_pt_vs_mtt ptt_vs_ytt_abs mtt_vs_ytt_abs mtt_vs_ptt_vs_ytt_abs mtt_vs_th_pt_vs_th_y_abs mtt_vs_th_pt_vs_ytt_abs mtt_vs_th_y_abs_vs_ytt_abs'
+
+singularity run --bind /mnt/ ${CONTAINER} python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/run_uncertainties.py -k ${kwsyst} -r ${topdir} -v histogram --observables ${observables} --observables-multidim ${observables_multidim} --binning-config ${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json
+
+echo exit code $?
