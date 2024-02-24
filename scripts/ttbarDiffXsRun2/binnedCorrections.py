@@ -42,11 +42,11 @@ def compute_binned_efficiency(hist_response, hist_truth, flow):
 
 def compute_binned_efficiency_multidim(fhist_response, fhist_truth, flow):
     # Scale the truth distribution by 1. / branching_ratio
-    fhist_truth.scale( 1./ttbar_diffXs_run2_params['branching_ratio'] )
+    fhist_truth_br = fhist_truth * ( 1./ttbar_diffXs_run2_params['branching_ratio'] )
 
     fhist_eff = fhist_response.projectToTruth(flow=flow)
     fhist_eff.name = "efficiency"
-    fhist_eff.divide(fhist_truth)
+    fhist_eff.divide(fhist_truth_br)
 
     return fhist_eff
 
