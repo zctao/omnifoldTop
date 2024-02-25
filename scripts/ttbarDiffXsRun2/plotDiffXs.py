@@ -714,7 +714,7 @@ if __name__ == "__main__":
                         action=util.ParseEnvVar, help="File paths to other MC predictions")
     parser.add_argument('-o', '--outputdir', type=str, 
                         action=util.ParseEnvVar, help="Output directory")
-    parser.add_argument('--observables', type=str, nargs='+',
+    parser.add_argument('--observables', type=str, nargs='+', default=[],
                         help="List of observables to plot")
     parser.add_argument('--label-nominal', type=str, default="MC",
                         help="Label of the nominal MC prediction")
