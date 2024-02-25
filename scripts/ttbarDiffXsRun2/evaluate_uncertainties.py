@@ -486,7 +486,8 @@ def compute_bootstrap_uncertainties(
             hist_average = fh.average_histograms(hists_rs, standard_error_of_the_mean=False)
 
             hist_relerr_flat = extract_relative_errors(
-                hist_average.flatten(), h_ref.flatten()
+                hist_average.flatten(),
+                h_ref.flatten() if h_ref is not None else None
                 )
 
             hist_relerr = hist_average.copy()
