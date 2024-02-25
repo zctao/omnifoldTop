@@ -593,7 +593,9 @@ def plot_histograms_and_ratios(
     y_lim = None,
     ratio_lim = None,
     title = '',
-    stack_numerators = False
+    stack_numerators = False,
+    height_ratios = (4,1),
+    **fig_kw
     ):
 
     if not hists_numerator:
@@ -604,9 +606,10 @@ def plot_histograms_and_ratios(
         2 if hist_denominator else 1,
         sharex = True,
         gridspec_kw = {
-            'height_ratios': (4,1) if hist_denominator else (1,),
+            'height_ratios': height_ratios if hist_denominator else (1,),
             'hspace': 0.15
-        }
+        },
+        **fig_kw
     )
 
     if hist_denominator:

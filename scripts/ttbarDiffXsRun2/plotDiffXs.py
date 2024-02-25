@@ -16,7 +16,13 @@ logger = logging.getLogger("plotDiffXs")
 default_markers = ['o','s','^','v','d','<','>','p','h','*','x','1','2','3','4']
 
 rescale_oom = {
+    "th_pt_vs_mtt": [8,6,4,2,0],
     "ptt_vs_mtt": [8,6,4,2,0],
+    "mtt_vs_ytt_abs": [6,4,2,0],
+    "ptt_vs_ytt_abs": [6,4,2,0],
+    "mtt_vs_ptt_vs_ytt_abs": [12,9,6,3,0],
+    "mtt_vs_th_pt_vs_th_y_abs": [12,9,6,3,0],
+    "mtt_vs_th_pt_vs_ytt_abs": [12,9,6,3,0],
     "mtt_vs_th_y_abs_vs_ytt_abs": [9,6,3,0],
 }
 
@@ -151,7 +157,9 @@ def plot_diffXs_1D(
         stamp_loc='upper left',
         stamp_opt={"prop":{"fontsize":"medium"}},
         y_lim = 'x2',
-        ratio_lim = (0.5, 1.5)
+        ratio_lim = (0.5, 1.5),
+        height_ratios = (5,1),
+        figsize = [6.4, 6.4]
     )
 
 def get_color_sequence(colormap, ncolors):
