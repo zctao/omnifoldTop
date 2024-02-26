@@ -11,8 +11,8 @@ python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/plotDiffXs.py \
     -a ${fpath_uncertainties_abs} \
     -r ${fpath_uncertainties_rel} \
     -o ${topdir}/results \
-    --observables th_pt ptt_vs_mtt mtt_vs_th_y_abs_vs_ytt_abs \
     --label-nominal PWG+PY8 \
     -v
+    #--observables th_pt ptt_vs_mtt mtt_vs_th_y_abs_vs_ytt_abs \
     #-m ${fpaths_otherMCs} \
     #--labels-otherMC OtherTest
