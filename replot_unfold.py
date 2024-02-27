@@ -5,13 +5,18 @@ import glob
 import util
 from unfoldv2 import unfold
 
-# Usage
-if len(sys.argv) != 2 and len(sys.argv) != 3:
-    print("Usage: ./replot_unfold.py <path_to_result> [<new_output_dir>]")
-    sys.exit(1)
+import argparse
 
-fpath_result_dir = sys.argv[1]
-new_outdir = sys.argv[2] if len(sys.argv) == 3 else None 
+parser = argparse.ArgumentParser()
+
+parser.add_argument('result_dir', type=str, help="Unfolding result directory")
+parser.add_argument('-o', '--outdir-new', type=str,
+                    help="New output directory. If not provided, use the unfolding result directory")
+parser.add_argument('--no-ibu', action='store_true', help="If True, do not plot IBU")
+
+args = parser.parse_args()
+
+fpath_result_dir = args.result_dir
 
 # check if directory exists
 if not os.path.isdir(fpath_result_dir):
@@ -44,12 +49,15 @@ fpaths_uw.sort()
 run_cfg.update({"unfolded_weights": fpaths_uw})
 
 # if new output directory is provided:
-if new_outdir is not None:
-    if not os.path.isdir(new_outdir):
+if args.outdir_new:
+    if not os.path.isdir(args.outdir_new):
         print("Create new output directory")
-        os.makedirs(new_outdir)
+        os.makedirs(args.outdir_new)
 
-    run_cfg["outputdir"] = new_outdir
+    run_cfg["outputdir"] = args.outdir_new
+
+if args.no_ibu:
+    run_cfg["run_ibu"] = False
 
 # Rerun
 print("Rerun plotting")
