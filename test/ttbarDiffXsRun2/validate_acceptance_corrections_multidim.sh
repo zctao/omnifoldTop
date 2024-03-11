@@ -74,5 +74,6 @@ run_multidim() {
 
 run_multidim ptt_vs_mtt ptt mtt
 run_multidim th_pt_vs_mtt th_pt mtt
+run_multidim ytt_abs_vs_mtt ytt_abs mtt
 run_multidim ptt_vs_ytt_abs ptt ytt_abs
 run_multidim mtt_vs_ytt_abs mtt ytt_abs

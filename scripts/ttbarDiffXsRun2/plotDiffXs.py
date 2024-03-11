@@ -18,6 +18,7 @@ default_markers = ['o','s','^','v','d','<','>','p','h','*','x','1','2','3','4']
 rescale_oom = {
     "th_pt_vs_mtt": [8,6,4,2,0],
     "ptt_vs_mtt": [8,6,4,2,0],
+    "ytt_abs_vs_mtt": [4,2,0],
     "mtt_vs_ytt_abs": [6,4,2,0],
     "ptt_vs_ytt_abs": [6,4,2,0],
     "mtt_vs_ptt_vs_ytt_abs": [12,9,6,3,0],

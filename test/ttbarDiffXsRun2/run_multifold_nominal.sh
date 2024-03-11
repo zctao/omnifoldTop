@@ -8,7 +8,7 @@ outdir=${DATA_DIR}/OmniFoldOutputs//Run2TTbarXs/Nominal/$timestamp
 histogram_topdir=${DATA_DIR}/NtupleTT/20230501/systCRL/ttbar_nominal
 
 observables='mtt ptt th_pt tl_pt ytt th_y tl_y'
-observables_multidim='ptt_vs_mtt th_pt_vs_mtt ptt_vs_ytt_abs mtt_vs_ytt_abs mtt_vs_ptt_vs_ytt_abs mtt_vs_th_pt_vs_th_y_abs mtt_vs_th_pt_vs_ytt_abs mtt_vs_th_y_abs_vs_ytt_abs'
+observables_multidim='ptt_vs_mtt th_pt_vs_mtt ytt_abs_vs_mtt ptt_vs_ytt_abs mtt_vs_ytt_abs mtt_vs_ptt_vs_ytt_abs mtt_vs_th_pt_vs_th_y_abs mtt_vs_th_pt_vs_ytt_abs mtt_vs_th_y_abs_vs_ytt_abs'
 
 #######
 echo
