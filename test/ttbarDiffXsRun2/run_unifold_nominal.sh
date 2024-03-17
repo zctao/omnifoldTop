@@ -5,7 +5,7 @@ subcampaigns=${2:-'mc16a mc16d mc16e'}
 sample_dir=${DATA_DIR}/NtupleTT/20221221
 outdir=${DATA_DIR}/OmniFoldOutputs/Run2TTbarXs/NominalUniFold/$timestamp
 
-histogram_topdir=${DATA_DIR}/NtupleTT/20230501/systCRL/ttbar_nominal
+histogram_topdir=${DATA_DIR}/NtupleTT/20240308/systCRL/ttbar_nominal
 
 observables='mtt ptt th_pt tl_pt ytt th_y tl_y'
 
