@@ -4,7 +4,7 @@ fpath_syst="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2023Dec06/"
 fpath_network="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2023Dec06/central/"
 fpath_stat="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2024Feb20/bootstrap/"
 fpath_stat_mc="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/2024Feb20/bootstrap_mc/"
-fpath_unfold="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/StressTests/2024Feb14_nomatch/stress_data/"
+fpath_unfold="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/StressTests/2024Feb14/stress_data/"
 output_topdir="${HOME}/data/OmniFoldOutputs/Run2TTbarXs/Uncertainties/uncertainties"
 
 groups="JES BTag Lepton MET Pileup IFSR PDF MTop hdamp Hadronization Generator Backgrounds"
