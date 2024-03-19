@@ -680,11 +680,13 @@ def plotDiffXs(
             extra_args = {
                 'rescales_order_of_magnitude': rescale_oom.get(obs),
                 }
+            yscale_log = True
         elif len(obs_list) == 3:
             f_plot_diffXs = plot_diffXs_3D
             extra_args = {
                 'rescales_order_of_magnitude': rescale_oom.get(obs),
                 }
+            yscale_log = True
         else:
             raise RuntimeError(f"Don't know how to plot observable {obs}")
 

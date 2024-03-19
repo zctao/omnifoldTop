@@ -1,6 +1,6 @@
 #!/bin/bash
 timestamp=${1:-'latest'}
-topdir=${DATA_DIR}/OmniFoldOutputs//Run2TTbarXs
+topdir=${DATA_DIR}/OmniFoldOutputs/Run2TTbarXs
 fpath_nomimal=${topdir}/Nominal/$timestamp/nominal/histograms.root
 fpath_uncertainties_abs=${topdir}/Uncertainties/uncertainties/abs_sym/bin_uncertainties.root
 fpath_uncertainties_rel=${topdir}/Uncertainties/uncertainties/rel_sym/bin_uncertainties.root
