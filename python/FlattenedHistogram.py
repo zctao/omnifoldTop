@@ -328,18 +328,40 @@ class FlattenedHistogram2D(FlattenedHistogram):
 
         return self
 
-    def norm(self, flow=True, density=False):
-        if flow:
-            return myhu.get_hist_norm(self._yhist, density=density, flow=True)
-        else:
-            # get sum from every y bin slice
-            n = 0.
-            for ybin_label in self:
-                n += myhu.get_hist_norm(self[ybin_label], density=density, flow=False)
-            return n
+    def integral(self, flow=True, outer_bin_width=1.):
+        ybin_widths = myhu.get_hist_widths(self._yhist) * outer_bin_width
 
-    def renormalize(self, norm=1., flow=True, density=False):
-        old_norm = self.norm(flow=flow, density=density)
+        if flow:
+            total = ( self._yhist.values() * ybin_widths ).sum()
+            # underflow and overflow bins
+            total += self._yhist[hist.underflow]['value']
+            total += self._yhist[hist.overflow]['value']
+        else:
+            total = 0.
+            for ybin_label, ybin_w in zip(self, ybin_widths):
+                xbin_widths = myhu.get_hist_widths(self[ybin_label])
+                total += ( self[ybin_label].values() * xbin_widths * ybin_w ).sum()
+
+        return total
+
+    def sum(self, flow=True):
+        if flow:
+            return myhu.get_hist_norm(self._yhist, density=False, flow=True)
+
+        else:
+            ntotal = 0.
+            for ybin_label in self:
+                ntotal += myhu.get_hist_norm(self[ybin_label], density=False, flow=False)
+            return ntotal
+
+    def norm(self, flow=True, density=False, outer_bin_width=1.):
+        if density:
+            return self.integral(flow=flow, outer_bin_width=outer_bin_width)
+        else:
+            return self.sum(flow=flow)
+
+    def renormalize(self, norm=1., flow=True, density=False, outer_bin_width=1.):
+        old_norm = self.norm(flow=flow, density=density, outer_bin_width=outer_bin_width)
 
         self._yhist *= norm / old_norm
 
@@ -952,15 +974,36 @@ class FlattenedHistogram3D(FlattenedHistogram):
 
         return self
 
-    def norm(self, flow=True, density=False):
+    def integral(self, flow=True, outer_bin_width=1.):
+        zbin_widths = myhu.get_hist_widths(self._zhist) * outer_bin_width
+
         if flow:
-            return myhu.get_hist_norm(self._zhist, density=density, flow=True)
+            total = (self._zhist.values() * zbin_widths ).sum()
+            # underflow and overflow bins
+            total += self._zhist[hist.underflow]['value']
+            total += self._zhist[hist.overflow]['value']
         else:
-            # get sum from every z bin slice
-            n = 0.
+            total = 0.
+            for zbin_label, zbin_w in zip(self, zbin_widths):
+                total += self[zbin_label].integral(flow=False, outer_bin_width=zbin_w)
+
+        return total
+
+    def sum(self, flow=True):
+        if flow:
+            return myhu.get_hist_norm(self._zhist, density=False, flow=True)
+
+        else:
+            ntotal = 0.
             for zbin_label in self:
-                n += self[zbin_label].norm(flow=False, density=density)
-            return n
+                ntotal += self[zbin_label].sum(flow=False)
+            return ntotal
+
+    def norm(self, flow=True, density=False, outer_bin_width=1.):
+        if density:
+            return self.integral(flow=flow, outer_bin_width=outer_bin_width)
+        else:
+            return self.sum(flow=flow)
 
     def renormalize(self, norm=1., flow=True, density=False):
         old_norm = self.norm(flow=flow, density=density)
