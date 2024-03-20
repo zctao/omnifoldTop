@@ -1,6 +1,7 @@
 import os
 import logging
 import numpy as np
+import math
 
 import util
 import histogramming as myhu
@@ -491,8 +492,14 @@ def plot_diffXs_3D(
 
     xlabel = observable_labels[0]
 
-    fig = plt.figure(layout='constrained', figsize=(4.8, 3.6*len(fhistogram_data)))
-    subfigs = fig.subfigures(len(fhistogram_data), 1)
+    #fig = plt.figure(layout='constrained', figsize=(4.8, 3.6*len(fhistogram_data)))
+    #subfigs = fig.subfigures(len(fhistogram_data), 1)
+    #
+    # arrange the subfigures into two columns
+    ncols = 2
+    nrows = math.ceil(len(fhistogram_data)/2)
+    fig = plt.figure(layout='constrained', figsize=(4.8 * ncols, 3.6 * nrows))
+    subfigs = fig.subfigures(nrows, ncols)
 
     if title:
         fig.suptitle(title)
@@ -513,7 +520,7 @@ def plot_diffXs_3D(
 
     for i, zbin_label in enumerate(fhistogram_data):
 
-        ax = subfigs[i].subplots(1)
+        ax = subfigs.flatten()[i].subplots(1)
 
         zbin_text = f"{zbin_edges[i]}$\\leq${zobs}$<${zbin_edges[i+1]}"
 
