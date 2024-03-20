@@ -253,10 +253,10 @@ def compare_wrt_binned(
 
         try:
             compare_histograms(
-                os.path.join(outdir_obs, "compare_prior"),
+                os.path.join(outdir_obs, "compare_unfolded"),
                 obs_labels,
-                hists_omnifold_d[obs]['prior'],
-                hists_binned_obs_d.get(histNameMap['prior']),
+                hists_omnifold_d[obs]['unfolded_corrected'],
+                hists_binned_obs_d.get(histNameMap['unfolded_corrected']),
                 ylabel = "Events",
                 yscale_log = yscale_log,
                 rescales_order_of_magnitude = rescale_oom_obs
@@ -273,6 +273,19 @@ def compare_wrt_binned(
                 ylabel = "",
                 yscale_log = False,
                 rescales_order_of_magnitude = None
+            )
+        except Exception as ex:
+            logger.error(f"Failed to compare 'reco_sig': {ex}")
+
+        try:
+            compare_histograms(
+                os.path.join(outdir_obs, "compare_prior"),
+                obs_labels,
+                hists_omnifold_d[obs]['prior'],
+                hists_binned_obs_d.get(histNameMap['prior']),
+                ylabel = "Events",
+                yscale_log = yscale_log,
+                rescales_order_of_magnitude = rescale_oom_obs
             )
         except Exception as ex:
             logger.error(f"Failed to compare 'reco_sig': {ex}")
