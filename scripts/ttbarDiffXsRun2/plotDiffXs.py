@@ -83,8 +83,7 @@ def plot_diffXs_1D(
     histograms_mc,
     label_nominal,
     labels_mc,
-    hist_relerrs_total = None,
-    hist_relerrs_stat = None,
+    hists_relerrs_dict = {},
     ylabel = '',
     ylabel_ratio = '',
     log_obs = False,
@@ -101,37 +100,21 @@ def plot_diffXs_1D(
     histograms_werr = []
     draw_opt_werr = []
 
-    # total uncertainty
-    if hist_relerrs_total:
-        h_relerrs_tot_up, h_relerrs_tot_down = hist_relerrs_total
-        errors_tot = get_error_arrays(h_relerrs_tot_up, h_relerrs_tot_down, histogram_data)
+    # bin uncertainties
+    for error_group in hists_relerrs_dict:
+        h_relerrs_up, h_relerrs_down = hists_relerrs_dict[error_group]
+        errors_arr = get_error_arrays(h_relerrs_up, h_relerrs_down, histogram_data)
 
-        if errors_tot is None:
-            logger.warning("No Total Uncertainty")
+        if errors_arr is None:
+            logger.warning(f"No Uncertainty {error_group}")
         else:
             histograms_werr.append(histogram_data)
 
-            error_band_tot_opt = {'label': uncertainty_groups['Total'].get('label')}
-            error_band_tot_opt.update(uncertainty_groups['Total'].get('style'))
+            error_band_opt = {'label': uncertainty_groups[error_group].get('label')}
+            error_band_opt.update(uncertainty_groups[error_group].get('style'))
             draw_opt_werr.append({
-                'yerr' : errors_tot,
-                'style_error_band' : error_band_tot_opt,
-                'skip_central' : True
-            })
-
-    if hist_relerrs_stat:
-        h_relerrs_stat_up, h_relerrs_stat_down = hist_relerrs_stat
-        errors_stat = get_error_arrays(h_relerrs_stat_up, h_relerrs_stat_down, histogram_data)
-        if errors_stat is None:
-            logger.warning("No Stat. Uncertainty")
-        else:
-            histograms_werr.append(histogram_data)
-
-            error_band_stat_opt = {'label' : uncertainty_groups['stat_total'].get('label')}
-            error_band_stat_opt.update(uncertainty_groups['stat_total'].get('style'))
-            draw_opt_werr.append({
-                'yerr' : errors_stat,
-                'style_error_band' : error_band_stat_opt,
+                'yerr' : errors_arr,
+                'style_error_band' : error_band_opt,
                 'skip_central' : True
             })
 
@@ -206,8 +189,7 @@ def draw_diffXs_distr_2D(
     fhistograms_mc,
     label_nominal,
     labels_mc,
-    fhist_relerrs_total = None,
-    fhist_relerrs_stat = None,
+    hists_relerrs_dict = {},
     xlabel = '',
     ylabel = '',
     title = '',
@@ -295,8 +277,7 @@ def draw_diffXs_ratio_2D(
     fhistograms_mc,
     label_nominal,
     labels_mc,
-    fhist_relerrs_total = None,
-    fhist_relerrs_stat = None,
+    hists_relerrs_dict = {},
     xlabel = '',
     ylabel = '',
     log_xscale = False,
@@ -323,18 +304,12 @@ def draw_diffXs_ratio_2D(
     ratio_one.divide(fhistogram_data)
 
     # errors
-    draw_error_band_2D(
-        axes,
-        fhist_relerrs_total,
-        ratio_one,
-        "Total"
-        )
-
-    draw_error_band_2D(
-        axes,
-        fhist_relerrs_stat,
-        ratio_one,
-        "stat_total"
+    for error_group in hists_relerrs_dict:
+        draw_error_band_2D(
+            axes,
+            hists_relerrs_dict[error_group],
+            ratio_one,
+            error_group
         )
 
     # MC
@@ -381,8 +356,7 @@ def plot_diffXs_2D(
     fhistograms_mc,
     label_nominal,
     labels_mc,
-    fhist_relerrs_total = None,
-    fhist_relerrs_stat = None,
+    hists_relerrs_dict = {},
     ylabel = '',
     ylabel_ratio = '',
     log_obs = False,
@@ -412,8 +386,7 @@ def plot_diffXs_2D(
         fhistograms_mc,
         label_nominal,
         labels_mc,
-        fhist_relerrs_total = fhist_relerrs_total,
-        fhist_relerrs_stat = fhist_relerrs_stat,
+        hists_relerrs_dict = hists_relerrs_dict,
         xlabel = xlabel,
         ylabel = ylabel,
         title = title,
@@ -444,8 +417,7 @@ def plot_diffXs_2D(
         fhistograms_mc,
         label_nominal,
         labels_mc,
-        fhist_relerrs_total = fhist_relerrs_total,
-        fhist_relerrs_stat = fhist_relerrs_stat,
+        hists_relerrs_dict = hists_relerrs_dict,
         xlabel = xlabel,
         ylabel = ylabel_ratio,
         log_xscale = log_obs,
@@ -463,8 +435,7 @@ def plot_diffXs_3D(
     fhistograms_mc,
     label_nominal,
     labels_mc,
-    fhist_relerrs_total = None,
-    fhist_relerrs_stat = None,
+    hists_relerrs_dict = {},
     ylabel = '',
     ylabel_ratio = '',
     log_obs = False,
@@ -508,15 +479,17 @@ def plot_diffXs_3D(
     zbin_edges = fhistogram_data.get_zbin_edges()
     zobs = observable_labels[2]
 
-    def get_fhist_relerrs_zbin(fhist_relerrs, zbin):
-        if fhist_relerrs is None:
-            return None
+    def get_fhist_relerrs_dict_zbin(zbin):
+        hists_relerrs_zbin_dict = {}
 
-        fhist_relerrs_up, fhist_relerrs_down = fhist_relerrs
-        if fhist_relerrs_up is None or fhist_relerrs_down is None:
-            return None
+        for error_group in hists_relerrs_dict:
+            if hists_relerrs_dict[error_group] is None:
+                continue
 
-        return (fhist_relerrs_up[zbin], fhist_relerrs_down[zbin])
+            fhist_relerrs_up, fhist_relerrs_down = hists_relerrs_dict[error_group]
+            hists_relerrs_zbin_dict[error_group] = (fhist_relerrs_up[zbin], fhist_relerrs_down[zbin])
+
+        return hists_relerrs_zbin_dict
 
     for i, zbin_label in enumerate(fhistogram_data):
 
@@ -530,8 +503,7 @@ def plot_diffXs_3D(
             [fhist_mc[zbin_label] for fhist_mc in fhistograms_mc],
             label_nominal,
             labels_mc,
-            fhist_relerrs_total = get_fhist_relerrs_zbin(fhist_relerrs_total, zbin_label),
-            fhist_relerrs_stat = get_fhist_relerrs_zbin(fhist_relerrs_stat, zbin_label),
+            hists_relerrs_dict = get_fhist_relerrs_dict_zbin(zbin_label),
             xlabel = xlabel,
             ylabel = ylabel if i==0 else '',
             log_xscale = log_obs,
@@ -566,8 +538,7 @@ def plot_diffXs_3D(
             [fhist_mc[zbin_label] for fhist_mc in fhistograms_mc],
             label_nominal,
             labels_mc,
-            fhist_relerrs_total = get_fhist_relerrs_zbin(fhist_relerrs_total, zbin_label),
-            fhist_relerrs_stat = get_fhist_relerrs_zbin(fhist_relerrs_stat, zbin_label),
+            hists_relerrs_dict = get_fhist_relerrs_dict_zbin(zbin_label),
             xlabel = xlabel,
             ylabel = ylabel_ratio,
             log_xscale = log_obs,
@@ -657,6 +628,7 @@ def plotDiffXs(
         # uncertainties
         hist_relerr_tot_up, hist_relerr_tot_down = None, None
         hist_relerr_stat_up, hist_relerr_stat_down = None, None
+        hist_relerr_toplot_d = {}
         if unc_d:
             if not obs in unc_d:
                 logger.warning(f"No uncertainties found for observable {obs}")
@@ -664,12 +636,16 @@ def plotDiffXs(
                 logger.warning(f"Total uncertainties not available for observable {obs}")
             else:
                 # systematic + statistical
-                hist_relerr_tot_up = unc_d[obs]['Total'].get('total_up')
-                hist_relerr_tot_down = unc_d[obs]['Total'].get('total_down')
+                hist_relerr_toplot_d['Total'] = (
+                    unc_d[obs]['Total'].get('total_up'),
+                    unc_d[obs]['Total'].get('total_down')
+                )
 
                 # statistical
-                hist_relerr_stat_up = unc_d[obs]['Total'].get('stat_total_up')
-                hist_relerr_stat_down = unc_d[obs]['Total'].get('stat_total_down')
+                hist_relerr_toplot_d['stat_total'] = (
+                    unc_d[obs]['Total'].get('stat_total_up'),
+                    unc_d[obs]['Total'].get('stat_total_down')
+                )
 
         # plot
         obs_list = obs.split('_vs_')
@@ -706,8 +682,7 @@ def plotDiffXs(
             hists_MC,
             'Data',
             labels_MC,
-            (hist_relerr_tot_up, hist_relerr_tot_down),
-            (hist_relerr_stat_up, hist_relerr_stat_down),
+            hists_relerrs_dict = hist_relerr_toplot_d,
             ylabel = ylabel,
             ylabel_ratio = ylabel_ratio,
             log_obs = False, # for now

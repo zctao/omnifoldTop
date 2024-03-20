@@ -49,7 +49,7 @@ def compare_histograms(
     observable_labels,
     histogram_omnifold,
     histogram_binned,
-    binerors_omnifold = None, # relative bin errors
+    binerors_omnifold_d = {}, # relative bin errors
     #binerrors_binned = None,
     label_omnifold = "MultiFold",
     label_binned = "RooUnfold IBU",
@@ -70,7 +70,7 @@ def compare_histograms(
             [histogram_binned],
             label_omnifold,
             [label_binned],
-            hist_relerrs_total = binerors_omnifold,
+            hists_relerrs_dict = binerors_omnifold_d,
             ylabel = ylabel,
             ylabel_ratio = f"Ratio to {label_omnifold}",
             log_obs = False,
@@ -98,7 +98,7 @@ def compare_histograms(
             [fhist_binned],
             label_omnifold,
             [label_binned],
-            fhist_relerrs_total = binerors_omnifold,
+            hists_relerrs_dict = binerors_omnifold_d,
             ylabel = ylabel,
             ylabel_ratio = f"Ratio to {label_omnifold}",
             log_obs = False,
@@ -292,13 +292,19 @@ def compare_wrt_binned(
 
         # differential cross-sections
         # absolute
+        relerrs_abs_omf_d = {}
         if binerrors_abs_omnifold_d:
-            relerr_absDiffXs_obs = (
+            # total uncertainty
+            relerrs_abs_omf_d['Total'] = (
                 binerrors_abs_omnifold_d[obs]['Total'].get('total_up'),
                 binerrors_abs_omnifold_d[obs]['Total'].get('total_down')
             )
-        else:
-            relerr_absDiffXs_obs = None
+
+            # unfolding uncertainty
+            relerrs_abs_omf_d['Unfold'] = (
+                binerrors_abs_omnifold_d[obs]['Total'].get('Unfold_up'),
+                binerrors_abs_omnifold_d[obs]['Total'].get('Unfold_down')
+            )
 
         try:
             compare_histograms(
@@ -306,7 +312,7 @@ def compare_wrt_binned(
                 obs_labels,
                 hists_omnifold_d[obs]['absoluteDiffXs'],
                 hists_binned_obs_d.get(histNameMap['absoluteDiffXs']),
-                binerors_omnifold = relerr_absDiffXs_obs,
+                binerors_omnifold_d = relerrs_abs_omf_d,
                 ylabel = util.get_diffXs_label(obs_list, obsConfig_d, False, "pb"),
                 yscale_log = yscale_log,
                 rescales_order_of_magnitude = rescale_oom_obs
@@ -315,13 +321,19 @@ def compare_wrt_binned(
             logger.error(f"Failed to compare 'reco_sig': {ex}")
 
         # relative
-        if binerrors_rel_omnifold_d:
-            relerr_relDiffXs_obs = (
+        relerrs_rel_omf_d = {}
+        if binerrors_abs_omnifold_d:
+            # total uncertainty
+            relerrs_rel_omf_d['Total'] = (
                 binerrors_rel_omnifold_d[obs]['Total'].get('total_up'),
                 binerrors_rel_omnifold_d[obs]['Total'].get('total_down')
             )
-        else:
-            relerr_relDiffXs_obs = None
+
+            # unfolding uncertainty
+            relerrs_rel_omf_d['Unfold'] = (
+                binerrors_rel_omnifold_d[obs]['Total'].get('Unfold_up'),
+                binerrors_rel_omnifold_d[obs]['Total'].get('Unfold_down')
+            )
 
         try:
             compare_histograms(
@@ -329,7 +341,7 @@ def compare_wrt_binned(
                 obs_labels,
                 hists_omnifold_d[obs]['relativeDiffXs'],
                 hists_binned_obs_d.get(histNameMap['relativeDiffXs']),
-                binerors_omnifold = relerr_relDiffXs_obs,
+                binerors_omnifold_d = relerrs_rel_omf_d,
                 ylabel = util.get_diffXs_label(obs_list, obsConfig_d, True, "pb"),
                 yscale_log = yscale_log,
                 rescales_order_of_magnitude = rescale_oom_obs
