@@ -28,7 +28,7 @@ omnifold_style = {'color': 'tab:red', 'label':'MultiFold', 'histtype': 'errorbar
 ibu_style = {'color': 'gray', 'label':'IBU', 'histtype': 'errorbar', 'marker': 'o', 'markersize': 2}
 error_style = {'lw': 1, 'capsize': 1.5, 'capthick': 1, 'markersize': 1.5}
 
-def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer, label_denom=None, labels_numer=[], yerr_denom=None, yerrs_numer=[]):
+def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer, label_denom=None, labels_numer=[], yerr_denom=None, yerrs_numer=[], flow_style='none'):
     """
     Plot ratios of several numerator histograms to a denominator histogram.
 
@@ -108,7 +108,7 @@ def draw_ratio(ax, hist_denom, hists_numer, color_denom, colors_numer, label_den
         else:
             ratio_errs = None
 
-        hep.histplot(ratio, bin_edges, yerr=ratio_errs, histtype='errorbar', xerr=True, color=cnum, ax=ax, label=lnum, **error_style)
+        hep.histplot(ratio, bin_edges, yerr=ratio_errs, histtype='errorbar', xerr=True, color=cnum, ax=ax, label=lnum, flow=flow_style, **error_style)
 
 def draw_stamp(ax, texts, x=0.5, y=0.5, dy=0.045, **opts):
     """
@@ -252,7 +252,8 @@ def draw_histograms(
     stamp_loc=(0.75, 0.75),
     stamp_opt={},
     title = '',
-    stack = False
+    stack = False,
+    flow_style = 'none' # str, optional { "show", "sum", "hint", "none"}
     ):
 
     if not histograms:
@@ -269,7 +270,7 @@ def draw_histograms(
         # histtype does not allow a list of styles for the stacked histograms
         style_stack['histtype'] = 'fill'
 
-        hep.histplot(histograms, yerr=False, stack=True, ax=ax, **style_stack)
+        hep.histplot(histograms, yerr=False, stack=True, ax=ax, flow=flow_style, **style_stack)
     else:
         for h, opt in zip(histograms, draw_options):
             opt_tmp = opt.copy()
@@ -285,10 +286,10 @@ def draw_histograms(
 
                 # draw central
                 if not opt_tmp.pop('skip_central', False):
-                    hep.histplot(h, ax=ax, yerr=False, **opt_tmp)
+                    hep.histplot(h, ax=ax, yerr=False, flow=flow_style, **opt_tmp)
             else:
                 # draw normally
-                hep.histplot(h, ax=ax, yerr=binerrs, **opt_tmp)
+                hep.histplot(h, ax=ax, yerr=binerrs, flow=flow_style, **opt_tmp)
 
     if xlabel is not None:
         ax.set_xlabel(xlabel)
@@ -544,7 +545,8 @@ def plot_histogram_and_function(
     draw_option_function,
     xlabel = None,
     ylabel = None,
-    title = None
+    title = None,
+    flow_style = 'none' # str, optional { "show", "sum", "hint", "none"}
     ):
 
     fig, ax = plt.subplots()
@@ -557,7 +559,7 @@ def plot_histogram_and_function(
 
     # draw the histogram
     yerr = myhu.get_values_and_errors(histogram)[1]
-    hep.histplot(histogram, yerr=yerr, ax=ax, **draw_option_histogram)
+    hep.histplot(histogram, yerr=yerr, ax=ax, flow=flow_style, **draw_option_histogram)
 
     # draw the fit function
     binedges = histogram.axes.edges[0]
@@ -595,6 +597,7 @@ def plot_histograms_and_ratios(
     title = '',
     stack_numerators = False,
     height_ratios = (4,1),
+    flow_style = 'none', # str, optional { "show", "sum", "hint", "none"}
     **fig_kw
     ):
 
@@ -632,10 +635,10 @@ def plot_histograms_and_ratios(
         # use 'yerr' in draw_option_denominator if provided
         # otherwise extract from the histogram object
         if 'yerr' in draw_option_denominator:
-            hep.histplot(hist_denominator, ax=ax, **draw_option_denominator)
+            hep.histplot(hist_denominator, ax=ax, flow=flow_style, **draw_option_denominator)
         else:
             yerr_d = myhu.get_values_and_errors(hist_denominator)[1]
-            hep.histplot(hist_denominator, ax=ax, yerr=yerr_d, **draw_option_denominator)
+            hep.histplot(hist_denominator, ax=ax, yerr=yerr_d, flow=flow_style, **draw_option_denominator)
 
     if not draw_options_numerator:
         draw_options_numerator = [{}] * len(hists_numerator)
