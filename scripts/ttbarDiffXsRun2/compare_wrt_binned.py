@@ -5,6 +5,7 @@ import util
 import histogramming as myhu
 import FlattenedHistogram as fh
 from ttbarDiffXsRun2.plotDiffXs import plot_diffXs_1D, plot_diffXs_2D, plot_diffXs_3D, rescale_oom
+from ttbarDiffXsRun2.helpers import ttbar_diffXs_run2_params
 
 util.configRootLogger()
 logger = logging.getLogger("compare")
@@ -44,6 +45,26 @@ histNameMap = {
     "response" : "Response"
 }
 
+# convert the TH1 histogram to fh.FlattenedHistogram
+def convert_binned_multi_dim(histogram_binned, fhist_ref, norm=None, density=False):
+
+    if density:
+        # multiply by bin widths first
+        histogram_binned = histogram_binned * myhu.get_hist_widths(histogram_binned)
+
+    if norm:
+        histogram_binned = myhu.renormalize_hist(histogram_binned, norm=norm, density=False)
+
+    # convert to fh.FlattenedHistogram
+    fhist_binned = fhist_ref.copy()
+    fhist_binned.fromFlatArray(histogram_binned.values(), histogram_binned.variances())
+
+    if density:
+        # divide by bin widths
+        fhist_binned.make_density()
+
+    return fhist_binned
+
 def compare_histograms(
     figname,
     observable_labels,
@@ -81,8 +102,16 @@ def compare_histograms(
 
         # convert histogram_binned to fh.FlattenedHistogram
         # assume binnings are consistent
-        fhist_binned = histogram_omnifold.copy()
-        fhist_binned.fromFlatArray(histogram_binned.values(), histogram_binned.variances())
+        norm = None
+        density = False
+        if 'relDiffXs' in figname:
+            norm = 1.
+            density = True
+        elif 'absDiffXs' in figname:
+            density = True
+
+        if not isinstance(histogram_binned, fh.FlattenedHistogram):
+            fhist_binned = convert_binned_multi_dim(histogram_binned, histogram_omnifold, norm=norm, density=density)
 
         if ndim == 2:
             f_plot = plot_diffXs_2D
@@ -147,7 +176,8 @@ def compare_wrt_binned(
     fpath_binerrors_relative = None,
     observables = [],
     output_dir = './comparison',
-    observable_config = "configs/observables/vars_ttbardiffXs_pseudotop.json"
+    observable_config = "configs/observables/vars_ttbardiffXs_pseudotop.json",
+    fpath_corrections = None
     ):
 
     if not os.path.isdir(output_dir):
@@ -161,6 +191,17 @@ def compare_wrt_binned(
     # OmniFold results
     logger.info(f"Retrieve OmniFold histograms from {fpath_omnifold}")
     hists_omnifold_d = myhu.read_histograms_dict_from_file(fpath_omnifold)
+
+    # also get the distribution of all generated MC distribution used for computing the efficiency corrections
+    if not fpath_corrections:
+        fpath_corrections = os.path.join(os.path.dirname(fpath_omnifold), '..', 'histograms_merged.root')
+
+    try:
+        logger.info(f"Read extra histograms from {fpath_corrections}")
+        hists_corrections_d = myhu.read_histograms_dict_from_file(fpath_corrections)
+    except Exception as ex:
+        logger.warning(f"Failed to read extra histograms: {ex}")
+        hists_corrections_d = {}
 
     # uncertainties
     # absolute
@@ -271,11 +312,33 @@ def compare_wrt_binned(
                 hists_omnifold_d[obs]['efficiency'],
                 hists_binned_obs_d.get(histNameMap['efficiency']),
                 ylabel = "",
-                yscale_log = False,
-                rescales_order_of_magnitude = None
+                yscale_log = True,
+                rescales_order_of_magnitude = list(range(len(rescale_oom_obs)*2 -2 , -2, -2))
             )
         except Exception as ex:
             logger.error(f"Failed to compare 'efficiency': {ex}")
+
+        if hists_corrections_d:
+            try:
+                if len(obs_list) == 1:
+                    hname_prefix = "h"
+                elif len(obs_list) == 2:
+                    hname_prefix = "fh2d"
+                else:
+                    hname_prefix = "fh3d"
+                hname = f"{hname_prefix}_{obs}_truth"
+
+                compare_histograms(
+                    os.path.join(outdir_obs, "compare_generated"),
+                    obs_labels,
+                    hists_corrections_d[obs][hname] * ( 1./ttbar_diffXs_run2_params['branching_ratio'] ),
+                    hists_binned_obs_d.get('Generated'),
+                    ylabel = "Events",
+                    yscale_log = yscale_log,
+                    rescales_order_of_magnitude = rescale_oom_obs
+                )
+            except Exception as ex:
+                logger.error(f"Failed to compare 'truth': {ex}")
 
         try:
             compare_histograms(
@@ -289,6 +352,19 @@ def compare_wrt_binned(
             )
         except Exception as ex:
             logger.error(f"Failed to compare 'prior': {ex}")
+
+        try:
+            compare_histograms(
+                os.path.join(outdir_obs, "compare_prior_noflow"),
+                obs_labels,
+                hists_omnifold_d[obs]['prior_noflow'],
+                hists_binned_obs_d.get(histNameMap['prior']),
+                ylabel = "Events",
+                yscale_log = yscale_log,
+                rescales_order_of_magnitude = rescale_oom_obs
+            )
+        except Exception as ex:
+            logger.error(f"Failed to compare 'prior_noflow': {ex}")
 
         # differential cross-sections
         # absolute
