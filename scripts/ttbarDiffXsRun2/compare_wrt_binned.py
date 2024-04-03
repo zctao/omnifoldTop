@@ -236,7 +236,7 @@ def compare_wrt_binned(
                 rescales_order_of_magnitude = rescale_oom_obs
             )
         except Exception as ex:
-            logger.error(f"Failed to compare 'reco_sig': {ex}")
+            logger.error(f"Failed to compare 'reco_data': {ex}")
 
         try:
             compare_histograms(
@@ -249,7 +249,7 @@ def compare_wrt_binned(
                 rescales_order_of_magnitude = rescale_oom_obs
             )
         except Exception as ex:
-            logger.error(f"Failed to compare 'reco_sig': {ex}")
+            logger.error(f"Failed to compare 'reco_bkg': {ex}")
 
         try:
             compare_histograms(
@@ -262,7 +262,7 @@ def compare_wrt_binned(
                 rescales_order_of_magnitude = rescale_oom_obs
             )
         except Exception as ex:
-            logger.error(f"Failed to compare 'reco_sig': {ex}")
+            logger.error(f"Failed to compare 'unfolded_corrected': {ex}")
 
         try:
             compare_histograms(
@@ -275,7 +275,7 @@ def compare_wrt_binned(
                 rescales_order_of_magnitude = None
             )
         except Exception as ex:
-            logger.error(f"Failed to compare 'reco_sig': {ex}")
+            logger.error(f"Failed to compare 'efficiency': {ex}")
 
         try:
             compare_histograms(
@@ -288,7 +288,7 @@ def compare_wrt_binned(
                 rescales_order_of_magnitude = rescale_oom_obs
             )
         except Exception as ex:
-            logger.error(f"Failed to compare 'reco_sig': {ex}")
+            logger.error(f"Failed to compare 'prior': {ex}")
 
         # differential cross-sections
         # absolute
@@ -318,7 +318,7 @@ def compare_wrt_binned(
                 rescales_order_of_magnitude = rescale_oom_obs
             )
         except Exception as ex:
-            logger.error(f"Failed to compare 'reco_sig': {ex}")
+            logger.error(f"Failed to compare 'absoluteDiffXs': {ex}")
 
         # relative
         relerrs_rel_omf_d = {}
@@ -347,7 +347,7 @@ def compare_wrt_binned(
                 rescales_order_of_magnitude = rescale_oom_obs
             )
         except Exception as ex:
-            logger.error(f"Failed to compare 'reco_sig': {ex}")
+            logger.error(f"Failed to compare 'relativeDiffXs': {ex}")
 
 if __name__ == "__main__":
 
