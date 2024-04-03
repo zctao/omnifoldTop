@@ -23,6 +23,7 @@ keys_to_save = [
     'prior', 'prior_noflow', 'truth', 'truth_noflow',
     'reco_data', 'reco_sig', 'reco_bkg',
     'ibu', 'ibu_corrected','ibu_alliters', 'ibu_correlation', 'response',
+    'response_projx', 'response_projy',
     'relativeDiffXs_ibu', 'absoluteDiffXs_ibu',
     'acceptance', 'efficiency',
     'relativeDiffXs_MC', 'absoluteDiffXs_MC'
@@ -152,6 +153,10 @@ def make_histograms_of_observable(
         # Add to the histogram dict
         hists_v_d['acceptance'] = acceptance
         hists_v_d['efficiency'] = efficiency
+
+        # add extra
+        hists_v_d['response_projx'] = binned_correction_d[observable]['response_projx']
+        hists_v_d['response_projy'] = binned_correction_d[observable]['response_projy']
 
     ###
     # The unfolded distributions
@@ -397,6 +402,10 @@ def make_histograms_of_observables_multidim(
         # Add to the histogram dict
         hists_multidim_d['acceptance'] = acceptance
         hists_multidim_d['efficiency'] = efficiency
+
+        # add extra
+        hists_multidim_d['response_projx'] = binned_correction_d[observables]['response_projx']
+        hists_multidim_d['response_projy'] = binned_correction_d[observables]['response_projy']
 
     ###
     # The unfolded distributions

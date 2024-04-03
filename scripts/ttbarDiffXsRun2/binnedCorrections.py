@@ -113,12 +113,19 @@ def binned_corrections_observable(
     acceptance = compute_binned_acceptance(resp, h_reco, flow=flow)
     efficiency = compute_binned_efficiency(resp, h_truth, flow=flow)
 
+    resp_projx = myhu.projectToXaxis(resp, flow=flow)
+    resp_projx.name = "response_projx"
+    resp_projy = myhu.projectToYaxis(resp, flow=flow)
+    resp_projy.name = "response_projy"
+
     hists_out_d = {
         "acceptance": acceptance,
         "efficiency": efficiency,
         "response": resp,
         "hreco": h_reco,
-        "htruth": h_truth
+        "htruth": h_truth,
+        "response_projx": resp_projx,
+        "response_projy": resp_projy
     }
 
     if compute_theoryDiffXs:
@@ -173,12 +180,19 @@ def binned_corrections_observable_multidim(
     acceptance = compute_binned_acceptance_multidim(resp, fh_reco, flow=flow)
     efficiency = compute_binned_efficiency_multidim(resp, fh_truth, flow=flow)
 
+    resp_projx = resp.projectToReco(flow=flow)
+    resp_projx.name = "response_projx"
+    resp_projy = resp.projectToTruth(flow=flow)
+    resp_projy.name = "response_projy"
+
     hists_out_d = {
         "acceptance": acceptance,
         "efficiency": efficiency,
         "response": resp,
         "hreco": fh_reco,
-        "htruth": fh_truth
+        "htruth": fh_truth,
+        "response_projx": resp_projx,
+        "response_projy": resp_projy
     }
 
     if compute_theoryDiffXs:
