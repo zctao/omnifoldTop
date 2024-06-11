@@ -377,10 +377,10 @@ def compare_wrt_binned(
             )
 
             # unfolding uncertainty
-            relerrs_abs_omf_d['Unfold'] = (
-                binerrors_abs_omnifold_d[obs]['Total'].get('Unfold_up'),
-                binerrors_abs_omnifold_d[obs]['Total'].get('Unfold_down')
-            )
+            #relerrs_abs_omf_d['Unfold'] = (
+            #    binerrors_abs_omnifold_d[obs]['Total'].get('Unfold_up'),
+            #    binerrors_abs_omnifold_d[obs]['Total'].get('Unfold_down')
+            #)
 
         try:
             compare_histograms(
@@ -406,10 +406,10 @@ def compare_wrt_binned(
             )
 
             # unfolding uncertainty
-            relerrs_rel_omf_d['Unfold'] = (
-                binerrors_rel_omnifold_d[obs]['Total'].get('Unfold_up'),
-                binerrors_rel_omnifold_d[obs]['Total'].get('Unfold_down')
-            )
+            #relerrs_rel_omf_d['Unfold'] = (
+            #    binerrors_rel_omnifold_d[obs]['Total'].get('Unfold_up'),
+            #    binerrors_rel_omnifold_d[obs]['Total'].get('Unfold_down')
+            #)
 
         try:
             compare_histograms(
