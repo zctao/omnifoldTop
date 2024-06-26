@@ -402,6 +402,18 @@ class FlattenedHistogram2D(FlattenedHistogram):
     def get_ylabel(self):
         return self._yhist.axes[0].label
 
+    def get_ybin_stamps(self, rescales_order_of_magnitude=None):
+        ybin_edges = self._yhist.axes[0].edges
+        yname = self.get_ylabel()
+        stamps = [f"{ylow}$\leq${yname}$<${yhigh}" for ylow, yhigh in zip(ybin_edges[:-1], ybin_edges[1:])]
+
+        if rescales_order_of_magnitude:
+            assert(len(rescales_order_of_magnitude)==len(self))
+            for i, oom in enumerate(rescales_order_of_magnitude):
+                stamps[i] = rf"($\times 10^{{ {oom} }}$), " + stamps[i]
+
+        return stamps
+
     def draw(
         self,
         axes,
@@ -419,9 +431,7 @@ class FlattenedHistogram2D(FlattenedHistogram):
         hists_to_plot = [self[ybin] for ybin in self]
 
         # labels
-        ybin_edges = self._yhist.axes[0].edges
-        yname = self.get_ylabel()
-        labels = [f"{ylow}$\leq${yname}$<${yhigh}" for ylow, yhigh in zip(ybin_edges[:-1], ybin_edges[1:])]
+        labels = self.get_ybin_stamps()
 
         if rescales_order_of_magnitude is not None:
             assert(len(rescales_order_of_magnitude)==len(self))
@@ -1055,6 +1065,13 @@ class FlattenedHistogram3D(FlattenedHistogram):
     def copy(self):
         return copy.deepcopy(self)
 
+    def get_zbin_stamps(self):
+        zbin_edges = self._zhist.axes[0].edges
+        zname = self._zhist.axes[0].label
+        stamps = [f"{zlow}$\leq${zname}$<${zhigh}" for zlow, zhigh in zip(zbin_edges[:-1], zbin_edges[1:])]
+
+        return stamps
+
     def draw(
         self,
         axes,
@@ -1068,12 +1085,8 @@ class FlattenedHistogram3D(FlattenedHistogram):
         legend_off = False
         ):
 
-        # z bin edges
-        zbin_edges = self._zhist.axes[0].edges
-        zname = self._zhist.axes[0].label
-
         # labels
-        zlabels = [f"{zlow}$\leq${zname}$<${zhigh}" for zlow, zhigh in zip(zbin_edges[:-1], zbin_edges[1:])]
+        zlabels = self.get_zbin_stamps()
 
         # rescale
         if rescales_order_of_magnitude is None:
