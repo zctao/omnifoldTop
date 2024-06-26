@@ -574,8 +574,8 @@ def plot_histogram_and_function(
     fig.savefig(figname+'.png', dpi=300)
     plt.close(fig)
 
-def plot_histograms_and_ratios(
-    figname,
+def draw_histograms_and_ratios(
+    axes,
     hists_numerator, # list of Hist
     hist_denominator = None, # Hist; If None, don't plot the ratio
     draw_options_numerator = None, # list of dict
@@ -596,31 +596,11 @@ def plot_histograms_and_ratios(
     ratio_lim = None,
     title = '',
     stack_numerators = False,
-    height_ratios = (4,1),
     flow_style = 'none', # str, optional { "show", "sum", "hint", "none"}
-    **fig_kw
     ):
 
-    if not hists_numerator:
-        logger.warn("No histograms to plot")
-        return
-
-    fig, axes = plt.subplots(
-        2 if hist_denominator else 1,
-        sharex = True,
-        gridspec_kw = {
-            'height_ratios': height_ratios if hist_denominator else (1,),
-            'hspace': 0.15
-        },
-        **fig_kw
-    )
-
-    if hist_denominator:
-        ax = axes[0]
-        ax_ratio = axes[1]
-    else:
-        ax = axes
-        ax_ratio = None
+    ax = axes[0]
+    ax_ratio = axes[1] if hist_denominator else None
 
     if log_xscale:
         ax.set_xscale('log')
@@ -676,9 +656,11 @@ def plot_histograms_and_ratios(
         ax.set_ylim(ylim_bot, ylim_top)
 
     # draw_ratios
-    if hist_denominator:
+    if ax_ratio:
+        if not hist_denominator:
+            logger.warn("Cannot draw ratio without the denominator histogram!")
+            return
 
-        assert(ax_ratio is not None)
         ax_ratio.set_ylabel(ylabel_ratio)
         ax_ratio.set_xlabel(xlabel)
         ax_ratio.set_xlim(*ax.get_xlim())
@@ -710,6 +692,181 @@ def plot_histograms_and_ratios(
             draw_opt_den_r,
             draw_opt_num_r
         )
+
+def plot_histograms_and_ratios(
+    figname,
+    hists_numerator, # list of Hist
+    hist_denominator = None, # Hist; If None, don't plot the ratio
+    draw_options_numerator = None, # list of dict
+    draw_option_denominator = {}, # dict
+    xlabel = '',
+    ylabel = '',
+    ylabel_ratio = 'Ratio',
+    log_xscale = False,
+    log_yscale = False,
+    log_scale = False, # same as log_yscale
+    legend_loc="best",
+    legend_ncol=1,
+    stamp_texts=[],
+    stamp_loc=(0.75, 0.75),
+    stamp_opt={},
+    denominator_ratio_only = False,
+    y_lim = None,
+    ratio_lim = None,
+    title = '',
+    stack_numerators = False,
+    height_ratios = (4,1),
+    flow_style = 'none', # str, optional { "show", "sum", "hint", "none"}
+    **fig_kw
+    ):
+
+    if not hists_numerator:
+        logger.warn("No histograms to plot")
+        return
+
+    # capture function arguments
+    draw_args = {
+        'hists_numerator': hists_numerator,
+        'hist_denominator': hist_denominator,
+        'draw_options_numerator': draw_options_numerator,
+        'draw_option_denominator': draw_option_denominator,
+        'xlabel': xlabel,
+        'log_xscale': log_xscale,
+        'log_yscale': log_yscale,
+        'log_scale': log_scale,
+        'legend_loc': legend_loc,
+        'legend_ncol': legend_ncol,
+        'stamp_texts': stamp_texts,
+        'stamp_loc': stamp_loc,
+        'stamp_opt': stamp_opt,
+        'denominator_ratio_only': denominator_ratio_only,
+        'y_lim': y_lim,
+        'ratio_lim': ratio_lim,
+        'title': title,
+        'stack_numerators': stack_numerators,
+        'flow_style': flow_style
+    }
+
+    if hasattr(hists_numerator[-1], '_zhist'): # FlattenedHistogram3D
+        nrows = len(hists_numerator[-1])
+        ncols_max = 1
+
+        fig = plt.figure(**fig_kw)
+        fig.set_figheight(4.8*nrows)
+        # set width later
+
+        fig.subplots_adjust(wspace=0.01)
+
+        # title
+        if title:
+            fig.suptitle(draw_args.pop('title'))
+
+        subfigs = fig.subfigures(nrows, 1, hspace=0.01)
+
+        zbin_stamps = hists_numerator[-1].get_zbin_stamps()
+
+        draw_args['stamp_loc'] = 'upper right'
+        draw_args['stamp_opt'] = {"prop":{"fontsize":"medium"}}
+
+        # loop over subfigures / zbins
+        for i, zbin_label in enumerate(hists_numerator[-1]):
+            nrows_sub = 2 if hist_denominator else 1
+            ncols_sub = len(hists_numerator[-1][zbin_label])
+            if ncols_sub > ncols_max:
+                ncols_max = ncols_sub
+
+            axes = subfigs[i].subplots(
+                nrows_sub, ncols_sub,
+                sharex='col', sharey='row',
+                gridspec_kw = {
+                    'height_ratios': height_ratios if hist_denominator else (1,),
+                    'hspace': 0.15
+                },
+                squeeze=False
+            )
+
+            ybin_stamps = hists_numerator[-1][zbin_label].get_ybin_stamps()
+
+            # loop over columns / ybins
+            for icol, ybin_label in enumerate(hists_numerator[-1][zbin_label]):
+                draw_args['hists_numerator'] = [hnum[zbin_label][ybin_label] for hnum in hists_numerator]
+                draw_args['hist_denominator'] = hist_denominator[zbin_label][ybin_label] if hist_denominator else None
+
+                # stamp label
+                draw_args['stamp_texts'] = stamp_texts + [zbin_stamps[i], ybin_stamps[icol]]
+
+                # y-axis label
+                draw_args['ylabel'] = ylabel if icol==0 else ''
+                draw_args['ylabel_ratio'] = ylabel_ratio if icol==0 else ''
+
+                # turn off legend
+                draw_args['legend_loc'] = None
+
+                draw_histograms_and_ratios(axes[:,icol], **draw_args)
+
+            # add legend
+            if i==0:
+                handles, labels = axes[0][-1].get_legend_handles_labels()
+                axes[0][-1].legend(handles, labels, loc='lower right', fontsize='medium', ncols=2, bbox_to_anchor=(1,1))
+
+        fig.set_figwidth(6.4*ncols_max)
+
+    elif hasattr(hists_numerator[-1], '_yhist'): # FlattenedHistogram2D
+
+        nrows = 2 if hist_denominator else 1
+        ncols = len(hists_numerator[-1])
+
+        fig = plt.figure(figsize=(6.4*ncols, 4.8), **fig_kw)
+
+        axes = fig.subplots(
+            nrows, ncols,
+            sharex='col', sharey='row',
+            gridspec_kw = {
+                'height_ratios': height_ratios if hist_denominator else (1,),
+                'hspace': 0.15
+            },
+            squeeze=False
+        )
+
+        fig.subplots_adjust(wspace=0.01)
+
+        draw_args['stamp_loc'] = 'upper right'
+        draw_args['stamp_opt'] = {"prop":{"fontsize":"medium"}}
+
+        # loop over columns / ybins
+        ybin_stamps = hists_numerator[-1].get_ybin_stamps()
+        for icol, ybin_label in enumerate(hists_numerator[-1]):
+            draw_args['hists_numerator'] = [hnum[ybin_label] for hnum in hists_numerator]
+            draw_args['hist_denominator'] = hist_denominator[ybin_label] if hist_denominator else None
+
+            # stamp label
+            draw_args['stamp_texts'] = stamp_texts + [ybin_stamps[icol]]
+
+            # y-axis label
+            draw_args['ylabel'] = ylabel if icol==0 else ''
+            draw_args['ylabel_ratio'] = ylabel_ratio if icol==0 else ''
+
+            # turn off legend
+            draw_args['legend_loc'] = None
+
+            draw_histograms_and_ratios(axes[:,icol], **draw_args)
+
+        # add legend
+        handles, labels = axes[0][-1].get_legend_handles_labels()
+        axes[0][-1].legend(handles, labels, loc='lower right', fontsize='medium', ncols=2, bbox_to_anchor=(1,1))
+
+    else: # 1D
+        fig, axes = plt.subplots(
+            2 if hist_denominator else 1,
+            sharex = True,
+            gridspec_kw = {
+                'height_ratios': height_ratios if hist_denominator else (1,),
+                'hspace': 0.15
+            },
+            **fig_kw
+        )
+
+        draw_histograms_and_ratios(axes, **draw_args)
 
     # save plot
     if not os.path.isdir(os.path.dirname(figname)):
