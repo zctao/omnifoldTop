@@ -5,10 +5,10 @@ import tracemalloc
 
 import util
 import metrics
-import plotter
 import histogramming as myhu
 from OmniFoldTTbar import read_arguments, load_unfolder
 import ibu
+from plot_histograms import plot_histograms_from_dict
 
 import ttbarDiffXsRun2.binnedCorrections as bc
 from ttbarDiffXsRun2.helpers import ttbar_diffXs_run2_params
@@ -608,152 +608,6 @@ def evaluate_metrics(
 
     return mdict
 
-def plot_histograms(
-    observable,
-    hists_dict,
-    plot_verbosity,
-    outdir = '.',
-    # plotting options
-    xlabel = '',
-    ylabel = '',
-    legend_loc = 'best',
-    legend_ncol = 1,
-    stamp_loc=(0.75, 0.75),
-    ratio_lim = None
-    ):
-
-    if plot_verbosity < 1 or not outdir:
-        return
-
-    # plot_verbosity >= 1
-    # -p
-    h_uf = hists_dict.get('unfolded')
-    h_gen = hists_dict.get('prior')
-    h_truth = hists_dict.get('truth')
-    h_ibu = hists_dict.get('ibu')
-
-    bins_mc = h_uf.axes[0].edges
-
-    ###
-    # print metrics on the plot
-    if plot_verbosity > 2:
-        texts_chi2 = metrics.write_texts_Chi2(
-            h_truth, [h_uf, h_ibu, h_gen], labels = ['MultiFold', 'IBU', 'Prior'])
-    else:
-        texts_chi2 = []
-
-    figname_uf = os.path.join(outdir, f"Unfold_{observable}")
-    logger.info(f" Plot unfolded distribution: {figname_uf}")
-    plotter.plot_distributions_unfold(
-        figname_uf,
-        h_uf, h_gen, h_truth, h_ibu,
-        xlabel = xlabel, ylabel = ylabel,
-        legend_loc = legend_loc, legend_ncol = legend_ncol,
-        stamp_loc = stamp_loc, stamp_texts = texts_chi2,
-        ratio_lim = ratio_lim
-        )
-
-    ###
-    # bin correlations
-    h_uf_corr = hists_dict.get('unfolded_correlation')
-    if h_uf_corr is not None:
-        figname_uf_corr = os.path.join(outdir, f"BinCorr_{observable}_OmniFold")
-        logger.info(f" Plot bin correlations: {figname_uf_corr}")
-        plotter.plot_correlations(figname_uf_corr, h_uf_corr.values(), bins_mc)
-
-    h_ibu_corr = hists_dict.get('ibu_correlation')
-    if h_ibu_corr is not None:
-        figname_ibu_corr = os.path.join(outdir, f"BinCorr_{observable}_IBU")
-        logger.info(f" Plot bin correlations: {figname_ibu_corr}")
-        plotter.plot_correlations(figname_ibu_corr, h_ibu_corr.values(), bins_mc)
-
-    ###
-    # Reco level distributions
-    h_data = hists_dict.get('reco_data')
-    h_sig = hists_dict.get('reco_sig')
-    h_bkg = hists_dict.get('reco_bkg')
-
-    figname_reco = os.path.join(outdir, f"Reco_{observable}")
-    logger.info(f" Plot detector-level distribution: {figname_reco}")
-    plotter.plot_distributions_reco(
-        figname_reco,
-        h_data, h_sig, h_bkg,
-        xlabel = xlabel, ylabel = ylabel,
-        legend_loc = legend_loc, legend_ncol = legend_ncol
-        )
-
-    ######
-    if plot_verbosity < 2:
-        return
-    # More plots if plot_verbosity >= 2
-    # -pp
-
-    ###
-    # Response
-    resp = hists_dict.get("response")
-    if resp is not None:
-        figname_resp = os.path.join(outdir, f"Response_{observable}")
-        logger.info(f" Plot response: {figname_resp}")
-        plotter.plot_response(figname_resp, resp, observable, cmap='Blues')
-
-    ###
-    # Iteration history
-    hists_uf_alliters = hists_dict.get('unfolded_alliters')
-    if hists_uf_alliters:
-        iteration_dir = os.path.join(outdir, 'Iterations')
-        if not os.path.isdir(iteration_dir):
-            logger.info(f"Create directory {iteration_dir}")
-            os.makedirs(iteration_dir)
-
-        figname_alliters = os.path.join(
-            iteration_dir, f"Unfold_AllIterations_{observable}")
-        logger.info(f" Plot unfolded distributions at every iteration: {figname_alliters}")
-        plotter.plot_distributions_iteration(
-            figname_alliters,
-            hists_uf_alliters, h_gen, h_truth,
-            xlabel = xlabel, ylabel = ylabel
-            )
-
-    ###
-    # All runs
-    hists_uf_allruns = hists_dict.get("unfolded_allruns")
-    if hists_uf_allruns is not None and len(hists_uf_allruns) > 1:
-        allruns_dir = os.path.join(outdir, 'AllRuns')
-        if not os.path.isdir(allruns_dir):
-            logger.info(f"Create directory {allruns_dir}")
-            os.makedirs(allruns_dir)
-
-        # unfolded distributions from all runs
-        figname_rs = os.path.join(allruns_dir, f"Unfold_AllRuns_{observable}")
-        logger.info(f" Plot unfolded distributions from all runs: {figname_rs}")
-
-        plotter.plot_distributions_resamples(
-                figname_rs,
-                hists_uf_allruns, h_gen, h_truth,
-                xlabel = xlabel, ylabel = ylabel
-                )
-
-    ######
-    if plot_verbosity < 5:
-        return
-
-    # Usually skip plotting these unless really necessary
-    # -ppppp
-    ###
-    # Distributions of bin entries
-    hists_uf_all =  hists_dict.get('unfolded_all')
-    if hists_uf_all is not None and len(hists_uf_all) > 1:
-        allruns_dir = os.path.join(outdir, 'AllRuns')
-        if not os.path.isdir(allruns_dir):
-            logger.info(f"Create directory {allruns_dir}")
-            os.makedirs(allruns_dir)
-
-        figname_bindistr = os.path.join(allruns_dir, f"Unfold_BinDistr_{observable}")
-        logger.info(f" Plot distributions of bin entries from all runs: {figname_bindistr}")
-        plotter.plot_hists_bin_distr(figname_bindistr, hists_uf_all, h_truth)
-
-    return
-
 def make_histograms_from_unfolder(
     unfolder,
     binning_config, # path to the binning config file
@@ -844,20 +698,6 @@ def make_histograms_from_unfolder(
                 plot = plot_verbosity > 1
                 )
 
-        # plot
-        plot_histograms(
-            ob,
-            histograms_dict[ob],
-            plot_verbosity,
-            outdir = outputdir,
-            xlabel = obsConfig_d[ob]['xlabel'],
-            ylabel = obsConfig_d[ob]['ylabel'],
-            legend_loc = obsConfig_d[ob]['legend_loc'],
-            legend_ncol = obsConfig_d[ob]['legend_ncol'],
-            stamp_loc =  obsConfig_d[ob]['stamp_xy'],
-            ratio_lim = obsConfig_d[ob].get('ratio_lim')
-            )
-
     for obs in observables_multidim:
 
         if binned_corrections_d or recompute_corrections:
@@ -894,6 +734,16 @@ def make_histograms_from_unfolder(
                     hists_to_write[ob][hname] = histograms_dict[ob][hname]
 
         myhu.write_histograms_dict_to_file(hists_to_write, outname_hist)
+
+        # plot
+        plot_histograms_from_dict(
+            histograms_dict,
+            outputdir = outputdir,
+            observables = [],
+            obsConfig_d = obsConfig_d,
+            include_ibu = include_ibu,
+            plot_verbosity = plot_verbosity
+        )
 
     return histograms_dict
 
