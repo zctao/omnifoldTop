@@ -201,7 +201,7 @@ def get_model(input_shape, nclass=2, model_type='dense_100x3'):
     model.compile(#loss=weighted_binary_crossentropy,
                   loss='binary_crossentropy',
                   optimizer=optimizer,
-                  weighted_metrics=['accuracy'])
+                  weighted_metrics=['accuracy']*n_models_in_parallel)
                   #metrics=['accuracy'])
 
     model.summary()
