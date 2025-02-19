@@ -193,6 +193,14 @@ class DataHandlerH5(DataHandlerBase):
         # filters
         self.event_filter = self._event_number_filter(odd_or_even)
 
+        # filter events with bad weights
+        wfilter = self._event_weight_filter()
+        if wfilter is not None:
+            if self.event_filter is not None:
+                self.event_filter &= wfilter
+            else:
+                self.event_filter = wfilter
+
         if self.event_filter is not None:
             # apply filters only to event selection flags for now
             self.pass_reco = self.pass_reco[self.event_filter]
@@ -438,6 +446,20 @@ class DataHandlerH5(DataHandlerBase):
         elif odd_or_even is not None:
             logger.warning(f"Unknown value for the argument 'odd_or_even': {odd_or_even}. No selection is applied.")
             return None
+        else:
+            return None
+
+    def _event_weight_filter(self, weight_max=1.e3):
+        # NaN
+        isnan = np.isnan(self.weights)
+
+        # Unphysically large weights
+        isinf = self.weights > weight_max
+
+        badweights = isnan | isinf
+        if np.any(badweights):
+            logger.warning(f"Found {np.sum(badweights)} events with unphysical weights: {self.weights[badweights]}. Fitlering them out...")
+            return ~badweights
         else:
             return None
 
