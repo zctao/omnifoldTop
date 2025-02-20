@@ -449,12 +449,12 @@ class DataHandlerH5(DataHandlerBase):
         else:
             return None
 
-    def _event_weight_filter(self, weight_max=1.e3):
+    def _event_weight_filter(self, weight_limit=1.e3):
         # NaN
         isnan = np.isnan(self.weights)
 
         # Unphysically large weights
-        isinf = self.weights > weight_max
+        isinf = np.abs(self.weights) > weight_limit
 
         badweights = isnan | isinf
         if np.any(badweights):
