@@ -148,6 +148,10 @@ def generate_slurm_jobs(
             for fpath in tarballs_map[tarball]:
                 flist.write(f"{fpath}\n")
 
+    # tarball list
+    # try to replace absolute paths to the data directory with the soft link
+    tarball_names = [tname.replace(os.path.expandvars("/data/${USER}"), os.path.expandvars("${HOME}/data"), 1) for tname in tarballs_map.keys()]
+
     # output
     resultdir = os.path.abspath(runcfg['outputdir'])
     if not os.path.isdir(resultdir):
@@ -170,7 +174,7 @@ def generate_slurm_jobs(
     job_common_dict = {
         "USEREMAIL" : email,
         "LOGFILE" : os.path.join(resultdir, "slurm-%j.log"),
-        "TARBALLLIST" : " ".join(tarballs_map.keys()),
+        "TARBALLLIST" : " ".join(tarball_names),
         "INFILELIST" : " ".join(filelists_tarball),
         "RUNCONFIG" : jobcfg_name,
         "INPUTDIR" : inputdir_job,
