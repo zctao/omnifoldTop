@@ -26,8 +26,7 @@ singularity run --bind /mnt/ ${CONTAINER} python \
     ${SOURCE_DIR}/scripts/make_histograms.py \
     ${result_dir} \
     --binning-config ${SOURCE_DIR}/configs/binning/bins_ttdiffxs.json \
-    --observables ${observables} \
-    --observables-multidim ${observables_multidim} \
+    --observables ${observables} ${observables_multidim} \
     --observable-config ${SOURCE_DIR}/configs/observables/vars_ttbardiffXs_pseudotop.json \
     --include-ibu -v
 
