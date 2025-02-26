@@ -320,7 +320,7 @@ def prepare_training_datasets(x0, w0, x1, w1, xb=None, wb=None):
 
     return train_d, val_d
 
-def train_model(model, X0, w0, X1, w1, Xb=None, wb=None, save_filepath='', batch_size=32768, epochs=100, verbose=1):
+def train_model(model, X0, w0, X1, w1, Xb=None, wb=None, save_filepath='', batch_size=32768, epochs=100, verbose=2):
     train_dict, val_dict = prepare_training_datasets(X0, w0, X1, w1, Xb, wb)
 
     fitargs = {'callbacks': get_callbacks(save_filepath), 'epochs': epochs, 'verbose': verbose, 'batch_size': batch_size}
