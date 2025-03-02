@@ -370,7 +370,7 @@ class DataHandlerH5(DataHandlerBase):
             logger.warning(f"Found {nval_nan} NaN values in event weights. Converting them to 0...")
             np.nan_to_num(self.weights, copy=False)
 
-        nvalmc_nan = np.sum(np.isnan(self.weights_mc))
+        nvalmc_nan = np.sum(np.isnan(self.weights_mc)) if self.weights_mc is not None else 0
         if nvalmc_nan > 0:
             logger.warning(f"Found {nvalmc_nan} NaN values in event MC weights. Converting them to 0...")
             np.nan_to_num(self.weights_mc, copy=False)
