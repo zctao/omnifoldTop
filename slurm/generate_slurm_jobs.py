@@ -1,5 +1,6 @@
 import os
 import tarfile
+from random import randint
 
 import util
 
@@ -165,7 +166,15 @@ def generate_slurm_jobs(
 
     if site=="ubc":
         # choose gpu
-        runcfg["gpu"] = 0 if output_name.endswith("_down") else 1
+        if output_name.endswith("down") or output_name.endswith("down_PseudoData") or output_name.endswith("Down") or output_name.endswith("DOWN"):
+            runcfg["gpu"] = 0
+        elif output_name.endswith("up") or output_name.endswith("up_PseudoData") or output_name.endswith("Up") or output_name.endswith("UP"):
+            runcfg["gpu"] = 1
+        elif '_PDF4LHC15_' in output_name:
+            runcfg["gpu"] = int(output_name.split("_")[-1])%2
+        else:
+            # pick a random one
+            runcfg["gpu"] = randint(0,1)
 
     # write the new config file
     util.write_dict_to_json(runcfg, jobcfg_name)
