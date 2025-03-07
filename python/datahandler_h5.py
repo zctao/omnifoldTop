@@ -170,6 +170,7 @@ class DataHandlerH5(DataHandlerBase):
         self.pass_reco = None
         self.pass_truth = None
         self.event_filter = None
+        self.response_filter = None
 
         self._set_event_selections(
             filepaths_clean,
@@ -208,6 +209,8 @@ class DataHandlerH5(DataHandlerBase):
             if self.data_truth:
                 self.pass_truth = self.pass_truth[self.event_filter]
                 self.weights_mc = self.weights_mc[self.event_filter]
+            if self.response_filter:
+                self.response_filter = self.response_filter[self.event_filter]
 
     def __del__(self):
         self.vds.close()
@@ -432,11 +435,9 @@ class DataHandlerH5(DataHandlerBase):
 
         if match_dR is not None and self.pass_truth is not None:
             # match the top decay products
-            match_dR_top_decays = self.vds["dR_lq1"][:] < match_dR & self.vds["dR_lq2"][:] < match_dR & self.vds["dR_lep"][:] < match_dR & self.vds["dR_nu"][:] < match_dR
-            self.pass_truth &= match_dR_top_decays
+            self.response_filter = self.vds["dR_lq1"][:] < match_dR & self.vds["dR_lq2"][:] < match_dR & self.vds["dR_lep"][:] < match_dR & self.vds["dR_nu"][:] < match_dR
             # or match the top quarks
-            #match_dR_tops = self.vds["dR_thad"] < match_dR & self.vds["dR_tlep"] < match_dR
-            #self.pass_truth &= match_dR_tops
+            #self.response_filter = self.vds["dR_thad"] < match_dR & self.vds["dR_tlep"] < match_dR
 
     def _event_number_filter(self, odd_or_even):
         if odd_or_even == 'odd':

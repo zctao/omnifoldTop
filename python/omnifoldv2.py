@@ -76,7 +76,8 @@ def omnifold(
     verbose=1,
     output_dataset=None, # hdf5 dataset for storing the event weights
     output_dataset_reco=None, # hdf5 dataset for storing the reco level event weights
-    run_index=0
+    run_index=0,
+    response_filter = None # selection flags for selecting only good signal events for training
     ):
     """
     OmniFold
@@ -152,6 +153,11 @@ def omnifold(
     if logger.isEnabledFor(logging.DEBUG):
         reportGPUMemUsage(logger)
 
+    # event selection flags for training and reweighting
+    select_train_step1 = passcut_sim & response_filter if response_filter else passcut_sim
+
+    select_train_step2 = passcut_gen & response_filter if response_filter else passcut_gen
+
     for i in range(niterations):
         logger.info(f"Iteration {i}")
 
@@ -165,11 +171,12 @@ def omnifold(
         weights_pull[:,passcut_sim] = weights_push[:,passcut_sim] * train_and_reweight(
             # Inputs
             X_target = X_data,
-            X_source = X_sim[passcut_sim],
+            X_source = X_sim[select_train_step1],
             X_bkg = X_bkg,
             w_target = w_data,
-            w_source = weights_push[:,passcut_sim] * w_sim[passcut_sim],
+            w_source = weights_push[:,select_train_step1] * w_sim[select_train_step1],
             w_bkg = w_bkg,
+            X_pred = X_sim[passcut_sim],
             # model paths
             model_filepath_load = model_load_1,
             model_filepath_save = model_save_1,
@@ -202,6 +209,12 @@ def omnifold(
                     X_source = X_gen[passcut_sim & passcut_gen],
                     w_target = weights_pull[:, passcut_sim & passcut_gen] * w_gen[passcut_sim & passcut_gen],
                     w_source = w_gen[passcut_sim & passcut_gen],
+                    # TODO: check the alternative
+                    #X_target = X_gen[select_train_step1 & passcut_gen],
+                    #X_source = X_gen[select_train_step1 & passcut_gen],
+                    #w_target = weights_pull[:, select_train_step1 & passcut_gen] #* w_gen[select_train_step1 & passcut_gen],
+                    #w_source = w_gen[select_train_step1 & passcut_gen],
+                    #
                     X_pred = X_gen[~passcut_sim],
                     # model paths
                     model_filepath_load = model_load_1b,
@@ -228,15 +241,16 @@ def omnifold(
             i, "2", save_dir = save_models_to, load_dir = load_models_from,
             start_from_previous = start_from_previous_iter)
 
-        #rw_step2 = 1. # always reweight against the prior
-        rw_step2 = 1. if i==0 else weights_push[:,passcut_gen] # previous iteration
+        rw_step2 = 1. # always reweight against the prior
+        #rw_step2 = 1. if i==0 else weights_push[:,passcut_gen] # previous iteration
 
         weights_push[:, passcut_gen] = rw_step2 * train_and_reweight(
             # Inputs
-            X_target = X_gen[passcut_gen],
-            X_source = X_gen[passcut_gen],
-            w_target = weights_pull[:,passcut_gen] * w_gen[passcut_gen],
-            w_source = w_gen[passcut_gen] * rw_step2,
+            X_target = X_gen[select_train_step2],
+            X_source = X_gen[select_train_step2],
+            w_target = weights_pull[:,select_train_step2] * w_gen[select_train_step2],
+            w_source = w_gen[select_train_step2] * rw_step2,
+            X_pred = X_gen[passcut_gen],
             # model paths
             model_filepath_load = model_load_2,
             model_filepath_save = model_save_2,
@@ -269,6 +283,12 @@ def omnifold(
                     X_source = X_sim[passcut_sim & passcut_gen],
                     w_target = weights_push[:, passcut_sim & passcut_gen] * w_sim[passcut_sim & passcut_gen],
                     w_source = w_sim[passcut_sim & passcut_gen],
+                    # TODO: check the alternative
+                    #X_target = X_sim[passcut_sim & select_train_step2],
+                    #X_source = X_sim[passcut_sim & select_train_step2],
+                    #w_target = weights_push[:, passcut_sim & select_train_step2] * w_sim[passcut_sim & select_train_step2],
+                    #w_source = w_sim[passcut_sim & select_train_step2],
+                    #
                     X_pred = X_sim[~passcut_gen],
                     # model paths
                     model_filepath_load = model_load_2b,

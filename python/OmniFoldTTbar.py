@@ -223,7 +223,6 @@ class OmniFoldTTbar():
             weight_type = weight_type_data,
             use_toydata = use_toydata,
             outputname = os.path.join(self.outdir, f"obs{suffix}"),
-            match_dR = match_dR, # For pseudo data
             odd_or_even = sel_obs
             )
         logger.info(f"Total number of observed events: {len(self.handle_obs)}")
@@ -512,7 +511,8 @@ class OmniFoldTTbar():
                 feature_names_gen = self.varnames_truth,
                 output_dataset = self.unfolded_weights,
                 output_dataset_reco = self.reco_weights,
-                run_index = ir
+                run_index = ir,
+                response_filter = self.handle_sig.response_filter
             )
 
             if plot_status:

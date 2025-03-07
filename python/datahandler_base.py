@@ -60,6 +60,9 @@ class DataHandlerBase(Mapping):
         self.pass_reco = None # reco level
         self.pass_truth = None # truth level
 
+        # additional selection flag to filer events for response
+        self.response_filter = None
+
         # overflow/underflow flags to be set later
         self.underflow_overflow_reco = False
         self.underflow_overflow_truth = False
@@ -570,7 +573,8 @@ class DataHandlerBase(Mapping):
                 [variable_reco, variable_truth],
                 [bins_reco, bins_truth],
                 absoluteValue = absoluteValue,
-                weights = weights
+                weights = weights,
+                extra_cuts = self.response_filter
             )
 
             if normalize_truthbins:
@@ -636,6 +640,8 @@ class DataHandlerBase(Mapping):
 
         # event selections
         passall = self.pass_reco & self.pass_truth
+        if self.response_filter is not None:
+            passall &= self.response_filter
 
         # data arrays
         data_arr_reco = []
