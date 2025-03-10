@@ -437,9 +437,9 @@ class DataHandlerH5(DataHandlerBase):
 
         if match_dR is not None and self.pass_truth is not None:
             # match the top decay products
-            self.response_filter = self.vds["dR_lq1"][:] < match_dR & self.vds["dR_lq2"][:] < match_dR & self.vds["dR_lep"][:] < match_dR & self.vds["dR_nu"][:] < match_dR
+            #self.response_filter = (self.vds["dR_lq1"][:] < match_dR) & (self.vds["dR_lq2"][:] < match_dR) & (self.vds["dR_lep"][:] < match_dR) & (self.vds["dR_nu"][:] < match_dR)
             # or match the top quarks
-            #self.response_filter = self.vds["dR_thad"] < match_dR & self.vds["dR_tlep"] < match_dR
+            self.response_filter = (self.vds["dR_thad"][:] < match_dR) & (self.vds["dR_tlep"][:] < match_dR)
 
     def _event_number_filter(self, odd_or_even):
         if odd_or_even == 'odd':
