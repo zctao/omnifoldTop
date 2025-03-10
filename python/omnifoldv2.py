@@ -154,10 +154,8 @@ def omnifold(
         reportGPUMemUsage(logger)
 
     # event selection flags for training and reweighting
-    select_train_step1 = passcut_sim & response_filter if response_filter else passcut_sim
-
-    select_train_step2 = passcut_gen & response_filter if response_filter else passcut_gen
-
+    select_train_step1 = passcut_sim if response_filter is None else passcut_sim & response_filter
+    select_train_step2 = passcut_gen if response_filter is None else passcut_gen & response_filter
     for i in range(niterations):
         logger.info(f"Iteration {i}")
 

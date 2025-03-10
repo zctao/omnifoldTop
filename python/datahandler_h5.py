@@ -189,6 +189,8 @@ class DataHandlerH5(DataHandlerBase):
         if self.data_truth:
             assert len(self) == len(self.weights_mc)
             assert len(self) == len(self.pass_truth)
+            if self.response_filter is not None:
+                assert len(self) == len(self.response_filter)
 
         ####
         # filters
@@ -209,7 +211,7 @@ class DataHandlerH5(DataHandlerBase):
             if self.data_truth:
                 self.pass_truth = self.pass_truth[self.event_filter]
                 self.weights_mc = self.weights_mc[self.event_filter]
-            if self.response_filter:
+            if self.response_filter is not None:
                 self.response_filter = self.response_filter[self.event_filter]
 
     def __del__(self):
@@ -528,6 +530,7 @@ class DataHandlerH5(DataHandlerBase):
         else:
             # event selection flags self.pass_reco and self.pass_truth should already be filtered
             # so as self.weights and self.weights_mc
+            # also self.response_filter
             # only update a subset of self.event_filter that corresponds to the selection flags
             self.event_filter[self.event_filter] &= event_sel
 
@@ -537,6 +540,8 @@ class DataHandlerH5(DataHandlerBase):
         if self.data_truth is not None:
             self.pass_truth = self.pass_truth[event_sel]
             self.weights_mc = self.weights_mc[event_sel]
+            if self.response_filter is not None:
+                self.response_filter = self.response_filter[event_sel]
 
     def remove_unmatched_events(self):
         # set filter to remove events that do not pass all selections
