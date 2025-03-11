@@ -33,16 +33,28 @@ def reweight_samples_binned(**parsed_args):
     ######
     # Load input data files
     logger.info(f"Load target samples: {' '.join(parsed_args['target'])}")
-    dh_target = getDataHandler(parsed_args['target'], varnames)
+    dh_target = getDataHandler(
+        parsed_args['target'],
+        varnames,
+        outputname = os.path.join(parsed_args['outputdir'], "target")
+    )
     logger.info(f"Total number of events in target: {len(dh_target)}")
 
     logger.info(f"Load source samples: {' '.join(parsed_args['source'])}")
-    dh_source = getDataHandler(parsed_args['source'], varnames)
+    dh_source = getDataHandler(
+        parsed_args['source'],
+        varnames,
+        outputname = os.path.join(parsed_args['outputdir'], "source")
+    )
     logger.info(f"Total number of events in source: {len(dh_source)}")
 
     if parsed_args['background']:
         logger.info(f"Load background samples: {' '.join(parsed_args['background'])}")
-        dh_bkg = getDataHandler(parsed_args['background'], varnames)
+        dh_bkg = getDataHandler(
+            parsed_args['background'],
+            varnames,
+            outputname = os.path.join(parsed_args['outputdir'], "bkg")
+        )
         logger.info(f"Total number of events in background: {len(dh_bkg)}")
     else:
         dh_bkg = None
@@ -63,12 +75,12 @@ def reweight_samples_binned(**parsed_args):
         binedges = binCfg_d[obs]
         absV = '_abs' in obs
 
-        hist_target = dh_target.get_histogram(vname, binedges, absoluteValue=absV)
+        hist_target = dh_target.compute_histogram(vname, binedges, absoluteValue=absV)
         if dh_bkg:
-            hist_bkg = dh_bkg.get_histogram(vname, binedges, absoluteValue=absV)
+            hist_bkg = dh_bkg.compute_histogram(vname, binedges, absoluteValue=absV)
             hist_target += (-1 * hist_bkg)
 
-        hist_source = dh_source.get_histogram(vname, binedges, absoluteValue=absV)
+        hist_source = dh_source.compute_histogram(vname, binedges, absoluteValue=absV)
 
         # ratios
         hist_ratio = myhu.divide(hist_target, hist_source)
@@ -111,7 +123,7 @@ def reweight_samples_binned(**parsed_args):
             source_style = {'color':'blue', 'label':'Source', 'histtype':'step'}
             reweighted_style = {'color':'tab:red', 'label':'Reweighted', 'histtype':'step'}
 
-            hist_source_rw = dh_source.get_histogram(vname, binedges, weights=weights_rw[dh_source.pass_reco], absoluteValue=absV)
+            hist_source_rw = dh_source.compute_histogram(vname, binedges, weights=weights_rw[dh_source.pass_reco], absoluteValue=absV)
 
             plotter.plot_histograms_and_ratios(
                 figname = os.path.join(parsed_args['outputdir'], obs),
