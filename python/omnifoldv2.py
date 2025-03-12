@@ -228,8 +228,8 @@ def omnifold(
             i, "2", save_dir = save_models_to, load_dir = load_models_from,
             start_from_previous = start_from_previous_iter)
 
-        #rw_step2 = 1. # always reweight against the prior
-        rw_step2 = 1. if i==0 else weights_push[:,passcut_gen] # previous iteration
+        rw_step2 = 1. # always reweight against the prior
+        #rw_step2 = 1. if i==0 else weights_push[:,passcut_gen] # previous iteration
 
         weights_push[:, passcut_gen] = rw_step2 * train_and_reweight(
             # Inputs
