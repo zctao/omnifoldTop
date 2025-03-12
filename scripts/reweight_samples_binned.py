@@ -96,15 +96,27 @@ def reweight_samples_binned(**parsed_args):
             deg = parsed_args['polynomial_degree'],
             w = 1 / errors_ratio)
 
+        # reweight scale factors
+        rw = poly_fitted(dh_source.get_arrays(vname, valid_only=False))
+
         file_rw = h5py.File(os.path.join(parsed_args['outputdir'], "reweights.h5"), "w")
 
         # create datasets
         # new event weights
         weights_rw = file_rw.create_dataset(
-            parsed_args["weight_name"], data = dh_source.get_weights(valid_only=False)
+            parsed_args["weight_name"],
+            data = dh_source.get_weights(valid_only=False)
             )
 
-        weights_rw[:] *= poly_fitted(dh_source.get_arrays(vname, valid_only=False))
+        weights_rw[:] *= rw
+
+        # truth level weights
+        weights_rw_mc = file_rw.create_dataset(
+            parsed_args["weight_name"]+"_mc",
+            data = dh_source.get_weights(reco_level=False, valid_only=False)
+        )
+
+        weights_rw_mc[:] *= rw
 
         if parsed_args['plot_verbosity'] > 0:
             # plot ratio and fit function
