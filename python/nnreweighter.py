@@ -172,10 +172,6 @@ def train_and_reweight(
     if X_bkg is not None and w_bkg is None:
         w_bkg = np.ones(len(X_bkg))
 
-    # plot input variable ratios
-    if plot and ax_input_ratio is not None:
-        plotter.draw_inputs_ratio(ax_input_ratio, X_source, w_source, X_target, w_target, X_bkg, w_bkg)
-
     # model outputs
     npreds = len(X_source) if X_pred is None else len(X_pred)
     preds_out = np.empty(shape=(modelUtils.n_models_in_parallel, npreds))
@@ -353,5 +349,9 @@ def train_and_reweight(
             figname_r = f"{model_filepath_save}_lr_{i}"
             logger.info(f"Plot likelihood ratio distribution {figname_r}")
             plotter.plot_LR_distr(figname_r, [rw[i]])
+
+    # plot ratio of source to target and also the reweighted to target
+    if plot and ax_input_ratio is not None:
+        plotter.draw_inputs_ratio(ax_input_ratio, [X_source, X_source], [w_source, w_source*rw], X_target, w_target, X_bkg, w_bkg, labels_numer=['source', 'reweighted'], label_denom='target')
 
     return rw

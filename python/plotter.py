@@ -1332,42 +1332,49 @@ def draw_training_inputs_ratio(axes, features_array, label_array, weights):
 
         draw_ratio(ax, hist_label1, hist_label0, *get_default_colors(2), label_denom='label 1', labels_numer='label 0')
 
-def draw_inputs_ratio(axes, X_0, w_0, X_1, w_1, X_b=None, w_b=None):
+def draw_inputs_ratio(axes, X_numers, w_numers, X_denom, w_denom, X_b=None, w_b=None, labels_numer=[], label_denom=None):
     # axes: list of axes from plt.subplots(); len(axes) = nfeatures
-    # X_0: feature arrays of label 0; ndarray of shape (nevents_0, nfeatures)
-    # w_0: weight array of label 0; ndarray of shape (nevents_0,)
-    # X_1: feature arrays of label 1; ndarray of shape (nevents_1, nfeatures)
-    # w_1: weight array of label 1; ndarray of shape (nevents_1,)
+    # X_numers: list of feature arrays of label 0; ndarray of shape (nevents_0, nfeatures)
+    # w_numers: list of weights array of label 0; ndarray of shape (nevents_0,)
+    # X_denom: feature arrays of label 1; ndarray of shape (nevents_1, nfeatures)
+    # w_donom: weight array of label 1; ndarray of shape (nevents_1,)
     # X_b: feature arrays of background to be merged with X_1, optional
     # w_b: weight array of background to be subtracted from w_1, optional
 
-    # only plot the first parallel run
-    if w_0.ndim > 1:
-        w_0 = w_0[0]
+    if not isinstance(X_numers, list):
+        X_numers = [X_numers]
+    if not isinstance(w_numers, list):
+        w_numers = [w_numers]
 
-    if w_1.ndim > 1:
-        w_1 = w_1[0]
+    # in case there are multiple parallel runs, only take the first
+    w_numers = [w_0[0] if w_0.ndim > 1 else w_0 for w_0 in w_numers]
+    if w_denom.ndim > 1:
+        w_denom = w_denom[0]
 
     if X_b is not None and w_b is not None:
         if w_b.ndim > 1:
             w_b = w_b[0]
 
-        X_1 = np.concatenate([X_1, X_b])
-        w_1 = np.concatenate([w_1, -1*w_b])
+        X_denom = np.concatenate([X_denom, X_b])
+        w_denom = np.concatenate([w_denom, -1*w_b])
 
     # number of bins
     nbins=20
 
-    for ax, arr0, arr1 in zip(axes, X_0.T, X_1.T):
+    for ivar, ax in enumerate(axes):
         # bin edges
-        xmin = min(arr0.min(),arr1.min())
-        xmax = max(arr0.max(),arr1.max())
+        xmin = min(*[X_0[:,ivar].min() for X_0 in X_numers], X_denom[:,ivar].min())
+        xmax = max(*[X_0[:,ivar].max() for X_0 in X_numers], X_denom[:,ivar].max())
         bin_edges = np.linspace(xmin, xmax, nbins+1)
 
-        hist_label1 = myhu.calc_hist(arr1, bins=bin_edges, weights=w_1, norm=1.)
-        hist_label0 = myhu.calc_hist(arr0, bins=bin_edges, weights=w_0, norm=1.)
+        hists_numer = [myhu.calc_hist(X_0[:,ivar], bins=bin_edges, weights=w_0, norm=1.) for X_0, w_0 in zip(X_numers, w_numers)]
 
-        draw_ratio(ax, hist_label1, hist_label0, *get_default_colors(2), label_denom='label 1', labels_numer='label 0')
+        hist_denom = myhu.calc_hist(X_denom[:,ivar], bins=bin_edges, weights=w_denom, norm=1.)
+
+        colors = get_default_colors(1+len(X_numers))
+        color_denom = colors[0]
+        colors_numer = colors[1:]
+        draw_ratio(ax, hist_denom, hists_numer, color_denom=color_denom, colors_numer=colors_numer, label_denom=label_denom, labels_numer=labels_numer)
 
 def plot_training_inputs_step1(
         figname_prefix,
