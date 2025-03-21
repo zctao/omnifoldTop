@@ -116,12 +116,12 @@ def _reweight_impl(
         preds_0 = preds if X_pred is None else predict(classifier, X_0, batch_size)
 
         for i in range(modelUtils.n_models_in_parallel):
-            hists_calib_1[i].fill(preds_1[i], weight=w_1[i])
+            hists_calib_1[i].fill(preds_1[i], weight=w_1)
 
             if preds_b is not None:
-                hists_calib_1[i].fill(preds_b[i], weight=-1*w_b[i])
+                hists_calib_1[i].fill(preds_b[i], weight=-1*w_b)
 
-            hists_calib_0[i].fill(preds_0[i], weight=w_0[i])
+            hists_calib_0[i].fill(preds_0[i], weight=w_0)
 
     return preds
 

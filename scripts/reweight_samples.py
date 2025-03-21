@@ -134,7 +134,7 @@ def reweight_samples(**parsed_args):
         plot_inputs(
             arrays_1 = target_arr if background_arr is None else np.concatenate([target_arr, background_arr]),
             arrays_0 = source_arr,
-            weights_1 = w_target if w_background is None else np.concatenate([w_target, w_background]),
+            weights_1 = w_target if w_background is None else np.concatenate([w_target, -1* w_background]),
             weights_0 = w_source,
             observables = parsed_args['observables'],
             obsCfg_d = obsCfg_d,
