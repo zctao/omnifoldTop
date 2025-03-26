@@ -10,7 +10,7 @@ observables_stress='th_pt mtt ptt'
 observables_test='mtt ptt th_pt tl_pt ytt th_y tl_y'
 
 echo "Generate pseudo data from binned reweighting"
-python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/reweightDataStressBinned.py \
+echo python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/reweightDataStressBinned.py \
     ${sample_dir} ${outdir_rw}/binrw \
     --observables ${observables_stress} \
     -e $subcampaigns
@@ -23,7 +23,7 @@ for obs_s in ${observables_stress[@]}; do
 
     fpath_reweights_binned=${outdir_rw}/binrw/${obs_s}/reweights.h5
 
-    python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/createRun2Config.py \
+    echo python ${SOURCE_DIR}/scripts/ttbarDiffXsRun2/createRun2Config.py \
         --sample-dir ${sample_dir} \
         --result-dir ${outdir_test}/stress_data_binned_${obs_s} \
         --config-name ${outdir_test}/configs/runCfg_${obs_s} \
@@ -34,6 +34,6 @@ for obs_s in ${observables_stress[@]}; do
 
     ######
     echo "Run unfolding"
-    python ${SOURCE_DIR}/run_unfold.py ${outdir_test}/configs/runCfg_${obs_s}_stress_data_binned.json
+    echo python ${SOURCE_DIR}/run_unfold.py ${outdir_test}/configs/runCfg_${obs_s}_stress_data_binned.json
 
 done
