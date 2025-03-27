@@ -1023,6 +1023,9 @@ def make_histograms(
     except:
         logger.critical(f"Failed to read argument config {filepath_args}")
 
+    if outputdir is None:
+        outputdir = os.path.dirname(filepath_args)
+
     # update arguments if needed
     if observable_config:
         args_d['observable_config'] = observable_config
