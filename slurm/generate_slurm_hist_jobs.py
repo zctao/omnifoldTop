@@ -74,6 +74,8 @@ def generate_slurm_hist_jobs(
     with open(jobfile_name, 'w') as fout:
         fout.write(job_str)
 
+    return jobfile_name
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
