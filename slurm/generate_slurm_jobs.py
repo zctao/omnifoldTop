@@ -44,10 +44,9 @@ def check_files_in_tarballs(tarballs, filelist):
         return False
 
 def get_sample_tarball_map(
-    runCfg_d,
+    sample_files_config,
     sample_dir, # top direcotry for sample files
     tarball_dir = 'tarballs', # top directory to look for sample tarball files
-    sample_keys=['data', 'signal', 'background', 'bdata'],
     check_exist = True, # If True, check if the tarball exists
     include_unmatched = False, # If True, include the unmatched signal samples
     ):
@@ -58,7 +57,6 @@ def get_sample_tarball_map(
 
     tarballs_dict = {}
 
-    sample_files_config = get_all_samples_from_config(runCfg_d, sample_keys, realpath=True, filterpath=True)
     for sample_file in sample_files_config:
         sample_relpath = os.path.relpath(sample_file, sample_dir)
         sample_type, syst_type = sample_relpath.split('/')[0:2]
@@ -120,8 +118,10 @@ def generate_slurm_jobs(
     runcfg = util.read_dict_from_json(config_name, parse_env=False)
 
     # Determine the needed tarballs in case they are not provided
+    samples_config = get_all_samples_from_config(runcfg, sample_keys=['data', 'signal', 'background', 'bdata'], realpath=True, filterpath=True)
+
     tarballs_map = get_sample_tarball_map(
-        runcfg,
+        samples_config,
         sample_realdir,
         tarball_dir='tarballs',
         sample_keys=['data', 'signal', 'background', 'bdata'],
