@@ -172,7 +172,7 @@ def get_systematics(
 uncertainty_groups = {
     "JES" : {
         "label" : "JES/JER",
-        "filters" : ["CategoryReduction_JET_", "weight_jvt"],
+        "filters" : ["JET_", "weight_jvt"],
         "style" : {
             "edgecolor" : "red", "facecolor": "none", "linestyle": "-"
         }
