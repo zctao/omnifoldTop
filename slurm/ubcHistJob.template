@@ -1,0 +1,74 @@
+#!/bin/bash
+#SBATCH --mem=24G
+#SBATCH --time=12:00:00
+#SBATCH --export=All
+#SBATCH --output={LOGFILE}
+
+echo "HOSTNAME=$HOSTNAME"
+CWD=$PWD
+
+DATADIR=/data/ztao
+
+# Make a work directory on the node local disk
+if [ -z "$SLURM_JOB_ID" ]; then
+    # SLURM_JOB_ID is not set: running in interactive mode
+    WORKDIR=/fast/$USER/$(date +"%s")
+else
+    WORKDIR=${{TMPDIR}}/$USER/${{SLURM_JOB_ID}}
+fi
+
+echo WORKDIR=$WORKDIR
+mkdir -p $WORKDIR
+cd $WORKDIR
+
+# Prepare data
+echo 'Preparing input datasets'
+mkdir -p {INPUTDIR}
+
+tarlist=({TARBALLLIST})
+filelist=({INFILELIST})
+
+for i in "${{!tarlist[@]}}"; do
+    echo "Extracting input datasets from ${{tarlist[i]}} using file list ${{filelist[i]}}"
+    tar -C {INPUTDIR}/ -xf "${{tarlist[i]}}" -T "${{filelist[i]}}"
+done
+
+# Get the code
+REPOPATH=${{HOME}}/topUnfolding/omnifoldTop
+echo "Getting source code from ${{REPOPATH}}"
+git clone --single-branch --branch devel ${{REPOPATH}}
+source omnifoldTop/setup.sh
+
+# Run histogramming
+resultlist=({RESULTDIRLIST})
+
+CONTAINER=$DATADIR/containers/topOmniFold_tf270_dev.sif
+echo CONTAINER=$CONTAINER
+
+echo 'Start running histogramming...'
+for i in "${{!resultlist[@]}}"; do
+    echo "Making histograms from ${{resultlist[i]}}"
+
+    # backup the old histogram file if exist
+    fpathhist=${{resultlist[i]}}/histograms.root
+    fpathhist_bkp=${{resultlist[i]}}/histograms.old.root
+    if [ -f $fpathhist ]; then
+        mv $fpathhist ${{fpathhist_bkp}}
+    fi
+
+    singularity exec --bind $DATADIR $CONTAINER python \
+        ${{SOURCE_DIR}}/scripts/make_histogramsv2.py \
+        ${{resultlist[i]}} \
+        {HISTARGS}
+done
+echo 'Histogramming done!'
+
+#du -sh */*
+
+echo "Cleaning up..."
+rm -rf $WORKDIR
+
+cd $CWD
+echo "All done!"
+
+echo exit code $?
