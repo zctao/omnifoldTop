@@ -45,7 +45,7 @@ def generate_slurm_hist_jobs(
     # filelist for untarring
     filelists_tarball = []
     for i,tarball in enumerate(tarballs_map):
-        flist_name = os.path.abspath(os.path.join(submitdir, f"filelist_{i}.txt"))
+        flist_name = os.path.abspath(os.path.join(submitdir, f"{job_name}_filelist_{i}.txt"))
         filelists_tarball.append(flist_name)
         with open(flist_name, 'w') as flist:
             for fpath in tarballs_map[tarball]:
