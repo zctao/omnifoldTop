@@ -1041,6 +1041,11 @@ def make_histograms(
     else:
         observables = list(set(args_d['observables']+args_d['observables_extra']))
 
+    # convert args_d['outputdir'] to absolute path
+    if not os.path.isabs(args_d['outputdir']):
+        # should be in the same directory as filepath_args
+        args_d['outputdir'] = os.path.abspath(os.path.dirname(filepath_args))
+
     # read observable configurations
     obsCfg_d = util.read_dict_from_json(args_d['observable_config'])
 
