@@ -940,30 +940,24 @@ def write_config_stress_binned(
         else:
             output_dir = os.path.join(output_top_dir, f"stress_data_binned")
 
-        cfg_list = []
-
-        for obs in observables:
-
-            stress_cfg = common_cfg.copy()
-            stress_cfg.update({
-                "data": sig_nominal,
-                "signal": sig_nominal,
-                "plot_verbosity": 2,
-                "normalize": True,
-                "correct_acceptance": False,
-                "truth_known": True,
-                "observables": [obs],
-                "outputdir": os.path.join(output_dir, obs),
-                "weight_data": f"external:{','.join(fpath_reweights)}",
-                "weight_mc": "nominal"
-            })
-
-            cfg_list.append(stress_cfg)
+        stress_binned_cfg = common_cfg.copy()
+        stress_binned_cfg.update({
+            "data": sig_nominal,
+            "signal": sig_nominal,
+            "plot_verbosity": 2,
+            "normalize": True,
+            "correct_acceptance": False,
+            "truth_known": True,
+            "observables": {f"{obs}" : obs for obs in observables},
+            "outputdir": output_dir,
+            "weight_data": f"external:{','.join(fpath_reweights)}",
+            "weight_mc": "nominal"
+        })
 
         # write run configs to file
         outname_stress_data_binned = f"{outname_config}_stress_data_binned.json"
         print(f"Create run config: {outname_stress_data_binned}")
-        util.write_dict_to_json(cfg_list, outname_stress_data_binned)
+        util.write_dict_to_json(stress_binned_cfg, outname_stress_data_binned)
 
         for site in batch_job:
             generate_slurm_jobs(outname_stress_data_binned, sample_local_dir, site=site)
