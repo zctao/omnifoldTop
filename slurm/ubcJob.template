@@ -17,7 +17,7 @@ if [ -z "$SLURM_JOB_ID" ]; then
     # SLURM_JOB_ID is not set: running in interactive mode
     WORKDIR=/fast/$USER/$(date +"%s")
 else
-    WORKDIR=${{SLURM_TMPDIR}}/$USER/${{SLURM_JOB_ID}}
+    WORKDIR=${{TMPDIR}}/$USER/${{SLURM_JOB_ID}}
 fi
 
 echo WORKDIR=$WORKDIR
