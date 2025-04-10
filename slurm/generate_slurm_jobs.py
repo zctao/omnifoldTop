@@ -124,7 +124,6 @@ def generate_slurm_jobs(
         samples_config,
         sample_realdir,
         tarball_dir='tarballs',
-        sample_keys=['data', 'signal', 'background', 'bdata'],
         check_exist=check_tarfiles,
         include_unmatched = runcfg.get('correct_acceptance')!=False # no need to include unmatched samples for computing binned efficiency corrections if correct_acceptance is explicitly set to False
     )
