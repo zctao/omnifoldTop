@@ -20,8 +20,7 @@ def generate_jobs(
     job_name,
     syst_topdir,
     observables,
-    job_status,
-    hist_status = {},
+    status_d,
     job_dir = ".",
     keywords_match = [],
     rerun = False
@@ -29,23 +28,22 @@ def generate_jobs(
 
     systs_gen = []
 
-    for systname in job_status:
+    for systname in status_d:
         if not match_keywords(systname, keywords_match):
             #logger.debug(f"None of the keywords in {keywords_match} matches {systname}. Skip.")
             continue
 
         # check status
-        if job_status.get(systname) != "unfold":
+        if status_d.get(systname) == 'histogram':
+            if not rerun:
+                logger.debug(f"Histograms for {systname} have already been generated before. Skip.")
+                continue
+        elif status_d.get(systname) != "unfold":
             logger.warning(f"Unfolding has not been done for {systname} yet! Skip.")
-            hist_status[systname] = "no unfold"
             continue
 
-        hstatus = hist_status.get(systname)
-        if hstatus in ["generate", "histogram"] and not rerun:
-            logger.debug(f"Job files for {systname} has already been generated before. Skip.")
-            continue
-        else:
-            systs_gen.append(systname)
+        # add to the list for generating job files
+        systs_gen.append(systname)
 
     # generate slurm job files
     hist_args_list = [
@@ -68,12 +66,12 @@ def generate_jobs(
 
     # update status
     for systname in systs_gen:
-        hist_status[systname] = "generate"
+        status_d[systname] = "histogram"
 
     logger.info(f"Generated slurm job file: {jobfilename}")
     logger.debug(f"  Included systematics: {systs_gen}")
 
-    return jobfilename, systs_gen
+    return jobfilename
 
 def makehist_uncertainties(
     job_name,
@@ -94,11 +92,11 @@ def makehist_uncertainties(
 
     # status files
     fpath_job_status = os.path.join(syst_topdir, "status", "jobs.json")
-    jstatus = util.read_dict_from_json(fpath_job_status)
+    jstatus_unfold = util.read_dict_from_json(fpath_job_status)
 
     fpath_hist_status = os.path.join(syst_topdir, "status", "jobs_hists.json")
     if os.path.isfile(fpath_hist_status):
-        # read status from the existing file
+        # read status from the existing file if exist
         logger.debug(f"Load histogram job status from {fpath_hist_status}")
         with open(fpath_hist_status, "r") as fhist:
             jstatus_hist = json.load(fhist)
@@ -106,18 +104,23 @@ def makehist_uncertainties(
         # create a new dict
         jstatus_hist = dict()
 
+    # merge the two
+    jstatus = jstatus_unfold.copy()
+    for syst in jstatus_hist:
+        if jstatus_hist[syst] == 'histogram':
+            jstatus[syst] = jstatus_hist[syst]
+
     # keywords to pick systematics
     keywords_syst = []
     keywords_syst += systematics_keywords
     for group in systematics_groups:
         keywords_syst += uncertainty_groups[group]["filters"]
 
-    fname_job, systnames = generate_jobs(
+    fname_job = generate_jobs(
         job_name,
         syst_topdir,
         observables = observables,
-        job_status = jstatus,
-        hist_status = jstatus_hist,
+        status_d = jstatus,
         job_dir = job_dir,
         keywords_match = keywords_syst,
         rerun = rerun
@@ -127,13 +130,9 @@ def makehist_uncertainties(
         logger.info(f"Submit slurm job: {fname_job}")
         subprocess.run(["sbatch", f"{fname_job}"], check=True)
 
-        # update status
-        for sname in systnames:
-            jstatus_hist[sname] = "submit"
-
     # update the status file
     with open(fpath_hist_status, "w") as jstatus_hist_new:
-        json.dump(jstatus_hist, jstatus_hist_new, indent=2)
+        json.dump(jstatus, jstatus_hist_new, indent=2)
 
 if __name__ == "__main__":
     import argparse
