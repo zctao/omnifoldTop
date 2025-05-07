@@ -153,15 +153,24 @@ def generate_slurm_jobs(
     tarball_names = [tname.replace(os.path.expandvars("/data/${USER}"), os.path.expandvars("${HOME}/data"), 1) for tname in tarballs_map.keys()]
 
     # output
-    resultdir = os.path.abspath(runcfg['outputdir'])
+    if isinstance(runcfg['outputdir'], dict):
+        # find the common prefix for all output directories
+        resultdir = os.path.commonprefix(list(runcfg['outputdir'].values()))
+        resultdir = os.path.abspath(resultdir)
+
+        # replace the output directory in the config with a local directory on the node
+        for key in runcfg['outputdir']:
+            runcfg['outputdir'][key] = os.path.join(outputdir_job, os.path.relpath(runcfg['outputdir'][key], resultdir))
+    else:
+        resultdir = os.path.abspath(runcfg['outputdir'])
+        # replace the output directory in the config with a local directory on the node
+        runcfg['outputdir'] = outputdir_job
+
     if not os.path.isdir(resultdir):
         print(f"Create output directory {resultdir}")
         os.makedirs(resultdir)
 
     result_tarball = os.path.join(resultdir, "results.tar")
-
-    # replace the output directory in the config with a local directory on the node
-    runcfg['outputdir'] = outputdir_job
 
     if site=="ubc":
         # choose gpu
