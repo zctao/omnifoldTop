@@ -948,7 +948,7 @@ def write_config_stress_binned(
             "normalize": True,
             "correct_acceptance": False,
             "truth_known": True,
-            "observables": {f"{obs}" : obs for obs in observables},
+            "observables": {f"{obs}" : [obs] for obs in observables},
             "outputdir": output_dir,
             "weight_data": f"external:{','.join(fpath_reweights)}",
             "weight_mc": "nominal"
