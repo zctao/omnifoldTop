@@ -9,7 +9,7 @@ from generate_slurm_jobs import generate_slurm_jobs
 # systematics
 from ttbarDiffXsRun2.systematics import get_systematics, get_gen_weight_index, get_sum_weights_dict
 
-all_backgrounds = ['fakes', 'Wjets', 'Zjets', 'singleTop_sch', 'singleTop_tch', 'singleTop_tW_DS_dyn', 'ttH', 'ttV', 'VV']
+all_backgrounds = ['fakes', 'Wjets', 'Zjets', 'singleTop_sch', 'singleTop_tch', 'singleTop_tW_DR_dyn', 'ttH', 'ttV', 'VV']
 
 def subCampaigns_to_years(subcampaigns):
     years = []
@@ -558,8 +558,8 @@ def write_config_systematics_background(
     # background normalization
     for syst in get_systematics(systematics_keywords, syst_type="BackgroundNorm"):
         print(syst)
-        bkg_prefix = syst.split('_')[0]
-        f_rescale = float(syst.split('_')[-1])
+        bkg_prefix = syst.split('_norm_')[0]
+        f_rescale = float(syst.split('_norm_')[-1])
 
         # separate background samples
         bkg_names_rescale = []
