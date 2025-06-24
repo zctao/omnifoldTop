@@ -215,6 +215,7 @@ uncertainty_groups = {
     "IFSR" : {
         "label" : "IFSR",
         "filters" : ['scale_mu','isr_','fsr_'],
+        "smoothing" : True,
         "style" : {
             "edgecolor" : "tab:purple", "facecolor": "none", "linestyle": "-."
         }

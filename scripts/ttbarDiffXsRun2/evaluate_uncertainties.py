@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import numpy as np
+import scipy.ndimage
 
 import histUtils as myhu
 import util
@@ -227,6 +228,54 @@ def symmetrize_uncertainties(hist_var1, hist_var2):
 
         return hist_var1, hist_var2
 
+def smooth_uncertainties(hist_var1, hist_var2=None, sigma=1.0):
+    """
+    Smooth the up and down variations
+    If hist_var2 is None, only hist_var1 is smoothed.
+    """
+    if isinstance(hist_var1, fh.FlattenedHistogram):
+        if isinstance(hist_var1, fh.FlattenedHistogram2D):
+            # apply smoothing to the histograms in each y bin
+            for ybin_label in hist_var1:
+                hist_var1_iy, hist_var2_iy = smooth_uncertainties(
+                    hist_var1[ybin_label],
+                    hist_var2[ybin_label] if hist_var2 is not None else None,
+                    sigma=sigma
+                )
+
+                hist_var1[ybin_label] = hist_var1_iy
+                if hist_var2 is not None:
+                    hist_var2[ybin_label] = hist_var2_iy
+
+            return hist_var1, hist_var2
+        else:
+            # apply smoothing to the histograms in each outer bin
+            for outer_bin_label in hist_var1:
+                hist_var1_i, hist_var2_i = smooth_uncertainties(
+                    hist_var1[outer_bin_label],
+                    hist_var2[outer_bin_label] if hist_var2 is not None else None,
+                    sigma=sigma
+                )
+
+                hist_var1[outer_bin_label] = hist_var1_i
+                if hist_var2 is not None:
+                    hist_var2[outer_bin_label] = hist_var2_i
+
+            return hist_var1, hist_var2
+
+    else:
+        # Smooth bin contents with a Gaussian kernel
+        values1 = hist_var1.values()
+        smoothed1 = scipy.ndimage.gaussian_filter1d(values1, sigma=sigma)
+        myhu.set_hist_contents(hist_var1, smoothed1)
+
+        if hist_var2 is not None:
+            values2 = hist_var2.values()
+            smoothed2 = scipy.ndimage.gaussian_filter1d(values2, sigma=sigma)
+            myhu.set_hist_contents(hist_var2, smoothed2)
+
+        return hist_var1, hist_var2
+
 def trim_uncertainties(hist_uncertainty_list, threshold):
     if not threshold:
         return False
@@ -248,7 +297,8 @@ def compute_total_uncertainty(
     label = 'total',
     group = None,
     symmetrize = False,
-    trim_threshold = 0.
+    smoothing = False, # bool, if True, apply smoothing to the uncertainty components if needed
+    trim_threshold = 0.,
     ):
 
     logger.debug(f"Compute total uncertainty")
@@ -279,6 +329,10 @@ def compute_total_uncertainty(
                         logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
                     continue
 
+                if smoothing:
+                    # apply smoothing to the uncertainty components if needed
+                    hist_var1, hist_var2 = smooth_uncertainties(hist_var1, hist_var2)
+
                 if symmetrize:
                     # in case the up and down variations are on the same side
                     hist_var1, hist_var2 = symmetrize_uncertainties(hist_var1, hist_var2)
@@ -304,6 +358,9 @@ def compute_total_uncertainty(
                     if not hist_var1 in bin_unc_obs_d:
                         logger.debug(f"bin_unc_obs_d.keys() = {bin_unc_obs_d.keys()}")
                     continue
+
+                if smoothing:
+                    hist_var1 = smooth_uncertainties(hist_var1)
 
                 # exclude uncertainty components lower than the threshold
                 if trim_uncertainties([hist_var1], trim_threshold):
@@ -654,6 +711,7 @@ def evaluate_uncertainties(
             # Group total uncertainty
             bin_err_grp_tot_d = compute_total_uncertainty(
                 grp_systs_pair, bin_err_grp_d, label=grp,
+                smoothing = uncertainty_groups[grp].get("smoothing", False),
                 symmetrize=symmetrize, trim_threshold=trim_threshold)
 
             # Add the group uncertainties to bin_uncertainties_d
